@@ -1,0 +1,11 @@
+*
+!src/
+!src/**
+!.github/
+!*.sh
+!CONTRIBUTING.md
+!LICENSE
+!Makefile
+!README.md
+!.gitattributes
+!.gitignore
