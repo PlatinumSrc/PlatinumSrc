@@ -5,10 +5,7 @@
 source util.sh
 
 tsk "Getting info..."
-VER_MAJOR="$(grep '#define VER_MAJOR ' src/version.h | sed 's/#define .* //')"
-VER_MINOR="$(grep '#define VER_MINOR ' src/version.h | sed 's/#define .* //')"
-VER_PATCH="$(grep '#define VER_PATCH ' src/version.h | sed 's/#define .* //')"
-VER="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
+VER="$(grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')"
 printf "${I} ${TB}Version:${TR} [%s]\n" "${VER}"
 getchanges() {
     sed -n '/^### DONE:$/,$p' TODO.md | tail -n +2
@@ -34,7 +31,7 @@ git push || _exit
 tsk "Making release..."
 git tag -s "${VER}" -m "${CNGTEXT}" || _exit
 git push --tags || _exit
-gh release create "${VER}" --title "${VER}" --notes "${RELTEXT}" PlatinumSrc*.tar.gz PlatinumSrc*.zip || _exit
+gh release create "${VER}" --title "Build ${VER}" --notes "${RELTEXT}" PlatinumSrc*.tar.gz PlatinumSrc*.zip || _exit
 
 tsk "Cleaning up..."
 rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
