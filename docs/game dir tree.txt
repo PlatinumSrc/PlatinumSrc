@@ -1,0 +1,30 @@
+<Game dir>/
+    assets/
+        models/
+            <Name>.p3m
+                <See p3m.txt>
+            ...
+        music/
+            <Name>.{mp3|ogg|wav}
+            ...
+        sounds/
+            <Name>/
+                <Variant name or number>.{mp3|ogg|wav}
+                ...
+            ...
+        textures/
+    maps/
+        [<Game or game mode abbreviation>_]<Name>.psm
+            <See maps.txt>
+        ...
+    objects/ - Object info
+        entities/
+            <Entity name>.txt
+                <See entites.txt>
+            ...
+        props/
+            <Prop name>.txt
+                <See props.txt>
+            ...
+    scripts/
+    main.scr - The script used to start the game (this should typically display a splash screen then load the main menu)

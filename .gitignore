@@ -1,4 +1,10 @@
 *
+!common/
+!common/**
+!docs/
+!docs/**
+!engine/
+!engine/**
 !src/
 !src/**
 !.github/

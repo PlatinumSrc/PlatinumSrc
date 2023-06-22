@@ -21,6 +21,12 @@ pause
 
 tsk "Building..."
 ./build.sh || _exit
+inf "Making PlatinumSrc_Assets.zip..."
+_zip_r "PlatinumSrc_Assets.zip" common/ engine/
+inf "Making PlatinumSrc_Samples.zip..."
+_zip_r "PlatinumSrc_Samples.zip" games/
+inf "Making PlatinumSrc_Extras.zip..."
+_zip_r "PlatinumSrc_Extras.zip" docs/
 pause
 
 tsk "Pushing..."

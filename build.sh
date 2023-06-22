@@ -20,15 +20,15 @@ build() {
 buildmod "engine"
 
 build() {
-    pkgrel() { _tar "PlatinumSrc_Server_$(uname -s)_$(uname -m).tar.gz" psrv; }
+    pkgrel() { _tar "PlatinumSrc_Toolbox_$(uname -s)_$(uname -m).tar.gz" ptoolbox; }
     buildrel "${1}" "$(uname -o) $(uname -m)" ${@:2}
-    pkgrel() { _tar "PlatinumSrc_Server_$(i386 uname -s)_$(i386 uname -m).tar.gz" psrv; }
+    pkgrel() { _tar "PlatinumSrc_Toolbox_$(i386 uname -s)_$(i386 uname -m).tar.gz" ptoolbox; }
     buildrel "${1}" "$(i386 uname -o) $(i386 uname -m)" ${@:2} M32=y
-    pkgrel() { _zip "PlatinumSrc_Server_Windows_x86_64.zip" psrv.exe; }
+    pkgrel() { _zip "PlatinumSrc_Toolbox_Windows_x86_64.zip" ptoolbox.exe; }
     buildrel "${1}" "Windows x86_64" ${@:2} CROSS=win32
-    pkgrel() { _zip "PlatinumSrc_Server_Windows_i686.zip" psrv.exe; }
+    pkgrel() { _zip "PlatinumSrc_Toolbox_Windows_i686.zip" ptoolbox.exe; }
     buildrel "${1}" "Windows i686" ${@:2} CROSS=win32 M32=y
 }
-buildmod "server"
+buildmod "toolbox"
 
 }

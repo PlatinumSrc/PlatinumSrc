@@ -19,6 +19,6 @@ build() {
     buildrel "${1}" "$(uname -o)" ${@:2}
     buildrel "${1}" "Windows" ${@:2} CROSS=win32
 }
-buildmod "server"
+buildmod "toolbox"
 
 }

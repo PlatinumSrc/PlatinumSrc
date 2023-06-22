@@ -2,37 +2,30 @@ MODULE ?= engine
 CROSS ?= 
 SRCDIR ?= src
 OBJDIR ?= obj
+LIBDIR ?= lib
 OUTDIR ?= .
-
-MODULECFLAGS := -DMODULEID_ENGINE=0 -DMODULEID_SERVER=1
-ifeq ($(MODULE),engine)
-    MODULEID := 0
-    MODULECFLAGS += -DMODULE_ENGINE
-    MODULECFLAGS += -DMODULE_SERVER
-else ifeq ($(MODULE),server)
-    MODULEID := 1
-    MODULECFLAGS += -DMODULE_SERVER
-else
-    .PHONY: error
-    error:
-	    @echo Invalid module: $(MODULE)
-	    @exit 1
-endif
 
 ifndef OS
     ifeq ($(CROSS),)
         CC ?= gcc
         STRIP ?= strip
         WINDRES ?= true
+        ifndef M32
+            PLATFORMDIR := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
+        else
+            PLATFORMDIR := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
+        endif
     else ifeq ($(CROSS),win32)
         ifndef M32
             CC = x86_64-w64-mingw32-gcc
             STRIP = x86_64-w64-mingw32-strip
             WINDRES = x86_64-w64-mingw32-windres
+            PLATFORMDIR := Windows_x86_64
         else
             CC = i686-w64-mingw32-gcc
             STRIP = i686-w64-mingw32-strip
             WINDRES = i686-w64-mingw32-windres
+            PLATFORMDIR := Windows_i686
         endif
     else
         .PHONY: error
@@ -52,25 +45,34 @@ else
         SHCMD = win32
     endif
 endif
+ifeq ($(MODULE),engine)
+else ifeq ($(MODULE),toolbox)
+else
+    .PHONY: error
+    error:
+	    @echo Invalid module: $(MODULE)
+	    @exit 1
+endif
+ifndef DEBUG
+    PLATFORMDIR := release/$(PLATFORMDIR)
+else
+    PLATFORMDIR := debug/$(PLATFORMDIR)
+endif
+PLATFORMDIR := $(PLATFORMDIR)/$(MODULE)
+OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
+LIBDIR := $(LIBDIR)/$(PLATFORMDIR)
 
-CFLAGS += -Wall -Wextra -pthread -ffast-math
-CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE $(MODULECFLAGS) -DMODULEID=$(MODULEID) -DMODULE=$(MODULE)
+CFLAGS += -Wall -Wextra -Wuninitialized -pthread -ffast-math -I$(SRCDIR)
+CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
 LDLIBS += -lm
 LDFLAGS += 
 ifeq ($(CROSS),win32)
-    WRFLAGS += $(MODULECFLAGS) -DMODULEID=$(MODULEID) -DMODULE=$(MODULE)
-endif
-ifeq ($(MODULE),engine)
-    ifeq ($(CROSS),)
-        LDLIBS += -lX11 -lSDL2
-    else ifeq ($(CROSS),win32)
-        LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32
-    endif
+    WRFLAGS += 
 endif
 ifeq ($(CROSS),)
-    LDLIBS += -lpthread
+    LDLIBS += -lX11 -lSDL2 -lpthread
 else ifeq ($(CROSS),win32)
-    LDLIBS += -l:libwinpthread.a -lws2_32 -lwinmm
+    LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -l:libwinpthread.a -lws2_32 -lwinmm
 endif
 ifdef DEBUG
     CFLAGS += -Og -g
@@ -98,13 +100,25 @@ endif
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 DEPENDS := $(wildcard $(SRCDIR)/*.h)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
-ifeq ($(MODULE),engine)
-    BIN := psrc
-else ifeq ($(MODULE),server)
-    BIN := psrv
+ifeq ($(MODULE),toolbox)
+BIN := ptoolbox
+else
+BIN := psrc
 endif
 ifeq ($(CROSS),win32)
     BIN := $(BIN).exe
+endif
+
+export MODULE
+export CROSS
+export DEBUG
+export M32
+export NATIVE
+export NOLTO
+export CFLAGS
+export CPPFLAGS
+ifeq ($(CROSS),win32)
+    export WRFLAGS
 endif
 
 ifeq ($(SHCMD),unix)
@@ -146,39 +160,82 @@ endef
 endif
 
 ifeq ($(SHCMD),unix)
-define null
+define nop
 echo -n > /dev/null
 endef
-else ifeq ($(SHCMD),win32)
 define null
+/dev/null
+endef
+else ifeq ($(SHCMD),win32)
+define nop
 echo. > NUL
+endef
+define null
+NUL
 endef
 endif
 
+.SECONDEXPANSION:
+
+define lib
+$(LIBDIR)/lib$(1).a
+endef
+define inc
+$$(patsubst noexist\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(CC) $(CFLAGS) $(CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT noexist))))
+endef
+
 default: bin
 
-$(OBJDIR):
-	@$(call mkdir,obj)
+ifndef MKSUB
+$(LIBDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
+	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(LIBDIR) BIN=$@
+endif
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+ifdef MKSUB
+$(OUTDIR):
+	@$(call mkdir,$@)
+endif
+
+$(OBJDIR):
+	@$(call mkdir,$@)
+
+ifndef MKSUB
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR)
+else
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
+endif
 	@echo Compiling $(notdir $<)...
-	@$(CC) $(CFLAGS) $(CPPFLAGS) $< -Wuninitialized -c -o $@
+	@$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $(notdir $<)
 
+ifndef MKSUB
+ifeq ($(MODULE),engine)
+$(BIN): $(OBJECTS) $(call lib,engine) $(call lib,glad) $(call lib,stb) $(call lib,miniaudio)
+else ifeq ($(MODULE),toolbox)
+$(BIN): $(OBJECTS) $(call lib,toolbox) $(call lib,tinyobj)
+else
 $(BIN): $(OBJECTS)
-	@echo Building $(notdir $@)...
+endif
+	@echo Linking $(notdir $(BIN))...
 	@$(CC) $(LDFLAGS) $(LDLIBS) $^ -o $@
+	@echo Linked $(notdir $(BIN))
+else
+$(BIN): $(OBJECTS)
+	@echo Building $(notdir $(BIN))...
+	@$(AR) rcs $@ $^
+	@echo Built $(notdir $(BIN))
+endif
 
-objects: $(OBJDIR) $(OBJECTS)
-
-bin: objects $(BIN)
-	@$(null)
+bin: $(BIN)
+	@$(nop)
 
 run: bin
+	@echo Running $(notdir $(BIN))...
 	@$(call run,$(BIN))
 
 clean:
 	@$(call rmdir,$(OBJDIR))
+	@$(call rmdir,$(LIBDIR))
 	@$(call rm,$(BIN))
 
-.PHONY: objects bin run clean
+.PHONY: clean bin run
