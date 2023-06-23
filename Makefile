@@ -70,15 +70,24 @@ ifeq ($(CROSS),win32)
     WRFLAGS += 
 endif
 ifeq ($(CROSS),)
-    LDLIBS += -lX11 -lSDL2 -lpthread
+    LDLIBS += -lpthread
 else ifeq ($(CROSS),win32)
-    LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -l:libwinpthread.a -lws2_32 -lwinmm
+    LDLIBS += -l:libwinpthread.a
+endif
+ifeq ($(MODULE),engine)
+    ifeq ($(CROSS),)
+        LDLIBS += -lX11 -lSDL2
+    else ifeq ($(CROSS),win32)
+        CPPFLAGS += -DSDL_MAIN_HANDLED
+        LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -l:libwinpthread.a -lws2_32 -lwinmm
+    endif
+else ifeq ($(MODULE),toolbox)
 endif
 ifdef DEBUG
     CFLAGS += -Og -g
-    CPPFLAGS += -DDEBUG=$(DEBUG)
+    CPPFLAGS += -DDBGLVL=$(DEBUG)
     ifeq ($(CROSS),win32)
-        WRFLAGS += -DDEBUG=$(DEBUG)
+        WRFLAGS += -DDBGLVL=$(DEBUG)
     endif
 else
     CFLAGS += -O2

@@ -1,15 +1,16 @@
-#ifndef ENGINE_LOG_H
-#define ENGINE_LOG_H
+#ifndef LOGGING_H
+#define LOGGING_H
 
 enum loglevel {
-    LOG_PLAIN,
-    LOG_TASK,
-    LOG_INFO,
-    LOG_WARN,
-    LOG_ERROR,
-    LOG_CRIT,
+    LOGLVL_PLAIN,
+    LOGLVL_TASK,
+    LOGLVL_INFO,
+    LOGLVL_WARN,
+    LOGLVL_ERROR,
+    LOGLVL_CRIT,
 };
 
-void plog(enum loglevel, char*, ...);
+void bplog(const char*, const char*, unsigned, enum loglevel, char*, ...);
+#define plog(lvl, ...) bplog(__func__, __FILE__, __LINE__, lvl, __VA_ARGS__)
 
 #endif

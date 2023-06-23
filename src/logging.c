@@ -3,33 +3,33 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-void plog(enum loglevel l, char* s, ...) {
+void bplog(const char* func, const char* file, unsigned line, enum loglevel lvl, char* s, ...) {
     va_list v;
     va_start(v, s);
     FILE* f;
-    switch (l) {
+    switch (lvl) {
         default:;
             f = stdout;
             break;
-        case LOG_TASK:;
+        case LOGLVL_TASK:;
             f = stdout;
-            fputs("[>] ", f);
+            fputs("### ", f);
             break;
-        case LOG_INFO:;
+        case LOGLVL_INFO:;
             f = stdout;
-            fputs("[i] ", f);
+            fputs("(i): ", f);
             break;
-        case LOG_WARN:;
+        case LOGLVL_WARN:;
             f = stderr;
-            fputs("[!] ", f);
+            fputs("/!\\: ", f);
             break;
-        case LOG_ERROR:;
+        case LOGLVL_ERROR:;
             f = stderr;
-            fputs("[E] ", f);
+            fprintf(f, "[E]: %s (%s:%u): ", func, file, line);
             break;
-        case LOG_CRIT:;
+        case LOGLVL_CRIT:;
             f = stderr;
-            fputs("[X] ", f);
+            fprintf(f, "{X}: %s (%s:%u): ", func, file, line);
             break;
     }
     vfprintf(f, s, v);
