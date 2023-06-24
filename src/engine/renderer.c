@@ -4,7 +4,6 @@
 
 #include <pthread.h>
 #include <stddef.h>
-#include <inttypes.h>
 
 const char* rendapi_ids[] = {
     "software",
@@ -25,10 +24,59 @@ const char* rendapi_names[] = {
 #define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LOGLVL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), (char*)SDL_GetError())
 #define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LOGLVL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), (char*)SDL_GetError())
 
+void render_gl_legacy(struct rendstate* r) {
+    if (r->evenframe) {
+        glDepthRange(0.0, 0.5);
+        glDepthFunc(GL_LEQUAL);
+    } else {
+        glDepthRange(1.0, 0.5);
+        glDepthFunc(GL_GEQUAL);
+    }
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+        glColor3f(1.0, 0.0, 0.0);
+        glVertex3f(-0.5, 0.5, 0.0);
+        glColor3f(0.5, 1.0, 0.0);
+        glVertex3f(0.5, 0.5, 0.0);
+        glColor3f(0.0, 1.0, 1.0);
+        glVertex3f(0.5, -0.5, 0.0);
+        glColor3f(0.5, 0.0, 1.0);
+        glVertex3f(-0.5, -0.5, 0.0);
+    glEnd();
+}
+
+void render_gl_advanced(struct rendstate* r) {
+    (void)r;
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void render(struct rendstate* r) {
+    switch (r->apigroup) {
+        case RENDAPIGROUP_GL:; {
+            switch (r->api) {
+                case RENDAPI_GL_LEGACY:;
+                case RENDAPI_GLES_LEGACY:;
+                    render_gl_legacy(r);
+                    break;
+                case RENDAPI_GL_ADVANCED:;
+                case RENDAPI_GLES_ADVANCED:;
+                    render_gl_advanced(r);
+                    break;
+                default:;
+                    break;
+            }
+            SDL_GL_SwapWindow(r->window);
+        } break;
+        default:; {
+        } break;
+    }
+    r->evenframe = !r->evenframe;
+}
+
 static void destroyWindow(struct rendstate* r) {
     if (r->window != NULL) {
-        switch (r->apitype) {
-            case RENDAPITYPE_GL:;
+        switch (r->apigroup) {
+            case RENDAPIGROUP_GL:;
                 SDL_GL_DeleteContext(r->glctx);
                 break;
             default:;
@@ -47,15 +95,15 @@ static bool createWindow(struct rendstate* r) {
     switch (r->api) {
         #if 1
         case RENDAPI_GL_LEGACY:;
-            r->apitype = RENDAPITYPE_GL;
+            r->apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             break;
         #endif
-        #if 1
+        #if 0
         case RENDAPI_GL_ADVANCED:;
-            r->apitype = RENDAPITYPE_GL;
+            r->apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
@@ -63,7 +111,7 @@ static bool createWindow(struct rendstate* r) {
         #endif
         #if 0
         case RENDAPI_GLES_LEGACY:;
-            r->apitype = RENDAPITYPE_GL;
+            r->apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
@@ -71,7 +119,7 @@ static bool createWindow(struct rendstate* r) {
         #endif
         #if 0
         case RENDAPI_GLES_ADVANCED:;
-            r->apitype = RENDAPITYPE_GL;
+            r->apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
@@ -89,23 +137,23 @@ static bool createWindow(struct rendstate* r) {
     SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
     SDL_SetRelativeMouseMode(SDL_TRUE);
     uint32_t flags = 0;
-    if (r->apitype == RENDAPITYPE_GL) flags |= SDL_WINDOW_OPENGL;
+    if (r->apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
     r->window = SDL_CreateWindow(
         "PlatinumSrc",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        640, 480,
+        r->res.current.width, r->res.current.height,
         SDL_WINDOW_SHOWN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | flags
     );
     if (r->window == NULL) {
         plog(LOGLVL_CRIT, "Failed to create window: %s", (char*)SDL_GetError());
         return false;
     }
-    switch (r->apitype) {
-        case RENDAPITYPE_GL:; {
+    switch (r->apigroup) {
+        case RENDAPIGROUP_GL:; {
             r->glctx = SDL_GL_CreateContext(r->window);
             if (r->glctx == NULL) {
                 plog(LOGLVL_CRIT, "Failed to create OpenGL context: %s", (char*)SDL_GetError());
-                r->apitype = RENDAPITYPE__INVAL;
+                r->apigroup = RENDAPIGROUP__INVAL;
                 destroyWindow(r);
                 return false;
             }
@@ -127,9 +175,9 @@ static bool createWindow(struct rendstate* r) {
             }
             plog(LOGLVL_INFO, "  OpenGL version: %d.%d%s", tmpint[0], tmpint[1], glprofile);
             SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
-            plog(LOGLVL_INFO, "  Hardware acceleration is%s enabled", (tmpint[0]) ? "" : "not");
+            plog(LOGLVL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
             SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);
-            plog(LOGLVL_INFO, "  Double-buffering is%s enabled", (tmpint[0]) ? "" : "not");
+            plog(LOGLVL_INFO, "  Double-buffering is %s", (tmpint[0]) ? "enabled" : "disabled");
             SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &tmpint[0]);
             SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &tmpint[1]);
             SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &tmpint[2]);
@@ -137,7 +185,7 @@ static bool createWindow(struct rendstate* r) {
             plog(LOGLVL_INFO, "  Color buffer bit depth: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
             SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &tmpint[0]);
             plog(LOGLVL_INFO, "  Depth buffer bit depth: D%d", tmpint[0]);
-            plog(LOGLVL_INFO, "  GL_KHR_debug is%s supported", (GL_KHR_debug) ? "" : "not");
+            plog(LOGLVL_INFO, "  GL_KHR_debug is%s supported", (GL_KHR_debug) ? "" : " not");
         } break;
         default:; {
         } break;
@@ -145,11 +193,44 @@ static bool createWindow(struct rendstate* r) {
     return true;
 }
 
+static bool prepRenderer(struct rendstate* r) {
+    (void)r;
+    //
+    return true;
+}
+
+static bool startRenderer_internal(struct rendstate* r) {
+    if (!createWindow(r)) return false;
+    return prepRenderer(r);
+}
+
+static void stopRenderer_internal(struct rendstate* r) {
+    destroyWindow(r);
+}
+
 bool reloadRenderer(struct rendstate* r) {
     plog(LOGLVL_TASK, "Reloading renderer...");
-    destroyWindow(r);
-    if (!createWindow(r)) return false;
-    // Load assets
+    stopRenderer_internal(r);
+    return startRenderer_internal(r);
+}
+
+bool startRenderer(struct rendstate* r) {
+    plog(LOGLVL_TASK, "Starting renderer...");
+    return startRenderer_internal(r);
+}
+
+void stopRenderer(struct rendstate* r) {
+    plog(LOGLVL_TASK, "Stopping renderer...");
+    stopRenderer_internal(r);
+}
+
+bool updateRendererConfig(struct rendstate* r, bool reload) {
+    if (reload) stopRenderer_internal(r);
+    //
+    if (reload) if (!startRenderer_internal(r)) return false;
+    if (r->apigroup == RENDAPIGROUP_GL) {
+        SDL_GL_SetSwapInterval(r->vsync);
+    }
     return true;
 }
 
@@ -157,18 +238,17 @@ bool initRenderer(struct rendstate* r) {
     plog(LOGLVL_TASK, "Initializing renderer...");
     r->window = NULL;
     r->api = RENDAPI_GL_LEGACY;
+    r->res.current = (struct res){800, 600, 60};
+    r->vsync = false;
+    r->evenframe = true;
     if (SDL_Init(SDL_INIT_VIDEO)) {
         plog(LOGLVL_CRIT, "Failed to init video: %s", (char*)SDL_GetError());
         return false;
     }
-    return reloadRenderer(r);
+    return true;
 }
 
 void termRenderer(struct rendstate* r) {
     plog(LOGLVL_TASK, "Terminating renderer...");
-    destroyWindow(r);
-}
-
-void render(struct rendstate* r) {
-    (void)r;
+    stopRenderer_internal(r);
 }

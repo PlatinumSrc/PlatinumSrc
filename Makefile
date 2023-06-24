@@ -79,7 +79,7 @@ ifeq ($(MODULE),engine)
         LDLIBS += -lX11 -lSDL2
     else ifeq ($(CROSS),win32)
         CPPFLAGS += -DSDL_MAIN_HANDLED
-        LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -l:libwinpthread.a -lws2_32 -lwinmm
+        LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lws2_32 -lwinmm
     endif
 else ifeq ($(MODULE),toolbox)
 endif
@@ -226,7 +226,7 @@ else
 $(BIN): $(OBJECTS)
 endif
 	@echo Linking $(notdir $(BIN))...
-	@$(CC) $(LDFLAGS) $(LDLIBS) $^ -o $@
+	@$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 	@echo Linked $(notdir $(BIN))
 else
 $(BIN): $(OBJECTS)

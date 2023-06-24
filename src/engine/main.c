@@ -55,24 +55,10 @@ int run(int argc, char** argv) {
     (void)argv;
     plog(LOGLVL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
 
-    signal(SIGINT, sigh);
-    signal(SIGTERM, sigh);
-    #ifdef SIGQUIT
-    signal(SIGQUIT, sigh);
-    #endif
-    #ifdef SIGUSR1
-    signal(SIGUSR1, SIG_IGN);
-    #endif
-    #ifdef SIGUSR2
-    signal(SIGUSR2, SIG_IGN);
-    #endif
-    #ifdef SIGPIPE
-    signal(SIGPIPE, SIG_IGN);
-    #endif
-
     struct statestack state;
     struct rendstate renderer;
     if (!initRenderer(&renderer)) return 1;
+    if (!startRenderer(&renderer)) return 1;
 
     state_initstack(&state);
     state_push(&state, do_nothing, NULL);
@@ -89,5 +75,20 @@ int run(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
+    signal(SIGINT, sigh);
+    signal(SIGTERM, sigh);
+    #ifdef SIGQUIT
+    signal(SIGQUIT, sigh);
+    #endif
+    #ifdef SIGUSR1
+    signal(SIGUSR1, SIG_IGN);
+    #endif
+    #ifdef SIGUSR2
+    signal(SIGUSR2, SIG_IGN);
+    #endif
+    #ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+    #endif
+
     return run(argc, argv);
 }

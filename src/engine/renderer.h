@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 
 #include <stdbool.h>
+#include <inttypes.h>
 
 enum rendapi {
     RENDAPI__INVAL = -1,
@@ -15,18 +16,48 @@ enum rendapi {
     RENDAPI__COUNT,
 };
 
-enum rendapitype {
-    RENDAPITYPE__INVAL = -1,
-    RENDAPITYPE_SOFTWARE,
-    RENDAPITYPE_GL,
-    RENDAPITYPE__COUNT,
+enum rendapigroup {
+    RENDAPIGROUP__INVAL = -1,
+    RENDAPIGROUP_SOFTWARE,
+    RENDAPIGROUP_GL,
+    RENDAPIGROUP__COUNT,
+};
+
+enum winmode {
+    WINMODE_WINDOWED,
+    WINMODE_BORDERLESS,
+    WINMODE_FULLSCREEN,
+};
+
+struct res {
+    int width, height, hz;
 };
 
 struct rendstate {
     SDL_Window* window;
     SDL_GLContext glctx;
     enum rendapi api;
-    enum rendapitype apitype;
+    enum rendapigroup apigroup;
+    bool vsync;
+    enum winmode winmode;
+    struct {
+        struct res current, windowed, fullscr, desktop;
+    } res;
+    union {
+        struct {
+            union {
+                struct {
+                } gl11;
+                struct {
+                } gl33;
+                struct {
+                } gles20;
+                struct {
+                } gles30;
+            };
+        } gl;
+    };
+    bool evenframe;
 };
 
 bool initRenderer(struct rendstate*);
