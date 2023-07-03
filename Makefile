@@ -1,13 +1,16 @@
+ifndef MKSUB
+
 MODULE ?= engine
 CROSS ?= 
 SRCDIR ?= src
 OBJDIR ?= obj
-LIBDIR ?= lib
+LIBDIR ?= obj
 OUTDIR ?= .
 
 ifndef OS
     ifeq ($(CROSS),)
         CC ?= gcc
+        AR ?= ar
         STRIP ?= strip
         WINDRES ?= true
         ifndef M32
@@ -18,11 +21,13 @@ ifndef OS
     else ifeq ($(CROSS),win32)
         ifndef M32
             CC = x86_64-w64-mingw32-gcc
+            AR = x86_64-w64-mingw32-ar
             STRIP = x86_64-w64-mingw32-strip
             WINDRES = x86_64-w64-mingw32-windres
             PLATFORMDIR := Windows_x86_64
         else
             CC = i686-w64-mingw32-gcc
+            AR = i686-w64-mingw32-ar
             STRIP = i686-w64-mingw32-strip
             WINDRES = i686-w64-mingw32-windres
             PLATFORMDIR := Windows_i686
@@ -36,6 +41,7 @@ ifndef OS
     SHCMD = unix
 else
     CC = gcc
+    AR = ar
     STRIP = strip
     WINDRES = windres
     CROSS = win32
@@ -46,6 +52,7 @@ else
     endif
 endif
 ifeq ($(MODULE),engine)
+else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),toolbox)
 else
     .PHONY: error
@@ -56,16 +63,20 @@ endif
 ifndef DEBUG
     PLATFORMDIR := release/$(PLATFORMDIR)
 else
-    PLATFORMDIR := debug/$(PLATFORMDIR)
+    ifndef ASAN
+        PLATFORMDIR := debug/$(PLATFORMDIR)
+    else
+        PLATFORMDIR := debug.asan/$(PLATFORMDIR)
+    endif
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(MODULE)
 OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 LIBDIR := $(LIBDIR)/$(PLATFORMDIR)
 
-CFLAGS += -Wall -Wextra -Wuninitialized -pthread -ffast-math -I$(SRCDIR)
-CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
-LDLIBS += -lm
+CFLAGS += -Wall -Wextra -Wuninitialized -pthread -ffast-math
+CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
 LDFLAGS += 
+LDLIBS += -lm
 ifeq ($(CROSS),win32)
     WRFLAGS += 
 endif
@@ -75,13 +86,22 @@ else ifeq ($(CROSS),win32)
     LDLIBS += -l:libwinpthread.a
 endif
 ifeq ($(MODULE),engine)
+    CPPFLAGS += -DMODULE_ENGINE
+    CPPFLAGS += -DMA_NO_DEVICE_IO
     ifeq ($(CROSS),)
-        LDLIBS += -lX11 -lSDL2
+        LDLIBS += -lSDL2 -lSDL2_mixer -lvorbisfile
     else ifeq ($(CROSS),win32)
         CPPFLAGS += -DSDL_MAIN_HANDLED
-        LDLIBS += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lws2_32 -lwinmm
+        LDLIBS += -l:libSDL2.a -l:libvorbisfile.a
+        LDLIBS += -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lws2_32 -lwinmm
+    endif
+else ifeq ($(MODULE),server)
+    CPPFLAGS += -DMODULE_SERVER
+    ifeq ($(CROSS),win32)
+        LDLIBS += -lwinmm
     endif
 else ifeq ($(MODULE),toolbox)
+    CPPFLAGS += -DMODULE_TOOLBOX
 endif
 ifdef DEBUG
     CFLAGS += -Og -g
@@ -89,8 +109,16 @@ ifdef DEBUG
     ifeq ($(CROSS),win32)
         WRFLAGS += -DDBGLVL=$(DEBUG)
     endif
+    NOSTRIP = y
+    ifdef ASAN
+        CFLAGS += -fsanitize=address
+        LDFLAGS += -fsanitize=address
+    endif
 else
-    CFLAGS += -O2
+    ifndef O
+        O = 2
+    endif
+    CFLAGS += -O$(O) -fno-exceptions
     ifndef NOLTO
         CFLAGS += -flto=auto
         LDFLAGS += -flto=auto
@@ -106,35 +134,47 @@ ifdef M32
     endif
 endif
 
-SOURCES := $(wildcard $(SRCDIR)/*.c)
-DEPENDS := $(wildcard $(SRCDIR)/*.h)
-OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 ifeq ($(MODULE),toolbox)
-BIN := ptoolbox
+BIN := pstools
+else ifeq ($(MODULE),server)
+BIN := psrc-server
 else
 BIN := psrc
+endif
+ifdef DEBUG
+    BIN := $(BIN).debug
+    ifdef ASAN
+        BIN := $(BIN).asan
+    endif
 endif
 ifeq ($(CROSS),win32)
     BIN := $(BIN).exe
 endif
 
-export MODULE
-export CROSS
-export DEBUG
-export M32
-export NATIVE
-export NOLTO
-export CFLAGS
-export CPPFLAGS
-ifeq ($(CROSS),win32)
-    export WRFLAGS
 endif
 
-ifeq ($(SHCMD),unix)
-define esctext
-$(subst ','\'',$(1))
-endef
-else
+SOURCES := $(wildcard $(SRCDIR)/*.c)
+DEPENDS := $(wildcard $(SRCDIR)/*.h)
+OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
+
+export SHCMD
+
+export MODULE
+export CROSS
+
+export CC
+export AR
+
+export CFLAGS
+export CPPFLAGS
+
+export SRCDIR
+export OBJDIR
+export LIBDIR
+export OUTDIR
+export PLATFORMDIR
+
+ifeq ($(SHCMD),win32)
 define mkpath
 $(subst /,\,$(1))
 endef
@@ -142,16 +182,16 @@ endif
 
 ifeq ($(SHCMD),unix)
 define mkdir
-if [ ! -d '$(call esctext,$(1))' ]; then echo 'Creating $(call esctext,$(1))...'; mkdir -p '$(call esctext,$(1))'; fi; true
+if [ ! -d '$(1)' ]; then echo 'Creating $(1)...'; mkdir -p '$(1)'; fi; true
 endef
 define rm
-if [ -f '$(call esctext,$(1))' ]; then echo 'Removing $(call esctext,$(1))...'; rm -f '$(call esctext,$(1))'; fi; true
+if [ -f '$(1)' ]; then echo 'Removing $(1)...'; rm -f '$(1)'; fi; true
 endef
 define rmdir
-if [ -d '$(call esctext,$(1))' ]; then echo 'Removing $(call esctext,$(1))...'; rm -rf '$(call esctext,$(1))'; fi; true
+if [ -d '$(1)' ]; then echo 'Removing $(1)...'; rm -rf '$(1)'; fi; true
 endef
 define run
-./'$(call esctext,$(1))'
+./'$(1)'
 endef
 else ifeq ($(SHCMD),win32)
 define mkdir
@@ -186,7 +226,7 @@ endif
 
 .SECONDEXPANSION:
 
-define lib
+define a
 $(LIBDIR)/lib$(1).a
 endef
 define inc
@@ -208,31 +248,32 @@ endif
 $(OBJDIR):
 	@$(call mkdir,$@)
 
-ifndef MKSUB
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR)
-else
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
-endif
 	@echo Compiling $(notdir $<)...
 	@$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $(notdir $<)
 
 ifndef MKSUB
 ifeq ($(MODULE),engine)
-$(BIN): $(OBJECTS) $(call lib,engine) $(call lib,glad) $(call lib,stb) $(call lib,miniaudio)
+$(BIN): $(OBJECTS) $(call a,psrc_engine) $(call a,psrc_server) $(call a,psrc_aux) $(call a,glad) $(call a,stb) $(call a,miniaudio)
+else ifeq ($(MODULE),server)
+$(BIN): $(OBJECTS) $(call a,psrc_server) $(call a,psrc_aux)
 else ifeq ($(MODULE),toolbox)
-$(BIN): $(OBJECTS) $(call lib,toolbox) $(call lib,tinyobj)
+$(BIN): $(OBJECTS) $(call a,psrc_toolbox) $(call a,tinyobj)
 else
 $(BIN): $(OBJECTS)
 endif
-	@echo Linking $(notdir $(BIN))...
+	@echo Linking $(notdir $@)...
 	@$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
-	@echo Linked $(notdir $(BIN))
+ifndef NOSTRIP
+	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
+endif
+	@echo Linked $(notdir $@)
 else
 $(BIN): $(OBJECTS)
-	@echo Building $(notdir $(BIN))...
+	@echo Building $(notdir $@)...
 	@$(AR) rcs $@ $^
-	@echo Built $(notdir $(BIN))
+	@echo Built $(notdir $@)
 endif
 
 bin: $(BIN)

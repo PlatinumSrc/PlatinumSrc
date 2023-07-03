@@ -1,5 +1,5 @@
-#ifndef LOGGING_H
-#define LOGGING_H
+#ifndef AUXLIB_LOGGING_H
+#define AUXLIB_LOGGING_H
 
 enum loglevel {
     LOGLVL_PLAIN,

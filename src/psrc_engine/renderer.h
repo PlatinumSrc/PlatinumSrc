@@ -11,8 +11,7 @@ enum rendapi {
     RENDAPI_SOFTWARE,
     RENDAPI_GL_LEGACY,
     RENDAPI_GL_ADVANCED,
-    RENDAPI_GLES_LEGACY,
-    RENDAPI_GLES_ADVANCED,
+    RENDAPI_GLES,
     RENDAPI__COUNT,
 };
 
@@ -23,45 +22,57 @@ enum rendapigroup {
     RENDAPIGROUP__COUNT,
 };
 
-enum winmode {
-    WINMODE_WINDOWED,
-    WINMODE_BORDERLESS,
-    WINMODE_FULLSCREEN,
+enum rendmode {
+    RENDMODE_WINDOWED,
+    RENDMODE_BORDERLESS,
+    RENDMODE_FULLSCREEN,
 };
 
-struct res {
+struct rendres {
     int width, height, hz;
+};
+
+struct rendupdate {
+    bool api : 1;
+    bool mode : 1;
+    bool vsync : 1;
+    bool res : 1;
+};
+
+struct rendconfig {
+    enum rendapi api;
+    enum rendmode mode;
+    bool vsync;
+    struct {
+        struct rendres current;
+        struct rendres windowed, fullscr;
+    } res;
 };
 
 struct rendstate {
     SDL_Window* window;
-    SDL_GLContext glctx;
-    enum rendapi api;
     enum rendapigroup apigroup;
-    bool vsync;
-    enum winmode winmode;
-    struct {
-        struct res current, windowed, fullscr, desktop;
-    } res;
     union {
         struct {
+            bool init;
+            SDL_GLContext ctx;
             union {
                 struct {
                 } gl11;
                 struct {
                 } gl33;
                 struct {
-                } gles20;
-                struct {
-                } gles30;
+                } gles;
             };
         } gl;
     };
     bool evenframe;
+    struct rendconfig cfg;
 };
 
 bool initRenderer(struct rendstate*);
 bool startRenderer(struct rendstate*);
+bool updateRendererConfig(struct rendstate*, struct rendupdate*, struct rendconfig*);
 bool restartRenderer(struct rendstate*);
 void stopRenderer(struct rendstate*);
 void termRenderer(struct rendstate*);

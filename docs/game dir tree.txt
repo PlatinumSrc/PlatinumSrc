@@ -5,22 +5,22 @@
                 <See p3m.txt>
             ...
         music/
-            <Name>.{mp3|ogg|wav}
+            <Name>.{wav|flac|mp3|ogg}
             ...
         sounds/
             <Name>/
-                <Variant name or number>.{mp3|ogg|wav}
+                <Variant name or number>.{wav|flac|mp3|ogg}
                 ...
             ...
         textures/
     maps/
-        [<Game or game mode abbreviation>_]<Name>.psm
-            <See maps.txt>
+        [<Abbreviated game name or game mode>_]<Name>.pmf
+            <See pmf.txt>
         ...
     objects/ - Object info
         entities/
             <Entity name>.txt
-                <See entites.txt>
+                <See entities.txt>
             ...
         props/
             <Prop name>.txt

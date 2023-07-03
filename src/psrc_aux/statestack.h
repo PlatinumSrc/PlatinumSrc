@@ -1,5 +1,5 @@
-#ifndef ENGINE_STATESTACK_H
-#define ENGINE_STATESTACK_H
+#ifndef AUXLIB_STATESTACK_H
+#define AUXLIB_STATESTACK_H
 
 struct statestack;
 typedef void (*statefunc) (struct statestack*);
@@ -17,6 +17,6 @@ void state_runstack(struct statestack*);
 void state_push(struct statestack*, statefunc, void*);
 void state_exit(struct statestack*, void*);
 
-#define state_return(v) state_exit((v)); return
+#define state_return(s, v) do {state_exit(s, (v)); return;} while (0)
 
 #endif

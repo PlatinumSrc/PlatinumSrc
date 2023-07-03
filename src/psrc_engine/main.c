@@ -1,14 +1,13 @@
 #include "renderer.h"
-#include "statestack.h"
-#include <logging.h>
-#include <version.h>
+#include "input.h"
+#include "../psrc_aux/statestack.h"
+#include "../psrc_aux/logging.h"
+#include "../version.h"
 
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-
-static int quitreq; // move into input handling code
 
 void sigh_log(int l, char* name, char* msg) {
     if (msg) {
@@ -48,28 +47,50 @@ void sigh(int sig) {
     }
 }
 
-void do_nothing(struct statestack* state) {(void)state;}
+struct states {
+    struct rendstate renderer;
+    struct inputstate input;
+};
+
+void do_nothing(struct statestack* state) {
+    (void)state;
+    if (quitreq > 0) state_return(state, NULL);
+}
 
 int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
     plog(LOGLVL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
 
-    struct statestack state;
-    struct rendstate renderer;
-    if (!initRenderer(&renderer)) return 1;
-    if (!startRenderer(&renderer)) return 1;
+    struct states* states = malloc(sizeof(*states));
+    struct statestack statestack;
+    
+    if (!initRenderer(&states->renderer)) return 1;
+    if (!startRenderer(&states->renderer)) return 1;
+    if (!initInput(&states->input, &states->renderer)) return 1;
 
-    state_initstack(&state);
-    state_push(&state, do_nothing, NULL);
-    while (quitreq <= 0 && state.index >= 0) {
-        //getInput(renderer->window);
-        state_runstack(&state);
-        render(&renderer);
+    {
+        struct rendupdate u = {0};
+        struct rendconfig c;
+        if (!updateRendererConfig(&states->renderer, &u, &c)) {
+            plog(LOGLVL_CRIT, "Failed to update renderer config");
+            return 1;
+        }
     }
-    state_deinitstack(&state);
 
-    termRenderer(&renderer);
+    state_initstack(&statestack);
+    state_push(&statestack, do_nothing, states);
+    while (statestack.index >= 0) {
+        pollInput(&states->input);
+        state_runstack(&statestack);
+        render(&states->renderer);
+    }
+    state_deinitstack(&statestack);
+
+    termInput(&states->input);
+    termRenderer(&states->renderer);
+
+    free(states);
 
     return 0;
 }
