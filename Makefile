@@ -4,7 +4,9 @@ MODULE ?= engine
 CROSS ?= 
 SRCDIR ?= src
 OBJDIR ?= obj
-LIBDIR ?= obj
+MODDIR ?= obj
+LIBDIR ?= external/lib
+INCDIR ?= external/inc
 OUTDIR ?= .
 
 ifndef OS
@@ -14,24 +16,26 @@ ifndef OS
         STRIP ?= strip
         WINDRES ?= true
         ifndef M32
-            PLATFORMDIR := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
+            PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
         else
-            PLATFORMDIR := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
+            PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
         endif
+        SOSUF = .so
     else ifeq ($(CROSS),win32)
         ifndef M32
             CC = x86_64-w64-mingw32-gcc
             AR = x86_64-w64-mingw32-ar
             STRIP = x86_64-w64-mingw32-strip
             WINDRES = x86_64-w64-mingw32-windres
-            PLATFORMDIR := Windows_x86_64
+            PLATFORM := Windows_x86_64
         else
             CC = i686-w64-mingw32-gcc
             AR = i686-w64-mingw32-ar
             STRIP = i686-w64-mingw32-strip
             WINDRES = i686-w64-mingw32-windres
-            PLATFORMDIR := Windows_i686
+            PLATFORM := Windows_i686
         endif
+        SOSUF = .dll
     else
         .PHONY: error
         error:
@@ -45,99 +49,139 @@ else
     STRIP = strip
     WINDRES = windres
     CROSS = win32
+    SOSUF = .dll
     ifdef MSYS2
         SHCMD = unix
     else
         SHCMD = win32
     endif
 endif
+
 ifeq ($(MODULE),engine)
 else ifeq ($(MODULE),server)
-else ifeq ($(MODULE),toolbox)
+else ifeq ($(MODULE),editor)
 else
     .PHONY: error
     error:
 	    @echo Invalid module: $(MODULE)
 	    @exit 1
 endif
+
 ifndef DEBUG
-    PLATFORMDIR := release/$(PLATFORMDIR)
+    PLATFORMDIR := release/$(PLATFORM)
 else
     ifndef ASAN
-        PLATFORMDIR := debug/$(PLATFORMDIR)
+        PLATFORMDIR := debug/$(PLATFORM)
     else
-        PLATFORMDIR := debug.asan/$(PLATFORMDIR)
+        PLATFORMDIR := debug.asan/$(PLATFORM)
     endif
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(MODULE)
 OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
-LIBDIR := $(LIBDIR)/$(PLATFORMDIR)
+MODDIR := $(MODDIR)/$(PLATFORMDIR)
 
-CFLAGS += -Wall -Wextra -Wuninitialized -pthread -ffast-math
-CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
-LDFLAGS += 
-LDLIBS += -lm
-ifeq ($(CROSS),win32)
-    WRFLAGS += 
-endif
+CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized -pthread -ffast-math
+CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
+LDFLAGS := $(LDFLAGS) -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR) -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+LDLIBS := $(LDLIBS) -lm
 ifeq ($(CROSS),)
-    LDLIBS += -lpthread
+    LDLIBS := $(LDLIBS) -lpthread
 else ifeq ($(CROSS),win32)
-    LDLIBS += -l:libwinpthread.a
+    LDLIBS := $(LDLIBS) -l:libwinpthread.a -lwinmm
 endif
+
+define so
+$(1)$(SOSUF)
+endef
+
+CPPFLAGS.miniaudio := $(CPPFLAGS.miniaudio) -DMA_NO_DEVICE_IO
+
+ifeq ($(CROSS),win32)
+    CPPFLAGS.psrc_editormain := $(CPPFLAGS.psrc_editormain) -DSDL_MAIN_HANDLED
+endif
+ifdef USE_DISCORD_GAME_SDK
+    CPPFLAGS.psrc_editormain := $(CPPFLAGS.psrc_editormain) -DUSE_DISCORD_GAME_SDK
+    LDLIBS.psrc_editormain := $(LDLIBS.psrc_editormain) -l:$(call so,discord_game_sdk)
+endif
+
+ifeq ($(CROSS),)
+    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -lSDL2 -lvorbisfile
+else ifeq ($(CROSS),win32)
+    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -l:libSDL2.a -l:libvorbisfile.a
+    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32
+endif
+
+ifeq ($(CROSS),win32)
+    CPPFLAGS.psrc_enginemain := $(CPPFLAGS.psrc_enginemain) -DSDL_MAIN_HANDLED
+endif
+ifdef USE_DISCORD_GAME_SDK
+    CPPFLAGS.psrc_enginemain := $(CPPFLAGS.psrc_enginemain) -DUSE_DISCORD_GAME_SDK
+    LDLIBS.psrc_enginemain := $(LDLIBS.psrc_enginemain) -l:$(call so,discord_game_sdk)
+endif
+
+ifeq ($(CROSS),win32)
+    LDLIBS.psrc_server := $(LDLIBS.psrc_server) -lws2_32
+endif
+
+ifeq ($(CROSS),win32)
+    CPPFLAGS.psrc_servermain := $(CPPFLAGS.psrc_servermain) -DSDL_MAIN_HANDLED
+endif
+
 ifeq ($(MODULE),engine)
-    CPPFLAGS += -DMODULE_ENGINE
-    CPPFLAGS += -DMA_NO_DEVICE_IO
-    ifeq ($(CROSS),)
-        LDLIBS += -lSDL2 -lSDL2_mixer -lvorbisfile
-    else ifeq ($(CROSS),win32)
-        CPPFLAGS += -DSDL_MAIN_HANDLED
-        LDLIBS += -l:libSDL2.a -l:libvorbisfile.a
-        LDLIBS += -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lws2_32 -lwinmm
+    CPPFLAGS := $(CPPFLAGS) -DMODULE_ENGINE
+    WRFLAGS := $(WRFLAGS) -DMODULE_ENGINE
+    CPPFLAGS := $(CPPFLAGS) $(CPPFLAGS.psrc_enginemain)
+    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_enginemain) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
+    ifdef USE_DISCORD_GAME_SDK
+        CPPFLAGS := $(CPPFLAGS) -DUSE_DISCORD_GAME_SDK
     endif
 else ifeq ($(MODULE),server)
-    CPPFLAGS += -DMODULE_SERVER
-    ifeq ($(CROSS),win32)
-        LDLIBS += -lwinmm
-    endif
-else ifeq ($(MODULE),toolbox)
-    CPPFLAGS += -DMODULE_TOOLBOX
+    CPPFLAGS := $(CPPFLAGS) -DMODULE_SERVER
+    WRFLAGS := $(WRFLAGS) -DMODULE_SERVER
+    CPPFLAGS := $(CPPFLAGS) $(CPPFLAGS.psrc_servermain)
+    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_server)
+else ifeq ($(MODULE),editor)
+    CPPFLAGS := $(CPPFLAGS) -DMODULE_EDITOR
+    WRFLAGS := $(WRFLAGS) -DMODULE_EDITOR
+    CPPFLAGS := $(CPPFLAGS) $(CPPFLAGS.psrc_editormain)
+    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_editormain) $(LDLIBS.psrc_editor) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
 endif
+
 ifdef DEBUG
-    CFLAGS += -Og -g
-    CPPFLAGS += -DDBGLVL=$(DEBUG)
+    CFLAGS := $(CFLAGS) -Og -g
+    CPPFLAGS := $(CPPFLAGS) -DDBGLVL=$(DEBUG)
     ifeq ($(CROSS),win32)
-        WRFLAGS += -DDBGLVL=$(DEBUG)
+        WRFLAGS := $(WRFLAGS) -DDBGLVL=$(DEBUG)
     endif
     NOSTRIP = y
     ifdef ASAN
-        CFLAGS += -fsanitize=address
-        LDFLAGS += -fsanitize=address
+        CFLAGS := $(CFLAGS) -fsanitize=address
+        LDFLAGS := $(LDFLAGS) -fsanitize=address
     endif
 else
     ifndef O
         O = 2
     endif
-    CFLAGS += -O$(O) -fno-exceptions
+    CFLAGS := $(CFLAGS) -O$(O) -fno-exceptions
     ifndef NOLTO
-        CFLAGS += -flto=auto
-        LDFLAGS += -flto=auto
+        CFLAGS := $(CFLAGS) -flto=auto
+        LDFLAGS := $(LDFLAGS) -flto=auto
     endif
 endif
 ifdef NATIVE
-    CFLAGS += -march=native -mtune=native
+    CFLAGS := $(CFLAGS) -march=native -mtune=native
 endif
 ifdef M32
-    CPPFLAGS += -DM32
+    CPPFLAGS := $(CPPFLAGS) -DM32
     ifeq ($(CROSS),win32)
-        WRFLAGS += -DM32
+        WRFLAGS := $(WRFLAGS) -DM32
     endif
 endif
 
-ifeq ($(MODULE),toolbox)
-BIN := pstools
-else ifeq ($(MODULE),server)
+ifeq ($(MODULE),server)
 BIN := psrc-server
+else ifeq ($(MODULE),editor)
+BIN := psrc-editor
 else
 BIN := psrc
 endif
@@ -149,6 +193,12 @@ ifdef DEBUG
 endif
 ifeq ($(CROSS),win32)
     BIN := $(BIN).exe
+endif
+BIN := $(OUTDIR)/$(BIN)
+
+ifeq ($(CROSS),win32)
+    WRSRC := $(SRCDIR)/winver.rc
+    WROBJ := $(OBJDIR)/winver.o
 endif
 
 endif
@@ -170,8 +220,9 @@ export CPPFLAGS
 
 export SRCDIR
 export OBJDIR
-export LIBDIR
+export MODDIR
 export OUTDIR
+export PLATFORM
 export PLATFORMDIR
 
 ifeq ($(SHCMD),win32)
@@ -227,7 +278,7 @@ endif
 .SECONDEXPANSION:
 
 define a
-$(LIBDIR)/lib$(1).a
+$(MODDIR)/lib$(1).a
 endef
 define inc
 $$(patsubst noexist\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(CC) $(CFLAGS) $(CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT noexist))))
@@ -236,8 +287,8 @@ endef
 default: bin
 
 ifndef MKSUB
-$(LIBDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
-	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(LIBDIR) BIN=$@
+$(MODDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
+	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(MODDIR) BIN=$@
 endif
 
 ifdef MKSUB
@@ -254,23 +305,38 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiled $(notdir $<)
 
 ifndef MKSUB
+
+a.dir.psrc_editor = $(call a,psrc_editor) $(call a,tinyobj)
+a.dir.psrc_editormain = $(call a,psrc_editormain) $(a.dir.psrc_editor) $(call a,psrc_engine)
+
+a.dir.psrc_engine = $(call a,psrc_engine) $(call a,glad) $(call a,stb) $(call a,miniaudio)
+a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server)
+
+a.dir.psrc_server = $(call a,psrc_server)
+a.dir.psrc_servermain = $(call a,psrc_servermain) $(a.dir.psrc_server)
+
+a.common = $(call a,psrc_aux)
+
 ifeq ($(MODULE),engine)
-$(BIN): $(OBJECTS) $(call a,psrc_engine) $(call a,psrc_server) $(call a,psrc_aux) $(call a,glad) $(call a,stb) $(call a,miniaudio)
+$(BIN): $(OBJECTS) $(a.dir.psrc_enginemain) $(a.common)
 else ifeq ($(MODULE),server)
-$(BIN): $(OBJECTS) $(call a,psrc_server) $(call a,psrc_aux)
-else ifeq ($(MODULE),toolbox)
-$(BIN): $(OBJECTS) $(call a,psrc_toolbox) $(call a,tinyobj)
+$(BIN): $(OBJECTS) $(a.dir.psrc_servermain) $(a.common)
+else ifeq ($(MODULE),editor)
+$(BIN): $(OBJECTS) $(a.dir.psrc_editormain) $(a.common)
 else
 $(BIN): $(OBJECTS)
 endif
 	@echo Linking $(notdir $@)...
-	@$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+ifeq ($(CROSS),win32)
+	@$(WINDRES) $(WRFLAGS) $(WRSRC) -o $(WROBJ)
+endif
+	@$(CC) $(LDFLAGS) $^ $(WROBJ) $(LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
 endif
 	@echo Linked $(notdir $@)
 else
-$(BIN): $(OBJECTS)
+$(BIN): $(OBJECTS) | $(OUTDIR)
 	@echo Building $(notdir $@)...
 	@$(AR) rcs $@ $^
 	@echo Built $(notdir $@)
@@ -285,7 +351,7 @@ run: bin
 
 clean:
 	@$(call rmdir,$(OBJDIR))
-	@$(call rmdir,$(LIBDIR))
+	@$(call rmdir,$(MODDIR))
 	@$(call rm,$(BIN))
 
 .PHONY: clean bin run
