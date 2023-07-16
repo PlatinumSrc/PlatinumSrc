@@ -1,5 +1,5 @@
-#ifndef AUXLIB_STATESTACK_H
-#define AUXLIB_STATESTACK_H
+#ifndef AUX_STATESTACK_H
+#define AUX_STATESTACK_H
 
 struct statestack;
 typedef void (*statefunc) (struct statestack*);

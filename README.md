@@ -13,7 +13,7 @@ SDL2
 ```
 
 ---
-**Progress \(checked = done, <- = being worked on\):**<br>
+**Progress \(checked = done, <- = being worked on, ? = maybe\):**<br>
 - [ ] Engine
     - [ ] Renderer
         - [ ] OpenGL 1.1
@@ -24,7 +24,7 @@ SDL2
             - [ ] Maps
             - [ ] Entities
             - [ ] Particles
-        - [ ] DirectX 7
+        - [ ] DirectX 7?
             - [ ] Maps
             - [ ] Entities
             - [ ] Particles
@@ -36,14 +36,12 @@ SDL2
             - 3 - `music`: 1 channel, stereo, 3 second fade-in and fade-out
             - 4 - `ui`: 1 channel, stereo
 - [ ] Server
+- [ ] Editor
 - [ ] Toolbox
-    - [ ]
 - [ ] File formats
     - [ ] Compiled maps
         - [ ] Read PMF
         - [ ] Write PMF
-        - [ ] Read PMZ
-        - [ ] Write PMZ
     - [ ] Map projects
         - [ ] Read PMP
         - [ ] Write PMP

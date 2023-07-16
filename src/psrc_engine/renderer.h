@@ -9,9 +9,9 @@
 enum rendapi {
     RENDAPI__INVAL = -1,
     RENDAPI_SOFTWARE,
-    RENDAPI_GL_LEGACY,
-    RENDAPI_GL_ADVANCED,
-    RENDAPI_GLES,
+    RENDAPI_GL11,
+    RENDAPI_GL33,
+    RENDAPI_GLES30,
     RENDAPI__COUNT,
 };
 
@@ -37,6 +37,7 @@ struct rendupdate {
     bool mode : 1;
     bool vsync : 1;
     bool res : 1;
+    bool icon : 1;
 };
 
 struct rendconfig {
@@ -47,6 +48,7 @@ struct rendconfig {
         struct rendres current;
         struct rendres windowed, fullscr;
     } res;
+    char* icon;
 };
 
 struct rendstate {

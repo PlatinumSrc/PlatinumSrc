@@ -1,5 +1,5 @@
-#ifndef AUXLIB_LOGGING_H
-#define AUXLIB_LOGGING_H
+#ifndef AUX_LOGGING_H
+#define AUX_LOGGING_H
 
 enum loglevel {
     LOGLVL_PLAIN,
@@ -12,5 +12,6 @@ enum loglevel {
 
 void bplog(const char*, const char*, unsigned, enum loglevel, char*, ...);
 #define plog(lvl, ...) bplog(__func__, __FILE__, __LINE__, lvl, __VA_ARGS__)
+void plog_setfile(char*);
 
 #endif

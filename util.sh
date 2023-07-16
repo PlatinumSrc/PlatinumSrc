@@ -14,6 +14,15 @@ err() { printf "${E} ${TB}${1}${TR}\n"; }
 qry() { printf "${Q} ${TB}${1}${TR}\n"; }
 tsk() { printf "${T} ${TB}${1}${TR}\n"; }
 
+PLATNAME="$(uname -s)"
+PLATARCH="$(uname -m)"
+PLATDESC="${PLATNAME} ${PLATARCH}"
+PLATPATH="$(echo "${PLATDESC}" | sed 's/\//_/g;s/ /_/g')"
+PLATNAME32="$(i386 uname -s)"
+PLATARCH32="$(i386 uname -m)"
+PLATDESC32="${PLATNAME32} ${PLATARCH32}"
+PLATPATH32="$(echo "${PLATDESC32}" | sed 's/\//_/g;s/ /_/g')"
+
 ask() {
     RESPONSE=""
     printf "${Q} ${1}"
@@ -30,19 +39,43 @@ _exit() {
     exit "${ERR}"
 }
 
-_tar() { rm -f -- "${1}"; tar --transform 's/.*\///g' -zc -f "${1}" -- ${@:2} 1> /dev/null; }
-_zip() { rm -f -- "${1}"; zip -qjr9 "./${1}" -- ${@:2}; }
-_tar_r() { rm -f -- "${1}"; tar -zc -f "${1}" -- ${@:2} 1> /dev/null; }
-_zip_r() { rm -f -- "${1}"; zip -qr9 "./${1}" -- ${@:2}; }
+_tar() {
+    rm -f -- "${1}.tar.gz"
+    tar --transform 's/.*\///g' -c -f - -- "${@:2}" | gzip -9 > "${1}.tar.gz"
+}
+_zip() {
+    rm -f -- "${1}.zip"
+    zip -qjr9 "./${1}.zip" -- "${@:2}"
+}
+_tar_u() {
+    if [[ -f "${1}" ]]; then
+        gzip -d "${1}.tar.gz"
+        tar --transform 's/.*\///g' -r -f "${1}.tar" "${@:2}" 1> /dev/null
+        gzip -9 "${1}.tar"
+    else
+        _tar "${@}"
+    fi
+}
+_zip_u() {
+    zip -uqjr9 "./${1}.zip" -- "${@:2}"
+}
+_tar_r() {
+    rm -f -- "${1}.tar.gz"
+    tar -c -f - -- "${@:2}" | gzip -9 > "${1}.tar.gz"
+}
+_zip_r() {
+    rm -f -- "${1}.zip"
+    zip -qr9 "./${1}.zip" -- "${@:2}"
+}
 
 buildrel() {
     local TYPE="${1}"
     local PLATFORM="${2}"
     if [ ! -z "${PLATFORM}" ]; then PLATFORM=" for ${PLATFORM}"; fi
     inf "Building ${TYPE}${PLATFORM}..."
-    make ${@:3} clean 1> /dev/null || _exit
+    make "${@:3}" clean 1> /dev/null || _exit
     RESPONSE=""
-    while ! make ${@:3} "-j${NJOBS}" 1> /dev/null; do
+    while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do
         while [[ -z "${RESPONSE}" ]]; do
             ask "${TB}Build failed. Retry?${TR} (${TB}Y${TR}es/${TB}N${TR}o/${TB}S${TR}kip/${TB}C${TR}lean): "
             case "${RESPONSE,,}" in
@@ -50,7 +83,7 @@ buildrel() {
                     break
                     ;;
                 c | clean)
-                    make ${@:3} clean 1> /dev/null || _exit
+                    make "${@:3}" clean 1> /dev/null || _exit
                     ;;
                 *)
                     RESPONSE=""
@@ -72,12 +105,12 @@ buildrel() {
         esac
     done
     [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
-    make ${@:3} clean 1> /dev/null || _exit
+    make "${@:3}" clean 1> /dev/null || _exit
     [[ ! "${RESPONSE}" == "n" ]] || _exit 1
 }
 buildmod() {
     #inf "Building ${1}..."
-    build "${1}" MODULE="${1}" ${@:2} || _exit
+    build "${1}" MODULE="${1}" "${@:2}" || _exit
 }
 
 fi

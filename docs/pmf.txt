@@ -1,0 +1,32 @@
+PMF - PlatinumSrc Map File/Format
+
+- .pmf file extension
+- Current version is 0.0
+- All data should be little endian
+
+Format:
+
+    <Header><u64: Size of compressed <Data>><Compressed <Data>>
+
+    Header: <char[4]: {'P', 'M', 'F', 0}><Version><Metadata>
+    Version: <u16: Major version><u16: Minor version>
+    Metadata: <char[...0]: Name><char[...0]: Authors><char[...0]: Description>
+              <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
+
+    Data: <u32: Cube count (must be at least 1)><Cube (First should be the root cube)>...<Cube data>...
+
+    Cube: <Cube type><u32: Index in byte array of <Cube data> (ignored for CUBE_EMPTY)>
+    Cube type: <u8: {CUBE_PARENT | CUBE_EMPTY | CUBE_SOLID | CUBE_ANGLE}>
+    Cube data: {<Parent cube data> | <Solid cube data> | <Angle cube data>}
+    Parent cube data: <u32: (+, +, +) child index><u32: (+, +, -) child index><u32: (+, -, +) child index>
+                      <u32: (+, -, -) child index><u32: (-, +, +) child index><u32: (-, +, -) child index>
+                      <u32: (-, -, +) child index><u32: (-, -, -) child index>
+    Solid cube data: <u32: Material index><<Triangle info> for +X side><<Triangle info> for +Y side><<Triangle info> for
+                     +Z side><<Triangle info> for -X side><<Triangle info> for -Y side><<Triangle info> for -Z side>
+    Angle cube data: <Solid cube data><<Triangle info> for plane><float: Fill (1 is full, -1 is empty)><float: Pitch (0
+                     points up, 1 and -1 point down, positive rolls forward, negative rolls backward)><float: Yaw (0
+                     aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes counterclockwise)>
+
+    Triangle info: <i32: Index in byte array of <Triangle> (-1 for no triangles)>
+    Triangle <u8: Number of triangles>[Triangle data]...
+    Triangle data: 

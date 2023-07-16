@@ -5,6 +5,8 @@
 !docs/**
 !engine/
 !engine/**
+!icons/
+!icons/**
 !src/
 !src/**
 !.github/
