@@ -1,7 +1,13 @@
 #ifndef ENGINE_RENDERER_H
 #define ENGINE_RENDERER_H
 
-#include <SDL2/SDL.h>
+#include "../platform.h"
+
+#if PLATFORM != PLAT_XBOX
+    #include <SDL2/SDL.h>
+#else
+    #include <SDL.h>
+#endif
 
 #include <stdbool.h>
 #include <inttypes.h>
@@ -10,8 +16,10 @@ enum rendapi {
     RENDAPI__INVAL = -1,
     RENDAPI_SOFTWARE,
     RENDAPI_GL11,
+    #if PLATFORM != PLAT_XBOX
     RENDAPI_GL33,
     RENDAPI_GLES30,
+    #endif
     RENDAPI__COUNT,
 };
 
@@ -61,10 +69,12 @@ struct rendstate {
             union {
                 struct {
                 } gl11;
+                #if PLATFORM != PLAT_XBOX
                 struct {
                 } gl33;
                 struct {
                 } gles;
+                #endif
             };
         } gl;
     };

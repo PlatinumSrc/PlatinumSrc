@@ -11,6 +11,7 @@ OUTDIR ?= .
 ifndef OS
     ifeq ($(CROSS),)
         CC ?= gcc
+        LD = $(CC)
         AR ?= ar
         STRIP ?= strip
         WINDRES ?= true
@@ -23,27 +24,86 @@ ifndef OS
     else ifeq ($(CROSS),win32)
         ifndef M32
             CC = x86_64-w64-mingw32-gcc
+            LD = $(CC)
             AR = x86_64-w64-mingw32-ar
             STRIP = x86_64-w64-mingw32-strip
             WINDRES = x86_64-w64-mingw32-windres
             PLATFORM := Windows_x86_64
         else
             CC = i686-w64-mingw32-gcc
+            LD = $(CC)
             AR = i686-w64-mingw32-ar
             STRIP = i686-w64-mingw32-strip
             WINDRES = i686-w64-mingw32-windres
             PLATFORM := Windows_i686
         endif
         SOSUF = .dll
+    else ifeq ($(CROSS),xbox)
+        ifndef NXDK_DIR
+            .PHONY: error
+            error:
+	            @echo Please define the NXDK_DIR environment variable
+	            @exit 1
+        endif
+        ifneq ($(MODULE),engine)
+            .PHONY: error
+            error:
+	            @echo Invalid module: $(MODULE)
+	            @exit 1
+        endif
+
+        PLATFORM := Xbox
+
+        export XBE_TITLE := PlatinumSrc
+        export GEN_XISO := $(XBE_TITLE).xiso.iso
+        export NXDK_SDL := y
+        SRCS := $(wildcard $(SRCDIR)/psrc_aux/*.c)
+        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_engine/*.c)
+        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_enginemain/*.c)
+        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_server/*.c)
+        SRCS := $(SRCS) $(wildcard $(SRCDIR)/stb/*.c)
+        export SRCS
+        export NXDK_SDL = y
+
+        MKENV := ${MKENV} OUTPUT_DIR=xbox
+        CPPFLAGS := $(CPPFLAGS) -DSTBI_NO_SIMD
+        ifdef DEBUG
+            CFLAGS := $(CFLAGS) -Og -g
+            CPPFLAGS := $(CPPFLAGS) -DDBGLVL=$(DEBUG)
+            MKENV := ${MKENV} DEBUG=y
+        else
+            ifndef O
+                O = 2
+            endif
+            CFLAGS := $(CFLAGS) -O$(O)
+            ifndef NOLTO
+                MKENV := ${MKENV} LTO=y
+            endif
+        endif
+
+        export CFLAGS := $(CFLAGS) $(CPPFLAGS)
+        export LDFLAGS
+
+        xbox-build:
+	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV}
+
+        xbox-clean:
+	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV} clean
+
+        xbox-distclean:
+	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV} distclean
+
+        .PHONY: xbox-build xbox-clean xbox-distclean
     else
         .PHONY: error
         error:
-		    @echo Invalid cross-compilation target: $(CROSS)
-		    @exit 1
+	        @echo Invalid cross-compilation target: $(CROSS)
+	        @exit 1
     endif
     SHCMD = unix
 else
     CC = gcc
+    LD = $(CC)
     AR = ar
     STRIP = strip
     WINDRES = windres
@@ -106,8 +166,6 @@ endif
 define so
 $(1)$(SOSUF)
 endef
-
-CPPFLAGS.miniaudio := $(CPPFLAGS.miniaudio) -DMA_NO_DEVICE_IO
 
 ifeq ($(CROSS),win32)
     CPPFLAGS.psrc_editormain := $(CPPFLAGS.psrc_editormain) -DSDL_MAIN_HANDLED
@@ -325,7 +383,7 @@ ifndef MKSUB
 a.dir.psrc_editor = $(call a,psrc_editor) $(call a,psrc_aux) $(a.dir.psrc_toolbox)
 a.dir.psrc_editormain = $(call a,psrc_editormain) $(call a,psrc_aux) $(a.dir.psrc_editor) $(a.dir.psrc_engine)
 
-a.dir.psrc_engine = $(call a,psrc_engine) $(call a,psrc_aux) $(call a,glad) $(call a,stb) $(call a,miniaudio)
+a.dir.psrc_engine = $(call a,psrc_engine) $(call a,psrc_aux) $(call a,glad) $(call a,stb)
 a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(call a,psrc_aux) $(a.dir.psrc_engine) $(a.dir.psrc_server)
 
 a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_aux)
@@ -351,16 +409,19 @@ ifneq ($(WINDRES),)
 	@$(WINDRES) $(WRFLAGS) $(WRSRC) -o $(WROBJ)
 endif
 endif
-	@$(CC) $(LDFLAGS) $^ $(WROBJ) $(LDLIBS) -o $@
+	@$(LD) $(LDFLAGS) $^ $(WROBJ) $(LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
 endif
 	@echo Linked $(notdir $@)
+
 else
+
 $(BIN): $(OBJECTS) | $(OUTDIR)
 	@echo Building $(notdir $@)...
 	@$(AR) rcs $@ $^
 	@echo Built $(notdir $@)
+
 endif
 
 bin: $(BIN)

@@ -1,10 +1,14 @@
 #include "config.h"
 #include "fs.h"
 #include "string.h"
+#include "logging.h"
+#include "../debug.h"
 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
+#include <errno.h>
 
 #include "../glue.h"
 
@@ -87,9 +91,18 @@ static void interpfinal(char* s, struct charbuf* b) {
 }
 
 struct cfg* cfg_open(char* p) {
-    if (isFile(p) < 1) return NULL;
+    if (isFile(p) < 1) {
+        plogerr(LOGLVL_WARN, LOGERR_CANTOPEN(p));
+        return NULL;
+    }
     FILE* f = fopen(p, "r");
-    if (!f) return NULL;
+    if (!f) {
+        plogerr(LOGLVL_WARN, LOGERR_CANTOPEN(p));
+        return NULL;
+    }
+    #if DEBUG(1)
+    plog(LOGLVL_INFO, "Reading config %s...", p);
+    #endif
     struct charbuf sect;
     struct charbuf var;
     struct charbuf data;
@@ -152,7 +165,9 @@ struct cfg* cfg_open(char* p) {
                         char* tmp = cb_reinit(&sect, 256);
                         interpfinal(tmp, &sect);
                         tmp = cb_reinit(&sect, 256);
-                        printf("sect: {%s}\n", tmp);
+                        #if DEBUG(1)
+                        plog(LOGLVL_INFO, "  [%s]", tmp);
+                        #endif
                         free(tmp);
                         goto newline;
                     } else {
@@ -203,7 +218,8 @@ struct cfg* cfg_open(char* p) {
                                 }
                             } else {
                                 if (c == '\n') {
-                                    char* tmp;
+                                    char* varstr;
+                                    char* datastr;
                                     if (var.len > 0) {
                                         char tmpc = var.data[var.len - 1];
                                         while (tmpc == ' ' || tmpc == '\t') {
@@ -211,11 +227,9 @@ struct cfg* cfg_open(char* p) {
                                             tmpc = var.data[var.len - 1];
                                         }
                                     }
-                                    tmp = cb_reinit(&var, 256);
-                                    interpfinal(tmp, &var);
-                                    tmp = cb_reinit(&var, 256);
-                                    printf("  var: {%s} = ", tmp);
-                                    free(tmp);
+                                    varstr = cb_reinit(&var, 256);
+                                    interpfinal(varstr, &var);
+                                    varstr = cb_reinit(&var, 256);
                                     if (data.len > 0) {
                                         char tmpc = data.data[data.len - 1];
                                         while (tmpc == ' ' || tmpc == '\t') {
@@ -223,12 +237,15 @@ struct cfg* cfg_open(char* p) {
                                             tmpc = data.data[data.len - 1];
                                         }
                                     }
-                                    tmp = cb_reinit(&data, 256);
-                                    interpfinal(tmp, &data);
-                                    tmp = cb_reinit(&data, 256);
-                                    printf("{%s}\n", tmp);
-                                    free(tmp);
+                                    datastr = cb_reinit(&data, 256);
+                                    interpfinal(datastr, &data);
+                                    datastr = cb_reinit(&data, 256);
                                     // register the var
+                                    #if DEBUG(1)
+                                    plog(LOGLVL_INFO, "    %s = %s", varstr, datastr);
+                                    #endif
+                                    free(varstr);
+                                    free(datastr);
                                     goto newline;
                                 } else {
                                     cb_add(&data, c);

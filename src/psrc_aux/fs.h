@@ -3,8 +3,10 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 int isFile(char* path);
 long getFileSize(FILE* file, bool close);
+char* mkpath(char*, ...);
 
 #endif

@@ -1,15 +1,15 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
-#define OS_UNKNOWN 0
-#define OS_ANDROID 1
-#define OS_FREEBSD 2
-#define OS_LINUX   3
-#define OS_MACOS   4
-#define OS_NETBSD  5
-#define OS_OPENBSD 6
-#define OS_UNIX    7
-#define OS_WINDOWS 8
+#define PLAT_UNKNOWN 0
+#define PLAT_ANDROID 1
+#define PLAT_FREEBSD 2
+#define PLAT_LINUX   3
+#define PLAT_MACOS   4
+#define PLAT_NETBSD  5
+#define PLAT_OPENBSD 6
+#define PLAT_UNIX    7
+#define PLAT_WINDOWS 8
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -18,32 +18,35 @@
 #define ARCH_I386    4
 
 #if defined(__ANDROID__)
-    #define OS OS_ANDROID
-    #define OSSTR "Android"
+    #define PLATFORM PLAT_ANDROID
+    #define PLATSTR "Android"
 #elif defined(__FreeBSD__)
-    #define OS OS_FREEBSD
-    #define OSSTR "FreeBSD"
+    #define PLATFORM PLAT_FREEBSD
+    #define PLATSTR "FreeBSD"
 #elif defined(__linux__)
-    #define OS OS_LINUX
-    #define OSSTR "Linux"
+    #define PLATFORM PLAT_LINUX
+    #define PLATSTR "Linux"
 #elif defined(macintosh) || defined(Macintosh) || (defined(__APPLE__) && defined(__MACH__))
-    #define OS OS_MACOS
-    #define OSSTR "MacOS"
+    #define PLATFORM PLAT_MACOS
+    #define PLATSTR "MacOS"
 #elif defined(__NetBSD__)
-    #define OS OS_NETBSD
-    #define OSSTR "NetBSD"
+    #define PLATFORM PLAT_NETBSD
+    #define PLATSTR "NetBSD"
 #elif defined(__OpenBSD__)
-    #define OS OS_OPENBSD
-    #define OSSTR "OpenBSD"
+    #define PLATFORM PLAT_OPENBSD
+    #define PLATSTR "OpenBSD"
 #elif defined(__unix__)
-    #define OS OS_UNIX
-    #define OSSTR "Unix or Unix-like"
-#elif defined(_WIN32)
-    #define OS OS_WINDOWS
-    #define OSSTR "Windows"
+    #define PLATFORM PLAT_UNIX
+    #define PLATSTR "Unix or Unix-like"
+#elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
+    #define PLATFORM PLAT_WINDOWS
+    #define PLATSTR "Windows"
+#elif defined(NXDK) || defined(_XBOX)
+    #define PLATFORM PLAT_XBOX
+    #define PLATSTR "Xbox"
 #else
-    #define OS OS_UNKNOWN
-    #define OSSTR "Unknown"
+    #define PLATFORM PLAT_UNKNOWN
+    #define PLATSTR "Unknown"
 #endif
 
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64)

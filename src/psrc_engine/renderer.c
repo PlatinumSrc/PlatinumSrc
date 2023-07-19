@@ -1,10 +1,21 @@
 #include "renderer.h"
 #include "../psrc_aux/logging.h"
-#include "../glad/gl.h"
+//#include "../psrc_aux/threads.h"
+#if PLATFORM != PLAT_XBOX
+    #include "../glad/gl.h"
+#else
+    #include <pbkit/pbkit.h>
+    #include <pbgl.h>
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+    #ifndef GL_KHR_debug
+        #define GL_KHR_debug 0
+    #else
+    #endif
+#endif
 #include "../stb/stb_image.h"
 
 #include <string.h>
-#include <pthread.h>
 #include <stddef.h>
 
 const char* rendapi_ids[] = {
@@ -34,6 +45,7 @@ void render_gl_legacy(struct rendstate* r) {
     }
     glLoadIdentity();
     glBegin(GL_QUADS);
+        #if 0
         glColor3f(1.0, 0.0, 0.0);
         glVertex3f(-0.5, 0.5, 0.0);
         glColor3f(0.5, 1.0, 0.0);
@@ -42,6 +54,16 @@ void render_gl_legacy(struct rendstate* r) {
         glVertex3f(0.5, -0.5, 0.0);
         glColor3f(0.5, 0.0, 1.0);
         glVertex3f(-0.5, -0.5, 0.0);
+        #else
+        glColor3f(1.0, 0.0, 0.0);
+        glVertex3f(-1.0, 1.0, 0.0);
+        glColor3f(0.5, 1.0, 0.0);
+        glVertex3f(1.0, 1.0, 0.0);
+        glColor3f(0.0, 1.0, 1.0);
+        glVertex3f(1.0, -1.0, 0.0);
+        glColor3f(0.5, 0.0, 1.0);
+        glVertex3f(-1.0, -1.0, 0.0);
+        #endif
     glEnd();
 }
 
@@ -57,18 +79,39 @@ void render(struct rendstate* r) {
                 case RENDAPI_GL11:;
                     render_gl_legacy(r);
                     break;
+                #if PLATFORM != PLAT_XBOX
                 case RENDAPI_GL33:;
                 case RENDAPI_GLES30:;
                     render_gl_advanced(r);
                     break;
+                #endif
                 default:;
                     break;
             }
-            SDL_GL_SwapWindow(r->window);
         } break;
         default:; {
         } break;
     }
+    #if PLATFORM != PLAT_XBOX
+    SDL_GL_SwapWindow(r->window);
+    #else
+    static uint64_t ticks = 0;
+    static bool cleared = false;
+    if (plog__wrote) {
+        plog__wrote = false;
+        ticks = SDL_GetTicks() + 5000;
+        cleared = false;
+    }
+    if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
+        if (!cleared) {
+            pb_erase_text_screen();
+            cleared = true;
+        }
+    }
+    pb_draw_text_screen();
+    while (pb_busy()) {}
+    pbgl_swap_buffers();
+    #endif
     r->evenframe = !r->evenframe;
 }
 
@@ -76,7 +119,9 @@ static void destroyWindow(struct rendstate* r) {
     if (r->window != NULL) {
         switch (r->apigroup) {
             case RENDAPIGROUP_GL:;
+                #if PLATFORM != PLAT_XBOX
                 SDL_GL_DeleteContext(r->gl.ctx);
+                #endif
                 break;
             default:;
                 break;
@@ -107,6 +152,7 @@ static void updateWindowRes(struct rendstate* r) {
     }
 }
 
+#if PLATFORM != PLAT_XBOX
 static void updateWindowIcon(struct rendstate* r) {
     int w, h, c;
     void* data = stbi_load(r->cfg.icon, &w, &h, &c, STBI_rgb_alpha);
@@ -118,6 +164,7 @@ static void updateWindowIcon(struct rendstate* r) {
     SDL_FreeSurface(s);
     stbi_image_free(data);
 }
+#endif
 
 static bool createWindow(struct rendstate* r) {
     if (r->cfg.api <= RENDAPI__INVAL || r->cfg.api >= RENDAPI__COUNT) {
@@ -129,11 +176,14 @@ static bool createWindow(struct rendstate* r) {
         #if 1
         case RENDAPI_GL11:;
             r->apigroup = RENDAPIGROUP_GL;
+            #if PLATFORM != PLAT_XBOX
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+            #endif
             break;
         #endif
+        #if PLATFORM != PLAT_XBOX
         #if 0
         case RENDAPI_GL33:;
             r->apigroup = RENDAPIGROUP_GL;
@@ -150,36 +200,45 @@ static bool createWindow(struct rendstate* r) {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
             break;
         #endif
+        #endif
         default:;
             plog(LOGLVL_CRIT, "%s not implemented", rendapi_names[r->cfg.api]);
             return false;
             break;
     }
+    #if PLATFORM != PLAT_XBOX
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    #endif
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
     //SDL_SetRelativeMouseMode(SDL_TRUE);
     uint32_t flags = 0;
+    #if PLATFORM != PLAT_XBOX
+    flags |= SDL_WINDOW_RESIZABLE;
     if (r->apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
+    #endif
     r->window = SDL_CreateWindow(
         "PlatinumSrc",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         r->cfg.res.windowed.width, r->cfg.res.windowed.height,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | flags
+        SDL_WINDOW_SHOWN | flags
     );
     if (!r->window) {
         plog(LOGLVL_CRIT, "Failed to create window: %s", (char*)SDL_GetError());
         return false;
     }
+    #if PLATFORM != PLAT_XBOX
     updateWindowIcon(r);
+    #endif
     SDL_DisplayMode dtmode;
     SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(r->window), &dtmode);
     r->cfg.res.fullscr = (struct rendres){dtmode.w, dtmode.h, dtmode.refresh_rate};
     updateWindowRes(r);
     switch (r->apigroup) {
         case RENDAPIGROUP_GL:; {
+            #if PLATFORM != PLAT_XBOX
             r->gl.ctx = SDL_GL_CreateContext(r->window);
             if (!r->gl.ctx) {
                 plog(LOGLVL_CRIT, "Failed to create OpenGL context: %s", (char*)SDL_GetError());
@@ -192,6 +251,8 @@ static bool createWindow(struct rendstate* r) {
                 destroyWindow(r);
                 return false;
             }
+            #else
+            #endif
             plog(LOGLVL_INFO, "OpenGL info:");
             bool cond[4];
             int tmpint[4];
@@ -306,7 +367,9 @@ bool updateRendererConfig(struct rendstate* r, struct rendupdate* u, struct rend
     if (u->icon && c->icon) {
         free(r->cfg.icon);
         r->cfg.icon = strdup(c->icon);
+        #if PLATFORM != PLAT_XBOX
         updateWindowIcon(r);
+        #endif
     }
     return true;
 }
@@ -315,7 +378,11 @@ bool initRenderer(struct rendstate* r) {
     plog(LOGLVL_TASK, "Initializing renderer...");
     memset(r, 0, sizeof(*r));
     r->cfg.api = RENDAPI_GL11;
+    #if PLATFORM != PLAT_XBOX
     r->cfg.res.windowed = (struct rendres){800, 600, 60};
+    #else
+    r->cfg.res.windowed = (struct rendres){640, 480, 60};
+    #endif
     r->cfg.vsync = false;
     r->evenframe = true;
     if (SDL_Init(SDL_INIT_VIDEO)) {

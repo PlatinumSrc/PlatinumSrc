@@ -30,6 +30,11 @@ static inline void cb_addstr(struct charbuf* b, char* s) {
     //       before performing a realloc
     while(*s) cb_add(b, *(s++));
 }
+static inline void cb_addpartstr(struct charbuf* b, char* s, long l) {
+    for (long i = 0; i < l; ++i) {
+        cb_add(b, *(s++));
+    }
+}
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
     b->data[b->len] = 0;

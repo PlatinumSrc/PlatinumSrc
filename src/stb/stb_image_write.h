@@ -320,7 +320,7 @@ static FILE *stbiw__fopen(char const *filename, char const *mode)
    f = _wfopen(wFilename, wMode);
 #endif
 
-#elif defined(_MSC_VER) && _MSC_VER >= 1400
+#elif defined(_MSC_VER) && !defined(NXDK) && _MSC_VER >= 1400
    if (0 != fopen_s(&f, filename, mode))
       f=0;
 #else

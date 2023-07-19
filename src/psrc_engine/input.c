@@ -10,6 +10,8 @@ bool initInput(struct inputstate* s, struct rendstate* r) {
     s->r = r;
     s->eventcache.size = 256;
     s->eventcache.data = malloc(s->eventcache.size * sizeof(*s->eventcache.data));
+    if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
+    SDL_GameControllerEventState(SDL_ENABLE);
     return true;
 }
 

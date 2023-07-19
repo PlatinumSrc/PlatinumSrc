@@ -3,6 +3,7 @@
 #include "../psrc_aux/statestack.h"
 #include "../psrc_aux/logging.h"
 #include "../psrc_aux/string.h"
+#include "../psrc_aux/fs.h"
 #include "../psrc_aux/config.h"
 #include "../version.h"
 #include "../platform.h"
@@ -11,23 +12,31 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-
-#ifdef _WIN32
-#include <windows.h>
-ULONGLONG new_GetTickCount64() {
-    return GetTickCount();
-}
+#if PLATFORM == PLAT_XBOX
+    #include <hal/video.h>
+    #include <pbgl.h>
 #endif
 
-char* startdir;
+#include "../glue.h"
+
+char* curdir;
+char* maindir;
 
 void findDirs() {
-    startdir = SDL_GetBasePath();
-    if (!startdir) {
+    #if PLATFORM != PLAT_XBOX
+    maindir = SDL_GetBasePath();
+    if (!maindir) {
         plog(LOGLVL_WARN, "Failed to get start directory: %s", (char*)SDL_GetError());
-        startdir = ".";
+        maindir = ".";
     }
+    curdir = ".";
+    #else
+    maindir = "D:\\";
+    curdir = "D:\\";
+    #endif
 }
+
+#if PLATFORM != PLAT_XBOX
 
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
@@ -67,6 +76,8 @@ static void sigh(int sig) {
     }
 }
 
+#endif
+
 struct states {
     struct rendstate renderer;
     struct inputstate input;
@@ -81,18 +92,26 @@ static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    char* logfile = strcombine(startdir, "log.txt", NULL);
-    plog_setfile(logfile);
-    free(logfile);
+    //char* logfile = strcombine(maindir, "log.txt", NULL);
+    //plog_setfile(logfile);
+    //free(logfile);
 
     plog(LOGLVL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
-    plog(LOGLVL_PLAIN, "OS: %s; Architecture: %s", (char*)OSSTR, (char*)ARCHSTR);
+    plog(LOGLVL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
+
+    findDirs();
+    plog(LOGLVL_INFO, "Main directory: %s", maindir);
+    plog(LOGLVL_INFO, "Current directory: %s", curdir);
+
+    char* tmp = mkpath(maindir, "config", "base.txt", NULL);
+    cfg_open(tmp);
+    free(tmp);
 
     struct states* states = malloc(sizeof(*states));
     struct statestack statestack;
 
     if (!initRenderer(&states->renderer)) return 1;
-    states->renderer.cfg.icon = strcombine(startdir, "/icons/engine.png", NULL);
+    states->renderer.cfg.icon = mkpath(maindir, "icons", "engine.png", NULL);
     if (!startRenderer(&states->renderer)) return 1;
     if (!initInput(&states->input, &states->renderer)) return 1;
 
@@ -114,22 +133,35 @@ static int run(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
-    signal(SIGINT, sigh);
-    signal(SIGTERM, sigh);
-    #ifdef SIGQUIT
-    signal(SIGQUIT, sigh);
+    #if PLATFORM != PLAT_XBOX
+        signal(SIGINT, sigh);
+        signal(SIGTERM, sigh);
+        #ifdef SIGQUIT
+        signal(SIGQUIT, sigh);
+        #endif
+        #ifdef SIGUSR1
+        signal(SIGUSR1, SIG_IGN);
+        #endif
+        #ifdef SIGUSR2
+        signal(SIGUSR2, SIG_IGN);
+        #endif
+        #ifdef SIGPIPE
+        signal(SIGPIPE, SIG_IGN);
+        #endif
+    #else
+        XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     #endif
-    #ifdef SIGUSR1
-    signal(SIGUSR1, SIG_IGN);
-    #endif
-    #ifdef SIGUSR2
-    signal(SIGUSR2, SIG_IGN);
-    #endif
-    #ifdef SIGPIPE
-    signal(SIGPIPE, SIG_IGN);
-    #endif
-    findDirs();
-    cfg_open("config/base.txt");
 
-    return run(argc, argv);
+    #if PLATFORM == PLAT_XBOX
+    pbgl_init(true);
+    #endif
+
+    int ret = run(argc, argv);
+
+    #if PLATFORM == PLAT_XBOX
+    pbgl_shutdown();
+    #endif
+    SDL_Quit();
+
+    return ret;
 }

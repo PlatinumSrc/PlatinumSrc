@@ -8,7 +8,8 @@
 !icons/
 !icons/**
 !src/
-!src/**
+!src/**.c
+!src/**.h
 !.github/
 !*.sh
 !CONTRIBUTING.md
