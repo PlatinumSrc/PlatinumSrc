@@ -19,6 +19,13 @@
 
 #include "../glue.h"
 
+#if PLATFORM == PLAT_XBOX
+__asm__ (
+    ".section \"XTIMAGE\"\n"
+    ".incbin \"icons/engine.xpr\""
+);
+#endif
+
 char* curdir;
 char* maindir;
 
@@ -26,7 +33,7 @@ void findDirs() {
     #if PLATFORM != PLAT_XBOX
     maindir = SDL_GetBasePath();
     if (!maindir) {
-        plog(LOGLVL_WARN, "Failed to get start directory: %s", (char*)SDL_GetError());
+        plog(LL_WARN, "Failed to get start directory: %s", (char*)SDL_GetError());
         maindir = ".";
     }
     curdir = ".";
@@ -56,10 +63,10 @@ static void sigh(int sig) {
     switch (sig) {
         case SIGINT:;
             if (quitreq > 0) {
-                sigh_log(LOGLVL_WARN, signame, "Graceful exit already requested; Forcing exit...");
+                sigh_log(LL_WARN, signame, "Graceful exit already requested; Forcing exit...");
                 exit(1);
             } else {
-                sigh_log(LOGLVL_INFO, signame, "Requesting graceful exit...");
+                sigh_log(LL_INFO, signame, "Requesting graceful exit...");
                 ++quitreq;
             }
             break;
@@ -67,11 +74,11 @@ static void sigh(int sig) {
         #ifdef SIGQUIT
         case SIGQUIT:;
         #endif
-            sigh_log(LOGLVL_WARN, signame, "Forcing exit...");
+            sigh_log(LL_WARN, signame, "Forcing exit...");
             exit(1);
             break;
         default:;
-            sigh_log(LOGLVL_WARN, signame, NULL);
+            sigh_log(LL_WARN, signame, NULL);
             break;
     }
 }
@@ -92,16 +99,17 @@ static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    //char* logfile = strcombine(maindir, "log.txt", NULL);
-    //plog_setfile(logfile);
-    //free(logfile);
-
-    plog(LOGLVL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
-    plog(LOGLVL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
-
     findDirs();
-    plog(LOGLVL_INFO, "Main directory: %s", maindir);
-    plog(LOGLVL_INFO, "Current directory: %s", curdir);
+
+    char* logfile = mkpath(maindir, "log.txt", NULL);
+    plog_setfile(logfile);
+    free(logfile);
+
+    plog(LL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
+    plog(LL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
+
+    plog(LL_INFO, "Main directory: %s", maindir);
+    plog(LL_INFO, "Current directory: %s", curdir);
 
     char* tmp = mkpath(maindir, "config", "base.txt", NULL);
     cfg_open(tmp);

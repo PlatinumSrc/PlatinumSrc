@@ -55,6 +55,8 @@ ifndef OS
         PLATFORM := Xbox
 
         export XBE_TITLE := PlatinumSrc
+        export XBE_TITLEID := PQ-001
+        export XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
         export GEN_XISO := $(XBE_TITLE).xiso.iso
         export NXDK_SDL := y
         SRCS := $(wildcard $(SRCDIR)/psrc_aux/*.c)
@@ -66,7 +68,7 @@ ifndef OS
         export NXDK_SDL = y
 
         MKENV := ${MKENV} OUTPUT_DIR=xbox
-        CPPFLAGS := $(CPPFLAGS) -DSTBI_NO_SIMD
+        CPPFLAGS := $(CPPFLAGS) -DSTBI_NO_SIMD -DPB_HAL_FONT
         ifdef DEBUG
             CFLAGS := $(CFLAGS) -Og -g
             CPPFLAGS := $(CPPFLAGS) -DDBGLVL=$(DEBUG)

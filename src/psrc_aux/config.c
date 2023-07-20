@@ -92,16 +92,16 @@ static void interpfinal(char* s, struct charbuf* b) {
 
 struct cfg* cfg_open(char* p) {
     if (isFile(p) < 1) {
-        plogerr(LOGLVL_WARN, LOGERR_CANTOPEN(p));
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p));
         return NULL;
     }
     FILE* f = fopen(p, "r");
     if (!f) {
-        plogerr(LOGLVL_WARN, LOGERR_CANTOPEN(p));
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p));
         return NULL;
     }
     #if DEBUG(1)
-    plog(LOGLVL_INFO, "Reading config %s...", p);
+    plog(LL_INFO, "Reading config %s...", p);
     #endif
     struct charbuf sect;
     struct charbuf var;
@@ -166,7 +166,7 @@ struct cfg* cfg_open(char* p) {
                         interpfinal(tmp, &sect);
                         tmp = cb_reinit(&sect, 256);
                         #if DEBUG(1)
-                        plog(LOGLVL_INFO, "  [%s]", tmp);
+                        plog(LL_INFO, "  [%s]", tmp);
                         #endif
                         free(tmp);
                         goto newline;
@@ -242,7 +242,7 @@ struct cfg* cfg_open(char* p) {
                                     datastr = cb_reinit(&data, 256);
                                     // register the var
                                     #if DEBUG(1)
-                                    plog(LOGLVL_INFO, "    %s = %s", varstr, datastr);
+                                    plog(LL_INFO, "    %s = %s", varstr, datastr);
                                     #endif
                                     free(varstr);
                                     free(datastr);

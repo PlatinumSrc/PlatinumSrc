@@ -14,7 +14,6 @@
 
 enum rendapi {
     RENDAPI__INVAL = -1,
-    RENDAPI_SOFTWARE,
     RENDAPI_GL11,
     #if PLATFORM != PLAT_XBOX
     RENDAPI_GL33,
@@ -25,7 +24,6 @@ enum rendapi {
 
 enum rendapigroup {
     RENDAPIGROUP__INVAL = -1,
-    RENDAPIGROUP_SOFTWARE,
     RENDAPIGROUP_GL,
     RENDAPIGROUP__COUNT,
 };
@@ -57,6 +55,11 @@ struct rendconfig {
         struct rendres windowed, fullscr;
     } res;
     char* icon;
+    int lighting;
+};
+
+struct material {
+    
 };
 
 struct rendstate {
@@ -65,9 +68,12 @@ struct rendstate {
     union {
         struct {
             bool init;
+            #if PLATFORM != PLAT_XBOX
             SDL_GLContext ctx;
+            #endif
             union {
                 struct {
+                    bool depthstate;
                 } gl11;
                 #if PLATFORM != PLAT_XBOX
                 struct {

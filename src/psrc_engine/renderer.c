@@ -17,35 +17,89 @@
 
 #include <string.h>
 #include <stddef.h>
+#include <math.h>
 
 const char* rendapi_ids[] = {
-    "software",
     "gl11",
     "gl33",
     "gles30"
 };
 const char* rendapi_names[] = {
-    "Software renderer",
     "OpenGL 1.1 (Legacy)",
     "OpenGL 3.3 (Advanced)",
     "OpenGL ES 3.0"
 };
 
-#define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LOGLVL_WARN, "Failed to set " #a " to " #v ": %s", (char*)SDL_GetError())
-#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LOGLVL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), (char*)SDL_GetError())
-#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LOGLVL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), (char*)SDL_GetError())
+static void swapBuffers(struct rendstate* r) {
+    #if PLATFORM != PLAT_XBOX
+    SDL_GL_SwapWindow(r->window);
+    #else
+    (void)r;
+    pbgl_swap_buffers();
+    #endif
+}
 
-void render_gl_legacy(struct rendstate* r) {
-    if (r->evenframe) {
+static void gl11_cleardepth(struct rendstate* r) {
+    if (r->gl.gl11.depthstate) {
         glDepthRange(0.0, 0.5);
         glDepthFunc(GL_LEQUAL);
     } else {
         glDepthRange(1.0, 0.5);
         glDepthFunc(GL_GEQUAL);
     }
+    r->gl.gl11.depthstate = !r->gl.gl11.depthstate;
+}
+
+void render_gl_legacy(struct rendstate* r) {
+    gl11_cleardepth(r);
     glLoadIdentity();
+
+    if (r->cfg.lighting >= 1) {
+        // TODO: render opaque materials front to back
+    } else {
+        // TODO: render opaque materials front to back with basic lighting
+    }
+
+    glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+
+    if (r->cfg.lighting >= 1) {
+        glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        // TODO: render opaque light map front to back
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    // render transparent materials back to front with basic lighting
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
+    // TODO: render UI
+}
+
+#if 0
+void render_gl_legacy(struct rendstate* r) {
+    long lt = SDL_GetTicks();
+    double dt = (double)(lt % 1000) / 1000.0;
+    double t = (double)(lt / 1000) + dt;
+    float tsinn = sin(t * M_PI) * 0.5 + 0.5;
+    float tcosn = cos(t * M_PI) * 0.5 + 0.5;
+    float tsini = 1.0 - tsinn;
+    float tcosi = 1.0 - tcosn;
+    gl11_cleardepth(r);
+    glLoadIdentity();
+    glDisable(GL_BLEND);
     glBegin(GL_QUADS);
-        #if 0
+        #if 1
+        glColor3f(tsini, tcosn, tsinn);
+        glVertex3f(-1.0, 1.0, 0.0);
+        glColor3f(tcosi, tsini, tcosn);
+        glVertex3f(1.0, 1.0, 0.0);
+        glColor3f(tsinn, tcosi, tsini);
+        glVertex3f(1.0, -1.0, 0.0);
+        glColor3f(tcosn, tsinn, tcosi);
+        glVertex3f(-1.0, -1.0, 0.0);
+        #endif
         glColor3f(1.0, 0.0, 0.0);
         glVertex3f(-0.5, 0.5, 0.0);
         glColor3f(0.5, 1.0, 0.0);
@@ -54,23 +108,47 @@ void render_gl_legacy(struct rendstate* r) {
         glVertex3f(0.5, -0.5, 0.0);
         glColor3f(0.5, 0.0, 1.0);
         glVertex3f(-0.5, -0.5, 0.0);
-        #else
-        glColor3f(1.0, 0.0, 0.0);
-        glVertex3f(-1.0, 1.0, 0.0);
-        glColor3f(0.5, 1.0, 0.0);
-        glVertex3f(1.0, 1.0, 0.0);
-        glColor3f(0.0, 1.0, 1.0);
-        glVertex3f(1.0, -1.0, 0.0);
-        glColor3f(0.5, 0.0, 1.0);
-        glVertex3f(-1.0, -1.0, 0.0);
-        #endif
+    glEnd();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+    glBegin(GL_QUADS);
+        glColor3f(1.0, 1.0, 1.0);
+        glVertex3f(-0.75, 0.75, 0.0);
+        glColor3f(0.5, 0.5, 0.5);
+        glVertex3f(0.75, 0.75, 0.0);
+        glColor3f(0.0, 0.0, 0.0);
+        glVertex3f(0.75, -0.75, 0.0);
+        glColor3f(0.5, 0.5, 0.5);
+        glVertex3f(-0.75, -0.75, 0.0);
     glEnd();
 }
+#endif
 
+#if PLATFORM != PLAT_XBOX
 void render_gl_advanced(struct rendstate* r) {
-    (void)r;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    if (r->cfg.lighting >= 1) {
+        // TODO: render opaque materials front to back with light mapping
+    } else {
+        // TODO: render opaque materials front to back with basic lighting
+    }
+
+    glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+
+    if (r->cfg.lighting >= 2) {
+        // TODO: render transparent materials back to front with light mapping
+    } else {
+        // TODO: render transparent materials back to front with basic lighting
+    }
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+
+    // TODO: render UI
 }
+#endif
 
 void render(struct rendstate* r) {
     switch (r->apigroup) {
@@ -92,9 +170,7 @@ void render(struct rendstate* r) {
         default:; {
         } break;
     }
-    #if PLATFORM != PLAT_XBOX
-    SDL_GL_SwapWindow(r->window);
-    #else
+    #if PLATFORM == PLAT_XBOX
     static uint64_t ticks = 0;
     static bool cleared = false;
     if (plog__wrote) {
@@ -110,9 +186,8 @@ void render(struct rendstate* r) {
     }
     pb_draw_text_screen();
     while (pb_busy()) {}
-    pbgl_swap_buffers();
     #endif
-    r->evenframe = !r->evenframe;
+    swapBuffers(r);
 }
 
 static void destroyWindow(struct rendstate* r) {
@@ -166,12 +241,16 @@ static void updateWindowIcon(struct rendstate* r) {
 }
 #endif
 
+#define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LL_WARN, "Failed to set " #a " to " #v ": %s", (char*)SDL_GetError())
+#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), (char*)SDL_GetError())
+#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), (char*)SDL_GetError())
+
 static bool createWindow(struct rendstate* r) {
     if (r->cfg.api <= RENDAPI__INVAL || r->cfg.api >= RENDAPI__COUNT) {
-        plog(LOGLVL_CRIT, "Invalid rendering API (%d)", (int)r->cfg.api);
+        plog(LL_CRIT, "Invalid rendering API (%d)", (int)r->cfg.api);
         return false;
     }
-    plog(LOGLVL_INFO, "Creating window for %s...", rendapi_names[r->cfg.api]);
+    plog(LL_INFO, "Creating window for %s...", rendapi_names[r->cfg.api]);
     switch (r->cfg.api) {
         #if 1
         case RENDAPI_GL11:;
@@ -202,7 +281,7 @@ static bool createWindow(struct rendstate* r) {
         #endif
         #endif
         default:;
-            plog(LOGLVL_CRIT, "%s not implemented", rendapi_names[r->cfg.api]);
+            plog(LL_CRIT, "%s not implemented", rendapi_names[r->cfg.api]);
             return false;
             break;
     }
@@ -226,7 +305,7 @@ static bool createWindow(struct rendstate* r) {
         SDL_WINDOW_SHOWN | flags
     );
     if (!r->window) {
-        plog(LOGLVL_CRIT, "Failed to create window: %s", (char*)SDL_GetError());
+        plog(LL_CRIT, "Failed to create window: %s", (char*)SDL_GetError());
         return false;
     }
     #if PLATFORM != PLAT_XBOX
@@ -241,19 +320,18 @@ static bool createWindow(struct rendstate* r) {
             #if PLATFORM != PLAT_XBOX
             r->gl.ctx = SDL_GL_CreateContext(r->window);
             if (!r->gl.ctx) {
-                plog(LOGLVL_CRIT, "Failed to create OpenGL context: %s", (char*)SDL_GetError());
+                plog(LL_CRIT, "Failed to create OpenGL context: %s", (char*)SDL_GetError());
                 r->apigroup = RENDAPIGROUP__INVAL;
                 destroyWindow(r);
                 return false;
             }
             if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-                plog(LOGLVL_CRIT, "Failed to load GLAD");
+                plog(LL_CRIT, "Failed to load GLAD");
                 destroyWindow(r);
                 return false;
             }
-            #else
             #endif
-            plog(LOGLVL_INFO, "OpenGL info:");
+            plog(LL_INFO, "OpenGL info:");
             bool cond[4];
             int tmpint[4];
             char* tmpstr[1] = {""};
@@ -268,38 +346,46 @@ static bool createWindow(struct rendstate* r) {
                 }
             }
             if (cond[0] && cond[1]) {
-                plog(LOGLVL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr[0]);
+                plog(LL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr[0]);
             } else {
-                plog(LOGLVL_INFO, "  Requested OpenGL version: ?");
+                plog(LL_INFO, "  Requested OpenGL version: ?");
             }
             tmpstr[0] = (char*)glGetString(GL_VERSION);
-            plog(LOGLVL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            plog(LL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             tmpstr[0] = (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-            plog(LOGLVL_INFO, "  GLSL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            plog(LL_INFO, "  GLSL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             tmpstr[0] = (char*)glGetString(GL_VENDOR);
-            plog(LOGLVL_INFO, "  Vendor string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            plog(LL_INFO, "  Vendor string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             tmpstr[0] = (char*)glGetString(GL_RENDERER);
-            plog(LOGLVL_INFO, "  Renderer string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            plog(LL_INFO, "  Renderer string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
-            plog(LOGLVL_INFO, "  Hardware acceleration is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
+            plog(LL_INFO, "  Hardware acceleration is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);
-            plog(LOGLVL_INFO, "  Double-buffering is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
+            plog(LL_INFO, "  Double-buffering is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &tmpint[0]);
             cond[1] = !SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &tmpint[1]);
             cond[2] = !SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &tmpint[2]);
             cond[3] = !SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &tmpint[3]);
             if (cond[0] && cond[1] && cond[2] && cond[3]) {
-                plog(LOGLVL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
+                plog(LL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
             } else {
-                plog(LOGLVL_INFO, "  Color buffer format: ?");
+                plog(LL_INFO, "  Color buffer format: ?");
             }
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &tmpint[0]);
             if (cond[0]) {
-                plog(LOGLVL_INFO, "  Depth buffer format: D%d", tmpint[0]);
+                plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             } else {
-                plog(LOGLVL_INFO, "  Depth buffer format: ?");
+                plog(LL_INFO, "  Depth buffer format: ?");
             }
-            plog(LOGLVL_INFO, "  GL_KHR_debug is%s supported", (GL_KHR_debug) ? "" : " not");
+            plog(LL_INFO, "  GL_KHR_debug is%s supported", (GL_KHR_debug) ? "" : " not");
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            swapBuffers(r);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            swapBuffers(r);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
         } break;
         default:; {
         } break;
@@ -323,18 +409,18 @@ static void stopRenderer_internal(struct rendstate* r) {
 }
 
 bool reloadRenderer(struct rendstate* r) {
-    plog(LOGLVL_TASK, "Reloading renderer...");
+    plog(LL_TASK, "Reloading renderer...");
     stopRenderer_internal(r);
     return startRenderer_internal(r);
 }
 
 bool startRenderer(struct rendstate* r) {
-    plog(LOGLVL_TASK, "Starting renderer...");
+    plog(LL_TASK, "Starting renderer...");
     return startRenderer_internal(r);
 }
 
 void stopRenderer(struct rendstate* r) {
-    plog(LOGLVL_TASK, "Stopping renderer...");
+    plog(LL_TASK, "Stopping renderer...");
     stopRenderer_internal(r);
 }
 
@@ -355,7 +441,11 @@ bool updateRendererConfig(struct rendstate* r, struct rendupdate* u, struct rend
     if (u->vsync) {
         r->cfg.vsync = c->vsync;
         if (r->apigroup == RENDAPIGROUP_GL) {
+            #if PLATFORM != PLAT_XBOX
             SDL_GL_SetSwapInterval(c->vsync);
+            #else
+            pbgl_set_swap_interval(c->vsync);
+            #endif
         }
     }
     if (u->res) {
@@ -375,7 +465,7 @@ bool updateRendererConfig(struct rendstate* r, struct rendupdate* u, struct rend
 }
 
 bool initRenderer(struct rendstate* r) {
-    plog(LOGLVL_TASK, "Initializing renderer...");
+    plog(LL_TASK, "Initializing renderer...");
     memset(r, 0, sizeof(*r));
     r->cfg.api = RENDAPI_GL11;
     #if PLATFORM != PLAT_XBOX
@@ -384,16 +474,15 @@ bool initRenderer(struct rendstate* r) {
     r->cfg.res.windowed = (struct rendres){640, 480, 60};
     #endif
     r->cfg.vsync = false;
-    r->evenframe = true;
     if (SDL_Init(SDL_INIT_VIDEO)) {
-        plog(LOGLVL_CRIT, "Failed to init video: %s", (char*)SDL_GetError());
+        plog(LL_CRIT, "Failed to init video: %s", (char*)SDL_GetError());
         return false;
     }
     return true;
 }
 
 void termRenderer(struct rendstate* r) {
-    plog(LOGLVL_TASK, "Terminating renderer...");
+    plog(LL_TASK, "Terminating renderer...");
     stopRenderer_internal(r);
     free(r->cfg.icon);
 }
