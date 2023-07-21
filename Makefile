@@ -52,50 +52,42 @@ ifndef OS
 	            @exit 1
         endif
 
+        CC ?= gcc
+        LD = $(CC)
+        AR ?= ar
+        STRIP ?= strip
+        WINDRES ?= true
+        SYSCC := $(CC)
+        SYSLD := $(LD)
+        CC := nxdk-cc
+        LD := nxdk-link
+
+        CXBE = $(NXDK_DIR)/tools/cxbe/cxbe
+        EXTRACT_XISO = $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
+
         PLATFORM := Xbox
 
-        export XBE_TITLE := PlatinumSrc
-        export XBE_TITLEID := PQ-001
-        export XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
-        export GEN_XISO := $(XBE_TITLE).xiso.iso
-        export NXDK_SDL := y
-        SRCS := $(wildcard $(SRCDIR)/psrc_aux/*.c)
-        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_engine/*.c)
-        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_enginemain/*.c)
-        SRCS := $(SRCS) $(wildcard $(SRCDIR)/psrc_server/*.c)
-        SRCS := $(SRCS) $(wildcard $(SRCDIR)/stb/*.c)
-        export SRCS
-        export NXDK_SDL = y
+        XBE_TITLE := PlatinumSrc
+        XBE_TITLEID := PQ-001
+        XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
+        XBE_XTIMAGE := icons/engine.xpr
 
-        MKENV := ${MKENV} OUTPUT_DIR=xbox
-        CPPFLAGS := $(CPPFLAGS) -DSTBI_NO_SIMD -DPB_HAL_FONT
-        ifdef DEBUG
-            CFLAGS := $(CFLAGS) -Og -g
-            CPPFLAGS := $(CPPFLAGS) -DDBGLVL=$(DEBUG)
-            MKENV := ${MKENV} DEBUG=y
-        else
-            ifndef O
-                O = 2
-            endif
-            CFLAGS := $(CFLAGS) -O$(O)
-            ifndef NOLTO
-                MKENV := ${MKENV} LTO=y
-            endif
-        endif
+        XISO ?= $(XBE_TITLE).xiso.iso
+        XISODIR ?= $(OUTDIR)/xiso
 
-        export CFLAGS := $(CFLAGS) $(CPPFLAGS)
-        export LDFLAGS
+        XBOX.MKENV := $(XBOX.MKENV) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
+        XBOX.MKENV := $(XBOX.MKENV) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) FREETYPE_SRCS="" FREETYPE_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) SDL_TTF_SRCS="" SDL_TTF_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) SDL2TEST_SRCS="" SDL2TEST_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) LIBCXX_SRCS="" LIBCXX_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) LIBPNG_SRCS="" LIBPNG_OBJS=""
+        XBOX.MKENV := $(XBOX.MKENV) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
 
-        xbox-build:
-	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV}
+        NOSTRIP = y
 
-        xbox-clean:
-	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV} clean
-
-        xbox-distclean:
-	        @$(MAKE) --no-print-directory -f $(NXDK_DIR)/Makefile ${MKENV} distclean
-
-        .PHONY: xbox-build xbox-clean xbox-distclean
+        _default: default
+	        @$(nop)
     else
         .PHONY: error
         error:
@@ -150,19 +142,25 @@ endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
 OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 
-CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized -pthread -ffast-math
+CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
 CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
-LDFLAGS := $(LDFLAGS) -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
-LDLIBS := $(LDLIBS) -lm
+LDFLAGS := $(LDFLAGS)
+LDLIBS := $(LDLIBS)
 ifeq ($(CROSS),)
     LDLIBS := $(LDLIBS) -lpthread
 else ifeq ($(CROSS),win32)
-    CPPFLAGS := -D_WIN32_WINNT=0x0501
     LDFLAGS := $(LDFLAGS) -static
     LDLIBS := $(LDLIBS) -l:libwinpthread.a -lwinmm
+else ifeq ($(CROSS),xbox)
+    CPPFLAGS := -DSTBI_NO_SIMD -DPB_HAL_FONT
 endif
-ifdef DEBUG
-    LDFLAGS := $(LDFLAGS) -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+ifneq ($(CROSS),xbox)
+    CFLAGS := $(CFLAGS) -pthread -ffast-math
+    LDFLAGS := $(LDFLAGS) -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
+    LDLIBS := $(LDLIBS) -lm
+    ifdef DEBUG
+        LDFLAGS := $(LDFLAGS) -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+    endif
 endif
 
 define so
@@ -221,6 +219,10 @@ ifdef DEBUG
     ifeq ($(CROSS),win32)
         WRFLAGS := $(WRFLAGS) -DDBGLVL=$(DEBUG)
     endif
+    ifneq ($(CROSS),xbox)
+        LDFLAGS := $(LDFLAGS) -debug
+        XBOX.MKENV := $(XBOX.MKENV) DEBUG=y
+    endif
     NOSTRIP = y
     ifdef ASAN
         CFLAGS := $(CFLAGS) -fsanitize=address
@@ -234,16 +236,36 @@ else
     ifndef NOLTO
         CFLAGS := $(CFLAGS) -flto=auto
         LDFLAGS := $(LDFLAGS) -flto=auto
+        ifneq ($(CROSS),xbox)
+            XBOX.MKENV := $(XBOX.MKENV) LTO=y
+        endif
     endif
 endif
-ifdef NATIVE
-    CFLAGS := $(CFLAGS) -march=native -mtune=native
-endif
-ifdef M32
-    CPPFLAGS := $(CPPFLAGS) -DM32
-    ifeq ($(CROSS),win32)
-        WRFLAGS := $(WRFLAGS) -DM32
+ifneq ($(CROSS),xbox)
+    ifdef NATIVE
+        CFLAGS := $(CFLAGS) -march=native -mtune=native
     endif
+    ifdef M32
+        CPPFLAGS := $(CPPFLAGS) -DM32
+        ifeq ($(CROSS),win32)
+            WRFLAGS := $(WRFLAGS) -DM32
+        endif
+    endif
+endif
+
+ifeq ($(CROSS),xbox)
+
+_CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(_CFLAGS) $(CPPFLAGS))))
+_LDFLAGS := $(LDFLAGS)
+
+include $(NXDK_DIR)/lib/Makefile
+include $(NXDK_DIR)/lib/net/Makefile
+include $(NXDK_DIR)/lib/sdl/SDL2/Makefile.xbox
+include $(NXDK_DIR)/lib/sdl/Makefile
+
+CFLAGS := $(CFLAGS) $(NXDK_CFLAGS)
+LDFLAGS := $(LDFLAGS) $(NXDK_LDFLAGS)
+
 endif
 
 ifeq ($(MODULE),server)
@@ -255,16 +277,20 @@ BIN := psrc-toolbox
 else
 BIN := psrc
 endif
+BINPATH := $(BIN)
 ifdef DEBUG
-    BIN := $(BIN).debug
+    BINPATH := $(BINPATH).debug
     ifdef ASAN
-        BIN := $(BIN).asan
+        BINPATH := $(BINPATH).asan
     endif
 endif
 ifeq ($(CROSS),win32)
-    BIN := $(BIN).exe
+    BINPATH := $(BINPATH).exe
 endif
-BIN := $(OUTDIR)/$(BIN)
+ifeq ($(CROSS),xbox)
+    BINPATH := $(BINPATH).exe
+endif
+BINPATH := $(OUTDIR)/$(BINPATH)
 
 ifeq ($(CROSS),win32)
     ifneq ($(WINDRES),)
@@ -364,7 +390,7 @@ default: bin
 
 ifndef MKSUB
 $(OBJDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
-	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(OBJDIR) BIN=$@
+	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(OBJDIR) BINPATH=$@
 endif
 
 ifdef MKSUB
@@ -385,7 +411,10 @@ ifndef MKSUB
 a.dir.psrc_editor = $(call a,psrc_editor) $(call a,psrc_aux) $(a.dir.psrc_toolbox)
 a.dir.psrc_editormain = $(call a,psrc_editormain) $(call a,psrc_aux) $(a.dir.psrc_editor) $(a.dir.psrc_engine)
 
-a.dir.psrc_engine = $(call a,psrc_engine) $(call a,psrc_aux) $(call a,glad) $(call a,stb)
+a.dir.psrc_engine = $(call a,psrc_engine) $(call a,psrc_aux) $(call a,stb)
+ifneq ($(CROSS),xbox)
+    a.dir.psrc_engine += $(call a,glad)
+endif
 a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(call a,psrc_aux) $(a.dir.psrc_engine) $(a.dir.psrc_server)
 
 a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_aux)
@@ -404,37 +433,82 @@ else ifeq ($(MODULE),toolbox)
 a.list = $(a.dir.psrc_toolboxmain)
 endif
 
-$(BIN): $(OBJECTS) $(a.list)
+$(BINPATH): $(OBJECTS) $(a.list)
+ifeq ($(CROSS),xbox)
+	@echo Making NXDK libs...
+	@CFLAGS="$(_CFLAGS)"; LDFLAGS="$(_LDFLAGS)"; $(MAKE) --no-print-directory -C $(NXDK_DIR) ${XBOX.MKENV} main.exe $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib > $(null)
+	@echo Made NXDK libs
+endif
 	@echo Linking $(notdir $@)...
 ifeq ($(CROSS),win32)
 ifneq ($(WINDRES),)
 	@$(WINDRES) $(WRFLAGS) $(WRSRC) -o $(WROBJ)
 endif
 endif
+ifneq ($(CROSS),xbox)
 	@$(LD) $(LDFLAGS) $^ $(WROBJ) $(LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
+endif
+else
+	@$(LD) $(LDFLAGS) $^ $(NXDK_DIR)/lib/*.lib $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(LDLIBS) -out:$@ > $(null)
+	@objcopy --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 endif
 	@echo Linked $(notdir $@)
 
 else
 
-$(BIN): $(OBJECTS) | $(OUTDIR)
+$(BINPATH): $(OBJECTS) | $(OUTDIR)
 	@echo Building $(notdir $@)...
 	@$(AR) rcs $@ $^
 	@echo Built $(notdir $@)
 
 endif
 
-bin: $(BIN)
+ifndef MKSUB
+ifneq ($(CROSS),xbox)
+bin: $(BINPATH)
+else
+bin: $(XISO)
+endif
+else
+bin: $(BINPATH)
+endif
 	@$(nop)
 
 run: bin
-	@echo Running $(notdir $(BIN))...
-	@$(call run,$(BIN))
+	@echo Running $(notdir $(BINPATH))...
+	@$(call run,$(BINPATH))
 
 clean:
+ifeq ($(CROSS),xbox)
+	@$(MAKE) --no-print-directory -C $(NXDK_DIR) ${XBOX.MKENV} clean
+	@$(call rm,$(XISODIR)/default.xbe)
+endif
 	@$(call rmdir,$(OBJDIR))
-	@$(call rm,$(BIN))
+	@$(call rm,$(BINPATH))
 
 .PHONY: clean bin run
+
+ifeq ($(CROSS),xbox)
+
+$(XISODIR):
+	@$(call mkdir,$@)
+
+$(CXBE):
+	@echo Making NXDK Cxbe tool...
+	@CC=$(SYSCC); LD=$(SYSLD); unset CFLAGS; unset CPPFLAGS; unset LDFLAGS; unset LDLIBS; $(MAKE) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
+
+$(EXTRACT_XISO):
+	@echo Making NXDK extract-xiso tool...
+	@CC=$(SYSCC); LD=$(SYSLD); unset CFLAGS; unset CPPFLAGS; unset LDFLAGS; unset LDLIBS; $(MAKE) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
+
+$(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
+	@echo Relinking $@ from $<...
+	@$(CXBE) -OUT:$@ -TITLE:$(XBE_TITLE) -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
+
+$(XISO): $(XISODIR)/default.xbe $(EXTRACT_XISO) | $(XISODIR)
+	@echo Creating $@...
+	@$(EXTRACT_XISO) -c $(XISODIR) "$@" > $(null)
+
+endif

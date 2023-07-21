@@ -2,7 +2,12 @@
 #include "../psrc_aux/logging.h"
 //#include "../psrc_aux/threads.h"
 #if PLATFORM != PLAT_XBOX
+    // stuff to make sure i don't accidentally use gl things newer than 1.1
+    #if 1
+    #include "../.glad11/gl.h"
+    #else
     #include "../glad/gl.h"
+    #endif
 #else
     #include <pbkit/pbkit.h>
     #include <pbgl.h>
@@ -50,6 +55,7 @@ static void gl11_cleardepth(struct rendstate* r) {
     r->gl.gl11.depthstate = !r->gl.gl11.depthstate;
 }
 
+#if 0
 void render_gl_legacy(struct rendstate* r) {
     gl11_cleardepth(r);
     glLoadIdentity();
@@ -69,15 +75,16 @@ void render_gl_legacy(struct rendstate* r) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    // render transparent materials back to front with basic lighting
+    // TODO: render transparent materials back to front with basic lighting
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
     // TODO: render UI
 }
+#endif
 
-#if 0
+#if 1
 void render_gl_legacy(struct rendstate* r) {
     long lt = SDL_GetTicks();
     double dt = (double)(lt % 1000) / 1000.0;
@@ -352,8 +359,10 @@ static bool createWindow(struct rendstate* r) {
             }
             tmpstr[0] = (char*)glGetString(GL_VERSION);
             plog(LL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            #ifdef GL_SHADING_LANGUAGE_VERSION
             tmpstr[0] = (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
             plog(LL_INFO, "  GLSL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            #endif
             tmpstr[0] = (char*)glGetString(GL_VENDOR);
             plog(LL_INFO, "  Vendor string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             tmpstr[0] = (char*)glGetString(GL_RENDERER);
