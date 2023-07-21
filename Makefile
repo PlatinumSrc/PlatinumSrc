@@ -219,7 +219,8 @@ ifdef DEBUG
     ifeq ($(CROSS),win32)
         WRFLAGS := $(WRFLAGS) -DDBGLVL=$(DEBUG)
     endif
-    ifneq ($(CROSS),xbox)
+    ifeq ($(CROSS),xbox)
+        CFLAGS := -gdwarf-4
         LDFLAGS := $(LDFLAGS) -debug
         XBOX.MKENV := $(XBOX.MKENV) DEBUG=y
     endif
@@ -255,7 +256,7 @@ endif
 
 ifeq ($(CROSS),xbox)
 
-_CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(_CFLAGS) $(CPPFLAGS))))
+_CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(CFLAGS) $(CPPFLAGS))))
 _LDFLAGS := $(LDFLAGS)
 
 include $(NXDK_DIR)/lib/Makefile
@@ -452,6 +453,9 @@ ifndef NOSTRIP
 endif
 else
 	@$(LD) $(LDFLAGS) $^ $(NXDK_DIR)/lib/*.lib $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(LDLIBS) -out:$@ > $(null)
+ifneq ($(XBE_XTIMAGE),)
+	@objcopy --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
+endif
 	@objcopy --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 endif
 	@echo Linked $(notdir $@)

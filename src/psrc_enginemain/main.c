@@ -22,7 +22,7 @@
 #if PLATFORM == PLAT_XBOX
 __asm__ (
     ".section \"XTIMAGE\"\n"
-    ".incbin \"icons/engine.xpr\""
+    ".byte 0"
 );
 #endif
 
