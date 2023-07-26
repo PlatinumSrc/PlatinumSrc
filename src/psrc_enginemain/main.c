@@ -13,18 +13,12 @@
 #include <unistd.h>
 #include <stdio.h>
 #if PLATFORM == PLAT_XBOX
+    #include <xboxkrnl/xboxkrnl.h>
     #include <hal/video.h>
     #include <pbgl.h>
 #endif
 
 #include "../glue.h"
-
-#if PLATFORM == PLAT_XBOX
-__asm__ (
-    ".section \"XTIMAGE\"\n"
-    ".byte 0"
-);
-#endif
 
 char* curdir;
 char* maindir;
@@ -85,6 +79,36 @@ static void sigh(int sig) {
 
 #endif
 
+#if PLATFORM == PLAT_XBOX
+static void logMemUsage() {
+    MM_STATISTICS mstats = {.Length = sizeof(mstats)};
+    MmQueryStatistics(&mstats);
+    unsigned long mtotal = mstats.TotalPhysicalPages * PAGE_SIZE;
+    unsigned long mavail = mstats.AvailablePages * PAGE_SIZE;
+    unsigned long mused = mtotal - mavail;
+    mtotal = (uint64_t)mtotal * 1000 / 1024 * 1000 / 1024;
+    mavail = (uint64_t)mavail * 1000 / 1024 * 1000 / 1024;
+    mused = (uint64_t)mused * 1000 / 1024 * 1000 / 1024;
+    unsigned long mtotal_dec = (mtotal % 1000000) / 1000;
+    unsigned long mavail_dec = (mavail % 1000000) / 1000;
+    unsigned long mused_dec = (mused % 1000000) / 1000;
+    int mtotal_pad = 3;
+    int mavail_pad = 3;
+    int mused_pad = 3;
+    while (mtotal_pad > 1 && mtotal_dec % 10 == 0) {mtotal_dec /= 10; --mtotal_pad;}
+    while (mavail_pad > 1 && mavail_dec % 10 == 0) {mavail_dec /= 10; --mavail_pad;}
+    while (mused_pad > 1 && mused_dec % 10 == 0) {mused_dec /= 10; --mused_pad;}
+    mtotal /= 1000000;
+    mavail /= 1000000;
+    mused /= 1000000;
+    plog(
+        LL_INFO,
+        "Memory usage: %lu.%0*luMiB used out of %lu.%0*luMiB (%lu.%0*luMiB available)",
+        mused, mused_pad, mused_dec, mtotal, mtotal_pad, mtotal_dec, mavail, mavail_pad, mavail_dec
+    );
+}
+#endif
+
 struct states {
     struct rendstate renderer;
     struct inputstate input;
@@ -123,6 +147,10 @@ static int run(int argc, char** argv) {
     if (!startRenderer(&states->renderer)) return 1;
     if (!initInput(&states->input, &states->renderer)) return 1;
 
+    #if PLATFORM == PLAT_XBOX
+    logMemUsage();
+    #endif
+
     state_initstack(&statestack);
     state_push(&statestack, do_nothing, states);
     while (statestack.index >= 0) {
@@ -140,28 +168,29 @@ static int run(int argc, char** argv) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+static int bootstrap(int argc, char** argv) {
     #if PLATFORM != PLAT_XBOX
-        signal(SIGINT, sigh);
-        signal(SIGTERM, sigh);
-        #ifdef SIGQUIT
-        signal(SIGQUIT, sigh);
-        #endif
-        #ifdef SIGUSR1
-        signal(SIGUSR1, SIG_IGN);
-        #endif
-        #ifdef SIGUSR2
-        signal(SIGUSR2, SIG_IGN);
-        #endif
-        #ifdef SIGPIPE
-        signal(SIGPIPE, SIG_IGN);
-        #endif
-    #else
-        XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
+    signal(SIGINT, sigh);
+    signal(SIGTERM, sigh);
+    #ifdef SIGQUIT
+    signal(SIGQUIT, sigh);
     #endif
-
-    #if PLATFORM == PLAT_XBOX
-    pbgl_init(true);
+    #ifdef SIGUSR1
+    signal(SIGUSR1, SIG_IGN);
+    #endif
+    #ifdef SIGUSR2
+    signal(SIGUSR2, SIG_IGN);
+    #endif
+    #ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+    #endif
+    #else
+    int w = 640, h = 480, r = REFRESH_DEFAULT;
+    if (!XVideoSetMode(w, h, 32, r)) {
+        plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);
+        if (!XVideoSetMode((w = 640), (h = 480), 32, (r = REFRESH_DEFAULT))) return 1;
+    }
+    if (pbgl_init(true)) return 1;
     #endif
 
     int ret = run(argc, argv);
@@ -171,5 +200,13 @@ int main(int argc, char** argv) {
     #endif
     SDL_Quit();
 
+    return ret;
+}
+
+int main(int argc, char** argv) {
+    int ret = bootstrap(argc, argv);
+    #if PLATFORM == PLAT_XBOX
+    HalReturnToFirmware(HalQuickRebootRoutine);
+    #endif
     return ret;
 }

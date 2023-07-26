@@ -1,16 +1,18 @@
 # PlatinumSrc
-A WIP 90's style 3D engine<br>
+A WIP 3D game engine inspired by GoldSrc and Quake<br>
 
 ---
-**Build dependencies:**<br>
-```
-libogg
-libopus
-libopusfile
-libvorbis
-libvorbisfile
-SDL2
-```
+**Dependencies:**<br>
+- Building
+    - Linux, Windows
+        - SDL2
+        - zlib
+    - Xbox
+        - NXDK
+        - pbgl
+- Running
+    - Linux
+        - SDL2
 
 ---
 **Progress \(checked = done, <- = being worked on, ? = maybe\):**<br>
@@ -39,7 +41,7 @@ SDL2
 - [ ] Editor
 - [ ] Toolbox
 - [ ] File formats
-    - [ ] Compiled maps
+    - [ ] Compiled maps <-
         - [ ] Read PMF
         - [ ] Write PMF
     - [ ] Map projects

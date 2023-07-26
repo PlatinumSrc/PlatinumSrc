@@ -15,7 +15,6 @@
     #include <GL/glext.h>
     #ifndef GL_KHR_debug
         #define GL_KHR_debug 0
-    #else
     #endif
 #endif
 #include "../stb/stb_image.h"
@@ -34,6 +33,10 @@ const char* rendapi_names[] = {
     "OpenGL 3.3 (Advanced)",
     "OpenGL ES 3.0"
 };
+
+static void loadTexture(char* p) {
+    (void)p;
+}
 
 static void swapBuffers(struct rendstate* r) {
     #if PLATFORM != PLAT_XBOX

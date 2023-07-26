@@ -11,7 +11,7 @@ OUTDIR ?= .
 ifndef OS
     ifeq ($(CROSS),)
         CC ?= gcc
-        LD = $(CC)
+        LD := $(CC)
         AR ?= ar
         STRIP ?= strip
         WINDRES ?= true
@@ -20,24 +20,24 @@ ifndef OS
         else
             PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
         endif
-        SOSUF = .so
+        SOSUF := .so
     else ifeq ($(CROSS),win32)
         ifndef M32
-            CC = x86_64-w64-mingw32-gcc
-            LD = $(CC)
-            AR = x86_64-w64-mingw32-ar
-            STRIP = x86_64-w64-mingw32-strip
-            WINDRES = x86_64-w64-mingw32-windres
+            CC := x86_64-w64-mingw32-gcc
+            LD := $(CC)
+            AR := x86_64-w64-mingw32-ar
+            STRIP := x86_64-w64-mingw32-strip
+            WINDRES := x86_64-w64-mingw32-windres
             PLATFORM := Windows_x86_64
         else
-            CC = i686-w64-mingw32-gcc
-            LD = $(CC)
-            AR = i686-w64-mingw32-ar
-            STRIP = i686-w64-mingw32-strip
-            WINDRES = i686-w64-mingw32-windres
+            CC := i686-w64-mingw32-gcc
+            LD := $(CC)
+            AR := i686-w64-mingw32-ar
+            STRIP := i686-w64-mingw32-strip
+            WINDRES := i686-w64-mingw32-windres
             PLATFORM := Windows_i686
         endif
-        SOSUF = .dll
+        SOSUF := .dll
     else ifeq ($(CROSS),xbox)
         ifndef NXDK_DIR
             .PHONY: error
@@ -52,18 +52,14 @@ ifndef OS
 	            @exit 1
         endif
 
-        CC ?= gcc
-        LD = $(CC)
+        CC := nxdk-cc
+        LD := nxdk-link
         AR ?= ar
         STRIP ?= strip
         WINDRES ?= true
-        SYSCC := $(CC)
-        SYSLD := $(LD)
-        CC := nxdk-cc
-        LD := nxdk-link
 
-        CXBE = $(NXDK_DIR)/tools/cxbe/cxbe
-        EXTRACT_XISO = $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
+        CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
+        EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
 
         PLATFORM := Xbox
 
@@ -75,16 +71,19 @@ ifndef OS
         XISO ?= $(XBE_TITLE).xiso.iso
         XISODIR ?= $(OUTDIR)/xiso
 
-        XBOX.MKENV := $(XBOX.MKENV) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
-        XBOX.MKENV := $(XBOX.MKENV) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) FREETYPE_SRCS="" FREETYPE_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) SDL_TTF_SRCS="" SDL_TTF_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) SDL2TEST_SRCS="" SDL2TEST_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) LIBCXX_SRCS="" LIBCXX_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) LIBPNG_SRCS="" LIBPNG_OBJS=""
-        XBOX.MKENV := $(XBOX.MKENV) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
+        MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
+        MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) FREETYPE_SRCS="" FREETYPE_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) SDL_TTF_SRCS="" SDL_TTF_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) SDL2TEST_SRCS="" SDL2TEST_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) LIBCXX_SRCS="" LIBCXX_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) LIBPNG_SRCS="" LIBPNG_OBJS=""
+        MKENV.NXDK := $(MKENV.NXDK) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
 
-        NOSTRIP = y
+        NOSTRIP := y
+        NOLTO := y
+
+        EMULATOR ?= xemu -dvd_path
 
         _default: default
 	        @$(nop)
@@ -94,26 +93,26 @@ ifndef OS
 	        @echo Invalid cross-compilation target: $(CROSS)
 	        @exit 1
     endif
-    SHCMD = unix
+    SHCMD := unix
 else
-    CC = gcc
-    LD = $(CC)
-    AR = ar
-    STRIP = strip
-    WINDRES = windres
-    CROSS = win32
+    CC := gcc
+    LD := $(CC)
+    AR := ar
+    STRIP := strip
+    WINDRES := windres
+    CROSS := win32
     ifndef M32
         PLATFORM := Windows_x86_64
     else
         PLATFORM := Windows_i686
     endif
-    SOSUF = .dll
+    SOSUF := .dll
     ifdef MSYS2
-        SHCMD = unix
+        SHCMD := unix
     else
-        SHCMD = win32
+        SHCMD := win32
     endif
-    NOLTO = y
+    NOLTO := y
 endif
 
 ifeq ($(MODULE),engine)
@@ -140,26 +139,68 @@ else
     PLATFORMDIR := debug/$(PLATFORM)
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
-OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
+_OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 
-CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
-CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
-LDFLAGS := $(LDFLAGS)
-LDLIBS := $(LDLIBS)
+_CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
+_CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
+_LDFLAGS := $(LDFLAGS)
+_LDLIBS := $(LDLIBS)
+_WRFLAGS := $(WRFLAGS)
 ifeq ($(CROSS),)
-    LDLIBS := $(LDLIBS) -lpthread
+    _LDLIBS += -lpthread
 else ifeq ($(CROSS),win32)
-    LDFLAGS := $(LDFLAGS) -static
-    LDLIBS := $(LDLIBS) -l:libwinpthread.a -lwinmm
+    _LDFLAGS += -static
+    _LDLIBS := -l:libwinpthread.a -lwinmm
 else ifeq ($(CROSS),xbox)
-    CPPFLAGS := -DSTBI_NO_SIMD -DPB_HAL_FONT
+    _CPPFLAGS += -DSTBI_NO_SIMD -DPB_HAL_FONT
+endif
+ifndef DEBUG
+    _CPPFLAGS += -DNDEBUG
+    ifndef O
+        O := 2
+    endif
+    _CFLAGS += -O$(O) -fno-exceptions
+    ifndef NOLTO
+        _CFLAGS += -flto=auto
+        ifneq ($(CROSS),xbox)
+            _LDFLAGS += -flto=auto
+        else
+            MKENV.NXDK := $(MKENV.NXDK) LTO=y
+        endif
+    endif
+else
+    _CPPFLAGS += -DDBGLVL=$(DEBUG)
+    ifneq ($(CROSS),xbox)
+        _CFLAGS += -Og -g
+    else
+        _CFLAGS += -g -gdwarf-4
+        _LDFLAGS += -debug
+        MKENV.NXDK := $(MKENV.NXDK) DEBUG=y
+    endif
+    ifeq ($(CROSS),win32)
+        _WRFLAGS += -DDBGLVL=$(DEBUG)
+    endif
+    NOSTRIP := y
+    ifdef ASAN
+        _CFLAGS += -fsanitize=address
+        _LDFLAGS += -fsanitize=address
+    endif
 endif
 ifneq ($(CROSS),xbox)
-    CFLAGS := $(CFLAGS) -pthread -ffast-math
-    LDFLAGS := $(LDFLAGS) -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
-    LDLIBS := $(LDLIBS) -lm
+    _CFLAGS += -pthread -ffast-math
+    _LDFLAGS := -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
+    _LDLIBS := -lm
     ifdef DEBUG
-        LDFLAGS := $(LDFLAGS) -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+        _LDFLAGS := -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+    endif
+    ifdef NATIVE
+        _CFLAGS += -march=native -mtune=native
+    endif
+    ifdef M32
+        _CPPFLAGS += -DM32
+        ifeq ($(CROSS),win32)
+            _WRFLAGS += -DM32
+        endif
     endif
 endif
 
@@ -195,77 +236,36 @@ ifeq ($(CROSS),win32)
 endif
 
 ifeq ($(MODULE),engine)
-    CPPFLAGS := $(CPPFLAGS) -DMODULE_ENGINE
-    WRFLAGS := $(WRFLAGS) -DMODULE_ENGINE
-    CPPFLAGS := $(CPPFLAGS) $(CPPFLAGS.psrc_enginemain)
-    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_enginemain) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
+    _CPPFLAGS += -DMODULE_ENGINE
+    _WRFLAGS += -DMODULE_ENGINE
+    _CPPFLAGS += $(CPPFLAGS.psrc_enginemain)
+    _LDLIBS += $(LDLIBS.psrc_enginemain) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
 else ifeq ($(MODULE),server)
-    CPPFLAGS := $(CPPFLAGS) -DMODULE_SERVER
-    WRFLAGS := $(WRFLAGS) -DMODULE_SERVER
-    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_server)
+    _CPPFLAGS += -DMODULE_SERVER
+    _WRFLAGS += -DMODULE_SERVER
+    _LDLIBS += $(LDLIBS.psrc_server)
 else ifeq ($(MODULE),editor)
-    CPPFLAGS := $(CPPFLAGS) -DMODULE_EDITOR
-    WRFLAGS := $(WRFLAGS) -DMODULE_EDITOR
-    CPPFLAGS := $(CPPFLAGS) $(CPPFLAGS.psrc_editormain)
-    LDLIBS := $(LDLIBS) $(LDLIBS.psrc_editormain) $(LDLIBS.psrc_editor) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
+    _CPPFLAGS += -DMODULE_EDITOR
+    _WRFLAGS += -DMODULE_EDITOR
+    _CPPFLAGS += $(CPPFLAGS.psrc_editormain)
+    _LDLIBS += $(LDLIBS.psrc_editormain) $(LDLIBS.psrc_editor) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
 else ifeq ($(MODULE),toolbox)
-    CPPFLAGS := $(CPPFLAGS) -DMODULE_TOOLBOX
-    WRFLAGS := $(WRFLAGS) -DMODULE_TOOLBOX
-endif
-
-ifdef DEBUG
-    CFLAGS := $(CFLAGS) -Og -g
-    CPPFLAGS := $(CPPFLAGS) -DDBGLVL=$(DEBUG)
-    ifeq ($(CROSS),win32)
-        WRFLAGS := $(WRFLAGS) -DDBGLVL=$(DEBUG)
-    endif
-    ifeq ($(CROSS),xbox)
-        CFLAGS := -gdwarf-4
-        LDFLAGS := $(LDFLAGS) -debug
-        XBOX.MKENV := $(XBOX.MKENV) DEBUG=y
-    endif
-    NOSTRIP = y
-    ifdef ASAN
-        CFLAGS := $(CFLAGS) -fsanitize=address
-        LDFLAGS := $(LDFLAGS) -fsanitize=address
-    endif
-else
-    ifndef O
-        O = 2
-    endif
-    CFLAGS := $(CFLAGS) -O$(O) -fno-exceptions
-    ifndef NOLTO
-        CFLAGS := $(CFLAGS) -flto=auto
-        LDFLAGS := $(LDFLAGS) -flto=auto
-        ifneq ($(CROSS),xbox)
-            XBOX.MKENV := $(XBOX.MKENV) LTO=y
-        endif
-    endif
-endif
-ifneq ($(CROSS),xbox)
-    ifdef NATIVE
-        CFLAGS := $(CFLAGS) -march=native -mtune=native
-    endif
-    ifdef M32
-        CPPFLAGS := $(CPPFLAGS) -DM32
-        ifeq ($(CROSS),win32)
-            WRFLAGS := $(WRFLAGS) -DM32
-        endif
-    endif
+    _CPPFLAGS += -DMODULE_TOOLBOX
+    _WRFLAGS += -DMODULE_TOOLBOX
 endif
 
 ifeq ($(CROSS),xbox)
 
-_CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(CFLAGS) $(CPPFLAGS))))
-_LDFLAGS := $(LDFLAGS)
+__CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(_CFLAGS) $(_CPPFLAGS))))
+__LDFLAGS := $(_LDFLAGS)
 
 include $(NXDK_DIR)/lib/Makefile
 include $(NXDK_DIR)/lib/net/Makefile
 include $(NXDK_DIR)/lib/sdl/SDL2/Makefile.xbox
 include $(NXDK_DIR)/lib/sdl/Makefile
 
-CFLAGS := $(CFLAGS) $(NXDK_CFLAGS)
-LDFLAGS := $(LDFLAGS) $(NXDK_LDFLAGS)
+_CFLAGS := $(_CFLAGS) $(NXDK_CFLAGS)
+_LDFLAGS := $(_LDFLAGS) $(NXDK_LDFLAGS)
 
 endif
 
@@ -296,15 +296,24 @@ BINPATH := $(OUTDIR)/$(BINPATH)
 ifeq ($(CROSS),win32)
     ifneq ($(WINDRES),)
         WRSRC := $(SRCDIR)/winver.rc
-        WROBJ := $(OBJDIR)/winver.o
+        WROBJ := $(_OBJDIR)/winver.o
     endif
 endif
+
+ifeq ($(CROSS),xbox)
+TARGET = $(XISO)
+else
+TARGET = $(BINPATH)
+endif
+
+else
+
+TARGET = $(BINPATH)
 
 endif
 
 SOURCES := $(wildcard $(SRCDIR)/*.c)
-DEPENDS := $(wildcard $(SRCDIR)/*.h)
-OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
+OBJECTS := $(patsubst $(SRCDIR)/%.c,$(_OBJDIR)/%.o,$(SOURCES))
 
 export SHCMD
 
@@ -314,12 +323,11 @@ export CROSS
 export CC
 export AR
 
-export CFLAGS
-export CPPFLAGS
+export _CFLAGS
+export _CPPFLAGS
 
 export SRCDIR
-export OBJDIR
-export OUTDIR
+export _OBJDIR
 export PLATFORM
 export PLATFORMDIR
 
@@ -339,9 +347,15 @@ endef
 define rmdir
 if [ -d '$(1)' ]; then echo 'Removing $(1)...'; rm -rf '$(1)'; fi; true
 endef
-define run
-./'$(1)'
+ifndef EMULATOR
+define exec
+'$(1)'
 endef
+else
+define exec
+$(EMULATOR) '$(1)'
+endef
+endif
 else ifeq ($(SHCMD),win32)
 define mkdir
 if not exist "$(call mkpath,$(1))" echo Creating $(1)... & md "$(call mkpath,$(1))"
@@ -352,14 +366,20 @@ endef
 define rmdir
 if exist "$(call mkpath,$(1))" echo Removing $(1)... & rmdir /S /Q "$(call mkpath,$(1))"
 endef
-define run
-.\\$(1)
+ifndef EMULATOR
+define exec
+$(1)
 endef
+else
+define exec
+$(EMULATOR) "$(1)"
+endef
+endif
 endif
 
 ifeq ($(SHCMD),unix)
 define nop
-echo -n > /dev/null
+:
 endef
 define null
 /dev/null
@@ -381,30 +401,28 @@ endif
 .SECONDEXPANSION:
 
 define a
-$(OBJDIR)/lib$(1).a
+$(_OBJDIR)/lib$(1).a
 endef
 define inc
-$$(patsubst noexist\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(CFLAGS) $(CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT noexist))))
+$$(patsubst noexist\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT noexist))))
 endef
 
-default: bin
+default: target
 
 ifndef MKSUB
-$(OBJDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
-	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) OBJDIR=$(OBJDIR)/$(notdir $*) OUTDIR=$(OBJDIR) BINPATH=$@
+$(_OBJDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
+	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) _OBJDIR=$(_OBJDIR)/$(notdir $*) OUTDIR=$(_OBJDIR) BINPATH=$@
 endif
 
-ifdef MKSUB
 $(OUTDIR):
 	@$(call mkdir,$@)
-endif
 
-$(OBJDIR):
+$(_OBJDIR):
 	@$(call mkdir,$@)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
+$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 	@echo Compiling $(notdir $<)...
-	@$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+	@$(CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
 	@echo Compiled $(notdir $<)
 
 ifndef MKSUB
@@ -437,22 +455,22 @@ endif
 $(BINPATH): $(OBJECTS) $(a.list)
 ifeq ($(CROSS),xbox)
 	@echo Making NXDK libs...
-	@CFLAGS="$(_CFLAGS)"; LDFLAGS="$(_LDFLAGS)"; $(MAKE) --no-print-directory -C $(NXDK_DIR) ${XBOX.MKENV} main.exe $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib > $(null)
+	@$(MAKE) --no-print-directory -C $(NXDK_DIR) CFLAGS='$(__CFLAGS)' LDFLAGS='$(__LDFLAGS)' ${MKENV.NXDK} main.exe
 	@echo Made NXDK libs
 endif
 	@echo Linking $(notdir $@)...
 ifeq ($(CROSS),win32)
 ifneq ($(WINDRES),)
-	@$(WINDRES) $(WRFLAGS) $(WRSRC) -o $(WROBJ)
+	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ)
 endif
 endif
 ifneq ($(CROSS),xbox)
-	@$(LD) $(LDFLAGS) $^ $(WROBJ) $(LDLIBS) -o $@
+	@$(LD) $(_LDFLAGS) $^ $(WROBJ) $(_LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
 endif
 else
-	@$(LD) $(LDFLAGS) $^ $(NXDK_DIR)/lib/*.lib $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(LDLIBS) -out:$@ > $(null)
+	@$(LD) $(_LDFLAGS) $^ $(NXDK_DIR)/lib/*.lib $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
 	@objcopy --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
@@ -469,30 +487,24 @@ $(BINPATH): $(OBJECTS) | $(OUTDIR)
 
 endif
 
-ifndef MKSUB
-ifneq ($(CROSS),xbox)
-bin: $(BINPATH)
-else
-bin: $(XISO)
-endif
-else
-bin: $(BINPATH)
-endif
+target: $(TARGET)
 	@$(nop)
 
-run: bin
-	@echo Running $(notdir $(BINPATH))...
-	@$(call run,$(BINPATH))
+run: $(TARGET)
+	@echo Running $(notdir $(TARGET))...
+	@$(call exec,$(TARGET))
 
 clean:
 ifeq ($(CROSS),xbox)
-	@$(MAKE) --no-print-directory -C $(NXDK_DIR) ${XBOX.MKENV} clean
+	@echo Cleaning NXDK...
+	@$(MAKE) --no-print-directory -C $(NXDK_DIR) ${MKENV.NXDK} clean
 	@$(call rm,$(XISODIR)/default.xbe)
-endif
-	@$(call rmdir,$(OBJDIR))
 	@$(call rm,$(BINPATH))
+endif
+	@$(call rmdir,$(_OBJDIR))
+	@$(call rm,$(TARGET))
 
-.PHONY: clean bin run
+.PHONY: clean target run
 
 ifeq ($(CROSS),xbox)
 
@@ -501,11 +513,11 @@ $(XISODIR):
 
 $(CXBE):
 	@echo Making NXDK Cxbe tool...
-	@CC=$(SYSCC); LD=$(SYSLD); unset CFLAGS; unset CPPFLAGS; unset LDFLAGS; unset LDLIBS; $(MAKE) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
+	@$(MAKE) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
 
 $(EXTRACT_XISO):
 	@echo Making NXDK extract-xiso tool...
-	@CC=$(SYSCC); LD=$(SYSLD); unset CFLAGS; unset CPPFLAGS; unset LDFLAGS; unset LDLIBS; $(MAKE) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
+	@$(MAKE) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
 
 $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 	@echo Relinking $@ from $<...

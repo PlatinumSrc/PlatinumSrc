@@ -35,16 +35,18 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     #if PLATFORM != PLAT_XBOX
     writedate = !isatty(fileno(f));
     #else
-    // writing to stdout or stderr causes a crash
-    if (f == stdout || f == stderr) return;
     writedate = true;
     #endif
     if (writedate) {
-        static char tmpstr[4];
+        static char tmpstr[32];
         time_t t = time(NULL);
         struct tm* bdt = localtime(&t);
-        strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
-        fputs(tmpstr, f);
+        if (bdt) {
+            strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
+            fputs(tmpstr, f);
+        } else {
+            fputs("[ ? ]: ", f);
+        }
     }
     switch (lvl & 0xFF) {
         default:;
@@ -107,6 +109,17 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
 bool plog__wrote = true;
 
 void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned line) {
+    #if 0
+    static char tmpstr[32];
+    time_t t = time(NULL);
+    struct tm* bdt = localtime(&t);
+    if (bdt) {
+        strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
+        pb_print(tmpstr);
+    } else {
+        pb_print("[ ? ]: ");
+    }
+    #endif
     switch (lvl & 0xFF) {
         default:;
             break;

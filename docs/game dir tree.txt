@@ -5,11 +5,11 @@
                 <See p3m.txt>
             ...
         music/
-            <Name>.{wav|flac|mp3|ogg}
+            <Name>.{wav|ogg}
             ...
         sounds/
             <Name>/
-                <Variant name or number>.{wav|flac|mp3|ogg}
+                <Variant name or number>.{wav|ogg}
                 ...
             ...
         textures/
