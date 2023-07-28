@@ -1,0 +1,20 @@
+<prefix> <path>
+
+prefix: { <self prefix> | <builtin prefix> | <common prefix> | <engine prefix> | <game prefix> }
+
+self prefix: [ "self" ] ":" (Access resources in <base dir>/<current game dir>/.)
+builtin prefix: "builtin:" (Access resources embedded in the engine.)
+common prefix: "common:" (Access resources in <base dir>/common/.)
+engine prefix: "engine:" (Access resources in <base dir>/engine/.)
+game prefix: "game:" <game dir> "/" (Access resources in <base dir>/<game dir>/.)
+
+path: Path to the resource to access. Extensions are added automatically. For entities, the
+      extension is .txt. For maps, the extension is .pmf. For materials, the extension is .txt. For
+      models, the extensions are .p3m then .obj. For props, the extension is .txt. For scripts, the
+      extensions are .script then .txt. For sounds the extensions are .ogg then .wav. For textures,
+      the extensions are .png, .jpg, .tga, .bmp, then no extension.
+
+game dir: A directory in <base dir>/games/.
+current game dir: The directory in <base dir>/games/ where the current game resides.
+
+base dir: The directory where the executable resides.

@@ -10,7 +10,7 @@
 #endif
 
 #include <stdbool.h>
-#include <inttypes.h>
+#include <stdint.h>
 
 enum rendapi {
     RENDAPI__INVAL = -1,

@@ -1,0 +1,27 @@
+Game dirs:
+
+    <Base dir>/
+        <Game dir>/
+            entities/ - File extension must be .txt. See entities.txt for details.
+            maps/ - Maps should be named using a [<Abbreviated game name or game mode>_]<Name> scheme and must have the
+                    .pmf file extension.
+            models/ - File extension must be .p3m or .obj.
+            music/ - File extension must be .wav or .ogg.
+            props/ - File extension must be .txt. See props.txt for details.
+            scripts/ - File extension must be .script.
+            sounds/ - File extension must be .wav or .ogg.
+            textures/ - File extension must be one of .png, .jpg, .tga, or .bmp.
+            main.script - The script used to start the game (this should typically display a splash screen then load
+                          the main menu).
+
+User data dirs:
+
+    <Config dir>/
+        autoexec.txt - Console commands to run on startup (runs after autoexec.txt in <Engine config dir>).
+
+    <Data dir>/
+
+    <Engine config dir>/
+        autoexec.txt - Console commands to run on startup (runs before autoexec.txt in <Config dir>).
+
+    <Engine Data dir>/

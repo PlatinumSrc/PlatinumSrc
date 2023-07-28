@@ -1,0 +1,3 @@
+base==:materials/wood        # Use values from given material as defaults
+texture=:materials/planks
+
