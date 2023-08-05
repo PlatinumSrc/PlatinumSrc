@@ -2,6 +2,7 @@
 #define AUX_LOGGING_H
 
 #include "../platform.h"
+#include "threading.h"
 
 #include <string.h>
 #include <errno.h>
@@ -21,19 +22,28 @@ enum loglevel {
 #define LE_CANTOPEN(p) "Failed to open %s: %s", (p), strerror(errno)
 #define LE_RECVNULL "Received NULL"
 
+extern mutex_t loglock;
+
+bool initLogging(void);
 void plog__write(enum loglevel, const char*, const char*, unsigned, char*, ...);
 #if PLATFORM != PLAT_XBOX
-    #define plog(lvl, ...) plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
+    #define plog(lvl, ...) do {\
+        lockMutex(&loglock);\
+        plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\
+        unlockMutex(&loglock);\
+    } while (0)
 #else
     #include <pbkit/pbkit.h>
     #include <stdbool.h>
     extern bool plog__wrote;
     void plog__info(enum loglevel, const char*, const char*, unsigned);
     #define plog(lvl, ...) do {\
+        lockMutex(&loglock);\
         plog__info(lvl, __func__, __FILE__, __LINE__);\
         pb_print(__VA_ARGS__); pb_print("\n");\
         plog__wrote = true;\
         plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\
+        unlockMutex(&loglock);\
     } while (0)
 #endif
 void plog_setfile(char*);

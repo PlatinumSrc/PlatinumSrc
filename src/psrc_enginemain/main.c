@@ -23,7 +23,7 @@
 char* curdir;
 char* maindir;
 
-void findDirs() {
+void findDirs(void) {
     #if PLATFORM != PLAT_XBOX
     maindir = SDL_GetBasePath();
     if (!maindir) {
@@ -80,7 +80,7 @@ static void sigh(int sig) {
 #endif
 
 #if PLATFORM == PLAT_XBOX
-static void logMemUsage() {
+static void logMemUsage(void) {
     MM_STATISTICS mstats = {.Length = sizeof(mstats)};
     MmQueryStatistics(&mstats);
     unsigned long mtotal = mstats.TotalPhysicalPages * PAGE_SIZE;
@@ -122,6 +122,8 @@ static void do_nothing(struct statestack* state) {
 static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
+
+    initLogging();
 
     findDirs();
 

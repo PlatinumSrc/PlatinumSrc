@@ -1,5 +1,5 @@
 #include "logging.h"
-//#include "../psrc_aux/threads.h"
+#include "threading.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -7,12 +7,17 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-//static pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
+mutex_t loglock;
+
+bool initLogging(void) {
+    if (!createMutex(&loglock)) return false;
+    return true;
+}
 
 static FILE* logfile = NULL;
 
 void plog_setfile(char* f) {
-    //pthread_mutex_lock(&loglock);
+    lockMutex(&loglock);
     if (logfile) {
         fclose(logfile);
     }
@@ -22,12 +27,12 @@ void plog_setfile(char* f) {
     } else {
         logfile = fopen(f, "w");
         if (!logfile) {
-            //pthread_mutex_unlock(&loglock);
+            unlockMutex(&loglock);
             plog(LL_WARN | LF_FUNC, LE_CANTOPEN(f));
             return;
         }
     }
-    //pthread_mutex_unlock(&loglock);
+    unlockMutex(&loglock);
 }
 
 static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, char* s, va_list v) {
@@ -92,7 +97,6 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
             f = stderr;
             break;
     }
-    //pthread_mutex_lock(&loglock);
     va_start(v, s);
     writelog(lvl, f, func, file, line, s, v);
     va_end(v);
@@ -101,7 +105,6 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         writelog(lvl, logfile, func, file, line, s, v);
         va_end(v);
     }
-    //pthread_mutex_unlock(&loglock);
 }
 
 #if PLATFORM == PLAT_XBOX
