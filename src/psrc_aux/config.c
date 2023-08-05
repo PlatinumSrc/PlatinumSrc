@@ -90,7 +90,7 @@ static void interpfinal(char* s, struct charbuf* b) {
     }
 }
 
-struct cfg* cfg_open(char* p) {
+struct cfg* cfg_open(const char* p) {
     if (isFile(p) < 1) {
         plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p));
         return NULL;

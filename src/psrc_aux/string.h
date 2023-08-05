@@ -9,7 +9,7 @@ struct charbuf {
     int len;
 };
 
-char* strcombine(char*, ...);
+char* strcombine(const char*, ...);
 
 static inline void cb_init(struct charbuf* b, int sz) {
     if (sz < 1) sz = 1;
@@ -24,13 +24,13 @@ static inline void cb_add(struct charbuf* b, char c) {
         b->data = realloc(b->data, b->size);
     }
 }
-static inline void cb_addstr(struct charbuf* b, char* s) {
+static inline void cb_addstr(struct charbuf* b, const char* s) {
     // TODO: make it so that this function instead will see how much space is
     //       left before a realloc and manually copy up to that amount of chars
     //       before performing a realloc
     while(*s) cb_add(b, *(s++));
 }
-static inline void cb_addpartstr(struct charbuf* b, char* s, long l) {
+static inline void cb_addpartstr(struct charbuf* b, const char* s, long l) {
     for (long i = 0; i < l; ++i) {
         cb_add(b, *(s++));
     }

@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-int isFile(char* path);
+int isFile(const char* path);
 long getFileSize(FILE* file, bool close);
-char* mkpath(char*, ...);
+char* mkpath(const char*, ...);
 
 #endif

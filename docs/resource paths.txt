@@ -1,12 +1,13 @@
 <prefix> <path>
 
-prefix: { <self prefix> | <builtin prefix> | <common prefix> | <engine prefix> | <game prefix> }
+prefix: { <self prefix> | <builtin prefix> | <common prefix> | <engine prefix> | <game prefix> | <null prefix> }
 
 self prefix: [ "self" ] ":" (Access resources in <base dir>/<current game dir>/.)
 builtin prefix: "builtin:" (Access resources embedded in the engine.)
 common prefix: "common:" (Access resources in <base dir>/common/.)
 engine prefix: "engine:" (Access resources in <base dir>/engine/.)
 game prefix: "game:" <game dir> "/" (Access resources in <base dir>/<game dir>/.)
+null prefix: "null" (Don't load a resource.)
 
 path: Path to the resource to access. Extensions are added automatically. For entities, the
       extension is .txt. For maps, the extension is .pmf. For materials, the extension is .txt. For

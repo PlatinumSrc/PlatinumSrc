@@ -455,7 +455,7 @@ endif
 $(BINPATH): $(OBJECTS) $(a.list)
 ifeq ($(CROSS),xbox)
 	@echo Making NXDK libs...
-	@$(MAKE) --no-print-directory -C $(NXDK_DIR) CFLAGS='$(__CFLAGS)' LDFLAGS='$(__LDFLAGS)' ${MKENV.NXDK} main.exe
+	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; $(MAKE) --no-print-directory -C $(NXDK_DIR) ${MKENV.NXDK} main.exe
 	@echo Made NXDK libs
 endif
 	@echo Linking $(notdir $@)...

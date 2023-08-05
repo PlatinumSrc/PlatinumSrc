@@ -6,7 +6,7 @@
 #include <stdarg.h>
 
 // inefficient but it works
-char* strcombine(char* s, ...) {
+char* strcombine(const char* s, ...) {
     struct charbuf b;
     cb_init(&b, 256);
     va_list v;

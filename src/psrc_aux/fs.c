@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-int isFile(char* p) {
+int isFile(const char* p) {
     #if PLATFORM != PLAT_XBOX
         struct stat s;
         if (stat(p, &s)) return -1;
@@ -43,7 +43,7 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
-static long trimsep(char* s) {
+static long trimsep(const char* s) {
     long len = 0, sub = 0;
     char c;
     #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
@@ -80,7 +80,7 @@ static long trimsep(char* s) {
     }
     return len - sub;
 }
-char* mkpath(char* s, ...) {
+char* mkpath(const char* s, ...) {
     if (!s) return NULL;
     struct charbuf b;
     cb_init(&b, 256);

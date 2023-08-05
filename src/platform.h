@@ -47,6 +47,8 @@
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATSTR "Unknown"
+    #warning Unknown platform. \
+    This will probably result in a broken build.
 #endif
 
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64)
@@ -64,6 +66,8 @@
 #else
     #define ARCH ARCH_UNKNOWN
     #define ARCHSTR "Unknown"
+    #warning Unknown OS. \
+    This will probably result in a broken build.
 #endif
 
 #endif

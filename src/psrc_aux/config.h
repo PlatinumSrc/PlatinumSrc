@@ -22,12 +22,12 @@ struct cfg {
     struct cfg_sect* sectdata;
 };
 
-struct cfg* cfg_open(char* path);
-char* cfg_getvar(struct cfg*, char* sect, char* var);
-bool cfg_getvarto(struct cfg*, char* sect, char* var, char* data, size_t size);
-void cfg_setvar(struct cfg*, char* sect, char* var, bool overwrite);
-void cfg_delvar(struct cfg*, char* sect, char* var);
-void cfg_write(struct cfg*, char* path);
+struct cfg* cfg_open(const char* path);
+char* cfg_getvar(struct cfg*, const char* sect, const char* var);
+bool cfg_getvarto(struct cfg*, const char* sect, const char* var, const char* data, const size_t size);
+void cfg_setvar(struct cfg*, const char* sect, const char* var, const bool overwrite);
+void cfg_delvar(struct cfg*, const char* sect, const char* var);
+void cfg_write(struct cfg*, const char* path);
 void cfg_close(struct cfg*);
 
 #endif
