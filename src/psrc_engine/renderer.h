@@ -3,6 +3,8 @@
 
 #include "../platform.h"
 
+#include "../cglm/cglm.h"
+
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
 #else
