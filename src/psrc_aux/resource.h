@@ -4,84 +4,126 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum restype {
-    RES__INVAL,
-    RES_ENT, // entity
-    RES_MAP, // map
-    RES_MAT, // material
-    RES_MDL, // model
-    RES_PRP, // prop
-    RES_SCR, // script
-    RES_SND, // sound
-    RES_TEX, // texture
-    RES__COUNT,
+enum rctype {
+    RC__INVAL,
+    RC_ENTITY,
+    RC_MAP,
+    RC_MATERIAL,
+    RC_MODEL,
+    RC_PROP,
+    RC_SCRIPT,
+    RC_SOUND,
+    RC_TEXTURE,
+    RC__COUNT,
 };
 
-struct resource;
-
-enum res_tex_format {
-    RES_TEX_FRMT_W = 1,
-    RES_TEX_FRMT_WA,
-    RES_TEX_FRMT_RGB,
-    RES_TEX_FRMT_RGBA,
+enum rc_texture_frmt {
+    RC_TEXTURE_FRMT_W = 1, // monochrome
+    RC_TEXTURE_FRMT_WA, // monochrome with alpha
+    RC_TEXTURE_FRMT_RGB,
+    RC_TEXTURE_FRMT_RGBA,
 };
-struct res_tex {
-    int w; // width
-    int h; // height
+struct __attribute__((packed)) rc_texture {
+    int width;
+    int height;
     union {
-        enum res_tex_format f; // format
-        int c; // channels
+        enum rc_texture_frmt format;
+        int channels;
     };
-    const uint8_t* d; // data
+    const uint8_t* data;
 };
-enum resopt_tex_quality {
-    RESOPT_TEX_QLT_HIGH, // 1x size
-    RESOPT_TEX_QLT_MED, // 0.5x size
-    RESOPT_TEX_QLT_LOW, // 0.25x size
+enum rcopt_texture_qlt {
+    RCOPT_TEXTURE_QLT_HIGH, // 1x size
+    RCOPT_TEXTURE_QLT_MED, // 0.5x size
+    RCOPT_TEXTURE_QLT_LOW, // 0.25x size
 };
-struct resopt_tex {
+struct __attribute__((packed)) rcopt_texture {
     bool needsaplha;
-    enum resopt_tex_quality quality;
+    enum rcopt_texture_qlt quality;
 };
 
-struct res_mat {
+struct __attribute__((packed)) rc_material {
     float color[3];
-    struct resource* tex;
-    //struct resource* bumpmap;
+    const struct rc_texture* texture;
+    //const struct rc_texture* bumpmap;
 };
-struct resopt_mat {
+struct __attribute__((packed)) rcopt_material {
     bool needsaplha;
-    enum resopt_tex_quality quality;
+    enum rcopt_texture_qlt quality;
 };
 
-struct res_mdl_part {
-    struct resource* mat;
+struct __attribute__((packed)) rc_model_part {
+    const struct rc_material* material;
 };
-struct res_mdl {
+struct __attribute__((packed)) rc_model {
     unsigned parts;
-    struct res_mdl_part* partdata;
+    const struct rc_model_part* partdata;
 };
-struct resopt_mdl {
-    enum resopt_tex_quality tex_quality;
-};
-
-struct res_ent {
-    struct resource* mdl;
-    struct resource* scr;
+struct __attribute__((packed)) rcopt_model {
+    enum rcopt_texture_qlt texture_quality;
 };
 
-struct res_map {
+struct __attribute__((packed)) rc_entity {
+    const struct rc_model* model;
+    const struct rc_script* script;
+};
+
+struct __attribute__((packed)) rc_map {
     
 };
-struct resopt_map {
-    enum resopt_tex_quality tex_quality;
+enum rcopt_map_loadsect {
+    RCOPT_MAP_LOADSECT_ALL,
+    RCOPT_MAP_LOADSECT_CLIENT,
+    RCOPT_MAP_LOADSECT_SERVER,
+};
+struct __attribute__((packed)) rcopt_map {
+    enum rcopt_map_loadsect loadsections;
+    enum rcopt_texture_qlt texture_quality;
 };
 
-struct resource {
-    enum restype type;
+struct __attribute__((packed)) rcheader {
+    enum rctype type;
     int refs;
-    void* data;
-    void* opt;
 };
+
+union __attribute__((packed)) resource {
+    const void* ptr;
+    const struct rc_entity* entity;
+    const struct rc_map* map;
+    const struct rc_material* material;
+    const struct rc_model* model;
+    //const struct rc_prop* prop;
+    //const struct rc_script* script;
+    //const struct rc_sound* sound;
+    const struct rc_texture* texture;
+};
+
+union __attribute__((packed)) rcopt {
+    const void* ptr;
+    //const struct rcopt_entity entity;
+    const struct rcopt_map map;
+    const struct rcopt_material material;
+    const struct rcopt_model model;
+    //const struct rcopt_prop prop;
+    //const struct rcopt_script script;
+    //const struct rcopt_sound sonud;
+    const struct rcopt_texture texture;
+};
+
+enum rcreap {
+    // Get the memory usage under the specified amount (default is 50%) by reaping unused resources.
+    RCREAP_QUICK,
+    // Get the memory usage under the specified amount by reaping unused resources in the order of last accessed to
+    // first accessed.
+    RCREAP_SHALLOW,
+    // Reap all the unused resources.
+    RCREAP_DEEP,
+};
+
+union resource loadResource(enum rctype type, char* path, union rcopt* opt);
+void freeResource_internal(union resource);
+void resourceReaper(enum rcreap level);
+
+#define freeResource(r) freeResource_internal((union resource){.ptr = (r)})
 
 #endif

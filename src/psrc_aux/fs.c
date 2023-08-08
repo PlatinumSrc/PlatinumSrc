@@ -6,7 +6,7 @@
 #if PLATFORM != PLAT_XBOX
     #include <sys/stat.h>
 #else
-    //#include <dirent.h>
+    #include <windows.h>
 #endif
 #include <stdio.h>
 #include <stdbool.h>
@@ -19,19 +19,17 @@ int isFile(const char* p) {
         if (S_ISDIR(s.st_mode)) return 0;
         return 2;
     #else
-        //DIR* d = opendir(p);
-        //if (!d) return 0;
-        //closedir(d);
-        FILE* f = fopen(p, "r");
-        if (!f) return -1;
-        fclose(f);
+        DWORD a = GetFileAttributes(p);
+        if (a == INVALID_FILE_ATTRIBUTES) return -1;
+        if (a & FILE_ATTRIBUTE_DIRECTORY) return 0;
+        if (a & FILE_ATTRIBUTE_DEVICE) return 2;
         return 1;
     #endif
 }
 
 long getFileSize(FILE* f, bool c) {
     if (!f) return -1;
-    long ret = 0;
+    long ret = -1;
     long tmp;
     if (!c) tmp = ftell(f);
     if (!fseek(f, 0, SEEK_END)) ret = ftell(f);
@@ -43,48 +41,57 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
-static long trimsep(const char* s) {
-    long len = 0, sub = 0;
-    char c;
+static inline bool isSepChar(char c) {
     #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
-    // check for /, //, ///, etc and return /
-    // end check if it turns out to be a dir in /
-    while (1) {
-        c = s[len];
-        if (c != '/') {
-            if (c) {
-                break;
-            } else {
-                return 1;
-            }
-        }
-        ++len;
-    }
+    return (c == '/');
+    #else
+    return (c == '/' || c == '\\');
     #endif
-    while (1) {
-        if (!(c = s[len])) break;
+}
+static void trimsep(struct charbuf* b, const char* s, bool first) {
+    if (first) {
         #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
-        if (c == '/') {
-            ++sub;
-        } else {
-            sub = 0;
+        if (*s == '/') {
+            cb_add(b, '/');
+            ++s;
         }
         #else
-        if (c == '/' || c == '\\') {
-            ++sub;
-        } else {
-            sub = 0;
+        if (*s == '\\') {
+            cb_add(b, '\\');
+            ++s;
+            if (*s == '\\') {
+                cb_add(b, '\\');
+                ++s;
+            }
         }
         #endif
-        ++len;
     }
-    return len - sub;
+    while (isSepChar(*s)) ++s;
+    bool sep = false;
+    while (1) {
+        char c = *s;
+        if (!c) break;
+        ++s;
+        if (isSepChar(c)) {
+            sep = true;
+        } else {
+            if (sep) {
+                #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
+                cb_add(b, '/');
+                #else
+                cb_add(b, '\\');
+                #endif
+                sep = false;
+            }
+            cb_add(b, c);
+        }
+    }
 }
 char* mkpath(const char* s, ...) {
     if (!s) return NULL;
     struct charbuf b;
     cb_init(&b, 256);
-    cb_addpartstr(&b, s, trimsep(s));
+    trimsep(&b, s, true);
     va_list v;
     va_start(v, s);
     s = va_arg(v, char*);
@@ -94,7 +101,7 @@ char* mkpath(const char* s, ...) {
         #else
         cb_add(&b, '\\');
         #endif
-        cb_addpartstr(&b, s, trimsep(s));
+        trimsep(&b, s, false);
         s = va_arg(v, char*);
     }
     va_end(v);
