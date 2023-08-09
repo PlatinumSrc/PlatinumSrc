@@ -3,8 +3,9 @@
 #include "../psrc_aux/statestack.h"
 #include "../psrc_aux/logging.h"
 #include "../psrc_aux/string.h"
-#include "../psrc_aux/fs.h"
+#include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/config.h"
+#include "../psrc_aux/memory.h"
 #include "../version.h"
 #include "../platform.h"
 
@@ -79,36 +80,6 @@ static void sigh(int sig) {
 
 #endif
 
-#if PLATFORM == PLAT_XBOX
-static void logMemUsage(void) {
-    MM_STATISTICS mstats = {.Length = sizeof(mstats)};
-    MmQueryStatistics(&mstats);
-    unsigned long mtotal = mstats.TotalPhysicalPages * PAGE_SIZE;
-    unsigned long mavail = mstats.AvailablePages * PAGE_SIZE;
-    unsigned long mused = mtotal - mavail;
-    mtotal = (uint64_t)mtotal * 1000 / 1024 * 1000 / 1024;
-    mavail = (uint64_t)mavail * 1000 / 1024 * 1000 / 1024;
-    mused = (uint64_t)mused * 1000 / 1024 * 1000 / 1024;
-    unsigned long mtotal_dec = (mtotal % 1000000) / 1000;
-    unsigned long mavail_dec = (mavail % 1000000) / 1000;
-    unsigned long mused_dec = (mused % 1000000) / 1000;
-    int mtotal_pad = 3;
-    int mavail_pad = 3;
-    int mused_pad = 3;
-    while (mtotal_pad > 1 && mtotal_dec % 10 == 0) {mtotal_dec /= 10; --mtotal_pad;}
-    while (mavail_pad > 1 && mavail_dec % 10 == 0) {mavail_dec /= 10; --mavail_pad;}
-    while (mused_pad > 1 && mused_dec % 10 == 0) {mused_dec /= 10; --mused_pad;}
-    mtotal /= 1000000;
-    mavail /= 1000000;
-    mused /= 1000000;
-    plog(
-        LL_INFO,
-        "Memory usage: %lu.%0*luMiB used out of %lu.%0*luMiB (%lu.%0*luMiB available)",
-        mused, mused_pad, mused_dec, mtotal, mtotal_pad, mtotal_dec, mavail, mavail_pad, mavail_dec
-    );
-}
-#endif
-
 struct states {
     struct rendstate renderer;
     struct inputstate input;
@@ -149,9 +120,10 @@ static int run(int argc, char** argv) {
     if (!startRenderer(&states->renderer)) return 1;
     if (!initInput(&states->input, &states->renderer)) return 1;
 
-    #if PLATFORM == PLAT_XBOX
-    logMemUsage();
-    #endif
+    char* memstr = malloc(256);
+    getMemStatString(memstr, 256);
+    plog(LL_INFO, "Memory usage: %s", memstr);
+    free(memstr);
 
     state_initstack(&statestack);
     state_push(&statestack, do_nothing, states);

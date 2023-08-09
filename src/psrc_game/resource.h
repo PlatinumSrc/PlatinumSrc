@@ -83,7 +83,11 @@ struct __attribute__((packed)) rcopt_map {
 
 struct __attribute__((packed)) rcheader {
     enum rctype type;
+    char* path;
     int refs;
+    uint64_t lastuse; // last time a load or free was performed
+    int index;
+    uint64_t id;
 };
 
 union __attribute__((packed)) resource {
@@ -110,20 +114,11 @@ union __attribute__((packed)) rcopt {
     const struct rcopt_texture texture;
 };
 
-enum rcreap {
-    // Get the memory usage under the specified amount (default is 50%) by reaping unused resources.
-    RCREAP_QUICK,
-    // Get the memory usage under the specified amount by reaping unused resources in the order of last accessed to
-    // first accessed.
-    RCREAP_SHALLOW,
-    // Reap all the unused resources.
-    RCREAP_DEEP,
-};
-
 union resource loadResource(enum rctype type, char* path, union rcopt* opt);
 void freeResource_internal(union resource);
-void resourceReaper(enum rcreap level);
 
 #define freeResource(r) freeResource_internal((union resource){.ptr = (r)})
+
+#include "resource_reap.h"
 
 #endif
