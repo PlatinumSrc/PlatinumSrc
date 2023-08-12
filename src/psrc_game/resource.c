@@ -1,9 +1,9 @@
 #include "resource.h"
 #include "../psrc_aux/threading.h"
 
-static int rc_count = 0;
-static void** rc_data = NULL;
-static mutex_t rc_lock;
+static int rccount = 0;
+static void** rcdata = NULL;
+static mutex_t rclock;
 
 union resource loadResource(enum rctype t, char* p, union rcopt* o) {
     
@@ -13,6 +13,7 @@ void freeResource_internal(union resource r) {
     
 }
 
-void resourceReaper(enum rcreap l) {
-    
+bool initResource(void) {
+    if (!createMutex(&rclock)) return false;
+    return true;
 }

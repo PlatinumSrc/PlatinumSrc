@@ -1,5 +1,5 @@
-#ifndef AUX_RESOURCE_H
-#define AUX_RESOURCE_H
+#ifndef GAME_RESOURCE_H
+#define GAME_RESOURCE_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -114,11 +114,10 @@ union __attribute__((packed)) rcopt {
     const struct rcopt_texture texture;
 };
 
+bool initResource(void);
 union resource loadResource(enum rctype type, char* path, union rcopt* opt);
 void freeResource_internal(union resource);
 
 #define freeResource(r) freeResource_internal((union resource){.ptr = (r)})
-
-#include "resource_reap.h"
 
 #endif

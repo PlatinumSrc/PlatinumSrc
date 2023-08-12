@@ -4,8 +4,9 @@ MODULE ?= engine
 CROSS ?= 
 SRCDIR ?= src
 OBJDIR ?= obj
-LIBDIR ?= external/lib
-INCDIR ?= external/inc
+EXTDIR ?= external
+LIBDIR ?= $(EXTDIR)/lib
+INCDIR ?= $(EXTDIR)/include
 OUTDIR ?= .
 
 ifndef OS
@@ -20,6 +21,24 @@ ifndef OS
         else
             PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
         endif
+        SOSUF := .so
+    else ifeq ($(CROSS),freebsd)
+        FREEBSD_VERSION := 12.4
+        ifndef M32
+            CC := clang -target x86_64-unknown-freebsd$(FREEBSD_VERSION)
+        else
+            CC := clang -target i686-unknown-freebsd$(FREEBSD_VERSION)
+        endif
+        LD := $(CC)
+        AR ?= ar
+        STRIP ?= strip
+        WINDRES ?= true
+        ifndef M32
+            PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
+        else
+            PLATFORM := FreeBSD_$(FREEBSD_VERSION)_i686
+        endif
+        CC += --sysroot=$(EXTDIR)/$(PLATFORM)
         SOSUF := .so
     else ifeq ($(CROSS),win32)
         ifndef M32
@@ -40,16 +59,10 @@ ifndef OS
         SOSUF := .dll
     else ifeq ($(CROSS),xbox)
         ifndef NXDK_DIR
-            .PHONY: error
-            error:
-	            @echo Please define the NXDK_DIR environment variable
-	            @exit 1
+            $(error Please define the NXDK_DIR environment variable)
         endif
         ifneq ($(MODULE),engine)
-            .PHONY: error
-            error:
-	            @echo Invalid module: $(MODULE)
-	            @exit 1
+            $(error Invalid module: $(MODULE))
         endif
 
         CC := nxdk-cc
@@ -88,10 +101,7 @@ ifndef OS
         _default: default
 	        @$(nop)
     else
-        .PHONY: error
-        error:
-	        @echo Invalid cross-compilation target: $(CROSS)
-	        @exit 1
+        $(error Invalid cross-compilation target: $(CROSS))
     endif
     SHCMD := unix
 else
@@ -120,10 +130,7 @@ else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
 else ifeq ($(MODULE),toolbox)
 else
-    .PHONY: error
-    error:
-	    @echo Invalid module: $(MODULE)
-	    @exit 1
+    $(error Invalid module: $(MODULE))
 endif
 
 PLATFORMDIRNAME := $(MODULE)
@@ -146,13 +153,16 @@ _CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
 _LDFLAGS := $(LDFLAGS)
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
-ifeq ($(CROSS),)
-    _LDLIBS += -lpthread
-else ifeq ($(CROSS),win32)
+ifneq ($(CROSS),xbox)
+    _LDFLAGS += -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
+endif
+ifeq ($(CROSS),win32)
     _LDFLAGS += -static
     _LDLIBS := -l:libwinpthread.a -lwinmm
 else ifeq ($(CROSS),xbox)
     _CPPFLAGS += -DSTBI_NO_SIMD -DPB_HAL_FONT
+else
+    _LDLIBS += -lpthread
 endif
 ifndef DEBUG
     _CPPFLAGS += -DNDEBUG
@@ -188,7 +198,6 @@ else
 endif
 ifneq ($(CROSS),xbox)
     _CFLAGS += -pthread -ffast-math
-    _LDFLAGS := -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
     _LDLIBS := -lm
     ifdef DEBUG
         _LDFLAGS := -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
@@ -208,55 +217,76 @@ define so
 $(1)$(SOSUF)
 endef
 
+LDLIBS.dir.psrc_aux := 
 ifeq ($(CROSS),win32)
-    CPPFLAGS.psrc_editormain := $(CPPFLAGS.psrc_editormain) -DSDL_MAIN_HANDLED
+    LDLIBS.dir.psrc_aux += -lwinmm
 endif
+
+LDLIBS.dir.psrc_server := 
+ifeq ($(CROSS),win32)
+    LDLIBS.dir.psrc_server += -lws2_32
+endif
+
+CPPLAGS.dir.psrc_game := 
+LDLIBS.dir.psrc_game := 
+ifeq ($(CROSS),win32)
+    CPPLAGS.dir.psrc_game += -lpsapi
+    LDLIBS.dir.psrc_game += -DPSAPI_VERSION=1
+endif
+
+CPPFLAGS.lib.discord_game_sdk := 
+LDLIBS.lib.discord_game_sdk := 
 ifdef USE_DISCORD_GAME_SDK
-    CPPFLAGS.psrc_editormain := $(CPPFLAGS.psrc_editormain) -DUSE_DISCORD_GAME_SDK
-    LDLIBS.psrc_editormain := $(LDLIBS.psrc_editormain) -l:$(call so,discord_game_sdk)
+    CPPFLAGS.lib.discord_game_sdk += -DUSE_DISCORD_GAME_SDK
+    LDLIBS.lib.discord_game_sdk += -l:$(call so,discord_game_sdk)
 endif
 
-ifeq ($(CROSS),)
-    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -lSDL2 -lvorbisfile
-else ifeq ($(CROSS),win32)
-    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -l:libSDL2.a -l:libvorbisfile.a
-    LDLIBS.psrc_engine := $(LDLIBS.psrc_engine) -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
-endif
-
+CPPFLAGS.lib.SDL2 := 
+LDLIBS.lib.SDL2 := 
 ifeq ($(CROSS),win32)
-    CPPFLAGS.psrc_enginemain := $(CPPFLAGS.psrc_enginemain) -DSDL_MAIN_HANDLED
-endif
-ifdef USE_DISCORD_GAME_SDK
-    CPPFLAGS.psrc_enginemain := $(CPPFLAGS.psrc_enginemain) -DUSE_DISCORD_GAME_SDK
-    LDLIBS.psrc_enginemain := $(LDLIBS.psrc_enginemain) -l:$(call so,discord_game_sdk)
+    CPPFLAGS.lib.SDL2 += -DSDL_MAIN_HANDLED
+    LDLIBS.lib.SDL2 += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
+else ifeq ($(CROSS),xbox)
+else
+    LDLIBS.lib.SDL2 += -lSDL2
 endif
 
+LDLIBS.lib.vorbis := 
 ifeq ($(CROSS),win32)
-    LDLIBS.psrc_server := $(LDLIBS.psrc_server) -lws2_32
+    LDLIBS.lib.vorbis += -l:libvorbisfile.a
+else ifeq ($(CROSS),xbox)
+else
+    LDLIBS.lib.vorbis += -lvorbisfile
 endif
 
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
-    _CPPFLAGS += $(CPPFLAGS.psrc_enginemain)
-    _LDLIBS += $(LDLIBS.psrc_enginemain) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.vorbis) $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.lib.vorbis) $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
-    _LDLIBS += $(LDLIBS.psrc_server)
+    _CPPFLAGS += $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
-    _CPPFLAGS += $(CPPFLAGS.psrc_editormain)
-    _LDLIBS += $(LDLIBS.psrc_editormain) $(LDLIBS.psrc_editor) $(LDLIBS.psrc_engine) $(LDLIBS.psrc_server)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.vorbis) $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.lib.vorbis) $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX
+    _LDLIBS += $(LDLIBS.dir.psrc_aux)
 endif
 
 ifeq ($(CROSS),xbox)
 
-__CFLAGS := $(filter-out -Wuninitialized,$(filter-out -Wextra,$(filter-out -Wall,$(_CFLAGS) $(_CPPFLAGS))))
+__CFLAGS := $(_CFLAGS) $(_CPPFLAGS)
+__CFLAGS := $(filter-out -Wall,$(__CFLAGS))
+__CFLAGS := $(filter-out -Wextra,$(__CFLAGS))
+__CFLAGS := $(filter-out -Wuninitialized,$(__CFLAGS))
+__CFLAGS := $(filter-out -include $(SRCDIR)/psrc_game/allocwrap.h,$(__CFLAGS))
 __LDFLAGS := $(_LDFLAGS)
 
 include $(NXDK_DIR)/lib/Makefile
@@ -264,8 +294,8 @@ include $(NXDK_DIR)/lib/net/Makefile
 include $(NXDK_DIR)/lib/sdl/SDL2/Makefile.xbox
 include $(NXDK_DIR)/lib/sdl/Makefile
 
-_CFLAGS := $(_CFLAGS) $(NXDK_CFLAGS)
-_LDFLAGS := $(_LDFLAGS) $(NXDK_LDFLAGS)
+_CFLAGS += $(NXDK_CFLAGS)
+_LDFLAGS += $(NXDK_LDFLAGS)
 
 endif
 

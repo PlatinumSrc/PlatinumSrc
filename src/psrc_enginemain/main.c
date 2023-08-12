@@ -1,11 +1,11 @@
 #include "../psrc_engine/renderer.h"
 #include "../psrc_engine/input.h"
-#include "../psrc_aux/statestack.h"
+#include "../psrc_engine/audio.h"
 #include "../psrc_aux/logging.h"
 #include "../psrc_aux/string.h"
 #include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/config.h"
-#include "../psrc_aux/memory.h"
+#include "../psrc_game/resource.h"
 #include "../version.h"
 #include "../platform.h"
 
@@ -28,7 +28,7 @@ void findDirs(void) {
     #if PLATFORM != PLAT_XBOX
     maindir = SDL_GetBasePath();
     if (!maindir) {
-        plog(LL_WARN, "Failed to get start directory: %s", (char*)SDL_GetError());
+        plog(LL_WARN, "Failed to get start directory: %s", SDL_GetError());
         maindir = ".";
     }
     curdir = ".";
@@ -83,18 +83,17 @@ static void sigh(int sig) {
 struct states {
     struct rendstate renderer;
     struct inputstate input;
+    struct audiostate audio;
 };
-
-static void do_nothing(struct statestack* state) {
-    (void)state;
-    if (quitreq > 0) state_return(state, NULL);
-}
 
 static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    initLogging();
+    if (!initResource()) {
+        plog(LL_CRIT, "Failed to init resource manager");
+        return 1;
+    }
 
     findDirs();
 
@@ -113,26 +112,33 @@ static int run(int argc, char** argv) {
     free(tmp);
 
     struct states* states = malloc(sizeof(*states));
-    struct statestack statestack;
 
-    if (!initRenderer(&states->renderer)) return 1;
+    if (!initRenderer(&states->renderer)) {
+        plog(LL_CRIT, "Failed to init renderer");
+        return 1;
+    }
     states->renderer.cfg.icon = mkpath(maindir, "icons", "engine.png", NULL);
-    if (!startRenderer(&states->renderer)) return 1;
-    if (!initInput(&states->input, &states->renderer)) return 1;
+    if (!startRenderer(&states->renderer)) {
+        plog(LL_CRIT, "Failed to start renderer");
+        return 1;
+    }
+    if (!initInput(&states->input, &states->renderer)) {
+        plog(LL_CRIT, "Failed to init input manager");
+        return 1;
+    }
+    if (!initAudio(&states->audio)) {
+        plog(LL_CRIT, "Failed to init audio manager");
+        return 1;
+    }
+    if (!startAudio(&states->audio)) {
+        plog(LL_CRIT, "Failed to start audio manager");
+        return 1;
+    }
 
-    char* memstr = malloc(256);
-    getMemStatString(memstr, 256);
-    plog(LL_INFO, "Memory usage: %s", memstr);
-    free(memstr);
-
-    state_initstack(&statestack);
-    state_push(&statestack, do_nothing, states);
-    while (statestack.index >= 0) {
+    while (!quitreq) {
         pollInput(&states->input);
-        state_runstack(&statestack);
         render(&states->renderer);
     }
-    state_deinitstack(&statestack);
 
     termInput(&states->input);
     termRenderer(&states->renderer);
@@ -158,7 +164,12 @@ static int bootstrap(int argc, char** argv) {
     #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     #endif
-    #else
+    #endif
+    if (!initLogging()) {
+        fputs("Failed to init logging\n", stderr);
+        return 1;
+    }
+    #if PLATFORM == PLAT_XBOX
     int w = 640, h = 480, r = REFRESH_DEFAULT;
     if (!XVideoSetMode(w, h, 32, r)) {
         plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);

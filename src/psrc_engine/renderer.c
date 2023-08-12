@@ -13,9 +13,9 @@
     #include <pbgl.h>
     #include <GL/gl.h>
     #include <GL/glext.h>
-    #ifndef GL_KHR_debug
-        #define GL_KHR_debug 0
-    #endif
+#endif
+#ifndef GL_KHR_debug
+    #define GL_KHR_debug 0
 #endif
 #include "../stb/stb_image.h"
 
@@ -33,10 +33,6 @@ const char* rendapi_names[] = {
     "OpenGL 3.3 (Advanced)",
     "OpenGL ES 3.0"
 };
-
-static void loadTexture(char* p) {
-    (void)p;
-}
 
 static void swapBuffers(struct rendstate* r) {
     #if PLATFORM != PLAT_XBOX
@@ -85,9 +81,7 @@ void render_gl_legacy(struct rendstate* r) {
 
     // TODO: render UI
 }
-#endif
-
-#if 1
+#else
 void render_gl_legacy(struct rendstate* r) {
     long lt = SDL_GetTicks();
     double dt = (double)(lt % 1000) / 1000.0;
@@ -251,9 +245,9 @@ static void updateWindowIcon(struct rendstate* r) {
 }
 #endif
 
-#define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LL_WARN, "Failed to set " #a " to " #v ": %s", (char*)SDL_GetError())
-#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), (char*)SDL_GetError())
-#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), (char*)SDL_GetError())
+#define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LL_WARN, "Failed to set " #a " to " #v ": %s", SDL_GetError())
+#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), SDL_GetError())
+#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), SDL_GetError())
 
 static bool createWindow(struct rendstate* r) {
     if (r->cfg.api <= RENDAPI__INVAL || r->cfg.api >= RENDAPI__COUNT) {
@@ -315,7 +309,7 @@ static bool createWindow(struct rendstate* r) {
         SDL_WINDOW_SHOWN | flags
     );
     if (!r->window) {
-        plog(LL_CRIT, "Failed to create window: %s", (char*)SDL_GetError());
+        plog(LL_CRIT, "Failed to create window: %s", SDL_GetError());
         return false;
     }
     #if PLATFORM != PLAT_XBOX
@@ -330,7 +324,7 @@ static bool createWindow(struct rendstate* r) {
             #if PLATFORM != PLAT_XBOX
             r->gl.ctx = SDL_GL_CreateContext(r->window);
             if (!r->gl.ctx) {
-                plog(LL_CRIT, "Failed to create OpenGL context: %s", (char*)SDL_GetError());
+                plog(LL_CRIT, "Failed to create OpenGL context: %s", SDL_GetError());
                 r->apigroup = RENDAPIGROUP__INVAL;
                 destroyWindow(r);
                 return false;
@@ -487,7 +481,7 @@ bool initRenderer(struct rendstate* r) {
     #endif
     r->cfg.vsync = false;
     if (SDL_Init(SDL_INIT_VIDEO)) {
-        plog(LL_CRIT, "Failed to init video: %s", (char*)SDL_GetError());
+        plog(LL_CRIT, "Failed to init video: %s", SDL_GetError());
         return false;
     }
     return true;

@@ -57,7 +57,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
         default:;
             break;
         case LL_TASK:;
-            fputs("### ", f);
+            fputs("#### ", f);
             break;
         case LL_INFO:;
             fputs("(i): ", f);
@@ -127,7 +127,7 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
         default:;
             break;
         case LL_TASK:;
-            pb_print("### ");
+            pb_print("#### ");
             break;
         case LL_INFO:;
             pb_print("(i): ");
