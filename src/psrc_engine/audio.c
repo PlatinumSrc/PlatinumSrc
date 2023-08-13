@@ -4,9 +4,14 @@
 
 #include <stdint.h>
 
-static void callback(struct audiostate* a, uint8_t* stream, int l) {
-    //printf("Asked for %d samples\n", l / 2);
-    memset(stream, 0, l);
+static inline void wrsamples(struct audiostate* a, int16_t* stream, int channels, int len) {
+    int samples = len / channels;
+    plog(LL_PLAIN, "Asked for %d samples", samples);
+}
+
+static void callback(void* data, uint8_t* stream, int len) {
+    int channels = ((struct audiostate*)data)->outspec.channels;
+    wrsamples(data, (int16_t*)stream, channels, len / sizeof(int16_t));
 }
 
 bool initAudio(struct audiostate* a) {
@@ -24,14 +29,14 @@ bool startAudio(struct audiostate* a) {
     spec.format = AUDIO_S16;
     spec.channels = 2;
     spec.samples = 1024;
-    spec.callback = (SDL_AudioCallback)callback;
+    spec.callback = callback;
     spec.userdata = a;
     a->output = SDL_OpenAudioDevice(
         NULL, false, &spec, &a->outspec,
         SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_CHANNELS_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE
     );
-    if (a->output) {
-        plog(LL_INFO, "Audio info:");
+    if (a->output > 0) {
+        plog(LL_INFO, "Audio info (device id %d):", (int)a->output);
         plog(LL_INFO, "  Frequency: %d", a->outspec.freq);
         plog(LL_INFO, "  Channels: %d (%s)", a->outspec.channels, (a->outspec.channels == 1) ? "mono" : "stereo");
         plog(LL_INFO, "  Samples: %d", (int)a->outspec.samples);
