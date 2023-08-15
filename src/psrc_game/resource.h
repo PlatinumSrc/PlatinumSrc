@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 enum rctype {
-    RC__INVAL,
     RC_ENTITY,
     RC_MAP,
     RC_MATERIAL,
@@ -14,7 +13,6 @@ enum rctype {
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
-    RC__COUNT,
 };
 
 enum rc_texture_frmt {
@@ -81,13 +79,23 @@ struct __attribute__((packed)) rcopt_map {
     enum rcopt_texture_qlt texture_quality;
 };
 
+enum rc_sound_frmt {
+    RC_SOUND_FRMT_WAV = 1,
+    RC_SOUND_FRMT_VORBIS,
+};
+struct __attribute__((packed)) rc_sound {
+    enum rc_sound_frmt format;
+    int len; // would be better as unsigned long but stb_vorbis uses int
+    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16 for FRMT_WAV
+    int rate;
+    int channels;
+};
+
 struct __attribute__((packed)) rcheader {
     enum rctype type;
     char* path;
     int refs;
-    uint64_t lastuse; // last time a load or free was performed
     int index;
-    uint64_t id;
 };
 
 union __attribute__((packed)) resource {
@@ -98,7 +106,7 @@ union __attribute__((packed)) resource {
     const struct rc_model* model;
     //const struct rc_prop* prop;
     //const struct rc_script* script;
-    //const struct rc_sound* sound;
+    const struct rc_sound* sound;
     const struct rc_texture* texture;
 };
 
@@ -116,8 +124,8 @@ union __attribute__((packed)) rcopt {
 
 bool initResource(void);
 union resource loadResource(enum rctype type, char* path, union rcopt* opt);
-void freeResource_internal(union resource);
+void freeResource(union resource);
 
-#define freeResource(r) freeResource_internal((union resource){.ptr = (r)})
+#define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
 
 #endif

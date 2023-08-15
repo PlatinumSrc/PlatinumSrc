@@ -31,12 +31,12 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
             - [ ] Entities
             - [ ] Particles
     - [ ] Sound manager
-        - Sources
-            - 0 - `global`: Circular buffer of channels, stereo
-            - 1 - `world`: Circular buffer of channels, mono, position effect
-            - 2 - `ambient`: 1 channel, stereo, 2 second crossfade between sound changes
-            - 3 - `music`: 1 channel, stereo, 3 second fade-in and fade-out
-            - 4 - `ui`: 1 channel, stereo
+        - Sources \(emulated by scripting\)
+            - 0 - `global`: Stereo
+            - 1 - `world`: Mono + position effect
+            - 2 - `ambient`: Stereo + 2 second crossfade
+            - 3 - `music`: Stereo + 2.5 second fade-in and fade-out
+            - 4 - `ui`: 1 sound, stereo
 - [ ] Server
 - [ ] Editor
 - [ ] Toolbox

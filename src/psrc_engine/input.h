@@ -6,7 +6,6 @@
 #include <stdbool.h>
 
 enum inputdevice {
-    INPUTDEVICE__INVAL,
     INPUTDEVICE_KEYBOARD,
     INPUTDEVICE_MOUSE,
     INPUTDEVICE__COUNT,
