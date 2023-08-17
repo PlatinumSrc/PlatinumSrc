@@ -18,28 +18,24 @@ bool initInput(struct inputstate* s, struct rendstate* r) {
 void pollInput(struct inputstate* s) {
     (void)s;
     SDL_Event e;
-    bool rendupdate = false;
-    struct rendupdate u = {0};
-    struct rendconfig c;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
-            case SDL_QUIT:; {
+            case SDL_QUIT: {
                 ++quitreq;
             } break;
-            case SDL_WINDOWEVENT:; {
+            case SDL_WINDOWEVENT: {
                 switch (e.window.event) {
-                    case SDL_WINDOWEVENT_RESIZED:; {
-                        rendupdate = true;
-                        u.res = true;
-                        c.res.current.width = e.window.data1;
-                        c.res.current.height = e.window.data2;
+                    case SDL_WINDOWEVENT_RESIZED: {
+                        struct rendres res = {
+                            .width = e.window.data1,
+                            .height = e.window.data2,
+                            .hz = -1
+                        };
+                        updateRendererConfig(s->r, RENDOPT_RES, &res);
                     } break;
                 }
             } break;
         }
-    }
-    if (rendupdate) {
-        updateRendererConfig(s->r, &u, &c);
     }
 }
 

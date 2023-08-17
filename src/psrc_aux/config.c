@@ -27,25 +27,25 @@ static inline int gethex(int c) {
 
 static inline int interpesc(FILE* f, int c, char* out) {
     switch (c) {
-        case EOF:;
+        case EOF:
             return -1;
-        case 'a':;
+        case 'a':
             *out++ = '\a'; *out = 0; return 1;
-        case 'b':;
+        case 'b':
             *out++ = '\b'; *out = 0; return 1;
-        case 'e':;
+        case 'e':
             *out++ = '\e'; *out = 0; return 1;
-        case 'f':;
+        case 'f':
             *out++ = '\f'; *out = 0; return 1;
-        case 'n':;
+        case 'n':
             *out++ = '\n'; *out = 0; return 1;
-        case 'r':;
+        case 'r':
             *out++ = '\r'; *out = 0; return 1;
-        case 't':;
+        case 't':
             *out++ = '\t'; *out = 0; return 1;
-        case 'v':;
+        case 'v':
             *out++ = '\v'; *out = 0; return 1;
-        case 'x':; {
+        case 'x': {
             int c1 = fgetc_skip(f);
             if (c1 == EOF) return -1;
             int c2 = fgetc_skip(f);

@@ -54,21 +54,21 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
         }
     }
     switch (lvl & 0xFF) {
-        default:;
+        default:
             break;
-        case LL_TASK:;
+        case LL_TASK:
             fputs("#### ", f);
             break;
-        case LL_INFO:;
+        case LL_INFO:
             fputs("(i): ", f);
             break;
-        case LL_WARN:;
+        case LL_WARN:
             fputs("/!\\: ", f);
             break;
-        case LL_ERROR:;
+        case LL_ERROR:
             fputs("[E]: ", f);
             break;
-        case LL_CRIT:;
+        case LL_CRIT:
             fputs("{X}: ", f);
             lvl |= LF_FUNCLN;
             break;
@@ -88,12 +88,12 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
     va_list v;
     FILE* f;
     switch (lvl & 0xFF) {
-        default:;
+        default:
             f = stdout;
             break;
-        case LL_WARN:;
-        case LL_ERROR:;
-        case LL_CRIT:;
+        case LL_WARN:
+        case LL_ERROR:
+        case LL_CRIT:
             f = stderr;
             break;
     }
@@ -124,21 +124,21 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
     }
     #endif
     switch (lvl & 0xFF) {
-        default:;
+        default:
             break;
-        case LL_TASK:;
+        case LL_TASK:
             pb_print("#### ");
             break;
-        case LL_INFO:;
+        case LL_INFO:
             pb_print("(i): ");
             break;
-        case LL_WARN:;
+        case LL_WARN:
             pb_print("/!\\: ");
             break;
-        case LL_ERROR:;
+        case LL_ERROR:
             pb_print("[E]: ");
             break;
-        case LL_CRIT:;
+        case LL_CRIT:
             pb_print("{X}: ");
             lvl |= LF_FUNCLN;
             break;

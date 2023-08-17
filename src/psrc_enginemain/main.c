@@ -56,7 +56,7 @@ static void sigh(int sig) {
     snprintf(signame, sizeof(signame), "%d", sig);
     #endif
     switch (sig) {
-        case SIGINT:;
+        case SIGINT:
             if (quitreq > 0) {
                 sigh_log(LL_WARN, signame, "Graceful exit already requested; Forcing exit...");
                 exit(1);
@@ -65,14 +65,14 @@ static void sigh(int sig) {
                 ++quitreq;
             }
             break;
-        case SIGTERM:;
+        case SIGTERM:
         #ifdef SIGQUIT
-        case SIGQUIT:;
+        case SIGQUIT:
         #endif
             sigh_log(LL_WARN, signame, "Forcing exit...");
             exit(1);
             break;
-        default:;
+        default:
             sigh_log(LL_WARN, signame, NULL);
             break;
     }
@@ -117,7 +117,7 @@ static int run(int argc, char** argv) {
         plog(LL_CRIT, "Failed to init renderer");
         return 1;
     }
-    states->renderer.cfg.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
     if (!startRenderer(&states->renderer)) {
         plog(LL_CRIT, "Failed to start renderer");
         return 1;

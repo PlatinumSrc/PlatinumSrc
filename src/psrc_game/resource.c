@@ -50,28 +50,28 @@ static mutex_t rclock;
 
 static struct rcdata* loadResource_internal(enum rctype t, char* p, union rcopt* o) {
     switch (t) {
-        case RC_ENTITY:; {
+        case RC_ENTITY: {
             return NULL;
         } break;
-        case RC_MAP:; {
+        case RC_MAP: {
             return NULL;
         } break;
-        case RC_MATERIAL:; {
+        case RC_MATERIAL: {
             return NULL;
         } break;
-        case RC_MODEL:; {
+        case RC_MODEL: {
             return NULL;
         } break;
-        case RC_PROP:; {
+        case RC_PROP: {
             return NULL;
         } break;
-        case RC_SCRIPT:; {
+        case RC_SCRIPT: {
             return NULL;
         } break;
-        case RC_SOUND:; {
+        case RC_SOUND: {
             return NULL;
         } break;
-        case RC_TEXTURE:; {
+        case RC_TEXTURE: {
             return NULL;
         } break;
     }
@@ -89,21 +89,21 @@ static void freeResource_internal(const struct rcdata* _r) {
     --r->header.refs;
     if (!r->header.refs) {
         switch (r->header.type) {
-            case RC_ENTITY:; {
+            case RC_ENTITY: {
             } break;
-            case RC_MAP:; {
+            case RC_MAP: {
             } break;
-            case RC_MATERIAL:; {
+            case RC_MATERIAL: {
             } break;
-            case RC_MODEL:; {
+            case RC_MODEL: {
             } break;
-            case RC_PROP:; {
+            case RC_PROP: {
             } break;
-            case RC_SCRIPT:; {
+            case RC_SCRIPT: {
             } break;
-            case RC_SOUND:; {
+            case RC_SOUND: {
             } break;
-            case RC_TEXTURE:; {
+            case RC_TEXTURE: {
             } break;
         }
         free(r);

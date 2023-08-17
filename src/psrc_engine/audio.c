@@ -30,10 +30,11 @@ static void wrsamples(struct audiostate* a, int16_t* stream, int channels, int l
     //plog(LL_PLAIN, "Asked for %d samples", samples);
     lockMutex(&a->lock);
     mixsound(a, samples);
+    unlockMutex(&a->lock);
     for (int c = 0; c < channels; ++c) {
         for (int i = c; i < len; i += channels) {
-            int sample = (int)tmp1 * (len - 1 - i) / len + (int)tmp2 * i / len;
-            stream[i] = sample;
+            //int sample = (int)tmp1 * (len - 1 - i) / len + (int)tmp2 * i / len;
+            //stream[i] = sample;
         }
     }
 }

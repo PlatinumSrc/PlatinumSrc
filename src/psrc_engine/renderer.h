@@ -2,6 +2,7 @@
 #define ENGINE_RENDERER_H
 
 #include "../platform.h"
+#include "../psrc_game/resource.h"
 
 #include "../cglm/cglm.h"
 
@@ -40,33 +41,29 @@ struct rendres {
     int width, height, hz;
 };
 
-struct rendupdate {
-    bool api : 1;
-    bool mode : 1;
-    bool vsync : 1;
-    bool res : 1;
-    bool icon : 1;
+struct material {
+    
 };
 
-struct rendconfig {
+enum rendlighting {
+    RENDLIGHTING_LOW,
+    RENDLIGHTING_MEDIUM,
+    RENDLIGHTING_HIGH,
+};
+
+struct rendstate {
+    SDL_Window* window;
+    char* icon;
     enum rendapi api;
+    enum rendapigroup apigroup;
     enum rendmode mode;
     bool vsync;
     struct {
         struct rendres current;
         struct rendres windowed, fullscr;
     } res;
-    char* icon;
-    int lighting;
-};
-
-struct material {
-    
-};
-
-struct rendstate {
-    SDL_Window* window;
-    enum rendapigroup apigroup;
+    enum rcopt_texture_qlt texqlt;
+    enum rendlighting lighting;
     union {
         struct {
             bool init;
@@ -87,12 +84,24 @@ struct rendstate {
         } gl;
     };
     bool evenframe;
-    struct rendconfig cfg;
+};
+
+enum rendopt {
+    RENDOPT_END,
+    RENDOPT_ICON, // char*
+    RENDOPT_API, // enum rendapi
+    RENDOPT_MODE, // enum rendmode
+    RENDOPT_VSYNC, // bool
+    RENDOPT_RES, // struct rendres*
+    RENDOPT_LIGHTING, // enum rendlighting
+    RENDOPT_TEXTUREQLT, // enum rcopt_texture_qlt
 };
 
 bool initRenderer(struct rendstate*);
 bool startRenderer(struct rendstate*);
-bool updateRendererConfig(struct rendstate*, struct rendupdate*, struct rendconfig*);
+bool updateRendererConfig(struct rendstate*, ...);
+void lockRendererConfig(struct rendstate*);
+void unlockRendererConfig(struct rendstate*);
 bool restartRenderer(struct rendstate*);
 void stopRenderer(struct rendstate*);
 void termRenderer(struct rendstate*);
