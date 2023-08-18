@@ -49,6 +49,10 @@ struct audiostate {
     bool valid;
     int freq;
     int channels;
+    struct {
+        int len;
+        int* data[2];
+    } audbuf;
     int sounds;
     struct audiosound* sounddata;
     int soundptr;

@@ -4,12 +4,7 @@
 
 #include <stdint.h>
 
-static inline void getvorbisat(struct audiosound* s, int pos, bool stereo, int16_t* out_l, int16_t* out_r) {
-    if (pos < 0 || pos >= s->rc->len) {
-        *out_l = 0;
-        if (stereo) *out_r = 0;
-    }
-    struct audiosound_vorbisbuf vb = s->vorbisbuf;
+static inline void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_vorbisbuf vb, int pos) {
     if (pos >= vb.off + vb.len) {
         do {
             vb.off += vb.len;
@@ -22,6 +17,8 @@ static inline void getvorbisat(struct audiosound* s, int pos, bool stereo, int16
         // TODO: seek to vb.off
         // TODO: decode samples into buffer
         // TODO: zero unset part of buffer
+        // TODO: memcpy to data[1] if mono
+        s->vorbisbuf = vb;
     } else if (pos < vb.off) {
         do {
             vb.off -= vb.len;
@@ -30,45 +27,75 @@ static inline void getvorbisat(struct audiosound* s, int pos, bool stereo, int16
         // TODO: seek to vb.off
         // TODO: decode samples into buffer
         // TODO: zero unset part of buffer
-    }
-    s->vorbisbuf = vb;
-    if (stereo) {
-        if (s->rc->stereo) {
-            if (s->forcemono) {
-                uint16_t tmp = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
-                *out_l = tmp;
-                *out_r = tmp;
-            } else {
-                *out_l = vb.data[0][pos - vb.off];
-                *out_r = vb.data[1][pos - vb.off];
-            }
-        } else {
-            *out_l = vb.data[0][pos - vb.off];
-            *out_r = vb.data[0][pos - vb.off];
-        }
-    } else {
-        if (s->rc->stereo) {
-            *out_l = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
-        } else {
-            *out_l = vb.data[0][pos - vb.off];
-        }
+        // TODO: memcpy to data[1] if mono
+        s->vorbisbuf = vb;
     }
 }
 
-static inline void mixsounds(struct audiostate* a, int samples, bool stereo) {
-    
+static inline void getvorbisat(struct audiosound* s, int pos, int16_t* out_l, int16_t* out_r) {
+    if (pos < 0 || pos >= s->rc->len) {
+        *out_l = 0;
+        *out_r = 0;
+        return;
+    }
+    struct audiosound_vorbisbuf vb = s->vorbisbuf;
+    getvorbisat_prepbuf(s, vb, pos);
+    *out_l = vb.data[0][pos - vb.off];
+    *out_r = vb.data[1][pos - vb.off];
+}
+
+static inline void getvorbisat_forcemono(struct audiosound* s, int pos, int16_t* out_l, int16_t* out_r) {
+    if (pos < 0 || pos >= s->rc->len) {
+        *out_l = 0;
+        *out_r = 0;
+        return;
+    }
+    struct audiosound_vorbisbuf vb = s->vorbisbuf;
+    getvorbisat_prepbuf(s, vb, pos);
+    uint16_t tmp = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
+    *out_l = tmp;
+    *out_r = tmp;
+}
+
+static inline void mixsounds(struct audiostate* a, int samples) {
+    if (a->audbuf.len != samples) {
+        a->audbuf.len = samples;
+        a->audbuf.data[0] = realloc(a->audbuf.data[0], samples * sizeof(*a->audbuf.data[0]));
+        a->audbuf.data[1] = realloc(a->audbuf.data[1], samples * sizeof(*a->audbuf.data[1]));
+    }
+    memset(a->audbuf.data[0], 0, samples * sizeof(*a->audbuf.data[0]));
+    memset(a->audbuf.data[1], 0, samples * sizeof(*a->audbuf.data[1]));
+    for (int si = 0; si < a->sounds; ++si) {
+        struct audiosound* s = &a->sounddata[si];
+        if (!s->rc || s->done || s->paused) continue;
+        switch (s->rc->format) {
+            case RC_SOUND_FRMT_WAV: {
+            } break;
+            case RC_SOUND_FRMT_VORBIS: {
+                if (s->forcemono) {
+                } else {
+                }
+            } break;
+        }
+    }
 }
 
 static void wrsamples(struct audiostate* a, int16_t* stream, int channels, int len) {
     int samples = len / channels;
     //plog(LL_PLAIN, "Asked for %d samples", samples);
     lockMutex(&a->lock);
-    mixsounds(a, samples, (channels > 2));
+    mixsounds(a, samples);
     unlockMutex(&a->lock);
-    for (int c = 0; c < channels && c < 2; ++c) {
-        for (int i = c; i < len; i += channels) {
-            //int sample = (int)tmp1 * (len - 1 - i) / len + (int)tmp2 * i / len;
-            //stream[i] = sample;
+    int* audbuf[2] = {a->audbuf.data[0], a->audbuf.data[1]}; // prevent an extra dereference on each write
+    if (channels < 2) {
+        for (int i = 0; i < len; ++i) {
+            stream[i] = (audbuf[0][i] + audbuf[1][i]) / 2;
+        }
+    } else {
+        for (int c = 0; c < 2; ++c) {
+            for (int i = c; i < len; i += channels) {
+                stream[i] = audbuf[c][i];
+            }
         }
     }
 }
