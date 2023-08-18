@@ -4,6 +4,57 @@
 
 #include <stdint.h>
 
+static inline void getvorbisat(struct audiosound* s, int pos, bool stereo, int16_t* out_l, int16_t* out_r) {
+    if (pos < 0 || pos >= s->rc->len) {
+        *out_l = 0;
+        if (stereo) *out_r = 0;
+    }
+    struct audiosound_vorbisbuf vb = s->vorbisbuf;
+    if (pos >= vb.off + vb.len) {
+        do {
+            vb.off += vb.len;
+        } while (pos >= vb.off + vb.len);
+        int len = s->rc->len;
+        if (vb.off + vb.len >= len) {
+            vb.off = len - vb.len;
+            if (vb.off < 0) vb.off = 0;
+        }
+        // TODO: seek to vb.off
+        // TODO: decode samples into buffer
+        // TODO: zero unset part of buffer
+    } else if (pos < vb.off) {
+        do {
+            vb.off -= vb.len;
+        } while (vb.off > 0 && pos < vb.off);
+        if (vb.off < 0) vb.off = 0;
+        // TODO: seek to vb.off
+        // TODO: decode samples into buffer
+        // TODO: zero unset part of buffer
+    }
+    s->vorbisbuf = vb;
+    if (stereo) {
+        if (s->rc->stereo) {
+            if (s->forcemono) {
+                uint16_t tmp = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
+                *out_l = tmp;
+                *out_r = tmp;
+            } else {
+                *out_l = vb.data[0][pos - vb.off];
+                *out_r = vb.data[1][pos - vb.off];
+            }
+        } else {
+            *out_l = vb.data[0][pos - vb.off];
+            *out_r = vb.data[0][pos - vb.off];
+        }
+    } else {
+        if (s->rc->stereo) {
+            *out_l = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
+        } else {
+            *out_l = vb.data[0][pos - vb.off];
+        }
+    }
+}
+
 static inline void mixsounds(struct audiostate* a, int samples, bool stereo) {
     
 }

@@ -6,6 +6,8 @@
 #include "../psrc_game/resource.h"
 #include "../psrc_aux/threading.h"
 
+#include "../stb/stb_vorbis.h"
+
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
 #else
@@ -15,6 +17,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+struct __attribute__((packed)) audiosound_vorbisbuf {
+    int off;
+    int16_t len;
+    int16_t* data[2];
+};
 struct __attribute__((packed)) audiosound_fx {
     int posoff; // position offset in milliseconds (based on the distance between campos and pos)
     uint16_t speedmul; // position multiplier in units of 256 (based on speed)
@@ -23,10 +30,8 @@ struct __attribute__((packed)) audiosound_fx {
 struct __attribute__((packed)) audiosound {
     uint64_t id;
     struct rc_sound* rc;
-    struct {
-        int len;
-        int16_t* data;
-    } vorbisbuf;
+    stb_vorbis* vorbis;
+    struct audiosound_vorbisbuf vorbisbuf;
     int ptr;
     uint8_t done : 1;
     uint8_t paused : 1;
