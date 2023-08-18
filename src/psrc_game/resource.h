@@ -85,10 +85,11 @@ enum rc_sound_frmt {
 };
 struct __attribute__((packed)) rc_sound {
     enum rc_sound_frmt format;
-    int len; // would be better as unsigned long but stb_vorbis uses int
-    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16 for FRMT_WAV
-    int rate;
-    int channels;
+    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16 for FRMT_WAV
+    int len; // length in samples (would be better as unsigned long but stb_vorbis uses int)
+    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16 or AUDIO_S8 for FRMT_WAV
+    int freq;
+    bool stereo;
 };
 
 struct __attribute__((packed)) rcheader {

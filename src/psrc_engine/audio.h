@@ -15,21 +15,28 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+struct __attribute__((packed)) audiosound_fx {
+    int posoff; // position offset in milliseconds (based on the distance between campos and pos)
+    uint16_t speedmul; // position multiplier in units of 256 (based on speed)
+    int volmul[2]; // volume multiplier in units of 65536 (based on vol and the distance between campos and pos)
+};
 struct __attribute__((packed)) audiosound {
     uint64_t id;
     struct rc_sound* rc;
+    struct {
+        int len;
+        int16_t* data;
+    } vorbisbuf;
     int ptr;
     uint8_t done : 1;
-    uint8_t playing : 1;
+    uint8_t paused : 1;
     uint8_t uninterruptible : 1;
     uint8_t forcemono : 1;
     uint8_t poseffect : 1;
     float vol;
     float speed;
     float pos[3];
-    int posoff; // position offset in milliseconds (based on the distance between campos and pos)
-    uint16_t speedmul; // position multiplier in units of 256 (based on speed)
-    int volmul[2]; // volume multiplier in units of 65536 (based on vol and the distance between campos and pos)
+    struct audiosound_fx computed[2];
 };
 
 struct audiostate {
@@ -37,9 +44,6 @@ struct audiostate {
     bool valid;
     int freq;
     int channels;
-    int* audbuf[2];
-    int16_t* audbuf16[2];
-    int audbuflen;
     int sounds;
     struct audiosound* sounddata;
     int soundptr;
@@ -55,5 +59,10 @@ enum audioopt {
 bool initAudio(struct audiostate*);
 bool startAudio(struct audiostate*);
 void updateAudioConfig(struct audiostate*, ...);
+void lockAudioConfig(struct audiostate*);
+void unlockAudioConfig(struct audiostate*);
+void stopAudio(struct audiostate*);
+bool restartAudio(struct audiostate*);
+void termAudio(struct audiostate*);
 
 #endif
