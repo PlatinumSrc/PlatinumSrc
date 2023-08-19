@@ -17,7 +17,7 @@ static inline void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_v
         // TODO: seek to vb.off
         // TODO: decode samples into buffer
         // TODO: zero unset part of buffer
-        // TODO: memcpy to data[1] if mono
+        // TODO: memcpy data[0] to data[1] if mono
         s->vorbisbuf = vb;
     } else if (pos < vb.off) {
         do {
@@ -27,12 +27,12 @@ static inline void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_v
         // TODO: seek to vb.off
         // TODO: decode samples into buffer
         // TODO: zero unset part of buffer
-        // TODO: memcpy to data[1] if mono
+        // TODO: memcpy data[0] to data[1] if mono
         s->vorbisbuf = vb;
     }
 }
 
-static inline void getvorbisat(struct audiosound* s, int pos, int16_t* out_l, int16_t* out_r) {
+static inline void getvorbisat(struct audiosound* s, int pos, int* out_l, int* out_r) {
     if (pos < 0 || pos >= s->rc->len) {
         *out_l = 0;
         *out_r = 0;
@@ -44,7 +44,7 @@ static inline void getvorbisat(struct audiosound* s, int pos, int16_t* out_l, in
     *out_r = vb.data[1][pos - vb.off];
 }
 
-static inline void getvorbisat_forcemono(struct audiosound* s, int pos, int16_t* out_l, int16_t* out_r) {
+static inline void getvorbisat_forcemono(struct audiosound* s, int pos, int* out_l, int* out_r) {
     if (pos < 0 || pos >= s->rc->len) {
         *out_l = 0;
         *out_r = 0;
@@ -67,13 +67,19 @@ static inline void mixsounds(struct audiostate* a, int samples) {
     memset(a->audbuf.data[1], 0, samples * sizeof(*a->audbuf.data[1]));
     for (int si = 0; si < a->sounds; ++si) {
         struct audiosound* s = &a->sounddata[si];
-        if (!s->rc || s->done || s->paused) continue;
+        if (!s->rc || s->state.done || s->state.paused) continue;
         switch (s->rc->format) {
             case RC_SOUND_FRMT_WAV: {
+                for (int i = 0; i < samples; ++i) {
+                }
             } break;
             case RC_SOUND_FRMT_VORBIS: {
-                if (s->forcemono) {
+                if (s->flags.forcemono) {
+                    for (int i = 0; i < samples; ++i) {
+                    }
                 } else {
+                    for (int i = 0; i < samples; ++i) {
+                    }
                 }
             } break;
         }
@@ -88,13 +94,19 @@ static void wrsamples(struct audiostate* a, int16_t* stream, int channels, int l
     unlockMutex(&a->lock);
     int* audbuf[2] = {a->audbuf.data[0], a->audbuf.data[1]}; // prevent an extra dereference on each write
     if (channels < 2) {
-        for (int i = 0; i < len; ++i) {
-            stream[i] = (audbuf[0][i] + audbuf[1][i]) / 2;
+        for (int i = 0; i < samples; ++i) {
+            int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
+            if (sample > 32767) sample = 32767;
+            else if (sample < -32768) sample = -32768;
+            stream[i] = sample;
         }
     } else {
         for (int c = 0; c < 2; ++c) {
-            for (int i = c; i < len; i += channels) {
-                stream[i] = audbuf[c][i];
+            for (int i = 0; i < samples; ++i) {
+                int sample = audbuf[c][i];
+                if (sample > 32767) sample = 32767;
+                else if (sample < -32768) sample = -32768;
+                stream[i * channels + c] = sample;
             }
         }
     }

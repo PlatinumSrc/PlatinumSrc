@@ -33,11 +33,15 @@ struct __attribute__((packed)) audiosound {
     stb_vorbis* vorbis;
     struct audiosound_vorbisbuf vorbisbuf;
     int ptr;
-    uint8_t done : 1;
-    uint8_t paused : 1;
-    uint8_t uninterruptible : 1;
-    uint8_t forcemono : 1;
-    uint8_t poseffect : 1;
+    struct {
+        uint8_t uninterruptible : 1;
+        uint8_t forcemono : 1;
+        uint8_t poseffect : 1;
+    } flags;
+    struct {
+        uint8_t done : 1;
+        uint8_t paused : 1;
+    } state;
     float vol;
     float speed;
     float pos[3];
@@ -73,5 +77,22 @@ void unlockAudioConfig(struct audiostate*);
 void stopAudio(struct audiostate*);
 bool restartAudio(struct audiostate*);
 void termAudio(struct audiostate*);
+
+#define SOUNDFLAG_UNINTERRUPTIBLE (1 << 0)
+#define SOUNDFLAG_FORCEMONO (1 << 1)
+#define SOUNDFLAG_POSEFFECT (1 << 2)
+
+enum soundfx {
+    SOUNDFX_NONE = -1,
+    SOUNDFX_END,
+    SOUNDFX_VOL, // float
+    SOUNDFX_SPEED, // float
+    SOUNDFX_POS, // float, float, float
+};
+
+uint64_t playSound(struct audiostate*, struct rc_sound* rc, const int flags, ... /*soundfx*/);
+void changeSoundFX(struct audiostate*, const uint64_t, ...);
+void stopSound(struct audiostate*, const uint64_t);
+void pauseSound(struct audiostate*, const uint64_t, const bool);
 
 #endif
