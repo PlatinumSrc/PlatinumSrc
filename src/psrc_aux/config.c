@@ -91,13 +91,13 @@ static void interpfinal(char* s, struct charbuf* b) {
 }
 
 struct cfg* cfg_open(const char* p) {
-    if (isFile(p) < 1) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p));
+    if (!isFile(p)) {
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, EISDIR));
         return NULL;
     }
     FILE* f = fopen(p, "r");
     if (!f) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p));
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
         return NULL;
     }
     #if DEBUG(1)

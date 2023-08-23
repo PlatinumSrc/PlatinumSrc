@@ -19,7 +19,7 @@
 
 struct __attribute__((packed)) audiosound_vorbisbuf {
     int off;
-    int16_t len;
+    int len;
     int16_t* data[2];
 };
 struct __attribute__((packed)) audiosound_fx {
@@ -90,9 +90,9 @@ enum soundfx {
     SOUNDFX_POS, // float, float, float
 };
 
-uint64_t playSound(struct audiostate*, struct rc_sound* rc, const int flags, ... /*soundfx*/);
-void changeSoundFX(struct audiostate*, const uint64_t, ...);
-void stopSound(struct audiostate*, const uint64_t);
-void pauseSound(struct audiostate*, const uint64_t, const bool);
+uint64_t playSound(struct audiostate*, const struct rc_sound* rc, int flags, ... /*soundfx*/);
+void changeSoundFX(struct audiostate*, uint64_t, ...);
+void stopSound(struct audiostate*, uint64_t);
+void pauseSound(struct audiostate*, uint64_t, bool);
 
 #endif

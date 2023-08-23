@@ -25,9 +25,8 @@ static inline void cb_add(struct charbuf* b, char c) {
     }
 }
 static inline void cb_addstr(struct charbuf* b, const char* s) {
-    // TODO: make it so that this function instead will see how much space is
-    //       left before a realloc and manually copy up to that amount of chars
-    //       before performing a realloc
+    // TODO: make it so that this function instead will see how much space is left before a realloc and manually copy
+    //       up to that amount of chars before performing a realloc
     while(*s) cb_add(b, *(s++));
 }
 static inline void cb_addpartstr(struct charbuf* b, const char* s, long l) {
@@ -49,6 +48,7 @@ static inline char* cb_reinit(struct charbuf* b, int sz) {
 }
 static inline void cb_dump(struct charbuf* b) {
     free(b->data);
+    b->data = NULL;
 }
 static inline void cb_clear(struct charbuf* b, int sz) {
     cb_dump(b);

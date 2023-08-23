@@ -26,9 +26,10 @@ void plog_setfile(char* f) {
         plog(LL_ERROR | LF_FUNC, LE_RECVNULL);
     } else {
         logfile = fopen(f, "w");
+        int e = errno;
         if (!logfile) {
             unlockMutex(&loglock);
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(f));
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(f, e));
             return;
         }
     }
@@ -57,19 +58,19 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
         default:
             break;
         case LL_TASK:
-            fputs("#### ", f);
+            fputs(LP_TASK, f);
             break;
         case LL_INFO:
-            fputs("(i): ", f);
+            fputs(LP_INFO, f);
             break;
         case LL_WARN:
-            fputs("/!\\: ", f);
+            fputs(LP_WARN, f);
             break;
         case LL_ERROR:
-            fputs("[E]: ", f);
+            fputs(LP_ERROR, f);
             break;
         case LL_CRIT:
-            fputs("{X}: ", f);
+            fputs(LP_CRIT, f);
             lvl |= LF_FUNCLN;
             break;
     }
@@ -127,19 +128,19 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
         default:
             break;
         case LL_TASK:
-            pb_print("#### ");
+            pb_print(LP_TASK);
             break;
         case LL_INFO:
-            pb_print("(i): ");
+            pb_print(LP_INFO);
             break;
         case LL_WARN:
-            pb_print("/!\\: ");
+            pb_print(LP_WARN);
             break;
         case LL_ERROR:
-            pb_print("[E]: ");
+            pb_print(LP_ERROR);
             break;
         case LL_CRIT:
-            pb_print("{X}: ");
+            pb_print(LP_CRIT);
             lvl |= LF_FUNCLN;
             break;
     }

@@ -32,9 +32,9 @@ const char* rendapi_ids[] = {
     #endif
 };
 const char* rendapi_names[] = {
-    "OpenGL 1.1 (Legacy)",
+    "OpenGL 1.1",
     #if PLATFORM != PLAT_XBOX
-    "OpenGL 3.3 (Advanced)",
+    "OpenGL 3.3",
     "OpenGL ES 3.0"
     #endif
 };
@@ -456,8 +456,16 @@ bool updateRendererConfig(struct rendstate* r, ...) {
                 stopRenderer_internal(r);
                 r->api = va_arg(args, enum rendapi);
                 if (!startRenderer_internal(r)) {
+                    plog(
+                        LL_WARN,
+                        "Failed to restart renderer after changing API to %s. Reverting to %s...",
+                        rendapi_names[r->api], rendapi_names[oldapi]
+                    );
                     r->api = oldapi;
-                    if (!startRenderer_internal(r)) goto retfalse;
+                    if (!startRenderer_internal(r)) {
+                        plog(LL_ERROR, "Failed to restart renderer after reverting API to %s.", rendapi_names[r->api]);
+                        goto retfalse;
+                    }
                 }
             } break;
             case RENDOPT_MODE: {

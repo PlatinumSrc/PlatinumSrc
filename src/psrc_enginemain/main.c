@@ -21,23 +21,6 @@
 
 #include "../glue.h"
 
-char* curdir;
-char* maindir;
-
-void findDirs(void) {
-    #if PLATFORM != PLAT_XBOX
-    maindir = SDL_GetBasePath();
-    if (!maindir) {
-        plog(LL_WARN, "Failed to get start directory: %s", SDL_GetError());
-        maindir = ".";
-    }
-    curdir = ".";
-    #else
-    maindir = "D:\\";
-    curdir = "D:\\";
-    #endif
-}
-
 #if PLATFORM != PLAT_XBOX
 
 static void sigh_log(int l, char* name, char* msg) {
@@ -95,19 +78,17 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
-    findDirs();
-
-    char* logfile = mkpath(maindir, "log.txt", NULL);
+    char* logfile = mkpath(dirs[DIR_USER], "log.txt", NULL);
     plog_setfile(logfile);
     free(logfile);
 
     plog(LL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
     plog(LL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
 
-    plog(LL_INFO, "Main directory: %s", maindir);
-    plog(LL_INFO, "Current directory: %s", curdir);
+    plog(LL_INFO, "Main directory: %s", dirs[DIR_MAIN]);
+    plog(LL_INFO, "User directory: %s", dirs[DIR_USER]);
 
-    char* tmp = mkpath(maindir, "config", "base.txt", NULL);
+    char* tmp = mkpath(dirs[DIR_MAIN], "engine", "config.cfg", NULL);
     cfg_open(tmp);
     free(tmp);
 
@@ -117,7 +98,7 @@ static int run(int argc, char** argv) {
         plog(LL_CRIT, "Failed to init renderer");
         return 1;
     }
-    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    states->renderer.icon = mkpath(dirs[DIR_MAIN], "icons", "engine.png", NULL);
     if (!startRenderer(&states->renderer)) {
         plog(LL_CRIT, "Failed to start renderer");
         return 1;
@@ -165,8 +146,22 @@ static int bootstrap(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
     #endif
     #endif
+    #if PLATFORM != PLAT_XBOX
+    dirs[DIR_MAIN] = SDL_GetBasePath();
+    if (!dirs[DIR_MAIN]) {
+        fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
+        dirs[DIR_MAIN] = ".";
+    }
+    dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);
+    // TODO: cfg_open info.txt in game dir
+    dirs[DIR_USER] = SDL_GetPrefPath(NULL, "psrc");
+    #else
+    dirs[DIR_MAIN] = mkpath("D:\\", NULL);
+    dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);
+    dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", /*suffix,*/ NULL);
+    #endif
     if (!initLogging()) {
-        fputs("Failed to init logging\n", stderr);
+        fputs(LP_ERROR "Failed to init logging\n", stderr);
         return 1;
     }
     #if PLATFORM == PLAT_XBOX

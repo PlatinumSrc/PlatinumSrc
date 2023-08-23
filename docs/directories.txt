@@ -1,18 +1,32 @@
-Game dirs:
+<Main dir>/ - Most likely the directory the executable is located.
+    common/ - Common assets (shares a similar layout to games/).
+    engine/
+        fonts/
+        shaders/
+        autoexec.{psh|txt} - (Optional) console commands to run on startup.
+        config.{cfg|txt} - Optional. See 'default base config.txt' for details.
+    games/ - This layout is optional but is highly recommended.
+        entities/ - File extension must be .txt. See 'entities.txt' for details.
+        maps/ - Maps should be named using an [<Abbreviated game name or game mode>_]<Name> scheme and must have
+                the .pmf file extension. See 'pmf.txt' for details.
+        materials/ - File extension must be .txt. See 'example material.txt' for details.
+        models/ - File extension must be .p3m or .obj.
+        music/ - File extension must be .wav or .ogg.
+        props/ - File extension must be .txt. See 'props.txt' for details.
+        scripts/ - File extension must be .script or .txt.
+        sounds/ - File extension must be .wav or .ogg.
+        textures/ - File extension must not have an extension or must be .png, .jpg, .tga, or .bmp.
+        autoexec.{script|txt} - The script that starts the game (this should typically display a splash screen then
+                                 load the main menu).
+        game.{cfg|txt} - Game info/config. See 'game config.txt' for details.
 
-    <Base dir>/
-        <Game dir>/
-            entities/ - File extension must be .txt. See entities.txt for details.
-            maps/ - Maps should be named using a [<Abbreviated game name or game mode>_]<Name> scheme and must have the
-                    .pmf file extension.
-            models/ - File extension must be .p3m or .obj.
-            music/ - File extension must be .wav or .ogg.
-            props/ - File extension must be .txt. See props.txt for details.
-            scripts/ - File extension must be .script.
-            sounds/ - File extension must be .wav or .ogg.
-            textures/ - File extension must be one of .png, .jpg, .tga, or .bmp.
-            main.script - The script used to start the game (this should typically display a splash screen then load
-                          the main menu).
+<User dir>/ - Most likely a directory (specified by the 'userdir' variable in 'game.txt') inside of the system/user's
+              program data directory.
+    config/
+        autoexec.{psh|txt} - (Optional) console commands to run after autoexec.{psh|txt} in <Main dir>/engine/.
+        config.{cfg|txt} - Optional (overrides <Main dir>/config.{cfg|txt}).
+    servercontent/
+    
 
 User data dirs:
 

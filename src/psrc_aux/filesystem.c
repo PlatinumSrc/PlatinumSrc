@@ -1,6 +1,5 @@
 #include "filesystem.h"
 #include "string.h"
-#include "../platform.h"
 
 #include <stddef.h>
 #if PLATFORM != PLAT_XBOX
@@ -10,6 +9,8 @@
 #endif
 #include <stdio.h>
 #include <stdbool.h>
+
+const char* dirs[DIR__COUNT];
 
 int isFile(const char* p) {
     #if PLATFORM != PLAT_XBOX
@@ -48,7 +49,7 @@ static inline bool isSepChar(char c) {
     return (c == '/' || c == '\\');
     #endif
 }
-static void trimsep(struct charbuf* b, const char* s, bool first) {
+static void replsep(struct charbuf* b, const char* s, bool first) {
     if (first) {
         #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
         if (*s == '/') {
@@ -91,7 +92,7 @@ char* mkpath(const char* s, ...) {
     if (!s) return NULL;
     struct charbuf b;
     cb_init(&b, 256);
-    trimsep(&b, s, true);
+    replsep(&b, s, true);
     va_list v;
     va_start(v, s);
     s = va_arg(v, char*);
@@ -101,7 +102,7 @@ char* mkpath(const char* s, ...) {
         #else
         cb_add(&b, '\\');
         #endif
-        trimsep(&b, s, false);
+        replsep(&b, s, false);
         s = va_arg(v, char*);
     }
     va_end(v);

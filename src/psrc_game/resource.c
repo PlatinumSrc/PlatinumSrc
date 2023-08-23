@@ -1,8 +1,14 @@
 #include "resource.h"
+
+#include "../psrc_aux/string.h"
+#include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/threading.h"
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "../glue.h"
 
 #undef freeResource
 
@@ -10,46 +16,86 @@ struct __attribute__((packed)) rcdata {
     struct rcheader header;
     union __attribute__((packed)) {
         struct __attribute__((packed)) {
-            struct rc_entity* entity;
-            //struct rcopt_entity* entityopt;
+            struct rc_config config;
+            //struct rcopt_config configopt;
         };
         struct __attribute__((packed)) {
-            struct rc_map* map;
-            struct rcopt_map* mapopt;
+            struct rc_entity entity;
+            //struct rcopt_entity entityopt;
         };
         struct __attribute__((packed)) {
-            struct rc_material* material;
-            struct rcopt_material* materialopt;
+            struct rc_map map;
+            struct rcopt_map mapopt;
         };
         struct __attribute__((packed)) {
-            struct rc_model* model;
-            struct rcopt_model* modelopt;
+            struct rc_material material;
+            struct rcopt_material materialopt;
         };
         struct __attribute__((packed)) {
-            //struct rc_prop* prop;
-            //struct rcopt_prop* propopt;
+            struct rc_model model;
+            struct rcopt_model modelopt;
         };
         struct __attribute__((packed)) {
-            //struct rc_script* script;
-            //struct rcopt_script* scriptopt;
+            //struct rc_prop prop;
+            //struct rcopt_prop propopt;
         };
         struct __attribute__((packed)) {
-            struct rc_sound* sound;
-            //struct rcopt_sound* soundopt;
+            //struct rc_script script;
+            //struct rcopt_script scriptopt;
         };
         struct __attribute__((packed)) {
-            struct rc_texture* texture;
-            struct rcopt_texture* textureopt;
+            struct rc_sound sound;
+            //struct rcopt_sound soundopt;
+        };
+        struct __attribute__((packed)) {
+            struct rc_texture texture;
+            struct rcopt_texture textureopt;
         };
     };
 };
 
-static int rccount = 0;
-static struct rcdata** rcdata = NULL;
+struct __attribute__((packed)) rcsubgroup {
+    struct rcdata** data;
+    int size;
+    int len;
+};
+
+struct __attribute__((packed)) rcgroup {
+    struct rcsubgroup data[RC__COUNT];
+};
+
+static struct rcgroup data[RCSRC__COUNT];
 static mutex_t rclock;
 
+static char* getRcPath(char* uri) {
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    char* tmp = uri;
+    char c;
+    char* prefix;
+    while (1) {
+        c = *tmp++;
+        if (c) {
+            if (c == ':') {
+                char* srcstr = cb_finalize(&cb);
+                break;
+            } else {
+                cb_add(&cb, c);
+            }
+        } else {
+            cb_dump(&cb);
+            prefix = strdup(dirs[DIR_SELF]);
+            break;
+        }
+    }
+    return NULL;
+}
+
 static struct rcdata* loadResource_internal(enum rctype t, char* p, union rcopt* o) {
-    switch (t) {
+    switch ((uint8_t)t) {
+        case RC_CONFIG: {
+            return NULL;
+        } break;
         case RC_ENTITY: {
             return NULL;
         } break;
@@ -85,10 +131,15 @@ union resource loadResource(enum rctype t, char* p, union rcopt* o) {
 }
 
 static void freeResource_internal(const struct rcdata* _r) {
-    struct rcdata* r = rcdata[_r->header.index];
+    enum rctype type = _r->header.type;
+    enum rcsrc src = _r->header.source;
+    int index = _r->header.index;
+    struct rcdata* r = data[src].data[type].data[index];
     --r->header.refs;
     if (!r->header.refs) {
-        switch (r->header.type) {
+        switch ((uint8_t)type) {
+            case RC_CONFIG: {
+            } break;
             case RC_ENTITY: {
             } break;
             case RC_MAP: {
@@ -107,7 +158,7 @@ static void freeResource_internal(const struct rcdata* _r) {
             } break;
         }
         free(r);
-        rcdata[_r->header.index] = NULL;
+        data[src].data[type].data[index] = NULL;
     }
 }
 

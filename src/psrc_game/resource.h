@@ -1,10 +1,13 @@
 #ifndef GAME_RESOURCE_H
 #define GAME_RESOURCE_H
 
+#include "../psrc_aux/config.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
 enum rctype {
+    RC_CONFIG,
     RC_ENTITY,
     RC_MAP,
     RC_MATERIAL,
@@ -13,6 +16,20 @@ enum rctype {
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
+    RC__COUNT,
+};
+
+enum rcsrc {
+    RCSRC_BUILTIN,
+    RCSRC_ENGINE,
+    RCSRC_COMMON,
+    RCSRC_GAME,
+    RCSRC_MOD,
+    RCSRC__COUNT,
+};
+
+struct __attribute__((packed)) rc_config {
+    struct cfg* config; // not const because it can be modified (the api is mt-safe so it's fine)
 };
 
 enum rc_texture_frmt {
@@ -85,16 +102,18 @@ enum rc_sound_frmt {
 };
 struct __attribute__((packed)) rc_sound {
     enum rc_sound_frmt format;
-    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16 for FRMT_WAV
-    int len; // length in samples (would be better as unsigned long but stb_vorbis uses int)
-    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16 or AUDIO_S8 for FRMT_WAV
+    long size; // size of data
+    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
+    int len; // length in samples
     int freq;
-    bool stereo;
+    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
+    uint8_t stereo : 1;
 };
 
 struct __attribute__((packed)) rcheader {
     enum rctype type;
-    char* path;
+    enum rcsrc source;
+    char* path; // full file path
     int refs;
     int index;
 };

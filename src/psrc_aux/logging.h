@@ -19,8 +19,14 @@ enum loglevel {
 };
 
 #define LE_MEMALLOC "Memory allocation error"
-#define LE_CANTOPEN(p) "Failed to open %s: %s", (p), strerror(errno)
+#define LE_CANTOPEN(p, e) "Failed to open %s: %s", (p), strerror((e))
 #define LE_RECVNULL "Received NULL"
+
+#define LP_TASK "#### "
+#define LP_INFO "(i): "
+#define LP_WARN "/!\\: "
+#define LP_ERROR "[E]: "
+#define LP_CRIT "{X}: "
 
 extern mutex_t loglock;
 
