@@ -28,6 +28,6 @@ char* mkpath(const char*, ...);
 bool md(const char*);
 bool rm(const char*);
 
-extern const char* dirs[DIR__COUNT];
+extern char* dirs[DIR__COUNT];
 
 #endif

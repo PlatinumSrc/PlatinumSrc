@@ -88,7 +88,7 @@ static int run(int argc, char** argv) {
     plog(LL_INFO, "Main directory: %s", dirs[DIR_MAIN]);
     plog(LL_INFO, "User directory: %s", dirs[DIR_USER]);
 
-    char* tmp = mkpath(dirs[DIR_MAIN], "engine", "config.cfg", NULL);
+    char* tmp = mkpath(dirs[DIR_MAIN], "engine/config", "config.cfg", NULL);
     cfg_open(tmp);
     free(tmp);
 
@@ -151,10 +151,22 @@ static int bootstrap(int argc, char** argv) {
     if (!dirs[DIR_MAIN]) {
         fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
         dirs[DIR_MAIN] = ".";
+    } else {
+        char* tmp = dirs[DIR_MAIN];
+        dirs[DIR_MAIN] = mkpath(tmp, NULL);
+        SDL_free(tmp);
     }
     dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);
     // TODO: cfg_open info.txt in game dir
     dirs[DIR_USER] = SDL_GetPrefPath(NULL, "psrc");
+    if (!dirs[DIR_USER]) {
+        fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
+        dirs[DIR_USER] = ".";
+    } else {
+        char* tmp = dirs[DIR_USER];
+        dirs[DIR_USER] = mkpath(tmp, NULL);
+        SDL_free(tmp);
+    }
     #else
     dirs[DIR_MAIN] = mkpath("D:\\", NULL);
     dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);

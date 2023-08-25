@@ -420,18 +420,15 @@ static void stopRenderer_internal(struct rendstate* r) {
 }
 
 bool reloadRenderer(struct rendstate* r) {
-    plog(LL_TASK, "Reloading renderer...");
     stopRenderer_internal(r);
     return startRenderer_internal(r);
 }
 
 bool startRenderer(struct rendstate* r) {
-    plog(LL_TASK, "Starting renderer...");
     return startRenderer_internal(r);
 }
 
 void stopRenderer(struct rendstate* r) {
-    plog(LL_TASK, "Stopping renderer...");
     stopRenderer_internal(r);
 }
 
@@ -509,7 +506,6 @@ bool updateRendererConfig(struct rendstate* r, ...) {
 }
 
 bool initRenderer(struct rendstate* r) {
-    plog(LL_TASK, "Initializing renderer...");
     memset(r, 0, sizeof(*r));
     r->api = RENDAPI_GL11;
     #if PLATFORM != PLAT_XBOX
@@ -526,7 +522,6 @@ bool initRenderer(struct rendstate* r) {
 }
 
 void termRenderer(struct rendstate* r) {
-    plog(LL_TASK, "Terminating renderer...");
     stopRenderer_internal(r);
     free(r->icon);
 }

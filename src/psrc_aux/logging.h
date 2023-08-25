@@ -9,7 +9,6 @@
 
 enum loglevel {
     LL_PLAIN,
-    LL_TASK,
     LL_INFO,
     LL_WARN,
     LL_ERROR,

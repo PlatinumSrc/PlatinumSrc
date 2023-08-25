@@ -57,9 +57,6 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     switch (lvl & 0xFF) {
         default:
             break;
-        case LL_TASK:
-            fputs(LP_TASK, f);
-            break;
         case LL_INFO:
             fputs(LP_INFO, f);
             break;
@@ -126,9 +123,6 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
     #endif
     switch (lvl & 0xFF) {
         default:
-            break;
-        case LL_TASK:
-            pb_print(LP_TASK);
             break;
         case LL_INFO:
             pb_print(LP_INFO);

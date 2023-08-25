@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-const char* dirs[DIR__COUNT];
+char* dirs[DIR__COUNT];
 
 int isFile(const char* p) {
     #if PLATFORM != PLAT_XBOX
