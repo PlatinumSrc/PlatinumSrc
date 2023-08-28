@@ -121,7 +121,13 @@ struct cfg* cfg_open(const char* p) {
             c = fgetc_skip(f);
         } while (c == ' ' || c == '\t' || c == '\n');
         if (c == EOF) goto endloop;
-        if (c == '[') {
+        if (c == '#') {
+            while (1) {
+                c = fgetc_skip(f);
+                if (c == EOF) goto endloop;
+                if (c == '\n') goto newline;
+            }
+        } else if (c == '[') {
             do {
                 c = fgetc_skip(f);
                 if (c == '\n') goto newline;
@@ -149,11 +155,12 @@ struct cfg* cfg_open(const char* p) {
                         } while (c == ' ' || c == '\t');
                         if (c == EOF) goto endloop;
                         if (c != '\n') {
+                            int c2 = c;
                             do {
                                 c = fgetc_skip(f);
                                 if (c == EOF) goto endloop;
                             } while (c != '\n');
-                            goto newline;
+                            if (c2 != '#') goto newline;
                         }
                         if (sect.len > 0) {
                             char tmpc = sect.data[sect.len - 1];
@@ -166,7 +173,7 @@ struct cfg* cfg_open(const char* p) {
                         interpfinal(tmp, &sect);
                         tmp = cb_reinit(&sect, 256);
                         #if DEBUG(1)
-                        plog(LL_INFO, "  [%s]", tmp);
+                        plog(LL_INFO, "  [ %s ]", tmp);
                         #endif
                         free(tmp);
                         goto newline;
@@ -205,7 +212,10 @@ struct cfg* cfg_open(const char* p) {
                                 if (c == '\\') {
                                     c = fgetc_skip(f);
                                     if (c == EOF) goto endloop;
-                                    if (c != '\n') {
+                                    if (c == '\n') {
+                                        cb_add(&data, '\\');
+                                        cb_add(&data, '\n');
+                                    } else {
                                         char tmpbuf[4];
                                         c = interpesc(f, c, tmpbuf);
                                         if (c == -1) goto endloop;
@@ -217,7 +227,7 @@ struct cfg* cfg_open(const char* p) {
                                     if (c == '"') inStr = false;
                                 }
                             } else {
-                                if (c == '\n') {
+                                if (c == '\n' || c == '#' || c == EOF) {
                                     char* varstr;
                                     char* datastr;
                                     if (var.len > 0) {
@@ -246,6 +256,13 @@ struct cfg* cfg_open(const char* p) {
                                     #endif
                                     free(varstr);
                                     free(datastr);
+                                    if (c == '#') {
+                                        while (1) {
+                                            c = fgetc_skip(f);
+                                            if (c == EOF) goto endloop;
+                                            if (c == '\n') goto newline;
+                                        }
+                                    }
                                     goto newline;
                                 } else {
                                     cb_add(&data, c);
@@ -253,7 +270,6 @@ struct cfg* cfg_open(const char* p) {
                                 }
                             }
                             c = fgetc_skip(f);
-                            if (c == EOF) goto endloop;
                         }
                     } else {
                         cb_add(&var, c);

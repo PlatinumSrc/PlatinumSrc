@@ -1,0 +1,14 @@
+client to server:
+    login: <u8: 0b00001111><u8: username length><char[0..255]: username>
+    data: <u8: 0b01010101><u32: CRC32><u32: message ID><u8: index><u32: UID><u64: key><u16: # of bytes - 1><u8[0..484]:
+          data>
+
+server to client:
+    login ok: <u8: 0b00001111><u8: index><u32: UID><u64: key>
+    bad login: <u8: 0b11110000>
+    data: <u8: 0b01010101><u32: CRC32><u32: message ID><u16: # of bytes - 1><u8[0..497]: data>
+
+both:
+    ack: <u8: 0b11111111>
+    resend: <u8: 0b00000000>
+    keepalive: <u8: 0b10101010>

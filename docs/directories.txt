@@ -27,5 +27,5 @@
     config/
         autoexec.{psh|txt} - (Optional) console commands to run after autoexec.{psh|txt} in <Main dir>/engine/.
         config.{cfg|txt} - Optional. See 'default user config.txt' for details.
-    downloads/ - Files have the CRC64 and an underscore prepended to the name.
+    downloads/ - Files have the CRC64 and an underscore prepended to the name and mount over the current game.
     mods/
