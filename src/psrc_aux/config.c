@@ -1,6 +1,7 @@
 #include "config.h"
 #include "filesystem.h"
 #include "string.h"
+#include "crc.h"
 #include "logging.h"
 #include "../debug.h"
 
@@ -90,19 +91,8 @@ static void interpfinal(char* s, struct charbuf* b) {
     }
 }
 
-struct cfg* cfg_open(const char* p) {
-    if (!isFile(p)) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, EISDIR));
-        return NULL;
-    }
-    FILE* f = fopen(p, "r");
-    if (!f) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-        return NULL;
-    }
-    #if DEBUG(1)
-    plog(LL_INFO, "Reading config %s...", p);
-    #endif
+void cfg_read(struct cfg* cfg, FILE* f) {
+    struct cfg_sect* sectptr;
     struct charbuf sect;
     struct charbuf var;
     struct charbuf data;
@@ -114,9 +104,9 @@ struct cfg* cfg_open(const char* p) {
         int c;
         newline:;
         inStr = false;
-        cb_clear(&sect, 256);
-        cb_clear(&var, 256);
-        cb_clear(&data, 256);
+        cb_clear(&sect);
+        cb_clear(&var);
+        cb_clear(&data);
         do {
             c = fgetc_skip(f);
         } while (c == ' ' || c == '\t' || c == '\n');
@@ -173,7 +163,7 @@ struct cfg* cfg_open(const char* p) {
                         interpfinal(tmp, &sect);
                         tmp = cb_reinit(&sect, 256);
                         #if DEBUG(1)
-                        plog(LL_INFO, "  [ %s ]", tmp);
+                        plog(LL_INFO, "  [ %s ] (0x%08lX)", tmp, (unsigned)strcrc32(tmp));
                         #endif
                         free(tmp);
                         goto newline;
@@ -286,6 +276,52 @@ struct cfg* cfg_open(const char* p) {
     cb_dump(&sect);
     cb_dump(&var);
     cb_dump(&data);
-    fclose(f);
-    return NULL;
+}
+
+static inline struct cfg* cfg_open_new(void) {
+    struct cfg* cfg = malloc(sizeof(*cfg));
+    memset(cfg, 0, sizeof(*cfg));
+    createMutex(&cfg->lock);
+    return cfg;
+}
+
+struct cfg* cfg_open(const char* p) {
+    if (p) {
+        int tmp = isFile(p);
+        if (tmp < 1) {
+            int e = (tmp) ? ENOENT : EISDIR;
+            plog(LL_ERROR | LF_FUNC, LE_CANTOPEN(p, e));
+            return NULL;
+        }
+        FILE* f = fopen(p, "r");
+        if (!f) {
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+            return NULL;
+        }
+        #if DEBUG(1)
+        plog(LL_INFO, "Reading config %s...", p);
+        #endif
+        struct cfg* cfg = cfg_open_new();
+        cfg_read(cfg, f);
+        fclose(f);
+        return cfg;
+    }
+    return cfg_open_new();
+}
+
+void cfg_close(struct cfg* cfg) {
+    int sectcount = cfg->sectcount;
+    for (int secti = 0; secti < sectcount; ++secti) {
+        struct cfg_sect* sect = &cfg->sectdata[secti];
+        int varcount = sect->varcount;
+        for (int vari = 0; vari < varcount; ++ vari) {
+            struct cfg_var* var = &sect->vardata[vari];
+            free(var->name);
+            free(var->data);
+        }
+        free(sect->name);
+        free(sect->vardata);
+    }
+    free(cfg->sectdata);
+    destroyMutex(&cfg->lock);
 }

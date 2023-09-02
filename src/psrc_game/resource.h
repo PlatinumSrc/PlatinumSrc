@@ -8,24 +8,27 @@
 
 enum rctype {
     RC_CONFIG,
+    RC_CONSOLESCRIPT,
     RC_ENTITY,
+    RC_GAMESCRIPT,
     RC_MAP,
     RC_MATERIAL,
     RC_MODEL,
+    RC_PLAYERMODEL,
     RC_PROP,
-    RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
     RC__COUNT,
 };
 
-enum rcsrc {
-    RCSRC_BUILTIN,
-    RCSRC_ENGINE,
-    RCSRC_COMMON,
-    RCSRC_GAME,
-    RCSRC_MOD,
-    RCSRC__COUNT,
+enum rcprefix {
+    RCPREFIX_SELF = -1,
+    RCPREFIX_COMMON,
+    RCPREFIX_ENGINE,
+    RCPREFIX_GAME,
+    RCPREFIX_MOD,
+    RCPREFIX_USER,
+    RCPREFIX__COUNT,
 };
 
 struct __attribute__((packed)) rc_config {
@@ -80,7 +83,7 @@ struct __attribute__((packed)) rcopt_model {
 
 struct __attribute__((packed)) rc_entity {
     const struct rc_model* model;
-    const struct rc_script* script;
+    //const struct rc_gamescript* gamescript;
 };
 
 struct __attribute__((packed)) rc_map {
@@ -112,40 +115,52 @@ struct __attribute__((packed)) rc_sound {
 
 struct __attribute__((packed)) rcheader {
     enum rctype type;
-    enum rcsrc source;
     char* path; // full file path
+    uint32_t pathcrc;
     int refs;
     int index;
 };
 
 union __attribute__((packed)) resource {
     const void* ptr;
+    //const struct rc_config* config;
+    //const struct rc_consolescript* consolescript;
     const struct rc_entity* entity;
+    //const struct rc_gamescript* gamescript;
     const struct rc_map* map;
     const struct rc_material* material;
     const struct rc_model* model;
+    const struct rc_playermodel* playermodel;
     //const struct rc_prop* prop;
-    //const struct rc_script* script;
     const struct rc_sound* sound;
     const struct rc_texture* texture;
 };
 
 union __attribute__((packed)) rcopt {
     const void* ptr;
+    //const struct rcopt_config config;
+    //const struct rcopt_consolescript consolescript;
     //const struct rcopt_entity entity;
+    //const struct rcopt_gamescript gamescript;
     const struct rcopt_map map;
     const struct rcopt_material material;
     const struct rcopt_model model;
+    //const struct rcopt_playermodel playermodel;
     //const struct rcopt_prop prop;
-    //const struct rcopt_script script;
     //const struct rcopt_sound sonud;
     const struct rcopt_texture texture;
 };
 
 bool initResource(void);
-union resource loadResource(enum rctype type, char* path, union rcopt* opt);
+union resource loadResource(enum rctype type, const char* path, union rcopt* opt);
 void freeResource(union resource);
 
+#define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
 #define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
+
+extern char* maindir;
+extern char* userdir;
+
+extern char* gamedir; // relative to maindir
 
 #endif

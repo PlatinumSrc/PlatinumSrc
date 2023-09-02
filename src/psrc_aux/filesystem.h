@@ -15,19 +15,12 @@
     #define PATHSEPSTR "\\"
 #endif
 
-enum dirindex {
-    DIR_MAIN,
-    DIR_SELF,
-    DIR_USER,
-    DIR__COUNT,
-};
-
 int isFile(const char*);
 long getFileSize(FILE* file, bool close);
 char* mkpath(const char*, ...);
+char* strpath(const char*);
+char* strrelpath(const char*);
 bool md(const char*);
 bool rm(const char*);
-
-extern char* dirs[DIR__COUNT];
 
 #endif

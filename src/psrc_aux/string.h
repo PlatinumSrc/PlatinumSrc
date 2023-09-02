@@ -50,9 +50,24 @@ static inline void cb_dump(struct charbuf* b) {
     free(b->data);
     b->data = NULL;
 }
-static inline void cb_clear(struct charbuf* b, int sz) {
+static inline void cb_reset(struct charbuf* b, int sz) {
     cb_dump(b);
     cb_init(b, sz);
+}
+static inline void cb_clear(struct charbuf* b) {
+    b->len = 0;
+}
+static inline void cb_nullterm(struct charbuf* b) {
+    cb_add(b, 0);
+    --b->len;
+}
+static inline void cb_undo(struct charbuf* b, int l) {
+    b->len -= l;
+    if (b->len < 0) b->len = 0;
+}
+static inline char* cb_peek(struct charbuf* b) {
+    cb_nullterm(b);
+    return b->data;
 }
 
 #endif

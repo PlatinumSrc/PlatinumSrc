@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-char* dirs[DIR__COUNT];
-
 int isFile(const char* p) {
     #if PLATFORM != PLAT_XBOX
         struct stat s;
@@ -89,22 +87,33 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
     }
 }
 char* mkpath(const char* s, ...) {
-    if (!s) return NULL;
     struct charbuf b;
     cb_init(&b, 256);
-    replsep(&b, s, true);
+    if (s) {
+        replsep(&b, s, true);
+    }
     va_list v;
     va_start(v, s);
-    s = va_arg(v, char*);
-    while (s) {
+    while ((s = va_arg(v, char*))) {
         #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
         cb_add(&b, '/');
         #else
         cb_add(&b, '\\');
         #endif
         replsep(&b, s, false);
-        s = va_arg(v, char*);
     }
     va_end(v);
+    return cb_finalize(&b);
+}
+char* strpath(const char* s) {
+    struct charbuf b;
+    cb_init(&b, 256);
+    replsep(&b, s, true);
+    return cb_finalize(&b);
+}
+char* strrelpath(const char* s) {
+    struct charbuf b;
+    cb_init(&b, 256);
+    replsep(&b, s, false);
     return cb_finalize(&b);
 }

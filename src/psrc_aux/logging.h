@@ -19,7 +19,13 @@ enum loglevel {
 
 #define LE_MEMALLOC "Memory allocation error"
 #define LE_CANTOPEN(p, e) "Failed to open %s: %s", (p), strerror((e))
+#define LE_NOEXIST(p) "The file %s does not exist", (p)
+#define LE_DIRNOEXIST(p) "The directory %s does not exist", (p)
+#define LE_ISDIR(p) "%s is a directory", (p)
+#define LE_ISFILE(p) "%s is a file", (p)
 #define LE_RECVNULL "Received NULL"
+
+#define LW_SPECIALFILE(p) "%s is a special file", (p)
 
 #define LP_TASK "#### "
 #define LP_INFO "(i): "

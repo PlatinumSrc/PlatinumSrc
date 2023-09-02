@@ -78,17 +78,18 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
-    char* logfile = mkpath(dirs[DIR_USER], "log.txt", NULL);
+    char* logfile = mkpath(userdir, "log.txt", NULL);
     plog_setfile(logfile);
     free(logfile);
 
     plog(LL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
     plog(LL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
 
-    plog(LL_INFO, "Main directory: %s", dirs[DIR_MAIN]);
-    plog(LL_INFO, "User directory: %s", dirs[DIR_USER]);
+    plog(LL_INFO, "Main directory: %s", maindir);
+    plog(LL_INFO, "User directory: %s", userdir);
+    plog(LL_INFO, "Game directory (in main directory): %s", gamedir);
 
-    char* tmp = mkpath(dirs[DIR_MAIN], "engine/config", "config.cfg", NULL);
+    char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
     cfg_open(tmp);
     free(tmp);
 
@@ -98,7 +99,7 @@ static int run(int argc, char** argv) {
         plog(LL_CRIT, "Failed to init renderer");
         return 1;
     }
-    states->renderer.icon = mkpath(dirs[DIR_MAIN], "icons", "engine.png", NULL);
+    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
     if (!startRenderer(&states->renderer)) {
         plog(LL_CRIT, "Failed to start renderer");
         return 1;
@@ -147,30 +148,30 @@ static int bootstrap(int argc, char** argv) {
     #endif
     #endif
     #if PLATFORM != PLAT_XBOX
-    dirs[DIR_MAIN] = SDL_GetBasePath();
-    if (!dirs[DIR_MAIN]) {
+    gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
+    maindir = SDL_GetBasePath();
+    if (!maindir) {
         fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
-        dirs[DIR_MAIN] = ".";
+        maindir = ".";
     } else {
-        char* tmp = dirs[DIR_MAIN];
-        dirs[DIR_MAIN] = mkpath(tmp, NULL);
+        char* tmp = maindir;
+        maindir = mkpath(tmp, NULL);
         SDL_free(tmp);
     }
-    dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);
     // TODO: cfg_open info.txt in game dir
-    dirs[DIR_USER] = SDL_GetPrefPath(NULL, "psrc");
-    if (!dirs[DIR_USER]) {
+    userdir = SDL_GetPrefPath(NULL, "psrc");
+    if (!userdir) {
         fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
-        dirs[DIR_USER] = ".";
+        userdir = "." PATHSEPSTR "data";
     } else {
-        char* tmp = dirs[DIR_USER];
-        dirs[DIR_USER] = mkpath(tmp, NULL);
+        char* tmp = userdir;
+        userdir = mkpath(tmp, NULL);
         SDL_free(tmp);
     }
     #else
-    dirs[DIR_MAIN] = mkpath("D:\\", NULL);
-    dirs[DIR_SELF] = mkpath(dirs[DIR_MAIN], "games", /*game,*/ NULL);
-    dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", /*suffix,*/ NULL);
+    gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
+    maindir = mkpath("D:\\", NULL);
+    userdir = mkpath(maindir, "data", /*suffix,*/ NULL);
     #endif
     if (!initLogging()) {
         fputs(LP_ERROR "Failed to init logging\n", stderr);
