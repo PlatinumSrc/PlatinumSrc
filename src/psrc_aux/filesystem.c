@@ -94,6 +94,13 @@ char* mkpath(const char* s, ...) {
     }
     va_list v;
     va_start(v, s);
+    if (!s) {
+        if ((s = va_arg(v, char*))) {
+            replsep(&b, s, false);
+        } else {
+            goto ret;
+        }
+    }
     while ((s = va_arg(v, char*))) {
         #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
         cb_add(&b, '/');
@@ -102,6 +109,7 @@ char* mkpath(const char* s, ...) {
         #endif
         replsep(&b, s, false);
     }
+    ret:;
     va_end(v);
     return cb_finalize(&b);
 }

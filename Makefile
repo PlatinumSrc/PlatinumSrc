@@ -200,7 +200,7 @@ ifneq ($(CROSS),xbox)
     _CFLAGS += -pthread -ffast-math
     _LDLIBS := -lm
     ifdef DEBUG
-        _LDFLAGS := -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
+        _LDFLAGS += -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
     endif
     ifdef NATIVE
         _CFLAGS += -march=native -mtune=native

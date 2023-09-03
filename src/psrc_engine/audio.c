@@ -45,7 +45,16 @@ static inline void getvorbisat(struct audiosound* s, int pos, int* out_l, int* o
 }
 
 static inline void getvorbisat_forcemono(struct audiosound* s, int pos, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= s->rc->len) {
+    if (pos >= s->rc->len) {
+        if (s->flags.loop) {
+            pos %= s->rc->len;
+        } else {
+            *out_l = 0;
+            *out_r = 0;
+            return;
+        }
+    }
+    if (pos < 0) {
         *out_l = 0;
         *out_r = 0;
         return;

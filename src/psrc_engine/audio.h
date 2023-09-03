@@ -35,6 +35,7 @@ struct __attribute__((packed)) audiosound {
     int ptr;
     struct {
         uint8_t uninterruptible : 1;
+        uint8_t loop : 1;
         uint8_t forcemono : 1;
         uint8_t poseffect : 1;
     } flags;
@@ -79,8 +80,9 @@ bool restartAudio(struct audiostate*);
 void termAudio(struct audiostate*);
 
 #define SOUNDFLAG_UNINTERRUPTIBLE (1 << 0)
-#define SOUNDFLAG_FORCEMONO (1 << 1)
-#define SOUNDFLAG_POSEFFECT (1 << 2)
+#define SOUNDFLAG_LOOP (1 << 1)
+#define SOUNDFLAG_FORCEMONO (1 << 2)
+#define SOUNDFLAG_POSEFFECT (1 << 3)
 
 enum soundfx {
     SOUNDFX_NONE = -1,
@@ -90,9 +92,10 @@ enum soundfx {
     SOUNDFX_POS, // float, float, float
 };
 
-uint64_t playSound(struct audiostate*, const struct rc_sound* rc, int flags, ... /*soundfx*/);
-void changeSoundFX(struct audiostate*, uint64_t, ...);
-void stopSound(struct audiostate*, uint64_t);
-void pauseSound(struct audiostate*, uint64_t, bool);
+int64_t playSound(struct audiostate*, const struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
+void changeSoundFX(struct audiostate*, int64_t, ...);
+void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
+void stopSound(struct audiostate*, int64_t);
+void pauseSound(struct audiostate*, int64_t, bool);
 
 #endif

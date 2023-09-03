@@ -169,10 +169,16 @@ static char* getRcPath(const char* uri, enum rctype type) {
         char c = *tmp2;
         if (c == PATHSEP || !c) {
             char* tmp3;
-            if (c) tmp3 = cb_reinit(&tmpcb, 256);
-            else tmp3 = cb_finalize(&tmpcb);
+            tmp3 = cb_reinit(&tmpcb, 256);
             if (!strcmp(tmp3, "..")) {
                 --level;
+                if (level < 0) {
+                    plog(LL_ERROR, "%s reaches out of bounds", path);
+                    cb_dump(&tmpcb);
+                    free(tmp3);
+                    free(path);
+                    return NULL;
+                }
             } else if (strcmp(tmp3, ".")) {
                 ++level;
             }
@@ -183,12 +189,7 @@ static char* getRcPath(const char* uri, enum rctype type) {
         }
         ++tmp2;
     }
-    if (level < 0) {
-        plog(LL_ERROR, "%s reaches out of bounds", path);
-        free(path);
-        return NULL;
-    }
-    cb_init(&tmpcb, 256);
+    cb_clear(&tmpcb);
     int filestatus = -1;
     switch ((int8_t)prefix) {
         case RCPREFIX_SELF: {
@@ -231,7 +232,6 @@ static char* getRcPath(const char* uri, enum rctype type) {
     }
     free(path);
     cb_dump(&tmpcb);
-    plog(LL_ERROR, "Could not find %s", uri);
     return NULL;
     found:;
     free(path);
@@ -248,7 +248,10 @@ static struct rcdata* getRcHandle(enum rctype t, const char* p) {
 
 static struct rcdata* loadResource_internal(enum rctype t, const char* p, union rcopt* o) {
     p = getRcPath(p, t);
-    if (!p) return NULL;
+    if (!p) {
+        plog(LL_ERROR, "Could not find %s", p);
+        return NULL;
+    }
     switch ((uint8_t)t) {
         case RC_CONFIG: {
             //return cfg_open(p);
@@ -301,6 +304,7 @@ static void test_getRcPath(char* p, enum rctype t) {
     } else {
         printf("NULL\n");
     }
+    free(rp);
 }
 
 bool initResource(void) {
@@ -312,6 +316,13 @@ bool initResource(void) {
     test_getRcPath("common:noexist", RC_CONFIG);
     test_getRcPath("common:textures/bricks", RC_TEXTURE);
     test_getRcPath("common:textures/bricks.png", RC_TEXTURE);
+    test_getRcPath("engine:config/config", RC_CONFIG);
+    test_getRcPath("user:config/config", RC_CONFIG);
+    test_getRcPath("self:sounds/armor", RC_SOUND);
+    test_getRcPath("sounds/health", RC_SOUND);
+    test_getRcPath("game:h74dm/sounds/powerups/jumpboost", RC_SOUND);
+    test_getRcPath("../h74dm/sounds/powerups/jumpboost", RC_SOUND);
+    test_getRcPath("game:h74dm/sounds/../sounds/powerups/jumpboost", RC_SOUND);
 
     return true;
 }
