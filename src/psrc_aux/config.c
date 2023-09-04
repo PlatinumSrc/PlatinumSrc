@@ -13,6 +13,258 @@
 
 #include "../glue.h"
 
+char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
+    lockMutex(&cfg->lock);
+    struct cfg_sect* sectptr = NULL;
+    uint32_t crc;
+    if (sect) {
+        crc = strcasecrc32(sect);
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    } else {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    }
+    if (!sectptr) {
+        unlockMutex(&cfg->lock);
+        return NULL;
+    }
+    crc = strcasecrc32(var);
+    for (int i = 0; i < sectptr->varcount; ++i) {
+        struct cfg_var* ptr = &sectptr->vardata[i];
+        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            unlockMutex(&cfg->lock);
+            return strdup(ptr->data);
+        }
+    }
+    unlockMutex(&cfg->lock);
+    return NULL;
+}
+
+bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data, size_t size) {
+    lockMutex(&cfg->lock);
+    struct cfg_sect* sectptr = NULL;
+    uint32_t crc;
+    if (sect) {
+        crc = strcasecrc32(sect);
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    } else {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    }
+    if (!sectptr) {
+        unlockMutex(&cfg->lock);
+        return false;
+    }
+    crc = strcasecrc32(var);
+    for (int i = 0; i < sectptr->varcount; ++i) {
+        struct cfg_var* ptr = &sectptr->vardata[i];
+        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            unlockMutex(&cfg->lock);
+            char* from = ptr->data;
+            for (size_t j = 0; j < size; ++j) {
+                if (!(*data = *from)) break;
+                ++data;
+                ++from;
+            }
+            return true;
+        }
+    }
+    unlockMutex(&cfg->lock);
+    return false;
+}
+
+void cfg_setvar(struct cfg* cfg, const char* sect, const char* var, const char* data, bool overwrite) {
+    lockMutex(&cfg->lock);
+    struct cfg_sect* sectptr = NULL;
+    uint32_t crc;
+    if (sect) {
+        uint32_t crc = strcasecrc32(sect);
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
+                sectptr = ptr;
+                break;
+            }
+        }
+        if (!sectptr) {
+            for (int i = 0; i < cfg->sectcount; ++i) {
+                struct cfg_sect* ptr = &cfg->sectdata[i];
+                if (!ptr->name) {
+                    sectptr = ptr;
+                    break;
+                }
+            }
+            if (!sectptr) {
+                int i = cfg->sectcount++;
+                cfg->sectdata = realloc(cfg->sectdata, cfg->sectcount * sizeof(*cfg->sectdata));
+                sectptr = &cfg->sectdata[i];
+            }
+            sectptr->name = strdup(sect);
+            sectptr->namecrc = crc;
+            sectptr->varcount = 0;
+            sectptr->vardata = NULL;
+        }
+    } else {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+        if (!sectptr) {
+            for (int i = 0; i < cfg->sectcount; ++i) {
+                struct cfg_sect* ptr = &cfg->sectdata[i];
+                if (!ptr->name) {
+                    sectptr = ptr;
+                    break;
+                }
+            }
+            if (!sectptr) {
+                int i = cfg->sectcount++;
+                cfg->sectdata = realloc(cfg->sectdata, cfg->sectcount * sizeof(*cfg->sectdata));
+                sectptr = &cfg->sectdata[i];
+            }
+            sectptr->name = calloc(1, 1);
+            sectptr->namecrc = 0;
+            sectptr->varcount = 0;
+            sectptr->vardata = NULL;
+        }
+    }
+    crc = strcasecrc32(var);
+    struct cfg_var* varptr = NULL;
+    for (int i = 0; i < sectptr->varcount; ++i) {
+        struct cfg_var* ptr = &sectptr->vardata[i];
+        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            varptr = ptr;
+            break;
+        }
+    }
+    if (varptr) {
+        if (overwrite) {
+            free(varptr->data);
+            varptr->data = strdup(data);
+        }
+    } else {
+        for (int i = 0; i < sectptr->varcount; ++i) {
+            struct cfg_var* ptr = &sectptr->vardata[i];
+            if (!ptr->name) {
+                varptr = ptr;
+                break;
+            }
+        }
+        if (!varptr) {
+            int i = sectptr->varcount++;
+            sectptr->vardata = realloc(sectptr->vardata, sectptr->varcount * sizeof(*sectptr->vardata));
+            varptr = &sectptr->vardata[i];
+        }
+        varptr->name = strdup(var);
+        varptr->namecrc = crc;
+        varptr->data = strdup(data);
+    }
+    unlockMutex(&cfg->lock);
+}
+
+void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
+    lockMutex(&cfg->lock);
+    struct cfg_sect* sectptr = NULL;
+    uint32_t crc;
+    if (sect) {
+        crc = strcasecrc32(sect);
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    } else {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    }
+    if (!sectptr) {
+        unlockMutex(&cfg->lock);
+        return;
+    }
+    crc = strcasecrc32(var);
+    for (int i = 0; i < sectptr->varcount; ++i) {
+        struct cfg_var* ptr = &sectptr->vardata[i];
+        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            free(ptr->name);
+            ptr->name = NULL;
+            free(ptr->data);
+            break;
+        }
+    }
+    unlockMutex(&cfg->lock);
+}
+
+void cfg_delsect(struct cfg* cfg, const char* sect) {
+    lockMutex(&cfg->lock);
+    struct cfg_sect* sectptr = NULL;
+    uint32_t crc;
+    if (sect) {
+        crc = strcasecrc32(sect);
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    } else {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+    }
+    if (!sectptr) {
+        unlockMutex(&cfg->lock);
+        return;
+    }
+    for (int i = 0; i < sectptr->varcount; ++i) {
+        struct cfg_var* ptr = &sectptr->vardata[i];
+        if (ptr->name) {
+            free(ptr->name);
+            free(ptr->data);
+        }
+    }
+    free(sectptr->name);
+    sectptr->name = NULL;
+    free(sectptr->vardata);
+    unlockMutex(&cfg->lock);
+}
+
 static int fgetc_skip(FILE* f) {
     int c;
     do {
@@ -91,8 +343,35 @@ static void interpfinal(char* s, struct charbuf* b) {
     }
 }
 
-void cfg_read(struct cfg* cfg, FILE* f) {
-    struct cfg_sect* sectptr;
+void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
+    struct cfg_sect* sectptr = NULL;
+    {
+        for (int i = 0; i < cfg->sectcount; ++i) {
+            struct cfg_sect* ptr = &cfg->sectdata[i];
+            if (ptr->name && !ptr->namecrc && !*ptr->name) {
+                sectptr = ptr;
+                break;
+            }
+        }
+        if (!sectptr) {
+            for (int i = 0; i < cfg->sectcount; ++i) {
+                struct cfg_sect* ptr = &cfg->sectdata[i];
+                if (!ptr->name) {
+                    sectptr = ptr;
+                    break;
+                }
+            }
+            if (!sectptr) {
+                int i = cfg->sectcount++;
+                cfg->sectdata = realloc(cfg->sectdata, cfg->sectcount * sizeof(*cfg->sectdata));
+                sectptr = &cfg->sectdata[i];
+            }
+            sectptr->name = calloc(1, 1);
+            sectptr->namecrc = 0;
+            sectptr->varcount = 0;
+            sectptr->vardata = NULL;
+        }
+    }
     struct charbuf sect;
     struct charbuf var;
     struct charbuf data;
@@ -162,10 +441,34 @@ void cfg_read(struct cfg* cfg, FILE* f) {
                         char* tmp = cb_reinit(&sect, 256);
                         interpfinal(tmp, &sect);
                         tmp = cb_reinit(&sect, 256);
-                        #if DEBUG(1)
-                        plog(LL_INFO, "  [ %s ] (0x%08lX)", tmp, (unsigned)strcrc32(tmp));
-                        #endif
-                        free(tmp);
+                        sectptr = NULL;
+                        uint32_t crc = strcasecrc32(tmp);
+                        for (int i = 0; i < cfg->sectcount; ++i) {
+                            struct cfg_sect* ptr = &cfg->sectdata[i];
+                            if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, tmp)) {
+                                sectptr = ptr;
+                                free(tmp);
+                                break;
+                            }
+                        }
+                        if (!sectptr) {
+                            for (int i = 0; i < cfg->sectcount; ++i) {
+                                struct cfg_sect* ptr = &cfg->sectdata[i];
+                                if (!ptr->name) {
+                                    sectptr = ptr;
+                                    break;
+                                }
+                            }
+                            if (!sectptr) {
+                                int i = cfg->sectcount++;
+                                cfg->sectdata = realloc(cfg->sectdata, cfg->sectcount * sizeof(*cfg->sectdata));
+                                sectptr = &cfg->sectdata[i];
+                            }
+                            sectptr->name = tmp;
+                            sectptr->namecrc = crc;
+                            sectptr->varcount = 0;
+                            sectptr->vardata = NULL;
+                        }
                         goto newline;
                     } else {
                         cb_add(&sect, c);
@@ -240,12 +543,40 @@ void cfg_read(struct cfg* cfg, FILE* f) {
                                     datastr = cb_reinit(&data, 256);
                                     interpfinal(datastr, &data);
                                     datastr = cb_reinit(&data, 256);
-                                    // register the var
-                                    #if DEBUG(1)
-                                    plog(LL_INFO, "    %s = %s", varstr, datastr);
-                                    #endif
-                                    free(varstr);
-                                    free(datastr);
+                                    uint32_t crc = strcasecrc32(varstr);
+                                    struct cfg_var* varptr = NULL;
+                                    for (int i = 0; i < sectptr->varcount; ++i) {
+                                        struct cfg_var* ptr = &sectptr->vardata[i];
+                                        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, varstr)) {
+                                            varptr = ptr;
+                                            free(varstr);
+                                            break;
+                                        }
+                                    }
+                                    if (varptr) {
+                                        if (overwrite) {
+                                            free(varptr->data);
+                                            varptr->data = datastr;
+                                        } else {
+                                            free(datastr);
+                                        }
+                                    } else {
+                                        for (int i = 0; i < sectptr->varcount; ++i) {
+                                            struct cfg_var* ptr = &sectptr->vardata[i];
+                                            if (!ptr->name) {
+                                                varptr = ptr;
+                                                break;
+                                            }
+                                        }
+                                        if (!varptr) {
+                                            int i = sectptr->varcount++;
+                                            sectptr->vardata = realloc(sectptr->vardata, sectptr->varcount * sizeof(*sectptr->vardata));
+                                            varptr = &sectptr->vardata[i];
+                                        }
+                                        varptr->name = varstr;
+                                        varptr->namecrc = crc;
+                                        varptr->data = datastr;
+                                    }
                                     if (c == '#') {
                                         while (1) {
                                             c = fgetc_skip(f);
@@ -302,7 +633,24 @@ struct cfg* cfg_open(const char* p) {
         plog(LL_INFO, "Reading config %s...", p);
         #endif
         struct cfg* cfg = cfg_open_new();
-        cfg_read(cfg, f);
+        cfg_read(cfg, f, true);
+        #if DEBUG(1)
+        {
+            putchar('\n');
+            int sectcount = cfg->sectcount;
+            for (int secti = 0; secti < sectcount; ++secti) {
+                struct cfg_sect* sect = &cfg->sectdata[secti];
+                if (*sect->name) printf("[ %s ]\n", sect->name);
+                int varcount = sect->varcount;
+                for (int vari = 0; vari < varcount; ++ vari) {
+                    struct cfg_var* var = &sect->vardata[vari];
+                    if (*sect->name) fputs("  ", stdout);
+                    printf("%s = %s\n", var->name, var->data);
+                }
+                putchar('\n');
+            }
+        }
+        #endif
         fclose(f);
         return cfg;
     }
