@@ -158,9 +158,4 @@ void freeResource(union resource);
 #define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
 #define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
 
-extern char* maindir;
-extern char* userdir;
-
-extern char* gamedir; // relative to maindir
-
 #endif

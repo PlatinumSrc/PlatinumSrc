@@ -1,4 +1,5 @@
 #include "resource.h"
+#include "dirs.h"
 
 #include "../psrc_aux/logging.h"
 #include "../psrc_aux/string.h"
@@ -14,11 +15,6 @@
 
 #undef loadResource
 #undef freeResource
-
-char* maindir;
-char* userdir;
-
-char* gamedir;
 
 static int mods;
 static char** modpaths;
@@ -165,31 +161,41 @@ static char* getRcPath(const char* uri, enum rctype type) {
     int level = 0;
     char* path = strrelpath(tmp);
     char* tmp2 = path;
+    int lastlen = 0;
     while (1) {
         char c = *tmp2;
         if (c == PATHSEP || !c) {
-            char* tmp3;
-            tmp3 = cb_reinit(&tmpcb, 256);
+            char* tmp3 = &(cb_peek(&tmpcb))[lastlen];
             if (!strcmp(tmp3, "..")) {
                 --level;
                 if (level < 0) {
                     plog(LL_ERROR, "%s reaches out of bounds", path);
                     cb_dump(&tmpcb);
-                    free(tmp3);
                     free(path);
                     return NULL;
                 }
-            } else if (strcmp(tmp3, ".")) {
+                tmpcb.len -= 2;
+                if (tmpcb.len > 0) {
+                    --tmpcb.len;
+                    while (tmpcb.len > 0 && tmpcb.data[tmpcb.len - 1] != PATHSEP) {
+                        --tmpcb.len;
+                    }
+                }
+            } else if (!strcmp(tmp3, ".")) {
+                tmpcb.len -= 1;
+            } else {
                 ++level;
+                if (c) cb_add(&tmpcb, PATHSEP);
             }
-            free(tmp3);
             if (!c) break;
+            lastlen = tmpcb.len;
         } else {
             cb_add(&tmpcb, c);
         }
         ++tmp2;
     }
-    cb_clear(&tmpcb);
+    free(path);
+    path = cb_reinit(&tmpcb, 256);
     int filestatus = -1;
     switch ((int8_t)prefix) {
         case RCPREFIX_SELF: {
@@ -252,6 +258,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* p, union 
         plog(LL_ERROR, "Could not find %s", p);
         return NULL;
     }
+    uint32_t pcrc = strcrc32(p);
     switch ((uint8_t)t) {
         case RC_CONFIG: {
             //return cfg_open(p);
@@ -296,33 +303,23 @@ void freeResource(union resource _r) {
     }
 }
 
+#if 0
 static void test_getRcPath(char* p, enum rctype t) {
-    printf("{%s}: ", p);
     char* rp = getRcPath(p, t);
     if (rp) {
-        printf("{%s}\n", rp);
+        plog(LL_PLAIN, "{%s}: {%s}", p, rp);
     } else {
-        printf("NULL\n");
+        plog(LL_PLAIN, "{%s}: NULL", p);
     }
     free(rp);
 }
+#endif
 
 bool initResource(void) {
     if (!createMutex(&rclock)) return false;
 
     mods = 0;
     modpaths = calloc(1, sizeof(*modpaths));
-
-    test_getRcPath("common:noexist", RC_CONFIG);
-    test_getRcPath("common:textures/bricks", RC_TEXTURE);
-    test_getRcPath("common:textures/bricks.png", RC_TEXTURE);
-    test_getRcPath("engine:config/config", RC_CONFIG);
-    test_getRcPath("user:config/config", RC_CONFIG);
-    test_getRcPath("self:sounds/armor", RC_SOUND);
-    test_getRcPath("sounds/health", RC_SOUND);
-    test_getRcPath("game:h74dm/sounds/powerups/jumpboost", RC_SOUND);
-    test_getRcPath("../h74dm/sounds/powerups/jumpboost", RC_SOUND);
-    test_getRcPath("game:h74dm/sounds/../sounds/powerups/jumpboost", RC_SOUND);
 
     return true;
 }

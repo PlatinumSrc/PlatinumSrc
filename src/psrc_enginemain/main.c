@@ -6,6 +6,7 @@
 #include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/config.h"
 #include "../psrc_game/resource.h"
+#include "../psrc_game/dirs.h"
 #include "../version.h"
 #include "../platform.h"
 
@@ -15,6 +16,7 @@
 #include <stdio.h>
 #if PLATFORM == PLAT_XBOX
     #include <xboxkrnl/xboxkrnl.h>
+    #include <winapi/winnt.h>
     #include <hal/video.h>
     #include <pbgl.h>
 #endif
@@ -82,12 +84,28 @@ static int run(int argc, char** argv) {
     plog_setfile(logfile);
     free(logfile);
 
-    plog(LL_PLAIN, "PlatinumSrc build %u", (unsigned)PSRC_BUILD);
+    {
+        char* months[12] = {
+            "Jan", "Feb", "Mar", "Apr",
+            "May", "Jun", "Jul", "Aug",
+            "Sep", "Oct", "Nov", "Dec"
+        };
+        plog(
+            LL_PLAIN,
+            "PlatinumSrc build %u (%s %u, %u; rev %u)",
+            (unsigned)PSRC_BUILD,
+            months[(((unsigned)PSRC_BUILD / 10000) % 100) - 1],
+            ((unsigned)PSRC_BUILD / 100) % 100,
+            (unsigned)PSRC_BUILD / 1000000,
+            ((unsigned)PSRC_BUILD % 100) + 1
+        );
+    }
     plog(LL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
 
     plog(LL_INFO, "Main directory: %s", maindir);
     plog(LL_INFO, "User directory: %s", userdir);
-    plog(LL_INFO, "Game directory (in main directory): %s", gamedir);
+    plog(LL_INFO, "Game directory: %s", gamedir);
+    plog(LL_INFO, "Save directory: %s", savedir);
 
     char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
     cfg_open(tmp);
@@ -147,43 +165,53 @@ static int bootstrap(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
     #endif
     #endif
+
     #if PLATFORM != PLAT_XBOX
-    gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
-    maindir = SDL_GetBasePath();
-    if (!maindir) {
-        fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
-        maindir = ".";
-    } else {
-        char* tmp = maindir;
-        maindir = mkpath(tmp, NULL);
-        SDL_free(tmp);
-    }
-    // TODO: cfg_open info.txt in game dir
-    userdir = SDL_GetPrefPath(NULL, "psrc");
-    if (!userdir) {
-        fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
-        userdir = "." PATHSEPSTR "data";
-    } else {
-        char* tmp = userdir;
-        userdir = mkpath(tmp, NULL);
-        SDL_free(tmp);
+    {
+        gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
+        maindir = SDL_GetBasePath();
+        if (!maindir) {
+            fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
+            maindir = ".";
+        } else {
+            char* tmp = maindir;
+            maindir = mkpath(tmp, NULL);
+            SDL_free(tmp);
+        }
+        // TODO: cfg_open info.txt in game dir
+        userdir = SDL_GetPrefPath(NULL, "psrc");
+        if (!userdir) {
+            fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
+            userdir = "." PATHSEPSTR "data";
+        } else {
+            char* tmp = userdir;
+            userdir = mkpath(tmp, NULL);
+            SDL_free(tmp);
+        }
+        savedir = mkpath(userdir, "saves", NULL);
     }
     #else
-    gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
-    maindir = mkpath("D:\\", NULL);
-    userdir = mkpath(maindir, "data", /*suffix,*/ NULL);
-    #endif
-    if (!initLogging()) {
-        fputs(LP_ERROR "Failed to init logging\n", stderr);
-        return 1;
+    {
+        gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
+        maindir = mkpath("D:\\", NULL);
+        uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
+        char titleidstr[9];
+        sprintf(titleidstr, "%08x", (unsigned)titleid);
+        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", "psrc", NULL);
+        savedir = mkpath("E:\\UDATA", titleidstr, NULL);
+        #endif
+        if (!initLogging()) {
+            fputs(LP_ERROR "Failed to init logging\n", stderr);
+            return 1;
+        }
+        #if PLATFORM == PLAT_XBOX
+        int w = 640, h = 480, r = REFRESH_DEFAULT;
+        if (!XVideoSetMode(w, h, 32, r)) {
+            plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);
+            if (!XVideoSetMode((w = 640), (h = 480), 32, (r = REFRESH_DEFAULT))) return 1;
+        }
+        if (pbgl_init(true)) return 1;
     }
-    #if PLATFORM == PLAT_XBOX
-    int w = 640, h = 480, r = REFRESH_DEFAULT;
-    if (!XVideoSetMode(w, h, 32, r)) {
-        plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);
-        if (!XVideoSetMode((w = 640), (h = 480), 32, (r = REFRESH_DEFAULT))) return 1;
-    }
-    if (pbgl_init(true)) return 1;
     #endif
 
     int ret = run(argc, argv);
