@@ -66,6 +66,7 @@ static void sigh(int sig) {
 #endif
 
 static struct cfg* config;
+static struct cfg* gameconfig;
 
 struct states {
     struct rendstate renderer;
@@ -108,13 +109,6 @@ static int run(int argc, char** argv) {
     plog(LL_INFO, "User directory: %s", userdir);
     plog(LL_INFO, "Game directory: %s", gamedir);
     plog(LL_INFO, "Save directory: %s", savedir);
-
-    char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
-    config = cfg_open(tmp);
-    free(tmp);
-    tmp = mkpath(userdir, "config", "config.cfg", NULL);
-    cfg_merge(config, tmp, true);
-    free(tmp);
 
     struct states* states = malloc(sizeof(*states));
 
@@ -172,54 +166,98 @@ static int bootstrap(int argc, char** argv) {
     #endif
 
     #if PLATFORM != PLAT_XBOX
-    {
-        gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
-        maindir = SDL_GetBasePath();
-        if (!maindir) {
-            fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
-            maindir = ".";
-        } else {
-            char* tmp = maindir;
-            maindir = mkpath(tmp, NULL);
-            SDL_free(tmp);
-        }
-        // TODO: cfg_open info.txt in game dir
-        userdir = SDL_GetPrefPath(NULL, "psrc");
-        if (!userdir) {
-            fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
-            userdir = "." PATHSEPSTR "data";
-        } else {
-            char* tmp = userdir;
-            userdir = mkpath(tmp, NULL);
-            SDL_free(tmp);
-        }
-        savedir = mkpath(userdir, "saves", NULL);
+    maindir = SDL_GetBasePath();
+    if (!maindir) {
+        fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
+        maindir = ".";
+    } else {
+        char* tmp = maindir;
+        maindir = mkpath(tmp, NULL);
+        SDL_free(tmp);
     }
     #else
+    maindir = mkpath("D:\\", NULL);
+    #endif
+
+    char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
+    config = cfg_open(tmp);
+    if (!config) config = cfg_open(NULL);
+    free(tmp);
+
+    tmp = cfg_getvar(config, NULL, "defaultgame");
+    cfg_delvar(config, NULL, "defaultgame");
+    if (!tmp) tmp = strdup("h74");
+    gamedir = mkpath(NULL, tmp, NULL);
+    free(tmp);
+
+    tmp = mkpath(maindir, "games", gamedir, "game.cfg", NULL);
+    gameconfig = cfg_open(tmp);
+    if (!gameconfig) {
+        fprintf(stderr, LP_CRIT "Could not read game config for %s\n", gamedir);
+        return 1;
+    }
+    free(tmp);
+
+    tmp = cfg_getvar(config, NULL, "userdir");
+    if (tmp) {
+        char* tmp2 = mkpath(NULL, tmp, NULL);
+        free(tmp);
+        tmp = tmp2;
+    } else {
+        tmp = strdup(gamedir);
+    }
+
+    #if PLATFORM != PLAT_XBOX
+    userdir = SDL_GetPrefPath(NULL, tmp);
+    free(tmp);
+    if (userdir) {
+        char* tmp = userdir;
+        userdir = mkpath(tmp, NULL);
+        SDL_free(tmp);
+    } else {
+        fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
+        userdir = "." PATHSEPSTR "data";
+    }
+    savedir = mkpath(userdir, "saves", NULL);
+    #else
     {
-        gamedir = mkpath(NULL, "h74", NULL); // TODO: read defaultgame config option and --game arg
-        maindir = mkpath("D:\\", NULL);
         uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
         char titleidstr[9];
         sprintf(titleidstr, "%08x", (unsigned)titleid);
-        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", "psrc", NULL);
-        savedir = mkpath("E:\\UDATA", titleidstr, NULL);
-        #endif
-        if (!initLogging()) {
-            fputs(LP_ERROR "Failed to init logging\n", stderr);
-            return 1;
-        }
-        #if PLATFORM == PLAT_XBOX
+        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
+        free(tmp);
+    }
+    savedir = mkpath("E:\\UDATA", titleidstr, NULL);
+    #endif
+
+    tmp = mkpath(userdir, "config", "config.cfg", NULL);
+    cfg_merge(config, tmp, true);
+    free(tmp);
+
+    #if PLATFORM == PLAT_XBOX
+    {
         int w = 640, h = 480, r = REFRESH_DEFAULT;
         if (!XVideoSetMode(w, h, 32, r)) {
             plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);
             if (!XVideoSetMode((w = 640), (h = 480), 32, (r = REFRESH_DEFAULT))) return 1;
         }
-        if (pbgl_init(true)) return 1;
     }
+    if (pbgl_init(true)) return 1;
     #endif
 
+    if (!initLogging()) {
+        fputs(LP_ERROR "Failed to init logging\n", stderr);
+        return 1;
+    }
+
     int ret = run(argc, argv);
+
+    cfg_close(gameconfig);
+
+    tmp = mkpath(userdir, "config", "config.cfg", NULL);
+    //cfg_write(config, tmp);
+    free(tmp);
+    cfg_close(config);
 
     #if PLATFORM == PLAT_XBOX
     pbgl_shutdown();

@@ -3,7 +3,7 @@
     engine/
         config/
             autoexec.{psh|txt} - (Optional) console commands to run on startup.
-            config.{cfg|txt} - Optional. See 'default base config.txt' for details.
+            config.cfg - Optional. See 'default base config.txt' for details.
         fonts/
         shaders/
     games/ - This layout is optional but is highly recommended.
@@ -19,13 +19,13 @@
         textures/ - File extension must not have an extension or must be .png, .jpg, .tga, or .bmp.
         autoexec.{pgs|txt} - The script that starts the game (this should typically display a splash screen then load
                              the main menu).
-        game.{cfg|txt} - Game info/config. See 'game config.txt' for details.
+        game.cfg - Game info/config. See 'game config.txt' for details.
     mods/
 
 <User dir>/ - Most likely a directory (specified by the 'userdir' variable in 'game.txt') inside of the system/user's
               program data directory.
     config/
         autoexec.{psh|txt} - (Optional) console commands to run after autoexec.{psh|txt} in <Main dir>/engine/.
-        config.{cfg|txt} - Optional. See 'default user config.txt' for details.
+        config.cfg - Optional. See 'default user config.txt' for details.
     downloads/ - Files have the CRC64 and an underscore prepended to the name and mount over the current game.
     mods/

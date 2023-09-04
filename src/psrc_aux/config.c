@@ -440,6 +440,7 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                         }
                         char* tmp = cb_reinit(&sect, 256);
                         interpfinal(tmp, &sect);
+                        free(tmp);
                         tmp = cb_reinit(&sect, 256);
                         sectptr = NULL;
                         uint32_t crc = strcasecrc32(tmp);
@@ -532,6 +533,7 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                                     }
                                     varstr = cb_reinit(&var, 256);
                                     interpfinal(varstr, &var);
+                                    free(varstr);
                                     varstr = cb_reinit(&var, 256);
                                     if (data.len > 0) {
                                         char tmpc = data.data[data.len - 1];
@@ -542,6 +544,7 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                                     }
                                     datastr = cb_reinit(&data, 256);
                                     interpfinal(datastr, &data);
+                                    free(datastr);
                                     datastr = cb_reinit(&data, 256);
                                     uint32_t crc = strcasecrc32(varstr);
                                     struct cfg_var* varptr = NULL;
@@ -634,7 +637,7 @@ struct cfg* cfg_open(const char* p) {
         #endif
         struct cfg* cfg = cfg_open_new();
         cfg_read(cfg, f, true);
-        #if DEBUG(1)
+        #if DEBUG(2)
         {
             putchar('\n');
             int sectcount = cfg->sectcount;
@@ -673,7 +676,7 @@ bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     plog(LL_INFO, "Reading config (to merge) %s...", p);
     #endif
     cfg_read(cfg, f, overwrite);
-    #if DEBUG(1)
+    #if DEBUG(2)
     {
         putchar('\n');
         int sectcount = cfg->sectcount;
@@ -698,14 +701,18 @@ void cfg_close(struct cfg* cfg) {
     int sectcount = cfg->sectcount;
     for (int secti = 0; secti < sectcount; ++secti) {
         struct cfg_sect* sect = &cfg->sectdata[secti];
-        int varcount = sect->varcount;
-        for (int vari = 0; vari < varcount; ++ vari) {
-            struct cfg_var* var = &sect->vardata[vari];
-            free(var->name);
-            free(var->data);
+        if (sect->name) {
+            int varcount = sect->varcount;
+            for (int vari = 0; vari < varcount; ++ vari) {
+                struct cfg_var* var = &sect->vardata[vari];
+                if (var->name) {
+                    free(var->name);
+                    free(var->data);
+                }
+            }
+            free(sect->name);
+            free(sect->vardata);
         }
-        free(sect->name);
-        free(sect->vardata);
     }
     free(cfg->sectdata);
     destroyMutex(&cfg->lock);
