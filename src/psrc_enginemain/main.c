@@ -65,6 +65,8 @@ static void sigh(int sig) {
 
 #endif
 
+static struct cfg* config;
+
 struct states {
     struct rendstate renderer;
     struct inputstate input;
@@ -108,7 +110,10 @@ static int run(int argc, char** argv) {
     plog(LL_INFO, "Save directory: %s", savedir);
 
     char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
-    cfg_open(tmp);
+    config = cfg_open(tmp);
+    free(tmp);
+    tmp = mkpath(userdir, "config", "config.cfg", NULL);
+    cfg_merge(config, tmp, true);
     free(tmp);
 
     struct states* states = malloc(sizeof(*states));

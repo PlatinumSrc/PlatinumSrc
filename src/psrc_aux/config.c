@@ -657,44 +657,41 @@ struct cfg* cfg_open(const char* p) {
     return cfg_open_new();
 }
 
-struct cfg* cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
-    if (p) {
-        int tmp = isFile(p);
-        if (tmp < 1) {
-            int e = (tmp) ? ENOENT : EISDIR;
-            plog(LL_ERROR | LF_FUNC, LE_CANTOPEN(p, e));
-            return NULL;
-        }
-        FILE* f = fopen(p, "r");
-        if (!f) {
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-            return NULL;
-        }
-        #if DEBUG(1)
-        plog(LL_INFO, "Reading config (to merge) %s...", p);
-        #endif
-        cfg_read(cfg, f, overwrite);
-        #if DEBUG(1)
-        {
-            putchar('\n');
-            int sectcount = cfg->sectcount;
-            for (int secti = 0; secti < sectcount; ++secti) {
-                struct cfg_sect* sect = &cfg->sectdata[secti];
-                if (*sect->name) printf("[ %s ]\n", sect->name);
-                int varcount = sect->varcount;
-                for (int vari = 0; vari < varcount; ++ vari) {
-                    struct cfg_var* var = &sect->vardata[vari];
-                    if (*sect->name) fputs("  ", stdout);
-                    printf("%s = %s\n", var->name, var->data);
-                }
-                putchar('\n');
-            }
-        }
-        #endif
-        fclose(f);
-        return cfg;
+bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
+    int tmp = isFile(p);
+    if (tmp < 1) {
+        int e = (tmp) ? ENOENT : EISDIR;
+        plog(LL_ERROR | LF_FUNC, LE_CANTOPEN(p, e));
+        return false;
     }
-    return cfg_open_new();
+    FILE* f = fopen(p, "r");
+    if (!f) {
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+        return false;
+    }
+    #if DEBUG(1)
+    plog(LL_INFO, "Reading config (to merge) %s...", p);
+    #endif
+    cfg_read(cfg, f, overwrite);
+    #if DEBUG(1)
+    {
+        putchar('\n');
+        int sectcount = cfg->sectcount;
+        for (int secti = 0; secti < sectcount; ++secti) {
+            struct cfg_sect* sect = &cfg->sectdata[secti];
+            if (*sect->name) printf("[ %s ]\n", sect->name);
+            int varcount = sect->varcount;
+            for (int vari = 0; vari < varcount; ++ vari) {
+                struct cfg_var* var = &sect->vardata[vari];
+                if (*sect->name) fputs("  ", stdout);
+                printf("%s = %s\n", var->name, var->data);
+            }
+            putchar('\n');
+        }
+    }
+    #endif
+    fclose(f);
+    return true;
 }
 
 void cfg_close(struct cfg* cfg) {
