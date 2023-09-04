@@ -28,7 +28,7 @@ struct cfg {
 };
 
 struct cfg* cfg_open(const char* path);
-bool cfg_merge(struct cfg*, struct cfg* from, bool overwrite);
+bool cfg_merge(struct cfg*, const char* path, bool overwrite);
 char* cfg_getvar(struct cfg*, const char* sect, const char* var);
 bool cfg_getvarto(struct cfg*, const char* sect, const char* var, char* data, size_t size);
 void cfg_setvar(struct cfg*, const char* sect, const char* var, const char* data, bool overwrite);
