@@ -6,7 +6,7 @@
 #include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/config.h"
 #include "../psrc_game/resource.h"
-#include "../psrc_game/dirs.h"
+#include "../psrc_game/game.h"
 #include "../version.h"
 #include "../platform.h"
 
@@ -64,9 +64,6 @@ static void sigh(int sig) {
 }
 
 #endif
-
-static struct cfg* config;
-static struct cfg* gameconfig;
 
 struct states {
     struct rendstate renderer;

@@ -2,6 +2,7 @@
 #define AUX_STRING_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 struct charbuf {
     char* data;
@@ -10,6 +11,8 @@ struct charbuf {
 };
 
 char* strcombine(const char*, ...);
+char** splitstrlist(const char* str, char delim, bool nullterm, int* len);
+char* makestrlist(const char* const* str, int len, char delim);
 
 static inline void cb_init(struct charbuf* b, int sz) {
     if (sz < 1) sz = 1;

@@ -1,11 +1,14 @@
 #include "resource.h"
-#include "dirs.h"
+#include "game.h"
 
 #include "../psrc_aux/logging.h"
 #include "../psrc_aux/string.h"
 #include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/threading.h"
 #include "../psrc_aux/config.h"
+#include "../psrc_aux/crc.h"
+
+#include "../debug.h"
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -227,10 +230,9 @@ static char* getRcPath(const char* uri, enum rctype type) {
             if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "games", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_MOD: {
-            for (int i = 0; i < mods; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modpaths[i], path, NULL)) >= 1) goto found;
-                cb_clear(&tmpcb);
-            }
+            if ((filestatus = getRcPath_try(&tmpcb, type, userdir, "mods", path, NULL)) >= 1) goto found;
+            cb_clear(&tmpcb);
+            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "mods", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_USER: {
             if ((filestatus = getRcPath_try(&tmpcb, type, userdir, path, NULL)) >= 1) goto found;
@@ -320,6 +322,64 @@ bool initResource(void) {
 
     mods = 0;
     modpaths = calloc(1, sizeof(*modpaths));
+
+    char* modstr = cfg_getvar(config, NULL, "mods");
+    modstr = makestrlist((const char*[]){"test", "bruh", "unix,moment", "escape\\char"}, 4, ',');
+    #if DEBUG(1)
+    {
+        struct charbuf cb;
+        cb_init(&cb, 256);
+        cb_add(&cb, '"');
+        char* tmp = modstr;
+        char c;
+        while ((c = *tmp)) {
+            if (c == '"' || c == '\\') {
+                cb_add(&cb, '\\');
+            }
+            cb_add(&cb, c);
+            ++tmp;
+        }
+        cb_add(&cb, '"');
+        plog(LL_INFO, "Mod string: %s", cb_peek(&cb));
+        cb_dump(&cb);
+    }
+    #endif
+    int modcount;
+    char** modnames = splitstrlist(modstr, ',', false, &modcount);
+    #if DEBUG(1)
+    {
+        struct charbuf cb;
+        cb_init(&cb, 256);
+        cb_add(&cb, '{');
+        if (modcount) {
+            char* tmp = modnames[0];
+            char c;
+            cb_add(&cb, '"');
+            while ((c = *tmp)) {
+                if (c == '"') cb_add(&cb, '\\');
+                cb_add(&cb, c);
+                ++tmp;
+            }
+            cb_add(&cb, '"');
+            for (int i = 1; i < modcount; ++i) {
+                cb_add(&cb, ',');
+                cb_add(&cb, ' ');
+                tmp = modnames[i];
+                cb_add(&cb, '"');
+                while ((c = *tmp)) {
+                    if (c == '"') cb_add(&cb, '\\');
+                    cb_add(&cb, c);
+                    ++tmp;
+                }
+                cb_add(&cb, '"');
+            }
+        }
+        cb_add(&cb, '}');
+        plog(LL_INFO, "Requested mods: %s", cb_peek(&cb));
+        cb_dump(&cb);
+    }
+    #endif
+    free(modstr);
 
     return true;
 }

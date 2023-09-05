@@ -56,13 +56,18 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
         }
         #else
         if (*s == '\\') {
-            cb_add(b, '\\');
             ++s;
             if (*s == '\\') {
-                cb_add(b, '\\');
                 ++s;
+                if (*s == '?') {
+                    ++s;
+                    if (*s == '\\') {
+                        ++s;
+                    }
+                }
             }
         }
+        cb_addstr(b, "\\\\?\\");
         #endif
     }
     while (isSepChar(*s)) ++s;
