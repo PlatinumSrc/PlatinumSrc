@@ -19,8 +19,11 @@
 #undef loadResource
 #undef freeResource
 
-static int mods;
-static char** modpaths;
+static struct {
+    int len;
+    int size;
+    char** paths;
+} modinfo;
 
 static char** extlist[RC__COUNT] = {
     (char*[3]){".cfg", ".txt", NULL},
@@ -202,29 +205,29 @@ static char* getRcPath(const char* uri, enum rctype type) {
     int filestatus = -1;
     switch ((int8_t)prefix) {
         case RCPREFIX_SELF: {
-            for (int i = 0; i < mods; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modpaths[i], "games", gamedir, path, NULL)) >= 1) goto found;
+            for (int i = 0; i < modinfo.len; ++i) {
+                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "games", gamedir, path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
             if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "games", gamedir, path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_COMMON: {
-            for (int i = 0; i < mods; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modpaths[i], "common", path, NULL)) >= 1) goto found;
+            for (int i = 0; i < modinfo.len; ++i) {
+                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "common", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
             if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "common", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_ENGINE: {
-            for (int i = 0; i < mods; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modpaths[i], "engine", path, NULL)) >= 1) goto found;
+            for (int i = 0; i < modinfo.len; ++i) {
+                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "engine", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
             if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "engine", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_GAME: {
-            for (int i = 0; i < mods; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modpaths[i], "games", path, NULL)) >= 1) goto found;
+            for (int i = 0; i < modinfo.len; ++i) {
+                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "games", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
             if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "games", path, NULL)) >= 1) goto found;
@@ -317,54 +320,33 @@ static void test_getRcPath(char* p, enum rctype t) {
 }
 #endif
 
-bool initResource(void) {
-    if (!createMutex(&rclock)) return false;
-
-    mods = 0;
-    modpaths = calloc(1, sizeof(*modpaths));
-
-    char* modstr = cfg_getvar(config, NULL, "mods");
-    modstr = makestrlist((const char*[]){"test", "bruh", "unix,moment", "escape\\char"}, 4, ',');
-    #if DEBUG(1)
-    {
-        struct charbuf cb;
-        cb_init(&cb, 256);
-        cb_add(&cb, '"');
-        char* tmp = modstr;
-        char c;
-        while ((c = *tmp)) {
-            if (c == '"' || c == '\\') {
-                cb_add(&cb, '\\');
-            }
-            cb_add(&cb, c);
-            ++tmp;
-        }
-        cb_add(&cb, '"');
-        plog(LL_INFO, "Mod string: %s", cb_peek(&cb));
-        cb_dump(&cb);
+static inline void loadMods_addpath(char* p) {
+    ++modinfo.len;
+    if (modinfo.len == modinfo.size) {
+        modinfo.size *= 2;
+        modinfo.paths = realloc(modinfo.paths, modinfo.size * sizeof(*modinfo.paths));
     }
-    #endif
-    int modcount;
-    char** modnames = splitstrlist(modstr, ',', false, &modcount);
-    #if DEBUG(1)
-    {
-        struct charbuf cb;
-        cb_init(&cb, 256);
-        cb_add(&cb, '{');
-        if (modcount) {
-            char* tmp = modnames[0];
-            char c;
-            cb_add(&cb, '"');
-            while ((c = *tmp)) {
-                if (c == '"') cb_add(&cb, '\\');
-                cb_add(&cb, c);
-                ++tmp;
-            }
-            cb_add(&cb, '"');
-            for (int i = 1; i < modcount; ++i) {
-                cb_add(&cb, ',');
-                cb_add(&cb, ' ');
-                tmp = modnames[i];
+    modinfo.paths[modinfo.len - 1] = p;
+}
+
+void loadMods(const char* const* modnames, int modcount) {
+    for (int i = 0; i < modinfo.len; ++i) {
+        free(modinfo.paths[i]);
+    }
+    modinfo.len = 0;
+    if (modcount > 0 && modnames && *modnames) {
+        if (modinfo.size < 4) {
+            modinfo.size = 4;
+            modinfo.paths = realloc(modinfo.paths, modinfo.size * sizeof(*modinfo.paths));
+        }
+        #if DEBUG(1)
+        {
+            struct charbuf cb;
+            cb_init(&cb, 256);
+            cb_add(&cb, '{');
+            if (modcount) {
+                const char* tmp = modnames[0];
+                char c;
                 cb_add(&cb, '"');
                 while ((c = *tmp)) {
                     if (c == '"') cb_add(&cb, '\\');
@@ -372,14 +354,69 @@ bool initResource(void) {
                     ++tmp;
                 }
                 cb_add(&cb, '"');
+                for (int i = 1; i < modcount; ++i) {
+                    cb_add(&cb, ',');
+                    cb_add(&cb, ' ');
+                    tmp = modnames[i];
+                    cb_add(&cb, '"');
+                    while ((c = *tmp)) {
+                        if (c == '"' || c == '\\') cb_add(&cb, '\\');
+                        cb_add(&cb, c);
+                        ++tmp;
+                    }
+                    cb_add(&cb, '"');
+                }
+            }
+            cb_add(&cb, '}');
+            plog(LL_INFO, "Requested mods: %s", cb_peek(&cb));
+            cb_dump(&cb);
+        }
+        for (int i = 0; i < modcount; ++i) {
+            bool notfound = true;
+            char* tmp = mkpath(userdir, "mods", modnames[i], NULL);
+            if (isFile(tmp)) {
+                free(tmp);
+            } else {
+                notfound = false;
+                loadMods_addpath(tmp);
+            }
+            tmp = mkpath(maindir, "mods", modnames[i], NULL);
+            if (isFile(tmp)) {
+                free(tmp);
+            } else {
+                notfound = false;
+                loadMods_addpath(tmp);
+            }
+            if (notfound) {
+                plog(LL_WARN, "Unable to locate mod: %s", modnames[i]);
             }
         }
-        cb_add(&cb, '}');
-        plog(LL_INFO, "Requested mods: %s", cb_peek(&cb));
-        cb_dump(&cb);
+        #endif
+    } else {
+        modinfo.size = 0;
+        free(modinfo.paths);
+        modinfo.paths = NULL;
     }
-    #endif
-    free(modstr);
+}
+
+bool initResource(void) {
+    if (!createMutex(&rclock)) return false;
+
+    {
+        char* modstr = cfg_getvar(config, NULL, "mods");
+        if (modstr) {
+            int modcount;
+            char** modnames = splitstrlist(modstr, ',', false, &modcount);
+            free(modstr);
+            loadMods((const char* const*)modnames, modcount);
+            for (int i = 0; i < modcount; ++i) {
+                free(modnames[i]);
+            }
+            free(modnames);
+        } else {
+            loadMods(NULL, 0);
+        }
+    }
 
     return true;
 }
