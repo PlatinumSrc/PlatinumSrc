@@ -23,6 +23,7 @@ static struct {
     int len;
     int size;
     char** paths;
+    mutex_t lock;
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
@@ -330,6 +331,7 @@ static inline void loadMods_addpath(char* p) {
 }
 
 void loadMods(const char* const* modnames, int modcount) {
+    lockMutex(&modinfo.lock);
     for (int i = 0; i < modinfo.len; ++i) {
         free(modinfo.paths[i]);
     }
@@ -368,9 +370,10 @@ void loadMods(const char* const* modnames, int modcount) {
                 }
             }
             cb_add(&cb, '}');
-            plog(LL_INFO, "Requested mods: %s", cb_peek(&cb));
+            plog(LL_INFO | LF_DEBUG, "Requested mods: %s", cb_peek(&cb));
             cb_dump(&cb);
         }
+        #endif
         for (int i = 0; i < modcount; ++i) {
             bool notfound = true;
             char* tmp = mkpath(userdir, "mods", modnames[i], NULL);
@@ -391,17 +394,67 @@ void loadMods(const char* const* modnames, int modcount) {
                 plog(LL_WARN, "Unable to locate mod: %s", modnames[i]);
             }
         }
+        #if DEBUG(1)
+        {
+            struct charbuf cb;
+            cb_init(&cb, 256);
+            cb_add(&cb, '{');
+            if (modinfo.len) {
+                const char* tmp = modinfo.paths[0];
+                char c;
+                cb_add(&cb, '"');
+                while ((c = *tmp)) {
+                    if (c == '"') cb_add(&cb, '\\');
+                    cb_add(&cb, c);
+                    ++tmp;
+                }
+                cb_add(&cb, '"');
+                for (int i = 1; i < modinfo.len; ++i) {
+                    cb_add(&cb, ',');
+                    cb_add(&cb, ' ');
+                    tmp = modinfo.paths[i];
+                    cb_add(&cb, '"');
+                    while ((c = *tmp)) {
+                        if (c == '"' || c == '\\') cb_add(&cb, '\\');
+                        cb_add(&cb, c);
+                        ++tmp;
+                    }
+                    cb_add(&cb, '"');
+                }
+            }
+            cb_add(&cb, '}');
+            plog(LL_INFO | LF_DEBUG, "Found mods: %s", cb_peek(&cb));
+            cb_dump(&cb);
+        }
         #endif
     } else {
         modinfo.size = 0;
         free(modinfo.paths);
         modinfo.paths = NULL;
     }
+    unlockMutex(&modinfo.lock);
+}
+
+char** queryModInfo(int* len) {
+    lockMutex(&modinfo.lock);
+    if (modinfo.len > 0) {
+        if (len) *len = modinfo.len;
+        char** data = malloc((modinfo.len + 1) * sizeof(*data));
+        for (int i = 0; i < modinfo.len; ++i) {
+            data[i] = strdup(modinfo.paths[i]);
+        }
+        data[modinfo.len] = NULL;
+        unlockMutex(&modinfo.lock);
+        return data;
+    }
+    unlockMutex(&modinfo.lock);
+    return NULL;
 }
 
 bool initResource(void) {
     if (!createMutex(&rclock)) return false;
 
+    createMutex(&modinfo.lock);
     {
         char* modstr = cfg_getvar(config, NULL, "mods");
         if (modstr) {

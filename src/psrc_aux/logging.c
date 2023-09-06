@@ -1,6 +1,9 @@
 #include "logging.h"
 #include "threading.h"
 
+#include "../version.h"
+#include "../debug.h"
+
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -16,49 +19,71 @@ bool initLogging(void) {
 
 static FILE* logfile = NULL;
 
-void plog_setfile(char* f) {
+static void plog_writedate(FILE* f) {
+    static char tmpstr[32];
+    time_t t = time(NULL);
+    struct tm* bdt = localtime(&t);
+    if (bdt) {
+        strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
+        fputs(tmpstr, f);
+    } else {
+        fputs("[ ? ]: ", f);
+    }
+}
+
+bool plog_setfile(char* f) {
     lockMutex(&loglock);
     if (logfile) {
         fclose(logfile);
     }
     if (!f) {
         logfile = NULL;
-        plog(LL_ERROR | LF_FUNC, LE_RECVNULL);
+        #if DEBUG(1)
+        plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_RECVNULL);
+        #endif
+        unlockMutex(&loglock);
+        return false;
     } else {
         logfile = fopen(f, "w");
-        int e = errno;
-        if (!logfile) {
+        if (logfile) {
+            bool writelog;
+            #if PLATFORM != PLAT_XBOX
+            writelog = !isatty(fileno(logfile));
+            #else
+            writelog = true;
+            #endif
+            if (writelog) plog_writedate(logfile);
+            fprintf(logfile, "%s\n", verstr);
+            if (writelog) plog_writedate(logfile);
+            fprintf(logfile, "%s\n", platstr);
+        } else {
             unlockMutex(&loglock);
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(f, e));
-            return;
+            #if DEBUG(1)
+            int e = errno;
+            plog(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, e));
+            #endif
+            return false;
         }
     }
     unlockMutex(&loglock);
+    return true;
 }
 
 static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, char* s, va_list v) {
-    bool writedate;
     #if PLATFORM != PLAT_XBOX
-    writedate = !isatty(fileno(f));
+    if (!isatty(fileno(f))) plog_writedate(f);
     #else
-    writedate = true;
+    plog_writedate(f);
     #endif
-    if (writedate) {
-        static char tmpstr[32];
-        time_t t = time(NULL);
-        struct tm* bdt = localtime(&t);
-        if (bdt) {
-            strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
-            fputs(tmpstr, f);
-        } else {
-            fputs("[ ? ]: ", f);
-        }
-    }
     switch (lvl & 0xFF) {
         default:
             break;
         case LL_INFO:
-            fputs(LP_INFO, f);
+            if (lvl & LF_DEBUG) {
+                fputs(LP_DEBUG, f);
+            } else {
+                fputs(LP_INFO, f);
+            }
             break;
         case LL_WARN:
             fputs(LP_WARN, f);
@@ -125,7 +150,11 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
         default:
             break;
         case LL_INFO:
-            pb_print(LP_INFO);
+            if (lvl & LF_DEBUG) {
+                pb_print(LP_DEBUG);
+            } else {
+                pb_print(LP_INFO);
+            }
             break;
         case LL_WARN:
             pb_print(LP_WARN);

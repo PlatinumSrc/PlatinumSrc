@@ -75,39 +75,17 @@ static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    if (!initResource()) {
-        plog(LL_CRIT, "Failed to init resource manager");
-        return 1;
-    }
-
-    char* logfile = mkpath(userdir, "log.txt", NULL);
-    plog_setfile(logfile);
-    free(logfile);
-
-    {
-        char* months[12] = {
-            "Jan", "Feb", "Mar", "Apr",
-            "May", "Jun", "Jul", "Aug",
-            "Sep", "Oct", "Nov", "Dec"
-        };
-        plog(
-            LL_PLAIN,
-            "PlatinumSrc build %u (%s %u, %u; rev %u)",
-            (unsigned)PSRC_BUILD,
-            months[(((unsigned)PSRC_BUILD / 10000) % 100) - 1],
-            ((unsigned)PSRC_BUILD / 100) % 100,
-            (unsigned)PSRC_BUILD / 1000000,
-            ((unsigned)PSRC_BUILD % 100) + 1
-        );
-    }
-    plog(LL_PLAIN, "Platform: %s; Architecture: %s", (char*)PLATSTR, (char*)ARCHSTR);
-
     plog(LL_INFO, "Main directory: %s", maindir);
     plog(LL_INFO, "User directory: %s", userdir);
     plog(LL_INFO, "Game directory: %s", gamedir);
     plog(LL_INFO, "Save directory: %s", savedir);
 
     struct states* states = malloc(sizeof(*states));
+
+    if (!initResource()) {
+        plog(LL_CRIT, "Failed to init resource manager");
+        return 1;
+    }
 
     if (!initRenderer(&states->renderer)) {
         plog(LL_CRIT, "Failed to init renderer");
@@ -145,27 +123,29 @@ static int run(int argc, char** argv) {
 }
 
 static int bootstrap(int argc, char** argv) {
+    makeVerStrs();
+
     #if PLATFORM != PLAT_XBOX
-    signal(SIGINT, sigh);
-    signal(SIGTERM, sigh);
-    #ifdef SIGQUIT
-    signal(SIGQUIT, sigh);
+    puts(verstr);
+    puts(platstr);
+    #else
+    pb_print("%s\n", verstr);
+    pb_print("%s\n", platstr);
+    pbgl_swap_buffers();
     #endif
-    #ifdef SIGUSR1
-    signal(SIGUSR1, SIG_IGN);
-    #endif
-    #ifdef SIGUSR2
-    signal(SIGUSR2, SIG_IGN);
-    #endif
-    #ifdef SIGPIPE
-    signal(SIGPIPE, SIG_IGN);
-    #endif
+
+    if (!initLogging()) {
+        fputs(LP_ERROR "Failed to init logging\n", stderr);
+        return 1;
+    }
+    #if PLATFORM == PLAT_XBOX
+    plog_setfile("D:\\log.txt");
     #endif
 
     #if PLATFORM != PLAT_XBOX
     maindir = SDL_GetBasePath();
     if (!maindir) {
-        fprintf(stderr, LP_WARN "Failed to get main directory: %s\n", SDL_GetError());
+        plog(LL_WARN, "Failed to get main directory: %s\n", SDL_GetError());
         maindir = ".";
     } else {
         char* tmp = maindir;
@@ -178,19 +158,27 @@ static int bootstrap(int argc, char** argv) {
 
     char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
     config = cfg_open(tmp);
-    if (!config) config = cfg_open(NULL);
+    if (!config) {
+        plog(LL_WARN, "Failed to load main config");
+        config = cfg_open(NULL);
+    }
     free(tmp);
 
     tmp = cfg_getvar(config, NULL, "defaultgame");
     cfg_delvar(config, NULL, "defaultgame");
-    if (!tmp) tmp = strdup("h74");
-    gamedir = mkpath(NULL, tmp, NULL);
-    free(tmp);
+    if (tmp) {
+        gamedir = mkpath(NULL, tmp, NULL);
+        free(tmp);
+    } else {
+        const char* fallback = "h74";
+        plog(LL_WARN, "No default game specified, falling back to %s", fallback);
+        gamedir = mkpath(NULL, fallback, NULL);
+    }
 
     tmp = mkpath(maindir, "games", gamedir, "game.cfg", NULL);
     gameconfig = cfg_open(tmp);
     if (!gameconfig) {
-        fprintf(stderr, LP_CRIT "Could not read game config for %s\n", gamedir);
+        plog(LL_WARN, LP_CRIT "Could not read game config for %s\n", gamedir);
         return 1;
     }
     free(tmp);
@@ -212,7 +200,7 @@ static int bootstrap(int argc, char** argv) {
         userdir = mkpath(tmp, NULL);
         SDL_free(tmp);
     } else {
-        fprintf(stderr, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
+        plog(LL_WARN, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
         userdir = "." PATHSEPSTR "data";
     }
     savedir = mkpath(userdir, "saves", NULL);
@@ -223,29 +211,21 @@ static int bootstrap(int argc, char** argv) {
         sprintf(titleidstr, "%08x", (unsigned)titleid);
         userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
         free(tmp);
+        savedir = mkpath("E:\\UDATA", titleidstr, NULL);
     }
-    savedir = mkpath("E:\\UDATA", titleidstr, NULL);
     #endif
+
+    char* logfile = mkpath(userdir, "log.txt", NULL);
+    if (!plog_setfile(logfile)) {
+        plog(LL_WARN, "Failed to set log file");
+    }
+    free(logfile);
 
     tmp = mkpath(userdir, "config", "config.cfg", NULL);
-    cfg_merge(config, tmp, true);
+    if (!cfg_merge(config, tmp, true)) {
+        plog(LL_WARN, "Failed to load user config");
+    }
     free(tmp);
-
-    #if PLATFORM == PLAT_XBOX
-    {
-        int w = 640, h = 480, r = REFRESH_DEFAULT;
-        if (!XVideoSetMode(w, h, 32, r)) {
-            plog(LL_WARN, "Failed to set resolution to %dx%d@%d", w, h, r);
-            if (!XVideoSetMode((w = 640), (h = 480), 32, (r = REFRESH_DEFAULT))) return 1;
-        }
-    }
-    if (pbgl_init(true)) return 1;
-    #endif
-
-    if (!initLogging()) {
-        fputs(LP_ERROR "Failed to init logging\n", stderr);
-        return 1;
-    }
 
     int ret = run(argc, argv);
 
@@ -256,18 +236,40 @@ static int bootstrap(int argc, char** argv) {
     free(tmp);
     cfg_close(config);
 
-    #if PLATFORM == PLAT_XBOX
-    pbgl_shutdown();
-    #endif
     SDL_Quit();
 
     return ret;
 }
 
 int main(int argc, char** argv) {
-    int ret = bootstrap(argc, argv);
+    #if PLATFORM != PLAT_XBOX
+    signal(SIGINT, sigh);
+    signal(SIGTERM, sigh);
+    #ifdef SIGQUIT
+    signal(SIGQUIT, sigh);
+    #endif
+    #ifdef SIGUSR1
+    signal(SIGUSR1, SIG_IGN);
+    #endif
+    #ifdef SIGUSR2
+    signal(SIGUSR2, SIG_IGN);
+    #endif
+    #ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+    #endif
+    #endif
+
     #if PLATFORM == PLAT_XBOX
+    XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
+    pbgl_init(true);
+    #endif
+
+    int ret = bootstrap(argc, argv);
+
+    #if PLATFORM == PLAT_XBOX
+    pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif
+
     return ret;
 }

@@ -623,8 +623,10 @@ struct cfg* cfg_open(const char* p) {
     if (p) {
         int tmp = isFile(p);
         if (tmp < 1) {
+            #if DEBUG(1)
             int e = (tmp) ? ENOENT : EISDIR;
-            plog(LL_ERROR | LF_FUNC, LE_CANTOPEN(p, e));
+            plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_CANTOPEN(p, e));
+            #endif
             return NULL;
         }
         FILE* f = fopen(p, "r");
@@ -633,7 +635,7 @@ struct cfg* cfg_open(const char* p) {
             return NULL;
         }
         #if DEBUG(1)
-        plog(LL_INFO, "Reading config %s...", p);
+        plog(LL_INFO | LF_DEBUG, "Reading config %s...", p);
         #endif
         struct cfg* cfg = cfg_open_new();
         cfg_read(cfg, f, true);
@@ -663,8 +665,10 @@ struct cfg* cfg_open(const char* p) {
 bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     int tmp = isFile(p);
     if (tmp < 1) {
+        #if DEBUG(1)
         int e = (tmp) ? ENOENT : EISDIR;
-        plog(LL_ERROR | LF_FUNC, LE_CANTOPEN(p, e));
+        plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_CANTOPEN(p, e));
+        #endif
         return false;
     }
     FILE* f = fopen(p, "r");
@@ -673,7 +677,7 @@ bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
         return false;
     }
     #if DEBUG(1)
-    plog(LL_INFO, "Reading config (to merge) %s...", p);
+    plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) %s...", p);
     #endif
     cfg_read(cfg, f, overwrite);
     #if DEBUG(2)

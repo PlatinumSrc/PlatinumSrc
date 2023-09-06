@@ -15,6 +15,7 @@ enum loglevel {
     LL_CRIT,
     LF_FUNC = 1 << 8,
     LF_FUNCLN = 3 << 8,
+    LF_DEBUG = 1 << 10,
 };
 
 #define LE_MEMALLOC "Memory allocation error"
@@ -32,6 +33,7 @@ enum loglevel {
 #define LP_WARN "/!\\: "
 #define LP_ERROR "[E]: "
 #define LP_CRIT "{X}: "
+#define LP_DEBUG "<D>: "
 
 extern mutex_t loglock;
 
@@ -57,6 +59,6 @@ void plog__write(enum loglevel, const char*, const char*, unsigned, char*, ...);
         unlockMutex(&loglock);\
     } while (0)
 #endif
-void plog_setfile(char*);
+bool plog_setfile(char*);
 
 #endif

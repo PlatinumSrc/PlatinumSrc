@@ -1,0 +1,21 @@
+defaultgame = h74
+
+[ Renderer ]
+  resolution.windowed = 1024x768 # WxH@R
+  resolution.fullscreen = 
+  vsync = true
+  quality.texture = 2 # 0 = low, 1 = medium, 2 = high
+  quality.lighting = 2
+
+[ UI ]
+  scale = 1
+
+[ Sound ]
+  voices = 256
+
+[ Input ]
+# action = device,section,key
+
+[ Multiplayer ]
+  username = Player
+  playermodel = common:playermodels/default

@@ -25,7 +25,7 @@ static void* threadwrapper(void* t_void) {
 
 bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     #if DEBUG(1)
-    plog(LL_INFO, "Starting thread %s...", (n) ? n : "(null)");
+    plog(LL_INFO | LF_DEBUG, "Starting thread %s...", (n) ? n : "(null)");
     #endif
     t->name = (n) ? strdup(n) : NULL;
     t->func = f;
@@ -46,7 +46,7 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
 
 void destroyThread(thread_t* t, void** r) {
     #if DEBUG(1)
-    plog(LL_INFO, "Stopping thread %s...", (t->name) ? t->name : "(null)");
+    plog(LL_INFO | LF_DEBUG, "Stopping thread %s...", (t->name) ? t->name : "(null)");
     #endif
     t->data.shouldclose = true;
     #ifndef AUX_THREADING_STDC

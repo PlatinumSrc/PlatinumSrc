@@ -356,39 +356,33 @@ static bool createWindow(struct rendstate* r) {
             }
             if (cond[0] && cond[1]) {
                 plog(LL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr[0]);
-            } else {
-                plog(LL_INFO, "  Requested OpenGL version: ?");
             }
             tmpstr[0] = (char*)glGetString(GL_VERSION);
             plog(LL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
             #ifdef GL_SHADING_LANGUAGE_VERSION
             tmpstr[0] = (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-            plog(LL_INFO, "  GLSL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            if (tmpstr[0]) plog(LL_INFO, "  GLSL version: %s", tmpstr[0]);
             #endif
             tmpstr[0] = (char*)glGetString(GL_VENDOR);
-            plog(LL_INFO, "  Vendor string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            if (tmpstr[0]) plog(LL_INFO, "  Vendor string: %s", tmpstr[0]);
             tmpstr[0] = (char*)glGetString(GL_RENDERER);
-            plog(LL_INFO, "  Renderer string: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+            if (tmpstr[0]) plog(LL_INFO, "  Renderer string: %s", tmpstr[0]);
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
-            plog(LL_INFO, "  Hardware acceleration is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
+            if (cond[0]) plog(LL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);
-            plog(LL_INFO, "  Double-buffering is %s", (cond[0]) ? ((tmpint[0]) ? "enabled" : "disabled") : "?");
+            if (cond[0]) plog(LL_INFO, "  Double-buffering is %s", (tmpint[0]) ? "enabled" : "disabled");
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &tmpint[0]);
             cond[1] = !SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &tmpint[1]);
             cond[2] = !SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &tmpint[2]);
             cond[3] = !SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &tmpint[3]);
             if (cond[0] && cond[1] && cond[2] && cond[3]) {
                 plog(LL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
-            } else {
-                plog(LL_INFO, "  Color buffer format: ?");
             }
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &tmpint[0]);
             if (cond[0]) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
-            } else {
-                plog(LL_INFO, "  Depth buffer format: ?");
             }
-            plog(LL_INFO, "  GL_KHR_debug is%s supported", (GL_KHR_debug) ? "" : " not");
+            if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             swapBuffers(r);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

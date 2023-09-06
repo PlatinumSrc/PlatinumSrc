@@ -67,7 +67,9 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
                 }
             }
         }
+        #if PLATFORM == PLAT_WINDOWS
         cb_addstr(b, "\\\\?\\");
+        #endif
         #endif
     }
     while (isSepChar(*s)) ++s;
