@@ -43,12 +43,11 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
                 break;
             }
         } else if (c == delim || !c) {
-            ++len;
             if (len == size) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len - 1] = cb_reinit(&tmpcb, 256);
+            data[len++] = cb_reinit(&tmpcb, 256);
             if (!c) break;
         } else {
             cb_add(&tmpcb, c);

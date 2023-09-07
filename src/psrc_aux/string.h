@@ -5,9 +5,9 @@
 #include <stdbool.h>
 
 struct charbuf {
-    char* data;
-    int size;
     int len;
+    int size;
+    char* data;
 };
 
 char* strcombine(const char*, ...);
@@ -21,11 +21,11 @@ static inline void cb_init(struct charbuf* b, int sz) {
     b->len = 0;
 }
 static inline void cb_add(struct charbuf* b, char c) {
-    b->data[b->len++] = c;
     if (b->len == b->size) {
         b->size *= 2;
         b->data = realloc(b->data, b->size);
     }
+    b->data[b->len++] = c;
 }
 static inline void cb_addstr(struct charbuf* b, const char* s) {
     // TODO: make it so that this function instead will see how much space is left before a realloc and manually copy

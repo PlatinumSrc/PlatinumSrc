@@ -32,13 +32,11 @@ enum rcprefix {
 };
 
 struct __attribute__((packed)) rc_config {
-    struct cfg* config; // not const because it can be modified (the api is mt-safe so it's fine)
+    struct cfg* config;
 };
 
 enum rc_texture_frmt {
-    RC_TEXTURE_FRMT_W = 1, // monochrome
-    RC_TEXTURE_FRMT_WA, // monochrome with alpha
-    RC_TEXTURE_FRMT_RGB,
+    RC_TEXTURE_FRMT_RGB = 3,
     RC_TEXTURE_FRMT_RGBA,
 };
 struct __attribute__((packed)) rc_texture {
@@ -48,7 +46,7 @@ struct __attribute__((packed)) rc_texture {
         enum rc_texture_frmt format;
         int channels;
     };
-    const uint8_t* data;
+    uint8_t* data;
 };
 enum rcopt_texture_qlt {
     RCOPT_TEXTURE_QLT_HIGH, // 1x size
@@ -56,14 +54,14 @@ enum rcopt_texture_qlt {
     RCOPT_TEXTURE_QLT_LOW, // 0.25x size
 };
 struct __attribute__((packed)) rcopt_texture {
-    bool needsaplha;
+    bool needsalpha;
     enum rcopt_texture_qlt quality;
 };
 
 struct __attribute__((packed)) rc_material {
     float color[3];
-    const struct rc_texture* texture;
-    //const struct rc_texture* bumpmap;
+    struct rc_texture* texture;
+    //struct rc_texture* bumpmap;
 };
 struct __attribute__((packed)) rcopt_material {
     bool needsaplha;
@@ -71,19 +69,19 @@ struct __attribute__((packed)) rcopt_material {
 };
 
 struct __attribute__((packed)) rc_model_part {
-    const struct rc_material* material;
+    struct rc_material* material;
 };
 struct __attribute__((packed)) rc_model {
     unsigned parts;
-    const struct rc_model_part* partdata;
+    struct rc_model_part* partdata;
 };
 struct __attribute__((packed)) rcopt_model {
     enum rcopt_texture_qlt texture_quality;
 };
 
 struct __attribute__((packed)) rc_entity {
-    const struct rc_model* model;
-    //const struct rc_gamescript* gamescript;
+    struct rc_model* model;
+    //struct rc_gamescript* gamescript;
 };
 
 struct __attribute__((packed)) rc_map {
@@ -106,7 +104,7 @@ enum rc_sound_frmt {
 struct __attribute__((packed)) rc_sound {
     enum rc_sound_frmt format;
     long size; // size of data
-    const uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
+    uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
     int len; // length in samples
     int freq;
     uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
@@ -122,37 +120,37 @@ struct __attribute__((packed)) rcheader {
 };
 
 union __attribute__((packed)) resource {
-    const void* ptr;
-    //const struct rc_config* config;
-    //const struct rc_consolescript* consolescript;
-    const struct rc_entity* entity;
-    //const struct rc_gamescript* gamescript;
-    const struct rc_map* map;
-    const struct rc_material* material;
-    const struct rc_model* model;
-    const struct rc_playermodel* playermodel;
-    //const struct rc_prop* prop;
-    const struct rc_sound* sound;
-    const struct rc_texture* texture;
+    void* ptr;
+    struct rc_config* config;
+    //struct rc_consolescript* consolescript;
+    struct rc_entity* entity;
+    //struct rc_gamescript* gamescript;
+    struct rc_map* map;
+    struct rc_material* material;
+    struct rc_model* model;
+    //struct rc_playermodel* playermodel;
+    //struct rc_prop* prop;
+    struct rc_sound* sound;
+    struct rc_texture* texture;
 };
 
 union __attribute__((packed)) rcopt {
-    const void* ptr;
-    //const struct rcopt_config config;
-    //const struct rcopt_consolescript consolescript;
-    //const struct rcopt_entity entity;
-    //const struct rcopt_gamescript gamescript;
-    const struct rcopt_map map;
-    const struct rcopt_material material;
-    const struct rcopt_model model;
-    //const struct rcopt_playermodel playermodel;
-    //const struct rcopt_prop prop;
-    //const struct rcopt_sound sonud;
-    const struct rcopt_texture texture;
+    void* ptr;
+    //struct rcopt_config* config;
+    //struct rcopt_consolescript* consolescript;
+    //struct rcopt_entity* entity;
+    //struct rcopt_gamescript* gamescript;
+    struct rcopt_map* map;
+    struct rcopt_material* material;
+    struct rcopt_model* model;
+    //struct rcopt_playermodel* playermodel;
+    //struct rcopt_prop* prop;
+    //struct rcopt_sound* sonud;
+    struct rcopt_texture* texture;
 };
 
 bool initResource(void);
-union resource loadResource(enum rctype type, const char* path, union rcopt* opt);
+union resource loadResource(enum rctype type, const char* path, union rcopt opt);
 void freeResource(union resource);
 
 #define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})

@@ -160,7 +160,7 @@ ifeq ($(CROSS),win32)
     _LDFLAGS += -static
     _LDLIBS := -l:libwinpthread.a -lwinmm
 else ifeq ($(CROSS),xbox)
-    _CPPFLAGS += -DSTBI_NO_SIMD -DPB_HAL_FONT
+    _CPPFLAGS += -DPB_HAL_FONT
 else
     _LDLIBS += -lpthread
 endif
@@ -227,11 +227,9 @@ ifeq ($(CROSS),win32)
     LDLIBS.dir.psrc_server += -lws2_32
 endif
 
-CPPLAGS.dir.psrc_game := 
-LDLIBS.dir.psrc_game := 
-ifeq ($(CROSS),win32)
-    CPPLAGS.dir.psrc_game += -lpsapi
-    LDLIBS.dir.psrc_game += -DPSAPI_VERSION=1
+CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
+ifeq ($(CROSS),xbox)
+    CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
 endif
 
 CPPFLAGS.lib.discord_game_sdk := 
@@ -251,29 +249,21 @@ else
     LDLIBS.lib.SDL2 += -lSDL2
 endif
 
-LDLIBS.lib.vorbis := 
-ifeq ($(CROSS),win32)
-    LDLIBS.lib.vorbis += -l:libvorbisfile.a
-else ifeq ($(CROSS),xbox)
-else
-    LDLIBS.lib.vorbis += -lvorbisfile
-endif
-
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.vorbis) $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.lib.vorbis) $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
-    _CPPFLAGS += $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.vorbis) $(CPPFLAGS.dir.psrc_game) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.lib.vorbis) $(LDLIBS.dir.psrc_aux) $(LDLIBS.dir.psrc_game) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX
