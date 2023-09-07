@@ -83,6 +83,10 @@ struct __attribute__((packed)) rcgroup {
 static struct rcgroup groups[RC__COUNT];
 int groupsizes[RC__COUNT] = {4, 2, 8, 8, 1, 16, 8, 2, 16, 16, 16};
 
+struct rcopt_material materialopt_default = {
+    RCOPT_TEXTURE_QLT_HIGH
+};
+
 struct rcopt_texture textureopt_default = {
     false, RCOPT_TEXTURE_QLT_HIGH
 };
@@ -313,6 +317,15 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     return ptr;
 }
 
+static struct rcdata* loadResource_internal(enum rctype, const char*, union rcopt);
+
+static union resource loadResource_union(enum rctype t, const char* uri, union rcopt o) {
+    struct rcdata* r = loadResource_internal(t, uri, o);
+    if (!r) return (union resource){.ptr = NULL};
+    return (union resource){.ptr = (void*)r + sizeof(struct rcheader)};
+}
+#define loadResource_union(t, p, o) loadResource_union((t), (p), (union rcopt){.ptr = (void*)(o)})
+
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
     char* p = getRcPath(uri, t);
     if (!p) {
@@ -321,6 +334,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     }
     if (!o.ptr) {
         switch ((uint8_t)t) {
+            case RC_MATERIAL:
+                o.material = &materialopt_default;
+                break;
             case RC_TEXTURE:
                 o.texture = &textureopt_default;
                 break;
@@ -333,6 +349,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         d = g->data[i];
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
             switch ((uint8_t)t) {
+                case RC_MATERIAL: {
+                    if (o.material->quality != d->materialopt.quality) goto cont;
+                } break;
                 case RC_TEXTURE: {
                     if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto cont;
                     if (o.texture->quality != d->textureopt.quality) goto cont;
@@ -352,6 +371,40 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d = loadResource_newptr(t, g, p, pcrc);
                 d->config.config = cfg;
             }
+        } break;
+        case RC_MATERIAL: {
+            struct cfg* mat = cfg_open(p);
+            if (mat) {
+                char* tmp = cfg_getvar(mat, NULL, "base");
+                if (tmp) {
+                    char* tmp2 = getRcPath(tmp, RC_MATERIAL);
+                    free(tmp);
+                    if (tmp2) {
+                        cfg_merge(mat, tmp2, false);
+                        free(tmp2);
+                    }
+                }
+                tmp = cfg_getvar(mat, NULL, "texture");
+                if (tmp) {
+                    struct rcopt_texture texopt = {false, o.material->quality};
+                    d->material.texture = loadResource_union(RC_TEXTURE, tmp, &texopt).texture;
+                    free(tmp);
+                } else {
+                    d->material.texture = NULL;
+                }
+                d->material.color[0] = 1.0;
+                d->material.color[1] = 1.0;
+                d->material.color[2] = 1.0;
+                d->material.color[3] = 1.0;
+                tmp = cfg_getvar(mat, NULL, "color");
+                if (tmp) {
+                    sscanf(tmp, "%f,%f,%f", &d->material.color[0], &d->material.color[1], &d->material.color[2]);
+                }
+                tmp = cfg_getvar(mat, NULL, "alpha");
+                if (tmp) {
+                    sscanf(tmp, "%f", &d->material.color[3]);
+                }
+            } 
         } break;
         case RC_TEXTURE: {
             int w, h, c;
@@ -407,9 +460,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     return d;
 }
 
-union resource loadResource(enum rctype t, const char* p, union rcopt o) {
+union resource loadResource(enum rctype t, const char* uri, union rcopt o) {
     lockMutex(&rclock);
-    struct rcdata* r = loadResource_internal(t, p, o);
+    struct rcdata* r = loadResource_internal(t, uri, o);
     unlockMutex(&rclock);
     if (!r) return (union resource){.ptr = NULL};
     return (union resource){.ptr = (void*)r + sizeof(struct rcheader)};

@@ -59,12 +59,11 @@ struct __attribute__((packed)) rcopt_texture {
 };
 
 struct __attribute__((packed)) rc_material {
-    float color[3];
+    float color[4]; // RGBA
     struct rc_texture* texture;
     //struct rc_texture* bumpmap;
 };
 struct __attribute__((packed)) rcopt_material {
-    bool needsaplha;
     enum rcopt_texture_qlt quality;
 };
 

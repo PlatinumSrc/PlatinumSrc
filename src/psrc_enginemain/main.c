@@ -87,14 +87,6 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
-    {
-        struct rc_texture* tex = loadResource(RC_TEXTURE, "common:textures/water", NULL).texture;
-        FILE* f = fopen("test.data", "w");
-        fwrite(tex->data, tex->channels, tex->width * tex->height, f);
-        fclose(f);
-        freeResource(tex);
-    }
-
     if (!initRenderer(&states->renderer)) {
         plog(LL_CRIT, "Failed to init renderer");
         return 1;
