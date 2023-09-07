@@ -447,7 +447,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc_editor) $(a.dir.psrc_toolbox) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_editor = $(call a,psrc_editor) $(a.dir.psrc_toolbox) $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
 
 a.dir.psrc_editormain = $(call a,psrc_editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc_game) $(call a,psrc_aux)
 
@@ -455,11 +455,11 @@ a.dir.psrc_engine = $(call a,psrc_engine)
 ifneq ($(CROSS),xbox)
     a.dir.psrc_engine += $(call a,glad)
 endif
-a.dir.psrc_engine +=  $(call a,stb) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_engine += $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
 
 a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
 
-a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
 
 a.dir.psrc_servermain = $(call a,psrc_servermain) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
 

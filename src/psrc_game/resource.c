@@ -11,6 +11,7 @@
 #include "../debug.h"
 
 #include "../stb/stb_image.h"
+#include "../stb/stb_image_resize.h"
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -363,6 +364,35 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 int c2;
                 unsigned char* data = stbi_load(p, &w, &h, &c2, c);
                 if (data) {
+                    if (o.texture->quality != RCOPT_TEXTURE_QLT_HIGH) {
+                        int w2 = w, h2 = h;
+                        switch ((uint8_t)o.texture->quality) {
+                            case RCOPT_TEXTURE_QLT_MED: {
+                                w2 /= 2;
+                                h2 /= 2;
+                            } break;
+                            case RCOPT_TEXTURE_QLT_LOW: {
+                                w2 /= 4;
+                                h2 /= 4;
+                            } break;
+                        }
+                        if (w2 < 1) w2 = 1;
+                        if (h2 < 1) h2 = 1;
+                        unsigned char* data2 = malloc(w * h * c);
+                        int status = stbir_resize_uint8_generic(
+                            data, w, h, 0,
+                            data2, w2, h2, 0,
+                            c, -1, 0,
+                            STBIR_EDGE_WRAP, STBIR_FILTER_BOX, STBIR_COLORSPACE_LINEAR,
+                            NULL
+                        );
+                        if (status) {
+                            free(data);
+                            w = w2;
+                            h = h2;
+                            data = data2;
+                        }
+                    }
                     d = loadResource_newptr(t, g, p, pcrc);
                     d->texture.width = w;
                     d->texture.height = h;
