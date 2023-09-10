@@ -516,6 +516,5 @@ bool initRenderer(struct rendstate* r) {
 }
 
 void termRenderer(struct rendstate* r) {
-    stopRenderer_internal(r);
     free(r->icon);
 }

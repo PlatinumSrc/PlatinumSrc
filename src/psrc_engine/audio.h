@@ -17,22 +17,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-struct __attribute__((packed)) audiosound_vorbisbuf {
+struct audiosound_vorbisbuf {
     int off;
     int len;
     int16_t* data[2];
 };
 struct __attribute__((packed)) audiosound_fx {
-    int posoff; // position offset in milliseconds (based on the distance between campos and pos)
-    uint16_t speedmul; // position multiplier in units of 256 (based on speed)
-    int volmul[2]; // volume multiplier in units of 65536 (based on vol and the distance between campos and pos)
+    int posoff; // position offset in ms (based on the dist between campos and pos)
+    uint16_t speedmul; // position mult in units of 256 (based on speed)
+    int volmul[2]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
 };
 struct __attribute__((packed)) audiosound {
-    uint64_t id;
+    int64_t id;
     struct rc_sound* rc;
     stb_vorbis* vorbis;
     struct audiosound_vorbisbuf vorbisbuf;
-    int ptr;
+    int64_t offset; // amount of samples passed in output sample rate
     struct {
         uint8_t uninterruptible : 1;
         uint8_t loop : 1;
@@ -40,34 +40,37 @@ struct __attribute__((packed)) audiosound {
         uint8_t poseffect : 1;
     } flags;
     struct {
-        uint8_t done : 1;
         uint8_t paused : 1;
     } state;
     float vol;
     float speed;
     float pos[3];
-    struct audiosound_fx computed[2];
+    struct audiosound_fx fx[2];
 };
 
 struct audiostate {
     mutex_t lock;
     bool valid;
+    SDL_AudioDeviceID output;
     int freq;
     int channels;
     struct {
         int len;
         int* data[2];
     } audbuf;
-    int sounds;
-    struct audiosound* sounddata;
-    int soundptr;
-    uint64_t lastid;
+    int voices;
+    struct audiosound* voicedata;
+    int64_t nextid;
     float campos[3]; // for position effect
+    float camrot[3];
 };
 
 enum audioopt {
     AUDIOOPT_END,
-    AUDIOOPT_CAMPOS,
+    AUDIOOPT_CAMPOS, // float, float, float
+    AUDIOOPT_CAMROT, // float, float, float
+    AUDIOOPT_FREQ, // int
+    AUDIOOPT_VOICES, // int
 };
 
 bool initAudio(struct audiostate*);
@@ -85,7 +88,6 @@ void termAudio(struct audiostate*);
 #define SOUNDFLAG_POSEFFECT (1 << 3)
 
 enum soundfx {
-    SOUNDFX_NONE = -1,
     SOUNDFX_END,
     SOUNDFX_VOL, // float
     SOUNDFX_SPEED, // float
@@ -93,7 +95,7 @@ enum soundfx {
 };
 
 int64_t playSound(struct audiostate*, const struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
-void changeSoundFX(struct audiostate*, int64_t, ...);
+void changeSoundFX(struct audiostate*, int64_t, bool immediate, ...);
 void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
 void stopSound(struct audiostate*, int64_t);
 void pauseSound(struct audiostate*, int64_t, bool);

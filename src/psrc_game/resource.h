@@ -31,10 +31,12 @@ enum rcprefix {
     RCPREFIX__COUNT,
 };
 
+// RC_CONFIG
 struct __attribute__((packed)) rc_config {
     struct cfg* config;
 };
 
+// RC_TEXTURE
 enum rc_texture_frmt {
     RC_TEXTURE_FRMT_RGB = 3,
     RC_TEXTURE_FRMT_RGBA,
@@ -58,6 +60,7 @@ struct __attribute__((packed)) rcopt_texture {
     enum rcopt_texture_qlt quality;
 };
 
+// RC_MATERIAL
 struct __attribute__((packed)) rc_material {
     float color[4]; // RGBA
     struct rc_texture* texture;
@@ -67,6 +70,26 @@ struct __attribute__((packed)) rcopt_material {
     enum rcopt_texture_qlt quality;
 };
 
+// RC_SOUND
+enum rc_sound_frmt {
+    RC_SOUND_FRMT_WAV = 1,
+    RC_SOUND_FRMT_VORBIS,
+};
+struct __attribute__((packed)) rc_sound {
+    enum rc_sound_frmt format;
+    long size; // size of data in bytes
+    union {
+        uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
+        int8_t* data_i8;
+        int16_t* data_i16;
+    };
+    int len; // length in samples
+    int freq;
+    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
+    uint8_t stereo : 1;
+};
+
+// RC_MODEL
 struct __attribute__((packed)) rc_model_part {
     struct rc_material* material;
 };
@@ -78,11 +101,13 @@ struct __attribute__((packed)) rcopt_model {
     enum rcopt_texture_qlt texture_quality;
 };
 
+// RC_ENTITY
 struct __attribute__((packed)) rc_entity {
     struct rc_model* model;
     //struct rc_gamescript* gamescript;
 };
 
+// RC_MAP
 struct __attribute__((packed)) rc_map {
     
 };
@@ -94,20 +119,6 @@ enum rcopt_map_loadsect {
 struct __attribute__((packed)) rcopt_map {
     enum rcopt_map_loadsect loadsections;
     enum rcopt_texture_qlt texture_quality;
-};
-
-enum rc_sound_frmt {
-    RC_SOUND_FRMT_WAV = 1,
-    RC_SOUND_FRMT_VORBIS,
-};
-struct __attribute__((packed)) rc_sound {
-    enum rc_sound_frmt format;
-    long size; // size of data
-    uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
-    int len; // length in samples
-    int freq;
-    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
-    uint8_t stereo : 1;
 };
 
 struct __attribute__((packed)) rcheader {
@@ -151,8 +162,11 @@ union __attribute__((packed)) rcopt {
 bool initResource(void);
 union resource loadResource(enum rctype type, const char* path, union rcopt opt);
 void freeResource(union resource);
+void grabResource(union resource);
 
 #define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
 #define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
+#define grabResource(r) grabResource((union resource){.ptr = (void*)(r)})
+#define releaseResource freeResource
 
 #endif

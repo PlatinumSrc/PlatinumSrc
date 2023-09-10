@@ -91,17 +91,18 @@ static int run(int argc, char** argv) {
         plog(LL_CRIT, "Failed to init renderer");
         return 1;
     }
-    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
-    if (!startRenderer(&states->renderer)) {
-        plog(LL_CRIT, "Failed to start renderer");
-        return 1;
-    }
     if (!initInput(&states->input, &states->renderer)) {
         plog(LL_CRIT, "Failed to init input manager");
         return 1;
     }
     if (!initAudio(&states->audio)) {
         plog(LL_CRIT, "Failed to init audio manager");
+        return 1;
+    }
+
+    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    if (!startRenderer(&states->renderer)) {
+        plog(LL_CRIT, "Failed to start renderer");
         return 1;
     }
     if (!startAudio(&states->audio)) {
@@ -114,6 +115,10 @@ static int run(int argc, char** argv) {
         render(&states->renderer);
     }
 
+    stopAudio(&states->audio);
+    stopRenderer(&states->renderer);
+
+    termAudio(&states->audio);
     termInput(&states->input);
     termRenderer(&states->renderer);
 

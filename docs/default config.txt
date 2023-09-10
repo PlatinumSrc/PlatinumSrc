@@ -11,6 +11,8 @@ defaultgame = h74
   scale = 1
 
 [ Sound ]
+  freq = 44100
+  buffer = 1024
   voices = 256
 
 [ Input ]

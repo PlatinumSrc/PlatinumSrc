@@ -12,6 +12,13 @@
 
 #include "../stb/stb_image.h"
 #include "../stb/stb_image_resize.h"
+#include "../stb/stb_vorbis.h"
+
+#if PLATFORM != PLAT_XBOX
+    #include <SDL2/SDL.h>
+#else
+    #include <SDL.h>
+#endif
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -21,6 +28,8 @@
 
 #undef loadResource
 #undef freeResource
+#undef grabResource
+#undef releaseResource
 
 static mutex_t rclock;
 
@@ -329,18 +338,8 @@ static union resource loadResource_union(enum rctype t, const char* uri, union r
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
     char* p = getRcPath(uri, t);
     if (!p) {
-        plog(LL_ERROR, "Could not find %s", p);
+        plog(LL_ERROR, "Could not find resource %s", uri);
         return NULL;
-    }
-    if (!o.ptr) {
-        switch ((uint8_t)t) {
-            case RC_MATERIAL:
-                o.material = &materialopt_default;
-                break;
-            case RC_TEXTURE:
-                o.texture = &textureopt_default;
-                break;
-        }
     }
     uint32_t pcrc = strcrc32(p);
     struct rcdata* d;
@@ -350,17 +349,19 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
             switch ((uint8_t)t) {
                 case RC_MATERIAL: {
-                    if (o.material->quality != d->materialopt.quality) goto cont;
+                    if (!o.ptr) o.material = &materialopt_default;
+                    if (o.material->quality != d->materialopt.quality) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
-                    if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto cont;
-                    if (o.texture->quality != d->textureopt.quality) goto cont;
+                    if (!o.ptr) o.texture = &textureopt_default;
+                    if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
+                    if (o.texture->quality != d->textureopt.quality) goto nomatch;
                 } break;
             }
             ++d->header.refs;
             free(p);
             return d;
-            cont:;
+            nomatch:;
         }
     }
     d = NULL;
@@ -375,6 +376,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_MATERIAL: {
             struct cfg* mat = cfg_open(p);
             if (mat) {
+                d = loadResource_newptr(t, g, p, pcrc);
                 char* tmp = cfg_getvar(mat, NULL, "base");
                 if (tmp) {
                     char* tmp2 = getRcPath(tmp, RC_MATERIAL);
@@ -405,6 +407,89 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     sscanf(tmp, "%f", &d->material.color[3]);
                 }
             } 
+        } break;
+        case RC_SOUND: {
+            FILE* f = fopen(p, "r");
+            if (f) {
+                char sig[5];
+                if (fread(sig, 1, 4, f) == 4) {
+                    sig[4] = 0;
+                    if (!strcmp(sig, "OggS")) {
+                        fseek(f, 0, SEEK_END);
+                        long sz = ftell(f);
+                        if (sz >= 4) {
+                            uint8_t* data = malloc(sz);
+                            fseek(f, 0, SEEK_SET);
+                            fread(data, 1, sz, f);
+                            stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
+                            if (v) {
+                                d = loadResource_newptr(t, g, p, pcrc);
+                                d->sound.len = stb_vorbis_stream_length_in_samples(v);
+                                stb_vorbis_info info = stb_vorbis_get_info(v);
+                                stb_vorbis_close(v);
+                                d->sound.format = RC_SOUND_FRMT_VORBIS;
+                                d->sound.size = sz;
+                                d->sound.data = data;
+                                d->sound.freq = info.sample_rate;
+                                d->sound.stereo = (info.channels > 1);
+                            } else {
+                                free(data);
+                            }
+                        }
+                    } else {
+                        fseek(f, 0, SEEK_SET);
+                        SDL_RWops* rwops = SDL_RWFromFP(f, false);
+                        SDL_AudioSpec spec;
+                        uint8_t* data;
+                        uint32_t sz;
+                        if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
+                            SDL_AudioCVT cvt;
+                            SDL_AudioFormat destfrmt;
+                            if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
+                                destfrmt = AUDIO_S8;
+                            } else {
+                                destfrmt = AUDIO_S16SYS;
+                            }
+                            int ret = SDL_BuildAudioCVT(
+                                &cvt,
+                                spec.format, spec.channels, spec.freq,
+                                destfrmt, (spec.channels > 1) + 1, spec.freq
+                            );
+                            if (ret >= 0) {
+                                if (ret) {
+                                    cvt.len = sz;
+                                    data = SDL_realloc(data, cvt.len * cvt.len_mult);
+                                    cvt.buf = data;
+                                    if (SDL_ConvertAudio(&cvt)) {
+                                        free(data);
+                                    } else {
+                                        data = SDL_realloc(data, cvt.len_cvt);
+                                        d = loadResource_newptr(t, g, p, pcrc);
+                                        d->sound.size = sz;
+                                        d->sound.data = data;
+                                        d->sound.len = sz / ((destfrmt == AUDIO_S16SYS) + 1);
+                                        d->sound.freq = spec.freq;
+                                        d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                        d->sound.stereo = (spec.channels > 1);
+                                    }
+                                } else {
+                                    d = loadResource_newptr(t, g, p, pcrc);
+                                    d->sound.size = sz;
+                                    d->sound.data = data;
+                                    d->sound.len = sz / ((destfrmt == AUDIO_S16SYS) + 1);
+                                    d->sound.freq = spec.freq;
+                                    d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                    d->sound.stereo = (spec.channels > 1);
+                                }
+                            } else {
+                                free(data);
+                            }
+                        }
+                        SDL_RWclose(rwops);
+                    }
+                }
+                fclose(f);
+            }
         } break;
         case RC_TEXTURE: {
             int w, h, c;
@@ -457,6 +542,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         } break;
     }
     free(p);
+    if (!d) plog(LL_WARN, "Failed to load resource %s", uri);
     return d;
 }
 
@@ -509,6 +595,15 @@ void freeResource(union resource r) {
     if (r.ptr) {
         lockMutex(&rclock);
         freeResource_internal(r.ptr - sizeof(struct rcheader));
+        unlockMutex(&rclock);
+    }
+}
+
+void grabResource(union resource _r) {
+    if (_r.ptr) {
+        lockMutex(&rclock);
+        struct rcdata* r = _r.ptr - sizeof(struct rcheader);
+        ++r->header.refs;
         unlockMutex(&rclock);
     }
 }
