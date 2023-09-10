@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <stdarg.h>
 
-static inline void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb) {
+static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb) {
     stb_vorbis_seek(s->vorbis, vb->off);
     int count = stb_vorbis_get_samples_short(s->vorbis, 2, vb->data, vb->len);
     for (int i = count; i < vb->len; ++i) {
@@ -16,11 +16,10 @@ static inline void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_v
     }
 }
 
-static inline void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb, int pos) {
+static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb, int pos, int len) {
     if (pos >= vb->off + vb->len) {
         int oldoff = vb->off;
         vb->off = pos;
-        int len = s->rc->len;
         if (vb->off + vb->len >= len) {
             vb->off = len - vb->len;
             if (vb->off < 0) vb->off = 0;
@@ -40,30 +39,42 @@ static inline void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_v
     }
 }
 
-static inline void getvorbisat(struct audiosound* s, int pos, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= s->rc->len) {
+static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, int pos, int len, int* out_l, int* out_r) {
+    if (pos < 0 || pos >= len) {
         *out_l = 0;
         *out_r = 0;
         return;
     }
     struct audiosound_vorbisbuf vb = s->vorbisbuf;
-    getvorbisat_prepbuf(s, &vb, pos);
+    getvorbisat_prepbuf(s, &vb, pos, len);
     //printf("<- [%d, %d] [%d]\n", s->vorbisbuf.off, s->vorbisbuf.len, pos);
     *out_l = vb.data[0][pos - vb.off];
     *out_r = vb.data[1][pos - vb.off];
 }
 
-static inline void getvorbisat_forcemono(struct audiosound* s, int pos, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= s->rc->len) {
+static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct audiosound* s, int pos, int len, int* out_l, int* out_r) {
+    if (pos < 0 || pos >= len) {
         *out_l = 0;
         *out_r = 0;
         return;
     }
     struct audiosound_vorbisbuf vb = s->vorbisbuf;
-    getvorbisat_prepbuf(s, &vb, pos);
+    getvorbisat_prepbuf(s, &vb, pos, len);
     int tmp = ((int)vb.data[0][pos - vb.off] + (int)vb.data[1][pos - vb.off]) / 2;
     *out_l = tmp;
     *out_r = tmp;
+}
+
+static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
+    fx->posoff = (sfx[0].posoff * ii + samples - 1) / samples + sfx[1].posoff * i / samples;
+    fx->speedmul = (sfx[0].speedmul * ii + samples - 1) / samples + sfx[1].speedmul * i / samples;
+    fx->volmul[0] = (sfx[0].volmul[0] * ii + samples - 1) / samples + sfx[1].volmul[0] * i / samples;
+    fx->volmul[1] = (sfx[0].volmul[1] * ii + samples - 1) / samples + sfx[1].volmul[1] * i / samples;
+}
+
+static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int freq, int outfreq) {
+    return (int64_t)((offset * (int64_t)1000 + (int64_t)fx->posoff * (int64_t)outfreq) *
+        (int64_t)fx->speedmul * (int64_t)freq / (int64_t)256000 / (int64_t)outfreq);
 }
 
 static inline void mixsounds(struct audiostate* a, int samples) {
@@ -83,29 +94,37 @@ static inline void mixsounds(struct audiostate* a, int samples) {
         struct audiosound_fx sfx[2] = {s->fx[0], s->fx[1]};
         int64_t offset = s->offset;
         int freq = s->rc->freq;
+        int len = s->rc->len;
         switch (s->rc->format) {
             case RC_SOUND_FRMT_WAV: {
             } break;
             case RC_SOUND_FRMT_VORBIS: {
                 if (s->flags & SOUNDFLAG_FORCEMONO) {
                 } else {
-                    for (int i = 0, ii = samples; i < samples; ++i) {
-                        struct audiosound_fx fx;
-                        fx.posoff = sfx[0].posoff * ii / samples + (sfx[1].posoff * i + samples - 1) / samples;
-                        fx.speedmul = sfx[0].speedmul * ii / samples + (sfx[1].speedmul * i + samples - 1) / samples;
-                        fx.volmul[0] = sfx[0].volmul[0] * ii / samples + (sfx[1].volmul[0] * i + samples - 1) / samples;
-                        fx.volmul[1] = sfx[0].volmul[1] * ii / samples + (sfx[1].volmul[1] * i + samples - 1) / samples;
-                        //printf("[%d, %d, %d, %d]\n", fx.posoff, fx.speedmul, fx.volmul[0], fx.volmul[1]);
-                        int64_t pos = (offset * 1000 + (int64_t)fx.posoff * (int64_t)outfreq) *
-                            (int64_t)fx.speedmul * (int64_t)freq / 256000 / (int64_t)outfreq;
-                        //int64_t pos = offset * (int64_t)freq / (int64_t)outfreq;
-                        getvorbisat(s, pos, &tmpbuf[0], &tmpbuf[1]);
-                        //tmpbuf[0] = tmpbuf[0] / 256 * 256 + tmpbuf[0] / 256;
-                        //tmpbuf[1] = tmpbuf[1] / 256 * 256 + tmpbuf[0] / 256;
-                        audbuf[0][i] += tmpbuf[0];
-                        audbuf[1][i] += tmpbuf[1];
-                        ++offset;
-                        --ii;
+                    if (s->flags & SOUNDFLAG_LOOP) {
+                        for (int i = 0, ii = samples; i < samples; ++i) {
+                            struct audiosound_fx fx;
+                            interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            if (pos >= 0) pos %= len;
+                            //printf("[%"PRId64"]\n", pos);
+                            getvorbisat(s, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0];
+                            audbuf[1][i] += tmpbuf[1];
+                            ++offset;
+                            --ii;
+                        }
+                    } else {
+                        for (int i = 0, ii = samples; i < samples; ++i) {
+                            struct audiosound_fx fx;
+                            interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            getvorbisat(s, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0];
+                            audbuf[1][i] += tmpbuf[1];
+                            ++offset;
+                            --ii;
+                        }
                     }
                 }
             } break;
