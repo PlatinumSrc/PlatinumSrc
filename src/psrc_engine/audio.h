@@ -24,7 +24,7 @@ struct audiosound_vorbisbuf {
 };
 struct __attribute__((packed)) audiosound_fx {
     int posoff; // position offset in ms (based on the dist between campos and pos)
-    int16_t speedmul; // position mult in units of 256 (based on speed)
+    int16_t speedmul; // position mult in units of 100 (based on speed)
     int volmul[2]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
 };
 struct audiosound {
@@ -37,8 +37,9 @@ struct audiosound {
         uint8_t flags;
         struct {
             uint8_t paused : 1;
+            uint8_t fxchanged : 1;
         } state;
-        float vol;
+        float vol[2];
         float speed;
         float pos[3];
         struct audiosound_fx fx[2];
@@ -83,10 +84,11 @@ void termAudio(struct audiostate*);
 #define SOUNDFLAG_LOOP (1 << 1)
 #define SOUNDFLAG_FORCEMONO (1 << 2)
 #define SOUNDFLAG_POSEFFECT (1 << 3)
+#define SOUNDFLAG_RELPOS (1 << 4)
 
 enum soundfx {
     SOUNDFX_END,
-    SOUNDFX_VOL, // float
+    SOUNDFX_VOL, // float, float
     SOUNDFX_SPEED, // float
     SOUNDFX_POS, // float, float, float
 };

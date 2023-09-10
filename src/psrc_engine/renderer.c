@@ -314,7 +314,7 @@ static bool createWindow(struct rendstate* r) {
         SDL_WINDOW_SHOWN | flags
     );
     if (!r->window) {
-        plog(LL_CRIT, "Failed to create window: %s", SDL_GetError());
+        plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
     }
     #if PLATFORM != PLAT_XBOX
@@ -329,13 +329,13 @@ static bool createWindow(struct rendstate* r) {
             #if PLATFORM != PLAT_XBOX
             r->gl.ctx = SDL_GL_CreateContext(r->window);
             if (!r->gl.ctx) {
-                plog(LL_CRIT, "Failed to create OpenGL context: %s", SDL_GetError());
+                plog(LL_CRIT | LF_FUNCLN, "Failed to create OpenGL context: %s", SDL_GetError());
                 r->apigroup = RENDAPIGROUP__INVAL;
                 destroyWindow(r);
                 return false;
             }
             if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-                plog(LL_CRIT, "Failed to load GLAD");
+                plog(LL_CRIT | LF_FUNCLN, "Failed to load GLAD");
                 destroyWindow(r);
                 return false;
             }
@@ -509,7 +509,7 @@ bool initRenderer(struct rendstate* r) {
     #endif
     r->vsync = false;
     if (SDL_Init(SDL_INIT_VIDEO)) {
-        plog(LL_CRIT, "Failed to init video: %s", SDL_GetError());
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
     }
     return true;

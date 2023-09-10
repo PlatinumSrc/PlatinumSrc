@@ -83,42 +83,47 @@ static int run(int argc, char** argv) {
     struct states* states = malloc(sizeof(*states));
 
     if (!initResource()) {
-        plog(LL_CRIT, "Failed to init resource manager");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
         return 1;
     }
 
     if (!initRenderer(&states->renderer)) {
-        plog(LL_CRIT, "Failed to init renderer");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
     if (!initInput(&states->input, &states->renderer)) {
-        plog(LL_CRIT, "Failed to init input manager");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
     if (!initAudio(&states->audio)) {
-        plog(LL_CRIT, "Failed to init audio manager");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init audio manager");
         return 1;
     }
 
     states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
     if (!startRenderer(&states->renderer)) {
-        plog(LL_CRIT, "Failed to start renderer");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to start renderer");
         return 1;
     }
     if (!startAudio(&states->audio)) {
-        plog(LL_CRIT, "Failed to start audio manager");
+        plog(LL_CRIT | LF_FUNCLN, "Failed to start audio manager");
         return 1;
     }
 
-    {
-        struct rc_sound* test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
-        playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_SPEED, 0.5, SOUNDFX_END);
-    }
+    int64_t s;
+    struct rc_sound* test = loadResource(RC_SOUND, "game:h74/sounds/healthstation", NULL).sound;
+    s = playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    freeResource(test);
+    struct rc_sound* test2 = loadResource(RC_SOUND, "game:h74/sounds/health", NULL).sound;
+    s = playSound(&states->audio, test2, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    freeResource(test2);
 
     while (!quitreq) {
         pollInput(&states->input);
         render(&states->renderer);
     }
+
+    stopSound(&states->audio, s);
 
     stopAudio(&states->audio);
     stopRenderer(&states->renderer);
@@ -188,7 +193,7 @@ static int bootstrap(int argc, char** argv) {
     tmp = mkpath(maindir, "games", gamedir, "game.cfg", NULL);
     gameconfig = cfg_open(tmp);
     if (!gameconfig) {
-        plog(LL_WARN, LP_CRIT "Could not read game config for %s\n", gamedir);
+        plog(LL_CRIT, "Could not read game config for %s\n", gamedir);
         return 1;
     }
     free(tmp);

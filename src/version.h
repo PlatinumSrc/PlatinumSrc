@@ -1,7 +1,7 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define PSRC_BUILD 2023090600
+#define PSRC_BUILD 2023091000
 
 extern char verstr[64];
 extern char platstr[64];

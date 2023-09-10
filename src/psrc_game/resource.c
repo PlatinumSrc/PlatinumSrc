@@ -581,6 +581,9 @@ static void freeResource_internal(struct rcdata* _r) {
                     freeResource_union(r->model.partdata[i].material);
                 }
             } break;
+            case RC_SOUND: {
+                free(r->sound.data);
+            } break;
             case RC_TEXTURE: {
                 free(r->texture.data);
             } break;

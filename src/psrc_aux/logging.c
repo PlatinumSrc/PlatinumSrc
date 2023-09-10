@@ -87,13 +87,21 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
             break;
         case LL_WARN:
             fputs(LP_WARN, f);
+            #if DEBUG(1)
+            lvl |= LF_FUNCLN;
+            #endif
             break;
         case LL_ERROR:
             fputs(LP_ERROR, f);
+            #if DEBUG(1)
+            lvl |= LF_FUNCLN;
+            #endif
             break;
         case LL_CRIT:
             fputs(LP_CRIT, f);
+            #if DEBUG(1)
             lvl |= LF_FUNCLN;
+            #endif
             break;
     }
     if (lvl & LF_FUNC) {
@@ -158,13 +166,21 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
             break;
         case LL_WARN:
             pb_print(LP_WARN);
+            #if DEBUG(1)
+            lvl |= LF_FUNCLN;
+            #endif
             break;
         case LL_ERROR:
             pb_print(LP_ERROR);
+            #if DEBUG(1)
+            lvl |= LF_FUNCLN;
+            #endif
             break;
         case LL_CRIT:
             pb_print(LP_CRIT);
+            #if DEBUG(1)
             lvl |= LF_FUNCLN;
+            #endif
             break;
     }
     if (lvl & LF_FUNC) {
