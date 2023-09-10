@@ -112,7 +112,7 @@ static int run(int argc, char** argv) {
 
     {
         struct rc_sound* test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
-        playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+        playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_SPEED, 0.5, SOUNDFX_END);
     }
 
     while (!quitreq) {

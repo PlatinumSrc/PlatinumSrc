@@ -24,23 +24,25 @@ struct audiosound_vorbisbuf {
 };
 struct __attribute__((packed)) audiosound_fx {
     int posoff; // position offset in ms (based on the dist between campos and pos)
-    uint16_t speedmul; // position mult in units of 256 (based on speed)
+    int16_t speedmul; // position mult in units of 256 (based on speed)
     int volmul[2]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
 };
-struct __attribute__((packed)) audiosound {
+struct audiosound {
     int64_t id;
     struct rc_sound* rc;
     stb_vorbis* vorbis;
     struct audiosound_vorbisbuf vorbisbuf;
-    int64_t offset; // amount of samples passed in output sample rate
-    uint8_t flags;
-    struct {
-        uint8_t paused : 1;
-    } state;
-    float vol;
-    float speed;
-    float pos[3];
-    struct audiosound_fx fx[2];
+    struct __attribute__((packed)) {
+        int64_t offset; // amount of samples passed in output sample rate
+        uint8_t flags;
+        struct {
+            uint8_t paused : 1;
+        } state;
+        float vol;
+        float speed;
+        float pos[3];
+        struct audiosound_fx fx[2];
+    };
 };
 
 struct audiostate {
