@@ -110,6 +110,11 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
+    {
+        struct rc_sound* test = loadResource(RC_SOUND, "game:h74dm/sounds/powerups/strength", NULL).sound;
+        playSound(&states->audio, test, 0, SOUNDFX_END);
+    }
+
     while (!quitreq) {
         pollInput(&states->input);
         render(&states->renderer);

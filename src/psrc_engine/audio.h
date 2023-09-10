@@ -33,12 +33,7 @@ struct __attribute__((packed)) audiosound {
     stb_vorbis* vorbis;
     struct audiosound_vorbisbuf vorbisbuf;
     int64_t offset; // amount of samples passed in output sample rate
-    struct {
-        uint8_t uninterruptible : 1;
-        uint8_t loop : 1;
-        uint8_t forcemono : 1;
-        uint8_t poseffect : 1;
-    } flags;
+    uint8_t flags;
     struct {
         uint8_t paused : 1;
     } state;
@@ -94,9 +89,9 @@ enum soundfx {
     SOUNDFX_POS, // float, float, float
 };
 
-int64_t playSound(struct audiostate*, const struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
+int64_t playSound(struct audiostate*, struct rc_sound* rc, uint8_t flags, ... /*soundfx*/);
 void changeSoundFX(struct audiostate*, int64_t, bool immediate, ...);
-void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
+void changeSoundFlags(struct audiostate*, int64_t, uint8_t disable, uint8_t enable);
 void stopSound(struct audiostate*, int64_t);
 void pauseSound(struct audiostate*, int64_t, bool);
 
