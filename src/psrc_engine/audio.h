@@ -23,8 +23,8 @@ struct audiosound_vorbisbuf {
     int16_t* data[2];
 };
 struct __attribute__((packed)) audiosound_fx {
-    int posoff; // position offset in ms (based on the dist between campos and pos)
-    int16_t speedmul; // position mult in units of 100 (based on speed)
+    int posoff; // position offset in source freq samples (based on the dist between campos and pos)
+    int speedmul; // position mult in units of 1000 (based on speed)
     int volmul[2]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
 };
 struct audiosound {

@@ -65,20 +65,14 @@ static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct a
 }
 
 static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
-    int tmp = sfx[0].posoff * ii;
-    if (tmp >= 0) tmp += samples - 1;
-    else tmp -= samples - 1;
-    fx->posoff = tmp / samples + sfx[1].posoff * i / samples;
-    tmp = sfx[0].speedmul * ii;
-    if (tmp >= 0) tmp += samples - 1;
-    else tmp -= samples - 1;
-    fx->speedmul = tmp / samples + sfx[1].speedmul * i / samples;
-    fx->volmul[0] = (sfx[0].volmul[0] * ii + samples - 1) / samples + sfx[1].volmul[0] * i / samples;
-    fx->volmul[1] = (sfx[0].volmul[1] * ii + samples - 1) / samples + sfx[1].volmul[1] * i / samples;
+    fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
+    fx->speedmul = (sfx[0].speedmul * ii + sfx[1].speedmul * i) / samples;
+    fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
+    fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
 
-static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int64_t freq, int64_t outfreq) {
-    return (offset * 1000 * (int64_t)fx->speedmul + (int64_t)fx->posoff * 100 * outfreq) / 100000 * freq / outfreq;
+static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int64_t i, int64_t freq, int64_t outfreq) {
+    return (offset + i * (int64_t)fx->speedmul / 1000) * freq / outfreq + (int64_t)fx->posoff;
 }
 
 static inline void mixsounds(struct audiostate* a, int samples) {
@@ -118,23 +112,22 @@ static inline void mixsounds(struct audiostate* a, int samples) {
                     if (flags & SOUNDFLAG_FORCEMONO) {
                         for (int i = 0, ii = samples; i < samples; ++i) {
                             if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                             if (pos >= 0) pos %= len;
                             getvorbisat_forcemono(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                             audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            ++offset;
                             --ii;
                         }
                     } else {
                         for (int i = 0, ii = samples; i < samples; ++i) {
                             if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                             if (pos >= 0) pos %= len;
+                            //printf("[%"PRId64"]\n", pos);
                             getvorbisat(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                             audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            ++offset;
                             --ii;
                         }
                     }
@@ -142,29 +135,31 @@ static inline void mixsounds(struct audiostate* a, int samples) {
                     if (flags & SOUNDFLAG_FORCEMONO) {
                         for (int i = 0, ii = samples; i < samples; ++i) {
                             if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                             getvorbisat_forcemono(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                             audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            ++offset;
                             --ii;
                         }
                     } else {
                         for (int i = 0, ii = samples; i < samples; ++i) {
                             if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, freq, outfreq);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                             getvorbisat(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                             audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            ++offset;
                             --ii;
                         }
                     }
                 }
             } break;
         }
-        s->offset += samples;
-        if (chfx) s->state.fxchanged = 0;
+        if (chfx) {
+            s->state.fxchanged = 0;
+            s->offset += samples * sfx[1].speedmul / 1000;
+        } else {
+            s->offset += samples * fx.speedmul / 1000;
+        }
     }
 }
 
@@ -200,7 +195,7 @@ static void callback(void* data, uint8_t* stream, int len) {
     unlockMutex(&((struct audiostate*)data)->lock);
 }
 
-static inline void stopSound_inline(struct audiostate* a, struct audiosound* v) {
+static inline void stopSound_inline(struct audiosound* v) {
     v->id = -1;
     if (v->rc->format == RC_SOUND_FRMT_VORBIS) {
         stb_vorbis_close(v->vorbis);
@@ -216,15 +211,17 @@ void stopSound(struct audiostate* a, int64_t id) {
         int i = (int64_t)(id % (int64_t)a->voices);
         struct audiosound* v = &a->voicedata[i];
         if (v->id >= 0 && id == v->id) {
-            stopSound_inline(a, v);
+            stopSound_inline(v);
         }
     }
     unlockMutex(&a->lock);
 }
 
 static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
-    s->fx[1].speedmul = roundf(s->speed * 100.0);
+    s->fx[1].speedmul = roundf(s->speed * 1000.0);
+    //s->fx[1].posoff = roundf(x * (float)s->rc->freq);
     if (s->flags & SOUNDFLAG_POSEFFECT) {
+        (void)a;
     } else {
         s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
         s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
@@ -232,11 +229,15 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
 }
 
 void changeSoundFX(struct audiostate* a, int64_t id, bool immediate, ...) {
+    lockMutex(&a->lock);
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)a->voices);
         struct audiosound* v = &a->voicedata[i];
-        if (id == v->id) {
-            if (!immediate) v->fx[0] = v->fx[1];
+        if (v->id >= 0 && id == v->id) {
+            if (!immediate && !v->state.fxchanged) {
+                v->fx[0] = v->fx[1];
+                v->state.fxchanged = 1;
+            }
             va_list args;
             va_start(args, immediate);
             enum soundfx fx;
@@ -260,6 +261,20 @@ void changeSoundFX(struct audiostate* a, int64_t id, bool immediate, ...) {
             calcSoundFX(a, v);
         }
     }
+    unlockMutex(&a->lock);
+}
+
+void changeSoundFlags(struct audiostate* a, int64_t id, uint8_t disable, uint8_t enable) {
+    lockMutex(&a->lock);
+    if (id >= 0) {
+        int i = (int64_t)(id % (int64_t)a->voices);
+        struct audiosound* v = &a->voicedata[i];
+        if (v->id >= 0 && id == v->id) {
+            v->flags &= ~disable;
+            v->flags |= enable;
+        }
+    }
+    unlockMutex(&a->lock);
 }
 
 int64_t playSound(struct audiostate* a, struct rc_sound* rc, uint8_t f, ...) {
@@ -287,7 +302,7 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, uint8_t f, ...) {
             int i = (int64_t)(vi % (int64_t)voices);
             struct audiosound* tmpv = &a->voicedata[i];
             if (!(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
-                stopSound_inline(a, tmpv);
+                stopSound_inline(tmpv);
                 id = vi;
                 v = tmpv;
                 break;
@@ -313,6 +328,7 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, uint8_t f, ...) {
         v->vol[0] = 1.0;
         v->vol[1] = 1.0;
         v->speed = 1.0;
+        v->fx[0].posoff = 0;
         v->fx[1].posoff = 0;
         va_list args;
         va_start(args, f);
@@ -426,7 +442,7 @@ void stopAudio(struct audiostate* a) {
         for (int i = 0; i < a->voices; ++i) {
             struct audiosound* v = &a->voicedata[i];
             if (v->id >= 0) {
-               stopSound_inline(a, v);
+               stopSound_inline(v);
             }
         }
         free(a->voicedata);

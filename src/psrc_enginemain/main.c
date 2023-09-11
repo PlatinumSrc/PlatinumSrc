@@ -111,12 +111,9 @@ static int run(int argc, char** argv) {
     }
 
     int64_t s;
-    struct rc_sound* test = loadResource(RC_SOUND, "game:h74/sounds/healthstation", NULL).sound;
-    s = playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    struct rc_sound* test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
+    s = playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
-    struct rc_sound* test2 = loadResource(RC_SOUND, "game:h74/sounds/health", NULL).sound;
-    s = playSound(&states->audio, test2, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
-    freeResource(test2);
 
     while (!quitreq) {
         pollInput(&states->input);
