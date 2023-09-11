@@ -78,11 +78,7 @@ enum rc_sound_frmt {
 struct __attribute__((packed)) rc_sound {
     enum rc_sound_frmt format;
     long size; // size of data in bytes
-    union {
-        uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
-        int8_t* data_i8;
-        int16_t* data_i16;
-    };
+    uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
     int len; // length in samples
     int freq;
     uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV

@@ -464,19 +464,22 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                         free(data);
                                     } else {
                                         data = SDL_realloc(data, cvt.len_cvt);
+                                        sz = cvt.len_cvt;
                                         d = loadResource_newptr(t, g, p, pcrc);
+                                        d->sound.format = RC_SOUND_FRMT_WAV;
                                         d->sound.size = sz;
                                         d->sound.data = data;
-                                        d->sound.len = sz / ((destfrmt == AUDIO_S16SYS) + 1);
+                                        d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                         d->sound.freq = spec.freq;
                                         d->sound.is8bit = (destfrmt == AUDIO_S8);
                                         d->sound.stereo = (spec.channels > 1);
                                     }
                                 } else {
                                     d = loadResource_newptr(t, g, p, pcrc);
+                                    d->sound.format = RC_SOUND_FRMT_WAV;
                                     d->sound.size = sz;
                                     d->sound.data = data;
-                                    d->sound.len = sz / ((destfrmt == AUDIO_S16SYS) + 1);
+                                    d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                     d->sound.freq = spec.freq;
                                     d->sound.is8bit = (destfrmt == AUDIO_S8);
                                     d->sound.stereo = (spec.channels > 1);
@@ -751,20 +754,18 @@ bool initResource(void) {
         groups[i].data = malloc(groups[i].size * sizeof(*groups[i].data));
     }
 
-    {
-        char* modstr = cfg_getvar(config, NULL, "mods");
-        if (modstr) {
-            int modcount;
-            char** modnames = splitstrlist(modstr, ',', false, &modcount);
-            free(modstr);
-            loadMods((const char* const*)modnames, modcount);
-            for (int i = 0; i < modcount; ++i) {
-                free(modnames[i]);
-            }
-            free(modnames);
-        } else {
-            loadMods(NULL, 0);
+    char* tmp = cfg_getvar(config, NULL, "mods");
+    if (tmp) {
+        int modcount;
+        char** modnames = splitstrlist(tmp, ',', false, &modcount);
+        free(tmp);
+        loadMods((const char* const*)modnames, modcount);
+        for (int i = 0; i < modcount; ++i) {
+            free(modnames[i]);
         }
+        free(modnames);
+    } else {
+        loadMods(NULL, 0);
     }
 
     return true;

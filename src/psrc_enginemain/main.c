@@ -157,7 +157,7 @@ static int bootstrap(int argc, char** argv) {
     #if PLATFORM != PLAT_XBOX
     maindir = SDL_GetBasePath();
     if (!maindir) {
-        plog(LL_WARN, "Failed to get main directory: %s\n", SDL_GetError());
+        plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
         maindir = ".";
     } else {
         char* tmp = maindir;
@@ -170,11 +170,11 @@ static int bootstrap(int argc, char** argv) {
 
     char* tmp = mkpath(maindir, "engine/config", "config.cfg", NULL);
     config = cfg_open(tmp);
+    free(tmp);
     if (!config) {
         plog(LL_WARN, "Failed to load main config");
         config = cfg_open(NULL);
     }
-    free(tmp);
 
     tmp = cfg_getvar(config, NULL, "defaultgame");
     cfg_delvar(config, NULL, "defaultgame");
@@ -189,11 +189,11 @@ static int bootstrap(int argc, char** argv) {
 
     tmp = mkpath(maindir, "games", gamedir, "game.cfg", NULL);
     gameconfig = cfg_open(tmp);
+    free(tmp);
     if (!gameconfig) {
-        plog(LL_CRIT, "Could not read game config for %s\n", gamedir);
+        plog(LL_CRIT, "Could not read game config for %s", gamedir);
         return 1;
     }
-    free(tmp);
 
     tmp = cfg_getvar(config, NULL, "userdir");
     if (tmp) {
@@ -212,7 +212,7 @@ static int bootstrap(int argc, char** argv) {
         userdir = mkpath(tmp, NULL);
         SDL_free(tmp);
     } else {
-        plog(LL_WARN, LP_WARN "Failed to get user directory: %s\n", SDL_GetError());
+        plog(LL_WARN, LP_WARN "Failed to get user directory: %s", SDL_GetError());
         userdir = "." PATHSEPSTR "data";
     }
     savedir = mkpath(userdir, "saves", NULL);

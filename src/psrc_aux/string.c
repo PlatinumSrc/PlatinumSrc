@@ -54,6 +54,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
         }
         ++s;
     }
+    cb_dump(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {
@@ -90,4 +91,14 @@ char* makestrlist(const char* const* s, int l, char delim) {
         cb_add(&cb, delim);
     }
     return cb_finalize(&cb);
+}
+
+int strbool(const char* s, int d) {
+    if (!s) return d;
+    if (!strcasecmp(s, "true") || !strcasecmp(s, "yes")) {
+        return 1;
+    } else if (!strcasecmp(s, "false") || !strcasecmp(s, "no")) {
+        return 0;
+    }
+    return d;
 }

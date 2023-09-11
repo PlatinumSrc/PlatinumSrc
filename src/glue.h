@@ -1,6 +1,8 @@
 #ifndef GLUE_H
 #define GLUE_H
 
+// FIXME: include the headers that are being modified
+
 #ifndef _WIN32
     #define mkdir(x) mkdir(x, (S_IRWXU) | (S_IRGRP | S_IXGRP) | (S_IROTH | S_IXOTH))
 #else
