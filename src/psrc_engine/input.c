@@ -31,7 +31,7 @@ void pollInput(struct inputstate* s) {
                             .height = e.window.data2,
                             .hz = -1
                         };
-                        updateRendererConfig(s->r, RENDOPT_RES, &res);
+                        updateRendererConfig(s->r, RENDOPT_RES, &res, RENDOPT_END);
                     } break;
                 }
             } break;

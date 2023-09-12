@@ -182,7 +182,7 @@ static int bootstrap(int argc, char** argv) {
         gamedir = mkpath(NULL, tmp, NULL);
         free(tmp);
     } else {
-        const char* fallback = "h74";
+        const char* fallback = "default";
         plog(LL_WARN, "No default game specified, falling back to %s", fallback);
         gamedir = mkpath(NULL, fallback, NULL);
     }

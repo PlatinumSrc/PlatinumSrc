@@ -3,7 +3,7 @@
 //#include "../psrc_aux/threads.h"
 #if PLATFORM != PLAT_XBOX
     // stuff to make sure i don't accidentally use gl things newer than 1.1 (will remove later)
-    #if 1
+    #if 0
     #include "../.glad11/gl.h"
     #else
     #include "../glad/gl.h"
