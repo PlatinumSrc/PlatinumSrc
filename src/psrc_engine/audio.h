@@ -7,6 +7,9 @@
 #include "../psrc_aux/threading.h"
 
 #include "../stb/stb_vorbis.h"
+#include "../minimp3/minimp3_ex.h"
+
+#include "../platform.h"
 
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
@@ -17,10 +20,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-struct audiosound_vorbisbuf {
+struct audiosound_audbuf {
     int off;
     int len;
-    int16_t* data[2];
+    union {
+        int16_t* data[2];
+        mp3d_sample_t* data_mp3;
+    };
 };
 struct __attribute__((packed)) audiosound_fx {
     int posoff; // position offset in source freq samples (based on the dist between campos and pos)
@@ -30,8 +36,11 @@ struct __attribute__((packed)) audiosound_fx {
 struct audiosound {
     int64_t id;
     struct rc_sound* rc;
-    stb_vorbis* vorbis;
-    struct audiosound_vorbisbuf vorbisbuf;
+    union {
+        stb_vorbis* vorbis;
+        mp3dec_ex_t* mp3;
+    };
+    struct audiosound_audbuf audbuf;
     struct __attribute__((packed)) {
         int64_t offset; // amount of samples passed in output sample rate
         uint8_t flags;
@@ -48,6 +57,7 @@ struct audiosound {
 
 struct audiostate {
     mutex_t lock;
+    thread_t decodethread;
     bool valid;
     SDL_AudioDeviceID output;
     int freq;
@@ -93,9 +103,9 @@ enum soundfx {
     SOUNDFX_POS, // float, float, float
 };
 
-int64_t playSound(struct audiostate*, struct rc_sound* rc, uint8_t flags, ... /*soundfx*/);
-void changeSoundFX(struct audiostate*, int64_t, bool immediate, ...);
-void changeSoundFlags(struct audiostate*, int64_t, uint8_t disable, uint8_t enable);
+int64_t playSound(struct audiostate*, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
+void changeSoundFX(struct audiostate*, int64_t, int /*(bool)*/ immediate, ...);
+void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
 void stopSound(struct audiostate*, int64_t);
 void pauseSound(struct audiostate*, int64_t, bool);
 

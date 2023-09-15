@@ -37,16 +37,40 @@ static void callback(void* data, uint8_t* stream, int len) {
     lockMutex(&((struct audiostate*)data)->lock);
     memset(stream, 0, len);
     int channels = ((struct audiostate*)data)->channels;
+    //#if PLATFORM == PLAT_XBOX
+    //KFLOATING_SAVE fpstate;
+    //KeSaveFloatingPointState(&fpstate);
+    //#endif
     wrsamples(data, (int16_t*)stream, channels, len / sizeof(int16_t));
+    //#if PLATFORM == PLAT_XBOX
+    //KeRestoreFloatingPointState(&fpstate);
+    //#endif
     unlockMutex(&((struct audiostate*)data)->lock);
+}
+
+static void* decodethread(struct thread_data* td) {
+    struct audiostate* a = td->args;
+    /*
+    while (!td->shouldclose) {
+        plog(LL_INFO | LF_DEBUG, "Testing 1 2 3");
+    }
+    */
+    return NULL;
 }
 
 static inline void stopSound_inline(struct audiosound* v) {
     v->id = -1;
-    if (v->rc->format == RC_SOUND_FRMT_VORBIS) {
-        stb_vorbis_close(v->vorbis);
-        free(v->vorbisbuf.data[0]);
-        free(v->vorbisbuf.data[1]);
+    switch ((uint8_t)v->rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            stb_vorbis_close(v->vorbis);
+            free(v->audbuf.data[0]);
+            free(v->audbuf.data[1]);
+        } break;
+        case RC_SOUND_FRMT_MP3: {
+            mp3dec_ex_close(v->mp3);
+            free(v->mp3);
+            free(v->audbuf.data_mp3);
+        } break;
     }
     releaseResource(v->rc);
 }
@@ -74,7 +98,7 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
     }
 }
 
-void changeSoundFX(struct audiostate* a, int64_t id, bool immediate, ...) {
+void changeSoundFX(struct audiostate* a, int64_t id, int immediate, ...) {
     lockMutex(&a->lock);
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)a->voices);
@@ -110,20 +134,20 @@ void changeSoundFX(struct audiostate* a, int64_t id, bool immediate, ...) {
     unlockMutex(&a->lock);
 }
 
-void changeSoundFlags(struct audiostate* a, int64_t id, uint8_t disable, uint8_t enable) {
+void changeSoundFlags(struct audiostate* a, int64_t id, unsigned disable, unsigned enable) {
     lockMutex(&a->lock);
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)a->voices);
         struct audiosound* v = &a->voicedata[i];
         if (v->id >= 0 && id == v->id) {
-            v->flags &= ~disable;
-            v->flags |= enable;
+            v->flags &= ~(uint8_t)disable;
+            v->flags |= (uint8_t)enable;
         }
     }
     unlockMutex(&a->lock);
 }
 
-int64_t playSound(struct audiostate* a, struct rc_sound* rc, uint8_t f, ...) {
+int64_t playSound(struct audiostate* a, struct rc_sound* rc, unsigned f, ...) {
     lockMutex(&a->lock);
     if (!a->valid) {
         unlockMutex(&a->lock);
@@ -159,13 +183,23 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, uint8_t f, ...) {
         grabResource(rc);
         v->id = id;
         v->rc = rc;
-        if (rc->format == RC_SOUND_FRMT_VORBIS) {
-            v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
-            v->vorbisbuf.off = 0;
-            v->vorbisbuf.len = 4096;
-            v->vorbisbuf.data[0] = malloc(v->vorbisbuf.len * sizeof(*v->vorbisbuf.data[0]));
-            v->vorbisbuf.data[1] = malloc(v->vorbisbuf.len * sizeof(*v->vorbisbuf.data[1]));
-            stb_vorbis_get_samples_short(v->vorbis, 2, v->vorbisbuf.data, v->vorbisbuf.len);
+        switch ((uint8_t)rc->format) {
+            case RC_SOUND_FRMT_VORBIS: {
+                v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
+                v->audbuf.off = 0;
+                v->audbuf.len = 2048;
+                v->audbuf.data[0] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[0]));
+                v->audbuf.data[1] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[1]));
+                stb_vorbis_get_samples_short(v->vorbis, 2, v->audbuf.data, v->audbuf.len);
+            } break;
+            case RC_SOUND_FRMT_MP3: {
+                v->mp3 = malloc(sizeof(*v->mp3));
+                mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
+                v->audbuf.off = 0;
+                v->audbuf.len = 2048;
+                v->audbuf.data_mp3 = malloc(v->audbuf.len * v->rc->channels * sizeof(*v->audbuf.data_mp3));
+                mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
+            } break;
         }
         v->offset = 0;
         v->flags = f;
@@ -256,7 +290,7 @@ bool startAudio(struct audiostate* a) {
         int voices;
         tmp = cfg_getvar(config, "Sound", "voices");
         if (tmp) {
-            a->voices = atoi(tmp);
+            voices = atoi(tmp);
             free(tmp);
         } else {
             voices = 256;
@@ -269,8 +303,9 @@ bool startAudio(struct audiostate* a) {
             a->voicedata[i].id = -1;
         }
         a->nextid = 0;
-        SDL_PauseAudioDevice(output, 0);
+        createThread(&a->decodethread, "auddec", decodethread, a);
         a->valid = true;
+        SDL_PauseAudioDevice(output, 0);
     } else {
         plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
         a->valid = false;
@@ -283,7 +318,10 @@ void stopAudio(struct audiostate* a) {
     lockMutex(&a->lock);
     if (a->valid) {
         a->valid = false;
+        unlockMutex(&a->lock);
+        destroyThread(&a->decodethread, NULL);
         SDL_PauseAudioDevice(a->output, 1);
+        lockMutex(&a->lock);
         SDL_CloseAudioDevice(a->output);
         for (int i = 0; i < a->voices; ++i) {
             struct audiosound* v = &a->voicedata[i];

@@ -14,6 +14,7 @@ defaultgame = h74
   freq = 44100
   buffer = 1024
   voices = 256
+  decodewhole = false
 
 [ Input ]
 # action = device,section,key

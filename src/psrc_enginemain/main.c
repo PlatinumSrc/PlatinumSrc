@@ -7,8 +7,10 @@
 #include "../psrc_aux/config.h"
 #include "../psrc_game/resource.h"
 #include "../psrc_game/game.h"
+
 #include "../version.h"
 #include "../platform.h"
+#include "../debug.h"
 
 #include <signal.h>
 #include <string.h>
@@ -19,6 +21,7 @@
     #include <winapi/winnt.h>
     #include <hal/video.h>
     #include <pbgl.h>
+    #include <GL/gl.h>
 #endif
 
 #include "../glue.h"
@@ -82,45 +85,68 @@ static int run(int argc, char** argv) {
 
     struct states* states = malloc(sizeof(*states));
 
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Initializing resource manager...");
+    #endif
     if (!initResource()) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
         return 1;
     }
 
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Initializing renderer...");
+    #endif
     if (!initRenderer(&states->renderer)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Initializing input manager...");
+    #endif
     if (!initInput(&states->input, &states->renderer)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Initializing audio manager...");
+    #endif
     if (!initAudio(&states->audio)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init audio manager");
         return 1;
     }
 
     states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Starting renderer...");
+    #endif
     if (!startRenderer(&states->renderer)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to start renderer");
         return 1;
     }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Starting audio manager...");
+    #endif
     if (!startAudio(&states->audio)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to start audio manager");
         return 1;
     }
 
-    int64_t s;
-    struct rc_sound* test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
-    s = playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+    struct rc_sound* test;
+    test = loadResource(RC_SOUND, "common:sounds/siren", NULL).sound;
+    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+    freeResource(test);
+    test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
+    if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+    freeResource(test);
+    test = loadResource(RC_SOUND, "game:test/gman_wise", NULL).sound;
+    //if (test) playSound(&states->audio, test, 0, SOUNDFX_END);
     freeResource(test);
 
-    while (!quitreq) {
+    uint64_t ticks = SDL_GetTicks() + 10000;
+    while (!quitreq && !SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
         pollInput(&states->input);
         render(&states->renderer);
     }
-
-    stopSound(&states->audio, s);
 
     stopAudio(&states->audio);
     stopRenderer(&states->renderer);
@@ -274,6 +300,11 @@ int main(int argc, char** argv) {
     #if PLATFORM == PLAT_XBOX
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_init(true);
+    pbgl_set_swap_interval(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    pbgl_swap_buffers();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    pbgl_swap_buffers();
     #endif
 
     int ret = bootstrap(argc, argv);

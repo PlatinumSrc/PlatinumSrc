@@ -13,6 +13,7 @@
 #include "../stb/stb_image.h"
 #include "../stb/stb_image_resize.h"
 #include "../stb/stb_vorbis.h"
+#include "../minimp3/minimp3_ex.h"
 
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
@@ -117,11 +118,15 @@ static char** extlist[RC__COUNT] = {
     (char*[2]){".p3m", NULL},
     (char*[2]){".txt", NULL},
     (char*[2]){".txt", NULL},
-    (char*[3]){".ogg", ".wav", NULL},
+    (char*[4]){".ogg", ".mp3", ".wav", NULL},
     (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL}
 };
 
-static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, const char* s, ...) {
+static struct {
+    bool sound_decodewhole;
+} opt;
+
+static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {
     cb_addstr(tmpcb, s);
     va_list v;
     va_start(v, s);
@@ -141,13 +146,16 @@ static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, const c
             cb_add(tmpcb, c);
         }
         int status = isFile(cb_peek(tmpcb));
-        if (status >= 1) return status;
+        if (status >= 1) {
+            if (ext) *ext = *exts;
+            return status;
+        }
         cb_undo(tmpcb, len);
         ++exts;
     }
     return -1;
 }
-static char* getRcPath(const char* uri, enum rctype type) {
+static char* getRcPath(const char* uri, enum rctype type, char** ext) {
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
     const char* tmp = uri;
@@ -229,39 +237,39 @@ static char* getRcPath(const char* uri, enum rctype type) {
     switch ((int8_t)prefix) {
         case RCPREFIX_SELF: {
             for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "games", gamedir, path, NULL)) >= 1) goto found;
+                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "games", gamedir, path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "games", gamedir, path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "games", gamedir, path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_COMMON: {
             for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "common", path, NULL)) >= 1) goto found;
+                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "common", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "common", path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "common", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_ENGINE: {
             for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "engine", path, NULL)) >= 1) goto found;
+                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "engine", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "engine", path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "engine", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_GAME: {
             for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, modinfo.paths[i], "games", path, NULL)) >= 1) goto found;
+                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "games", path, NULL)) >= 1) goto found;
                 cb_clear(&tmpcb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "games", path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "games", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_MOD: {
-            if ((filestatus = getRcPath_try(&tmpcb, type, userdir, "mods", path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, userdir, "mods", path, NULL)) >= 1) goto found;
             cb_clear(&tmpcb);
-            if ((filestatus = getRcPath_try(&tmpcb, type, maindir, "mods", path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "mods", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_USER: {
-            if ((filestatus = getRcPath_try(&tmpcb, type, userdir, path, NULL)) >= 1) goto found;
+            if ((filestatus = getRcPath_try(&tmpcb, type, ext, userdir, path, NULL)) >= 1) goto found;
         } break;
     }
     free(path);
@@ -336,7 +344,8 @@ static union resource loadResource_union(enum rctype t, const char* uri, union r
 #define loadResource_union(t, p, o) loadResource_union((t), (p), (union rcopt){.ptr = (void*)(o)})
 
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
-    char* p = getRcPath(uri, t);
+    char* ext;
+    char* p = getRcPath(uri, t, &ext);
     if (!p) {
         plog(LL_ERROR, "Could not find resource %s", uri);
         return NULL;
@@ -379,7 +388,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d = loadResource_newptr(t, g, p, pcrc);
                 char* tmp = cfg_getvar(mat, NULL, "base");
                 if (tmp) {
-                    char* tmp2 = getRcPath(tmp, RC_MATERIAL);
+                    char* tmp2 = getRcPath(tmp, RC_MATERIAL, NULL);
                     free(tmp);
                     if (tmp2) {
                         cfg_merge(mat, tmp2, false);
@@ -411,85 +420,141 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_SOUND: {
             FILE* f = fopen(p, "r");
             if (f) {
-                char sig[5];
-                if (fread(sig, 1, 4, f) == 4) {
-                    sig[4] = 0;
-                    if (!strcmp(sig, "OggS")) {
-                        fseek(f, 0, SEEK_END);
-                        long sz = ftell(f);
-                        if (sz >= 4) {
-                            uint8_t* data = malloc(sz);
-                            fseek(f, 0, SEEK_SET);
-                            fread(data, 1, sz, f);
-                            stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
-                            if (v) {
-                                d = loadResource_newptr(t, g, p, pcrc);
-                                d->sound.len = stb_vorbis_stream_length_in_samples(v);
+                if (!strcmp(ext, ".ogg")) {
+                    fseek(f, 0, SEEK_END);
+                    long sz = ftell(f);
+                    if (sz > 0) {
+                        uint8_t* data = malloc(sz);
+                        fseek(f, 0, SEEK_SET);
+                        fread(data, 1, sz, f);
+                        stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
+                        if (v) {
+                            d = loadResource_newptr(t, g, p, pcrc);
+                            if (opt.sound_decodewhole) {
+                                d->sound.format = RC_SOUND_FRMT_WAV;
                                 stb_vorbis_info info = stb_vorbis_get_info(v);
+                                int len = stb_vorbis_stream_length_in_samples(v);
+                                int ch = (info.channels > 1) + 1;
+                                int size = len * ch * sizeof(int16_t);
+                                d->sound.len = len;
+                                d->sound.size = size;
+                                d->sound.data = malloc(size);
+                                d->sound.freq = info.sample_rate;
+                                d->sound.channels = info.channels;
+                                d->sound.is8bit = false;
+                                d->sound.stereo = (info.channels > 1);
+                                stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)d->sound.data, len * ch);
                                 stb_vorbis_close(v);
+                                free(data);
+                            } else {
                                 d->sound.format = RC_SOUND_FRMT_VORBIS;
                                 d->sound.size = sz;
                                 d->sound.data = data;
+                                d->sound.len = stb_vorbis_stream_length_in_samples(v);
+                                stb_vorbis_info info = stb_vorbis_get_info(v);
                                 d->sound.freq = info.sample_rate;
+                                d->sound.channels = info.channels;
                                 d->sound.stereo = (info.channels > 1);
-                            } else {
+                                stb_vorbis_close(v);
+                            }
+                        } else {
+                            free(data);
+                        }
+                    }
+                } else if (!strcmp(ext, ".mp3")) {
+                    fseek(f, 0, SEEK_END);
+                    long sz = ftell(f);
+                    if (sz > 0) {
+                        uint8_t* data = malloc(sz);
+                        fseek(f, 0, SEEK_SET);
+                        fread(data, 1, sz, f);
+                        mp3dec_ex_t* m = malloc(sizeof(*m));
+                        if (mp3dec_ex_open_buf(m, data, sz, MP3D_SEEK_TO_SAMPLE)) {
+                            free(data);
+                            free(m);
+                        } else {
+                            d = loadResource_newptr(t, g, p, pcrc);
+                            if (opt.sound_decodewhole) {
+                                d->sound.format = RC_SOUND_FRMT_WAV;
+                                int len = m->samples / m->info.channels;
+                                int size = m->samples * sizeof(mp3d_sample_t);
+                                d->sound.len = len;
+                                d->sound.size = size;
+                                d->sound.data = malloc(size);
+                                d->sound.freq = m->info.hz;
+                                d->sound.channels = m->info.channels;
+                                d->sound.is8bit = false;
+                                d->sound.stereo = (m->info.channels > 1);
+                                mp3dec_ex_read(m, (mp3d_sample_t*)d->sound.data, m->samples);
+                                mp3dec_ex_close(m);
                                 free(data);
+                            } else {
+                                d->sound.format = RC_SOUND_FRMT_MP3;
+                                d->sound.size = sz;
+                                d->sound.data = data;
+                                d->sound.len = m->samples / m->info.channels;
+                                d->sound.freq = m->info.hz;
+                                d->sound.channels = m->info.channels;
+                                d->sound.stereo = (m->info.channels > 1);
+                                mp3dec_ex_close(m);
                             }
                         }
-                    } else {
-                        fseek(f, 0, SEEK_SET);
-                        SDL_RWops* rwops = SDL_RWFromFP(f, false);
-                        SDL_AudioSpec spec;
-                        uint8_t* data;
-                        uint32_t sz;
-                        if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
-                            SDL_AudioCVT cvt;
-                            SDL_AudioFormat destfrmt;
-                            if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
-                                destfrmt = AUDIO_S8;
-                            } else {
-                                destfrmt = AUDIO_S16SYS;
-                            }
-                            int ret = SDL_BuildAudioCVT(
-                                &cvt,
-                                spec.format, spec.channels, spec.freq,
-                                destfrmt, (spec.channels > 1) + 1, spec.freq
-                            );
-                            if (ret >= 0) {
-                                if (ret) {
-                                    cvt.len = sz;
-                                    data = SDL_realloc(data, cvt.len * cvt.len_mult);
-                                    cvt.buf = data;
-                                    if (SDL_ConvertAudio(&cvt)) {
-                                        free(data);
-                                    } else {
-                                        data = SDL_realloc(data, cvt.len_cvt);
-                                        sz = cvt.len_cvt;
-                                        d = loadResource_newptr(t, g, p, pcrc);
-                                        d->sound.format = RC_SOUND_FRMT_WAV;
-                                        d->sound.size = sz;
-                                        d->sound.data = data;
-                                        d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                                        d->sound.freq = spec.freq;
-                                        d->sound.is8bit = (destfrmt == AUDIO_S8);
-                                        d->sound.stereo = (spec.channels > 1);
-                                    }
+                        free(m);
+                    }
+                } else if (!strcmp(ext, ".wav")) {
+                    SDL_RWops* rwops = SDL_RWFromFP(f, false);
+                    SDL_AudioSpec spec;
+                    uint8_t* data;
+                    uint32_t sz;
+                    if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
+                        SDL_AudioCVT cvt;
+                        SDL_AudioFormat destfrmt;
+                        if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
+                            destfrmt = AUDIO_S8;
+                        } else {
+                            destfrmt = AUDIO_S16SYS;
+                        }
+                        int ret = SDL_BuildAudioCVT(
+                            &cvt,
+                            spec.format, spec.channels, spec.freq,
+                            destfrmt, (spec.channels > 1) + 1, spec.freq
+                        );
+                        if (ret >= 0) {
+                            if (ret) {
+                                cvt.len = sz;
+                                data = SDL_realloc(data, cvt.len * cvt.len_mult);
+                                cvt.buf = data;
+                                if (SDL_ConvertAudio(&cvt)) {
+                                    free(data);
                                 } else {
+                                    data = SDL_realloc(data, cvt.len_cvt);
+                                    sz = cvt.len_cvt;
                                     d = loadResource_newptr(t, g, p, pcrc);
                                     d->sound.format = RC_SOUND_FRMT_WAV;
                                     d->sound.size = sz;
                                     d->sound.data = data;
                                     d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                     d->sound.freq = spec.freq;
+                                    d->sound.channels = spec.channels;
                                     d->sound.is8bit = (destfrmt == AUDIO_S8);
                                     d->sound.stereo = (spec.channels > 1);
                                 }
                             } else {
-                                free(data);
+                                d = loadResource_newptr(t, g, p, pcrc);
+                                d->sound.format = RC_SOUND_FRMT_WAV;
+                                d->sound.size = sz;
+                                d->sound.data = data;
+                                d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
+                                d->sound.freq = spec.freq;
+                                d->sound.channels = spec.channels;
+                                d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                d->sound.stereo = (spec.channels > 1);
                             }
+                        } else {
+                            free(data);
                         }
-                        SDL_RWclose(rwops);
                     }
+                    SDL_RWclose(rwops);
                 }
                 fclose(f);
             }
@@ -767,6 +832,9 @@ bool initResource(void) {
     } else {
         loadMods(NULL, 0);
     }
+    tmp = cfg_getvar(config, "Sound", "decodewhole");
+    opt.sound_decodewhole = strbool(tmp, false);
+    free(tmp);
 
     return true;
 }

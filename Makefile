@@ -65,6 +65,8 @@ ifndef OS
             $(error Invalid module: $(MODULE))
         endif
 
+        _CC := $(CC)
+        _LD := $(LD)
         CC := nxdk-cc
         LD := nxdk-link
         AR ?= ar
@@ -227,6 +229,11 @@ ifeq ($(CROSS),win32)
     LDLIBS.dir.psrc_server += -lws2_32
 endif
 
+CPPFLAGS.dir.minimp3 := -DMINIMP3_ONLY_MP3 -DMINIMP3_NO_STDIO
+ifeq ($(CROSS),xbox)
+    CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
+endif
+
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
 CPPFLAGS.dir.stb += -DSTB_VORBIS_NO_PUSHDATA_API -DSTB_VORBIS_NO_STDIO
 ifeq ($(CROSS),xbox)
@@ -253,17 +260,17 @@ endif
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
@@ -448,7 +455,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc_editor) $(a.dir.psrc_toolbox) $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
+a.dir.psrc_editor = $(call a,psrc_editor) $(a.dir.psrc_toolbox) $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
 
 a.dir.psrc_editormain = $(call a,psrc_editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc_game) $(call a,psrc_aux)
 
@@ -456,11 +463,11 @@ a.dir.psrc_engine = $(call a,psrc_engine)
 ifneq ($(CROSS),xbox)
     a.dir.psrc_engine += $(call a,glad)
 endif
-a.dir.psrc_engine += $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
+a.dir.psrc_engine += $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
 
 a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
 
-a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_game) $(call a,stb) $(call a,psrc_aux)
+a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
 
 a.dir.psrc_servermain = $(call a,psrc_servermain) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
 
@@ -539,11 +546,11 @@ $(XISODIR):
 
 $(CXBE):
 	@echo Making NXDK Cxbe tool...
-	@$(MAKE) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
+	@$(MAKE) CC=$(_CC) LD=$(_LD) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
 
 $(EXTRACT_XISO):
 	@echo Making NXDK extract-xiso tool...
-	@$(MAKE) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
+	@$(MAKE) CC=$(_CC) LD=$(_LD) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
 
 $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 	@echo Relinking $@ from $<...

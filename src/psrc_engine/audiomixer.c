@@ -1,57 +1,106 @@
 #include "audiomixer.h"
 
-static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb) {
-    stb_vorbis_seek(s->vorbis, vb->off);
-    int count = stb_vorbis_get_samples_short(s->vorbis, 2, vb->data, vb->len);
-    for (int i = count; i < vb->len; ++i) {
-        vb->data[0][i] = 0;
-        vb->data[1][i] = 0;
-    }
+static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab) {
+    stb_vorbis_seek(s->vorbis, ab->off);
+    stb_vorbis_get_samples_short(s->vorbis, 2, ab->data, ab->len);
 }
 
-static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_vorbisbuf* vb, int pos, int len) {
-    if (pos >= vb->off + vb->len) {
-        int oldoff = vb->off;
-        vb->off = pos;
-        if (vb->off + vb->len >= len) {
-            vb->off = len - vb->len;
-            if (vb->off < 0) vb->off = 0;
+static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len) {
+    if (pos >= ab->off + ab->len) {
+        int oldoff = ab->off;
+        ab->off = pos;
+        if (ab->off + ab->len >= len) {
+            ab->off = len - ab->len;
+            if (ab->off < 0) ab->off = 0;
         }
-        if (vb->off != oldoff) {
-            s->vorbisbuf.off = vb->off;
-            getvorbisat_fillbuf(s, vb);
+        if (ab->off != oldoff) {
+            s->audbuf.off = ab->off;
+            getvorbisat_fillbuf(s, ab);
         }
-    } else if (pos < vb->off) {
-        int oldoff = vb->off;
-        vb->off = pos - vb->len / 2 + 1;
-        if (vb->off < 0) vb->off = 0;
-        if (vb->off != oldoff) {
-            s->vorbisbuf.off = vb->off;
-            getvorbisat_fillbuf(s, vb);
+    } else if (pos < ab->off) {
+        int oldoff = ab->off;
+        ab->off = pos - ab->len / 2 + 1;
+        if (ab->off < 0) ab->off = 0;
+        if (ab->off != oldoff) {
+            s->audbuf.off = ab->off;
+            getvorbisat_fillbuf(s, ab);
         }
     }
 }
 
-static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, struct audiosound_vorbisbuf* vb, int pos, int len, int* out_l, int* out_r) {
+static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
         *out_r = 0;
         return;
     }
-    getvorbisat_prepbuf(s, vb, pos, len);
-    //printf("<- [%d, %d] [%d]\n", s->vorbisbuf.off, s->vorbisbuf.len, pos);
-    *out_l = vb->data[0][pos - vb->off];
-    *out_r = vb->data[1][pos - vb->off];
+    getvorbisat_prepbuf(s, ab, pos, len);
+    //printf("<- [%d, %d] [%d]\n", s->audbuf.off, s->audbuf.len, pos);
+    *out_l = ab->data[0][pos - ab->off];
+    *out_r = ab->data[1][pos - ab->off];
 }
 
-static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct audiosound* s, struct audiosound_vorbisbuf* vb, int pos, int len, int* out_l, int* out_r) {
+static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
         *out_r = 0;
         return;
     }
-    getvorbisat_prepbuf(s, vb, pos, len);
-    int tmp = ((int)vb->data[0][pos - vb->off] + (int)vb->data[1][pos - vb->off]) / 2;
+    getvorbisat_prepbuf(s, ab, pos, len);
+    int tmp = ((int)ab->data[0][pos - ab->off] + (int)ab->data[1][pos - ab->off]) / 2;
+    *out_l = tmp;
+    *out_r = tmp;
+}
+
+static inline __attribute__((always_inline)) void getmp3at_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab, int ch) {
+    mp3dec_ex_seek(s->mp3, ab->off * ch);
+    mp3dec_ex_read(s->mp3, ab->data_mp3, ab->len * ch);
+}
+
+static inline __attribute__((always_inline)) void getmp3at_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int ch) {
+    if (pos >= ab->off + ab->len) {
+        int oldoff = ab->off;
+        ab->off = pos;
+        if (ab->off + ab->len >= len) {
+            ab->off = len - ab->len;
+            if (ab->off < 0) ab->off = 0;
+        }
+        if (ab->off != oldoff) {
+            s->audbuf.off = ab->off;
+            getmp3at_fillbuf(s, ab, ch);
+        }
+    } else if (pos < ab->off) {
+        int oldoff = ab->off;
+        ab->off = pos - ab->len / 2 + 1;
+        if (ab->off < 0) ab->off = 0;
+        if (ab->off != oldoff) {
+            s->audbuf.off = ab->off;
+            getmp3at_fillbuf(s, ab, ch);
+        }
+    }
+}
+
+static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
+    if (pos < 0 || pos >= len) {
+        *out_l = 0;
+        *out_r = 0;
+        return;
+    }
+    int channels = s->rc->channels;
+    getmp3at_prepbuf(s, ab, pos, len, channels);
+    *out_l = ab->data_mp3[(pos - ab->off) * channels];
+    *out_r = ab->data_mp3[(pos - ab->off) * channels + 1];
+}
+
+static inline __attribute__((always_inline)) void getmp3at_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
+    if (pos < 0 || pos >= len) {
+        *out_l = 0;
+        *out_r = 0;
+        return;
+    }
+    int channels = s->rc->channels;
+    getmp3at_prepbuf(s, ab, pos, len, channels);
+    int tmp = ((int)ab->data_mp3[(pos - ab->off) * channels] + (int)ab->data_mp3[(pos - ab->off) * channels + 1]) / 2;
     *out_l = tmp;
     *out_r = tmp;
 }
@@ -97,6 +146,92 @@ void mixsounds(struct audiostate* a, int samples) {
         uint8_t flags = s->flags;
         bool loop = flags & SOUNDFLAG_LOOP;
         switch (rc->format) {
+            case RC_SOUND_FRMT_VORBIS: {
+                struct audiosound_audbuf ab = s->audbuf;
+                if (loop) {
+                    if (flags & SOUNDFLAG_FORCEMONO) {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            if (pos >= 0) pos %= len;
+                            getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    } else {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            if (pos >= 0) pos %= len;
+                            //printf("[%"PRId64"]\n", pos);
+                            getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    }
+                } else {
+                    if (flags & SOUNDFLAG_FORCEMONO) {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    } else {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    }
+                }
+            } break;
+            case RC_SOUND_FRMT_MP3: {
+                struct audiosound_audbuf ab = s->audbuf;
+                if (loop) {
+                    if (flags & SOUNDFLAG_FORCEMONO) {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            if (pos >= 0) pos %= len;
+                            getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    } else {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            if (pos >= 0) pos %= len;
+                            //printf("[%"PRId64"]\n", pos);
+                            getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    }
+                } else {
+                    if (flags & SOUNDFLAG_FORCEMONO) {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    } else {
+                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
+                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
+                            getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
+                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
+                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
+                        }
+                    }
+                }
+            } break;
             case RC_SOUND_FRMT_WAV: {
                 union {
                     uint8_t* ptr;
@@ -106,175 +241,121 @@ void mixsounds(struct audiostate* a, int samples) {
                 data.ptr = rc->data;
                 bool is8bit = rc->is8bit;
                 bool stereo = rc->stereo;
+                int channels = rc->channels;
                 if (loop) {
                     if (flags & SOUNDFLAG_FORCEMONO) {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i8[pos * (stereo + 1)];
+                                    tmpbuf[0] = data.i8[pos * channels];
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * (stereo + 1) + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo];
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmp * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i16[pos * (stereo + 1)];
-                                    tmpbuf[1] = data.i16[pos * (stereo + 1) + stereo];
+                                    tmpbuf[0] = data.i16[pos * channels];
+                                    tmpbuf[1] = data.i16[pos * channels + stereo];
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmp * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         }
                     } else {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i8[pos * (stereo + 1)];
+                                    tmpbuf[0] = data.i8[pos * channels];
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * (stereo + 1) + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo];
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i16[pos * (stereo + 1)];
-                                    tmpbuf[1] = data.i16[pos * (stereo + 1) + stereo];
+                                    tmpbuf[0] = data.i16[pos * channels];
+                                    tmpbuf[1] = data.i16[pos * channels + stereo];
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         }
                     }
                 } else {
                     if (flags & SOUNDFLAG_FORCEMONO) {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * (stereo + 1)];
+                                    tmpbuf[0] = data.i8[pos * channels];
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * (stereo + 1) + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo];
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmp * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i16[pos * (stereo + 1)];
-                                    tmpbuf[1] = data.i16[pos * (stereo + 1) + stereo];
+                                    tmpbuf[0] = data.i16[pos * channels];
+                                    tmpbuf[1] = data.i16[pos * channels + stereo];
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmp * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         }
                     } else {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * (stereo + 1)];
+                                    tmpbuf[0] = data.i8[pos * channels];
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * (stereo + 1) + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo];
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i) {
+                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i16[pos * (stereo + 1)];
-                                    tmpbuf[1] = data.i16[pos * (stereo + 1) + stereo];
+                                    tmpbuf[0] = data.i16[pos * channels];
+                                    tmpbuf[1] = data.i16[pos * channels + stereo];
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
                                 }
-                                --ii;
                             }
-                        }
-                    }
-                }
-            } break;
-            case RC_SOUND_FRMT_VORBIS: {
-                struct audiosound_vorbisbuf vb = s->vorbisbuf;
-                if (loop) {
-                    if (flags & SOUNDFLAG_FORCEMONO) {
-                        for (int i = 0, ii = samples; i < samples; ++i) {
-                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
-                            if (pos >= 0) pos %= len;
-                            getvorbisat_forcemono(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
-                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            --ii;
-                        }
-                    } else {
-                        for (int i = 0, ii = samples; i < samples; ++i) {
-                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
-                            if (pos >= 0) pos %= len;
-                            //printf("[%"PRId64"]\n", pos);
-                            getvorbisat(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
-                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            --ii;
-                        }
-                    }
-                } else {
-                    if (flags & SOUNDFLAG_FORCEMONO) {
-                        for (int i = 0, ii = samples; i < samples; ++i) {
-                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
-                            getvorbisat_forcemono(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
-                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            --ii;
-                        }
-                    } else {
-                        for (int i = 0, ii = samples; i < samples; ++i) {
-                            if (chfx) interpfx(sfx, &fx, i, ii, samples);
-                            int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
-                            getvorbisat(s, &vb, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
-                            audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
-                            --ii;
                         }
                     }
                 }

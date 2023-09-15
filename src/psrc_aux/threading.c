@@ -5,22 +5,21 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-static void* threadwrapper(void* t_void) {
-    thread_t* t = t_void;
+static void* threadwrapper(void* t) {
     #ifndef AUX_THREADING_NONAMES
         #ifndef AUX_THREADING_STDC
             #if defined(__GLIBC__)
-                pthread_setname_np(t->thread, t->name);
+                pthread_setname_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_NETBSD
-                pthread_setname_np(t->thread, "%s", t->name);
+                pthread_setname_np(((thread_t*)t)->thread, "%s", ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_FREEBSD || PLATFORM == PLAT_OPENBSD
-                pthread_set_name_np(t->thread, t->name);
+                pthread_set_name_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_MACOS
-                pthread_setname_np(t->name);
+                pthread_setname_np(((thread_t*)t)->name);
             #endif
         #endif
     #endif
-    return t->func(&t->data);
+    return ((thread_t*)t)->func(&((thread_t*)t)->data);
 }
 
 bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
@@ -29,6 +28,7 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     #endif
     t->name = (n) ? strdup(n) : NULL;
     t->func = f;
+    t->data.self = t;
     t->data.args = a;
     t->data.shouldclose = false;
     bool fail;

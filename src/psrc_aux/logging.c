@@ -140,6 +140,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
 
 #if PLATFORM == PLAT_XBOX
 
+int plog__nodraw;
 bool plog__wrote = true;
 
 void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned line) {

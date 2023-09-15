@@ -201,6 +201,9 @@ void render(struct rendstate* r) {
 
 static void destroyWindow(struct rendstate* r) {
     if (r->window != NULL) {
+        #if PLATFORM == PLAT_XBOX
+        --plog__nodraw;
+        #endif
         switch (r->apigroup) {
             case RENDAPIGROUP_GL:
                 #if PLATFORM != PLAT_XBOX
@@ -395,6 +398,9 @@ static bool createWindow(struct rendstate* r) {
         default: {
         } break;
     }
+    #if PLATFORM == PLAT_XBOX
+    ++plog__nodraw;
+    #endif
     return true;
 }
 

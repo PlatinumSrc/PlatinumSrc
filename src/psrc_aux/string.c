@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <string.h>
+
+#include "../glue.h"
 
 // inefficient but it works
 char* strcombine(const char* s, ...) {
