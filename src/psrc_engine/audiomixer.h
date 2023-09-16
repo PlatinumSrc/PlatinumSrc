@@ -3,6 +3,6 @@
 
 #include "audio.h"
 
-void mixsounds(struct audiostate*, int samples);
+void mixsounds(struct audiostate*, int samples, int** audbuf);
 
 #endif

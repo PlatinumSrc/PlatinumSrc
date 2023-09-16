@@ -57,15 +57,19 @@ struct audiosound {
 
 struct audiostate {
     mutex_t lock;
-    thread_t decodethread;
-    bool valid;
+    volatile bool valid;
+    thread_t mixthread;
     SDL_AudioDeviceID output;
     int freq;
     int channels;
+    volatile int audbufindex;
+    volatile int mixaudbufindex;
+    uint64_t buftime;
     struct {
         int len;
-        int* data[2];
+        int* data[2][2];
     } audbuf;
+    mutex_t voicelock;
     int voices;
     struct audiosound* voicedata;
     int64_t nextid;

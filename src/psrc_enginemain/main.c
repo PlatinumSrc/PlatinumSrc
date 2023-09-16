@@ -7,6 +7,7 @@
 #include "../psrc_aux/config.h"
 #include "../psrc_game/resource.h"
 #include "../psrc_game/game.h"
+#include "../psrc_game/time.h"
 
 #include "../version.h"
 #include "../platform.h"
@@ -16,7 +17,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#if PLATFORM == PLAT_XBOX
+#if PLATFORM == PLAT_WINDOWS
+    #include <windows.h>
+#elif PLATFORM == PLAT_XBOX
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
@@ -132,17 +135,17 @@ static int run(int argc, char** argv) {
     }
 
     struct rc_sound* test;
-    test = loadResource(RC_SOUND, "common:sounds/siren", NULL).sound;
-    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
-    freeResource(test);
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
     if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
+    test = loadResource(RC_SOUND, "game:test/mp3test_1", NULL).sound;
+    if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
+    freeResource(test);
     test = loadResource(RC_SOUND, "game:test/gman_wise", NULL).sound;
-    //if (test) playSound(&states->audio, test, 0, SOUNDFX_END);
+    if (test) playSound(&states->audio, test, 0, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
 
-    uint64_t ticks = SDL_GetTicks() + 10000;
+    uint64_t ticks = SDL_GetTicks() + 60000;
     while (!quitreq && !SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
         pollInput(&states->input);
         render(&states->renderer);
@@ -297,7 +300,19 @@ int main(int argc, char** argv) {
     #endif
     #endif
 
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_WINDOWS
+    TIMECAPS tc;
+    UINT tmrres = 1;
+    if (timeGetDevCaps(&tc, sizeof(tc)) != TIMERR_NOERROR) {
+        if (tmrres < tc.wPeriodMin) {
+            tmrres = tc.wPeriodMin;
+        } else if (tmrres > tc.wPeriodMax) {
+            tmrres = tc.wPeriodMax;
+        }
+    }
+    timeBeginPeriod(tmrres);
+    QueryPerformanceFrequency(&perfctfreq);
+    #elif PLATFORM == PLAT_XBOX
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_init(true);
     pbgl_set_swap_interval(0);
@@ -309,7 +324,9 @@ int main(int argc, char** argv) {
 
     int ret = bootstrap(argc, argv);
 
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_WINDOWS
+    timeEndPeriod(tmrres);
+    #elif PLATFORM == PLAT_XBOX
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif

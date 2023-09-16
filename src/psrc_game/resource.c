@@ -503,32 +503,44 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     }
                 } else if (!strcmp(ext, ".wav")) {
                     SDL_RWops* rwops = SDL_RWFromFP(f, false);
-                    SDL_AudioSpec spec;
-                    uint8_t* data;
-                    uint32_t sz;
-                    if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
-                        SDL_AudioCVT cvt;
-                        SDL_AudioFormat destfrmt;
-                        if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
-                            destfrmt = AUDIO_S8;
-                        } else {
-                            destfrmt = AUDIO_S16SYS;
-                        }
-                        int ret = SDL_BuildAudioCVT(
-                            &cvt,
-                            spec.format, spec.channels, spec.freq,
-                            destfrmt, (spec.channels > 1) + 1, spec.freq
-                        );
-                        if (ret >= 0) {
-                            if (ret) {
-                                cvt.len = sz;
-                                data = SDL_realloc(data, cvt.len * cvt.len_mult);
-                                cvt.buf = data;
-                                if (SDL_ConvertAudio(&cvt)) {
-                                    free(data);
+                    if (rwops) {
+                        SDL_AudioSpec spec;
+                        uint8_t* data;
+                        uint32_t sz;
+                        if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
+                            SDL_AudioCVT cvt;
+                            SDL_AudioFormat destfrmt;
+                            if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
+                                destfrmt = AUDIO_S8;
+                            } else {
+                                destfrmt = AUDIO_S16SYS;
+                            }
+                            int ret = SDL_BuildAudioCVT(
+                                &cvt,
+                                spec.format, spec.channels, spec.freq,
+                                destfrmt, (spec.channels > 1) + 1, spec.freq
+                            );
+                            if (ret >= 0) {
+                                if (ret) {
+                                    cvt.len = sz;
+                                    data = SDL_realloc(data, cvt.len * cvt.len_mult);
+                                    cvt.buf = data;
+                                    if (SDL_ConvertAudio(&cvt)) {
+                                        free(data);
+                                    } else {
+                                        data = SDL_realloc(data, cvt.len_cvt);
+                                        sz = cvt.len_cvt;
+                                        d = loadResource_newptr(t, g, p, pcrc);
+                                        d->sound.format = RC_SOUND_FRMT_WAV;
+                                        d->sound.size = sz;
+                                        d->sound.data = data;
+                                        d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
+                                        d->sound.freq = spec.freq;
+                                        d->sound.channels = spec.channels;
+                                        d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                        d->sound.stereo = (spec.channels > 1);
+                                    }
                                 } else {
-                                    data = SDL_realloc(data, cvt.len_cvt);
-                                    sz = cvt.len_cvt;
                                     d = loadResource_newptr(t, g, p, pcrc);
                                     d->sound.format = RC_SOUND_FRMT_WAV;
                                     d->sound.size = sz;
@@ -540,21 +552,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                     d->sound.stereo = (spec.channels > 1);
                                 }
                             } else {
-                                d = loadResource_newptr(t, g, p, pcrc);
-                                d->sound.format = RC_SOUND_FRMT_WAV;
-                                d->sound.size = sz;
-                                d->sound.data = data;
-                                d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                                d->sound.freq = spec.freq;
-                                d->sound.channels = spec.channels;
-                                d->sound.is8bit = (destfrmt == AUDIO_S8);
-                                d->sound.stereo = (spec.channels > 1);
+                                free(data);
                             }
-                        } else {
-                            free(data);
                         }
+                        SDL_RWclose(rwops);
                     }
-                    SDL_RWclose(rwops);
                 }
                 fclose(f);
             }

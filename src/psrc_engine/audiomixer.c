@@ -116,15 +116,7 @@ static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_f
     return (offset + i * (int64_t)fx->speedmul / 1000) * freq / outfreq + (int64_t)fx->posoff;
 }
 
-void mixsounds(struct audiostate* a, int samples) {
-    if (a->audbuf.len < samples) {
-        a->audbuf.len = samples;
-        a->audbuf.data[0] = realloc(a->audbuf.data[0], samples * sizeof(*a->audbuf.data[0]));
-        a->audbuf.data[1] = realloc(a->audbuf.data[1], samples * sizeof(*a->audbuf.data[1]));
-    }
-    memset(a->audbuf.data[0], 0, samples * sizeof(*a->audbuf.data[0]));
-    memset(a->audbuf.data[1], 0, samples * sizeof(*a->audbuf.data[1]));
-    int* audbuf[2] = {a->audbuf.data[0], a->audbuf.data[1]};
+void mixsounds(struct audiostate* a, int samples, int** audbuf) {
     int outfreq = a->freq;
     int tmpbuf[2];
     for (int si = 0; si < a->voices; ++si) {
