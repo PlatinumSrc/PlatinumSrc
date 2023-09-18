@@ -47,22 +47,18 @@ void plog__write(enum loglevel, const char*, const char*, unsigned, char*, ...);
     } while (0)
 #else
     #include <pbkit/pbkit.h>
-    #include <pbgl.h>
     #include <stdbool.h>
-    extern int plog__nodraw;
+    extern bool plog__nodraw;
     extern bool plog__wrote;
     void plog__info(enum loglevel, const char*, const char*, unsigned);
+    void plog__draw(void);
     #define plog(lvl, ...) do {\
         lockMutex(&loglock);\
         plog__info(lvl, __func__, __FILE__, __LINE__);\
         pb_print(__VA_ARGS__); pb_print("\n");\
         plog__wrote = true;\
         plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\
-        if (!plog__nodraw) {\
-            pb_draw_text_screen();\
-            while (pb_busy()) {}\
-            pbgl_swap_buffers();\
-        }\
+        plog__draw();\
         unlockMutex(&loglock);\
     } while (0)
 #endif

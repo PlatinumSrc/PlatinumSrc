@@ -511,7 +511,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                             SDL_AudioCVT cvt;
                             SDL_AudioFormat destfrmt;
                             if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
-                                destfrmt = AUDIO_S8;
+                                destfrmt = AUDIO_U8;
                             } else {
                                 destfrmt = AUDIO_S16SYS;
                             }
@@ -537,7 +537,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                         d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                         d->sound.freq = spec.freq;
                                         d->sound.channels = spec.channels;
-                                        d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                        d->sound.is8bit = (destfrmt == AUDIO_U8);
                                         d->sound.stereo = (spec.channels > 1);
                                     }
                                 } else {
@@ -548,7 +548,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                     d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                     d->sound.freq = spec.freq;
                                     d->sound.channels = spec.channels;
-                                    d->sound.is8bit = (destfrmt == AUDIO_S8);
+                                    d->sound.is8bit = (destfrmt == AUDIO_U8);
                                     d->sound.stereo = (spec.channels > 1);
                                 }
                             } else {

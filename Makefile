@@ -229,7 +229,7 @@ ifeq ($(CROSS),win32)
     LDLIBS.dir.psrc_server += -lws2_32
 endif
 
-CPPFLAGS.dir.minimp3 := -DMINIMP3_ONLY_MP3 -DMINIMP3_NO_STDIO
+CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
 ifeq ($(CROSS),xbox)
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif

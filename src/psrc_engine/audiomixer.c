@@ -227,7 +227,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
             case RC_SOUND_FRMT_WAV: {
                 union {
                     uint8_t* ptr;
-                    int8_t* i8;
+                    uint8_t* i8;
                     int16_t* i16;
                 } data;
                 data.ptr = rc->data;
@@ -242,9 +242,9 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i8[pos * channels];
+                                    tmpbuf[0] = data.i8[pos * channels] - 128;
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
@@ -272,9 +272,9 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0) {
                                     pos %= len;
-                                    tmpbuf[0] = data.i8[pos * channels];
+                                    tmpbuf[0] = data.i8[pos * channels] - 128;
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;
@@ -301,9 +301,9 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * channels];
+                                    tmpbuf[0] = data.i8[pos * channels] - 128;
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
                                     audbuf[0][i] += tmp * fx.volmul[0] / 65536;
@@ -329,9 +329,9 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                                 if (chfx) interpfx(sfx, &fx, i, ii, samples);
                                 int64_t pos = calcpos(&fx, offset, i, freq, outfreq);
                                 if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * channels];
+                                    tmpbuf[0] = data.i8[pos * channels] - 128;
                                     tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo];
+                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
                                     tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
                                     audbuf[0][i] += tmpbuf[0] * fx.volmul[0] / 65536;
                                     audbuf[1][i] += tmpbuf[1] * fx.volmul[1] / 65536;

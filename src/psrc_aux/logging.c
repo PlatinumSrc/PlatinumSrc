@@ -140,7 +140,10 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
 
 #if PLATFORM == PLAT_XBOX
 
-int plog__nodraw;
+#include <pbgl.h>
+#include <GL/gl.h>
+
+bool plog__nodraw;
 bool plog__wrote = true;
 
 void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned line) {
@@ -193,6 +196,25 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
             pb_print(":%u)", line);
         }
         pb_print(": ");
+    }
+}
+
+void plog__draw(void) {
+    if (!plog__nodraw) {
+        // glClear doesn't work for some reason
+        glBegin(GL_QUADS);
+            glColor3f(0.0, 0.0, 0.0);
+            glVertex3f(-1.0, 1.0, 0.0);
+            glColor3f(0.0, 0.0, 0.0);
+            glVertex3f(1.0, 1.0, 0.0);
+            glColor3f(0.0, 0.0, 0.0);
+            glVertex3f(1.0, -1.0, 0.0);
+            glColor3f(0.0, 0.0, 0.0);
+            glVertex3f(-1.0, -1.0, 0.0);
+        glEnd();
+        pb_draw_text_screen();
+        while (pb_busy()) {}
+        pbgl_swap_buffers();
     }
 }
 

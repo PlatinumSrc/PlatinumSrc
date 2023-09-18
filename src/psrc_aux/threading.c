@@ -39,8 +39,14 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     #endif
     if (fail) {
         free(t->name);
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG, "Failed to start thread %s", (n) ? n : "(null)");
+        #endif
         return false;
     }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Started thread %s", (n) ? n : "(null)");
+    #endif
     return true;
 }
 
@@ -53,6 +59,9 @@ void destroyThread(thread_t* t, void** r) {
     pthread_join(t->thread, r);
     #else
     thrd_join(t->thread, (int*)r);
+    #endif
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Stopped thread %s", (t->name) ? t->name : "(null)");
     #endif
     free(t->name);
 }

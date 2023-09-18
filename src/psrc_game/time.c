@@ -3,18 +3,16 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <time.h>
-#if PLATFORM == PLAT_WINDOWS
-    #include <windows.h>
-#elif PLATFORM == PLAT_XBOX
+#if PLATFORM == PLAT_XBOX
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#if PLATFORM == PLAT_WINDOWS
-LARGE_INTEGER perfctfreq;
+#if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_XBOX
+LARGE_INTEGER perfctfreq = {.QuadPart = 100};
 #endif
 
 uint64_t altutime(void) {
-    #if PLATFORM == PLAT_WINDOWS
+    #if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_XBOX
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     return time.QuadPart * 1000000 / perfctfreq.QuadPart;

@@ -201,9 +201,6 @@ void render(struct rendstate* r) {
 
 static void destroyWindow(struct rendstate* r) {
     if (r->window != NULL) {
-        #if PLATFORM == PLAT_XBOX
-        --plog__nodraw;
-        #endif
         switch (r->apigroup) {
             case RENDAPIGROUP_GL:
                 #if PLATFORM != PLAT_XBOX
@@ -386,6 +383,7 @@ static bool createWindow(struct rendstate* r) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             }
             if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
+            glClearColor(0.0, 0.0, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             swapBuffers(r);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -398,9 +396,6 @@ static bool createWindow(struct rendstate* r) {
         default: {
         } break;
     }
-    #if PLATFORM == PLAT_XBOX
-    ++plog__nodraw;
-    #endif
     return true;
 }
 

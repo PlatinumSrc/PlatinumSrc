@@ -19,7 +19,7 @@ struct thread_t;
 struct thread_data {
     struct thread_t* self;
     void* args;
-    bool shouldclose;
+    volatile bool shouldclose;
 };
 typedef void* (*threadfunc_t)(struct thread_data*);
 typedef struct thread_t {

@@ -12,59 +12,59 @@
 #include <stdarg.h>
 #include <math.h>
 
-static void wrsamples(struct audiostate* a, int16_t* stream, int channels, int len, int bufi) {
-    int samples = len / channels;
-    //plog(LL_PLAIN, "Asked for %d samples", samples);
-    if (a->audbuf.len != samples) {
-        plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", a->audbuf.len, samples);
-    }
-    int* audbuf[2] = {a->audbuf.data[bufi][0], a->audbuf.data[bufi][1]}; // prevent an extra dereference on each write
-    if (channels < 2) {
-        for (int i = 0; i < samples; ++i) {
-            int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
-            if (sample > 32767) sample = 32767;
-            else if (sample < -32768) sample = -32768;
-            stream[i] = sample;
-        }
+static void wrsamples(struct audiostate* a, int16_t* stream, int len) {
+    int bufi = a->audbufindex;
+    #if DEBUG(3)
+    plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
+    #endif
+    uint64_t d = a->buftime;
+    d = (d > 10000) ? d - 10000 : 0;
+    uint64_t t;
+    if (d) t = altutime();
+    recheck:;
+    int mixbufi = a->mixaudbufindex;
+    if (mixbufi == bufi || mixbufi < 0) {
+        if (d) if (altutime() - t < d) goto recheck;
+        #if DEBUG(2)
+        plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
+        #endif
+        memset(stream, 0, len * sizeof(*stream));
     } else {
-        for (int c = 0; c < 2; ++c) {
+        int channels = a->channels;
+        int samples = len / channels;
+        #if DEBUG(1)
+        if (a->audbuf.len != samples) {
+            plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", a->audbuf.len, samples);
+        }
+        #endif
+        int* audbuf[2] = {a->audbuf.data[bufi][0], a->audbuf.data[bufi][1]}; // prevent an extra dereference on each write
+        if (channels < 2) {
             for (int i = 0; i < samples; ++i) {
-                int sample = audbuf[c][i];
+                int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
                 if (sample > 32767) sample = 32767;
                 else if (sample < -32768) sample = -32768;
-                stream[i * channels + c] = sample;
+                stream[i] = sample;
+            }
+        } else {
+            for (int c = 0; c < 2; ++c) {
+                for (int i = 0; i < samples; ++i) {
+                    int sample = audbuf[c][i];
+                    if (sample > 32767) sample = 32767;
+                    else if (sample < -32768) sample = -32768;
+                    stream[i * channels + c] = sample;
+                }
             }
         }
+        #if DEBUG(3)
+        plog(LL_INFO | LF_DEBUG, "Finished playing %d", bufi);
+        #endif
+        a->audbufindex = (bufi + 1) % 2;
     }
 }
 
 static void callback(void* data, uint8_t* stream, int len) {
-    struct audiostate* a = (struct audiostate*)data;
-    if (a->valid) {
-        int bufi = a->audbufindex;
-        #if DEBUG(3)
-        plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
-        #endif
-        uint64_t d = a->buftime;
-        d = (d > 10000) ? d - 10000 : 0;
-        uint64_t t;
-        if (d) t = altutime();
-        recheck:;
-        int mixbufi = a->mixaudbufindex;
-        if (mixbufi == bufi || mixbufi < 0) {
-            if (d) if (altutime() - t < d) goto recheck;
-            #if DEBUG(2)
-            plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
-            #endif
-            memset(stream, 0, len);
-        } else {
-            int channels = a->channels;
-            wrsamples(data, (int16_t*)stream, channels, len / sizeof(int16_t), bufi);
-            #if DEBUG(3)
-            plog(LL_INFO | LF_DEBUG, "Finished playing %d", bufi);
-            #endif
-            a->audbufindex = (bufi + 1) % 2;
-        }
+    if (((struct audiostate*)data)->valid) {
+        wrsamples(data, (int16_t*)stream, len / sizeof(int16_t));
     } else {
         memset(stream, 0, len);
     }
@@ -135,7 +135,86 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
     s->fx[1].speedmul = roundf(s->speed * 1000.0);
     //s->fx[1].posoff = roundf(x * (float)s->rc->freq);
     if (s->flags & SOUNDFLAG_POSEFFECT) {
-        (void)a;
+        float vol[2] = {s->vol[0], s->vol[1]};
+        float pos[3];
+        if (s->flags & SOUNDFLAG_RELPOS) {
+            pos[0] = s->pos[0];
+            pos[1] = s->pos[1];
+            pos[2] = s->pos[2];
+        } else {
+            pos[0] = s->pos[0] - a->campos[0];
+            pos[1] = s->pos[1] - a->campos[1];
+            pos[2] = s->pos[2] - a->campos[2];
+        }
+        float range = 10.0;
+        if (isnormal(range)) {
+            float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+            //printf("DIST: [%f]\n", dist);
+            if (isnormal(dist)) {
+                if (vol[0] * range >= dist && vol[1] * range >= dist) {
+                    pos[0] /= dist;
+                    pos[1] /= dist;
+                    pos[2] /= dist;
+                    vol[0] *= 1.0 - (dist / range);
+                    vol[1] *= 1.0 - (dist / range);
+                    if (!(s->flags & SOUNDFLAG_RELPOS)) {
+                        float tmpsin[3];
+                        tmpsin[0] = sin((-a->camrot[0]) * M_PI / 180.0);
+                        tmpsin[1] = sin((-a->camrot[1]) * M_PI / 180.0);
+                        tmpsin[2] = sin((-a->camrot[2]) * M_PI / 180.0);
+                        float tmpcos[3];
+                        tmpcos[0] = cos((-a->camrot[0]) * M_PI / 180.0);
+                        tmpcos[1] = cos((-a->camrot[1]) * M_PI / 180.0);
+                        tmpcos[2] = cos((-a->camrot[2]) * M_PI / 180.0);
+                        float tmp[3][3];
+                        tmp[0][0] = tmpcos[2] * tmpcos[0];
+                        tmp[0][1] = tmpcos[2] * tmpsin[0] * tmpsin[1] - tmpsin[2] * tmpcos[1];
+                        tmp[0][2] = tmpcos[2] * tmpsin[0] * tmpcos[1] + tmpsin[2] * tmpsin[1];
+                        tmp[1][0] = tmpsin[2] * tmpcos[0];
+                        tmp[1][1] = tmpsin[2] * tmpsin[0] * tmpsin[1] + tmpcos[2] * tmpcos[1];
+                        tmp[1][2] = tmpsin[2] * tmpsin[0] * tmpcos[1] - tmpcos[2] * tmpsin[1];
+                        tmp[2][0] = -tmpsin[0];
+                        tmp[2][1] = tmpcos[0] * tmpsin[1];
+                        tmp[2][2] = tmpcos[0] * tmpcos[1];
+                        float out[3];
+                        out[0] = tmp[0][0] * pos[0] + tmp[0][1] * pos[1] + tmp[0][2] * pos[2];
+                        out[1] = tmp[1][0] * pos[0] + tmp[1][1] * pos[1] + tmp[1][2] * pos[2];
+                        out[2] = tmp[2][0] * pos[0] + tmp[2][1] * pos[1] + tmp[2][2] * pos[2];
+                        pos[0] = out[0];
+                        pos[1] = out[1];
+                        pos[2] = out[2];
+                        //printf("POS OUT: [%f, %f, %f]\n\n", pos[0], pos[1], pos[2]);
+                    }
+                    if (pos[2] > 0.0) {
+                        vol[0] *= 1.0 - 0.5 * pos[2];
+                        vol[1] *= 1.0 - 0.5 * pos[2];
+                    } else if (pos[2] < 0.0) {
+                        pos[0] *= 1.0 - 0.25 * -pos[2];
+                    }
+                    if (pos[1] != 0.0) {
+                        vol[0] *= 1.0 - 0.2 * fabs(pos[1]);
+                        vol[1] *= 1.0 - 0.2 * fabs(pos[1]);
+                        if (pos[1] > 0.0) pos[0] *= 1.0 - 0.25 * pos[1];
+                    }
+                    if (pos[0] > 0.0) vol[0] *= 1.0 - 0.9 * pos[0];
+                    else if (pos[0] < 0.0) vol[1] *= 1.0 - 0.9 * -pos[0];
+                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
+                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+                    //printf("VOL: [%f, %f] -> [%d, %d]\n", vol[0], vol[1], (int)s->fx[1].volmul[0], (int)s->fx[1].volmul[0]);
+                } else {
+                    s->fx[1].volmul[0] = 0;
+                    s->fx[1].volmul[1] = 0;
+                }
+            } else {
+                s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
+                s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+            }
+        } else {
+            s->fx[1].volmul[0] = 0;
+            s->fx[1].volmul[1] = 0;
+        }
+        //s->fx[1].volmul[0] = 0;
+        //s->fx[1].volmul[1] = 0;
     } else {
         s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
         s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
