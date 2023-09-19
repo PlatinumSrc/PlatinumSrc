@@ -186,7 +186,7 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     if (pos[2] > 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
                     } else if (pos[2] < 0.0) {
-                        pos[0] *= 1.0 - 0.4 * pos[2];
+                        pos[0] *= 1.0 - 0.5 * pos[2];
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];
@@ -195,8 +195,8 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     } else if (pos[1] > 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[1];
                     }
-                    if (pos[0] > 0.0) vol[0] *= 1.0 - 0.8 * pos[0];
-                    else if (pos[0] < 0.0) vol[1] *= 1.0 - 0.8 * -pos[0];
+                    if (pos[0] > 0.0) vol[0] *= 1.0 - 0.67 * pos[0];
+                    else if (pos[0] < 0.0) vol[1] *= 1.0 - 0.67 * -pos[0];
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                     s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
                 } else {
