@@ -154,7 +154,7 @@ static int run(int argc, char** argv) {
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5), 0.0, cos(t * 2.5), SOUNDFX_END);
+        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
         pollInput(&states->input);
         render(&states->renderer);
     }
