@@ -51,6 +51,7 @@ struct audiosound {
         float vol[2];
         float speed;
         float pos[3];
+        float range;
         struct audiosound_fx fx[2];
     };
 };
@@ -105,6 +106,7 @@ enum soundfx {
     SOUNDFX_VOL, // float, float
     SOUNDFX_SPEED, // float
     SOUNDFX_POS, // float, float, float
+    SOUNDFX_RANGE, // float
 };
 
 int64_t playSound(struct audiostate*, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);

@@ -136,18 +136,14 @@ static int run(int argc, char** argv) {
 
     struct rc_sound* test;
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
-    if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "game:test/mp3test_1", NULL).sound;
-    if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
+    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "game:test/gman_wise", NULL).sound;
-    uint64_t gman_wise = -1;
-    if (test) gman_wise = playSound(
-        &states->audio, test,
-        SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, 
-        SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_POS, 0.0, 0.0, 1.0, SOUNDFX_END
-    );
+    test = loadResource(RC_SOUND, "common:sounds/objects/ac1", NULL).sound;
+    uint64_t testsound = -1;
+    if (test) testsound = playSound(&states->audio, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
 
     uint64_t ticks = SDL_GetTicks() + 60000;
@@ -155,15 +151,10 @@ static int run(int argc, char** argv) {
     plog__nodraw = true;
     #endif
     while (!quitreq && !SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
-        #if 0
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        float tsinn = sin(t * M_PI);
-        float tcosn = cos(t * M_PI);
-        states->audio.camrot[1] = fmod(t * 90.0, 360.0);
-        changeSoundFX(&states->audio, gman_wise, false, SOUNDFX_END);
-        #endif
+        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5), 0.0, cos(t * 2.5), SOUNDFX_END);
         pollInput(&states->input);
         render(&states->renderer);
     }

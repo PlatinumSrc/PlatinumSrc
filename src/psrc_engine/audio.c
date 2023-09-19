@@ -133,7 +133,6 @@ void stopSound(struct audiostate* a, int64_t id) {
 
 static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
     s->fx[1].speedmul = roundf(s->speed * 1000.0);
-    //s->fx[1].posoff = roundf(x * (float)s->rc->freq);
     if (s->flags & SOUNDFLAG_POSEFFECT) {
         float vol[2] = {s->vol[0], s->vol[1]};
         float pos[3];
@@ -146,10 +145,9 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
             pos[1] = s->pos[1] - a->campos[1];
             pos[2] = s->pos[2] - a->campos[2];
         }
-        float range = 10.0;
+        float range = s->range;
         if (isnormal(range)) {
             float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-            //printf("DIST: [%f]\n", dist);
             if (isnormal(dist)) {
                 if (vol[0] * range >= dist && vol[1] * range >= dist) {
                     pos[0] /= dist;
@@ -157,25 +155,26 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     pos[2] /= dist;
                     vol[0] *= 1.0 - (dist / range);
                     vol[1] *= 1.0 - (dist / range);
+                    s->fx[1].posoff = roundf(-dist * 0.001 * (float)s->rc->freq);
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
-                        tmpsin[0] = sin((-a->camrot[0]) * M_PI / 180.0);
-                        tmpsin[1] = sin((-a->camrot[1]) * M_PI / 180.0);
-                        tmpsin[2] = sin((-a->camrot[2]) * M_PI / 180.0);
+                        tmpsin[0] = sin(a->camrot[0] / 180.0 * M_PI);
+                        tmpsin[1] = sin(-a->camrot[1] / 180.0 * M_PI);
+                        tmpsin[2] = sin(a->camrot[2] / 180.0 * M_PI);
                         float tmpcos[3];
-                        tmpcos[0] = cos((-a->camrot[0]) * M_PI / 180.0);
-                        tmpcos[1] = cos((-a->camrot[1]) * M_PI / 180.0);
-                        tmpcos[2] = cos((-a->camrot[2]) * M_PI / 180.0);
+                        tmpcos[0] = cos(a->camrot[0] / 180.0 * M_PI);
+                        tmpcos[1] = cos(-a->camrot[1] / 180.0 * M_PI);
+                        tmpcos[2] = cos(a->camrot[2] / 180.0 * M_PI);
                         float tmp[3][3];
-                        tmp[0][0] = tmpcos[2] * tmpcos[0];
-                        tmp[0][1] = tmpcos[2] * tmpsin[0] * tmpsin[1] - tmpsin[2] * tmpcos[1];
-                        tmp[0][2] = tmpcos[2] * tmpsin[0] * tmpcos[1] + tmpsin[2] * tmpsin[1];
-                        tmp[1][0] = tmpsin[2] * tmpcos[0];
-                        tmp[1][1] = tmpsin[2] * tmpsin[0] * tmpsin[1] + tmpcos[2] * tmpcos[1];
-                        tmp[1][2] = tmpsin[2] * tmpsin[0] * tmpcos[1] - tmpcos[2] * tmpsin[1];
-                        tmp[2][0] = -tmpsin[0];
-                        tmp[2][1] = tmpcos[0] * tmpsin[1];
-                        tmp[2][2] = tmpcos[0] * tmpcos[1];
+                        tmp[0][0] = tmpcos[2] * tmpcos[1];
+                        tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
+                        tmp[0][2] = tmpcos[2] * tmpsin[1] * tmpcos[0] + tmpsin[2] * tmpsin[0];
+                        tmp[1][0] = tmpsin[2] * tmpcos[1];
+                        tmp[1][1] = tmpsin[2] * tmpsin[1] * tmpsin[0] + tmpcos[2] * tmpcos[0];
+                        tmp[1][2] = tmpsin[2] * tmpsin[1] * tmpcos[0] - tmpcos[2] * tmpsin[0];
+                        tmp[2][0] = -tmpsin[1];
+                        tmp[2][1] = tmpcos[1] * tmpsin[0];
+                        tmp[2][2] = tmpcos[1] * tmpcos[0];
                         float out[3];
                         out[0] = tmp[0][0] * pos[0] + tmp[0][1] * pos[1] + tmp[0][2] * pos[2];
                         out[1] = tmp[1][0] * pos[0] + tmp[1][1] * pos[1] + tmp[1][2] * pos[2];
@@ -183,39 +182,39 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                         pos[0] = out[0];
                         pos[1] = out[1];
                         pos[2] = out[2];
-                        //printf("POS OUT: [%f, %f, %f]\n\n", pos[0], pos[1], pos[2]);
                     }
                     if (pos[2] > 0.0) {
-                        vol[0] *= 1.0 - 0.5 * pos[2];
-                        vol[1] *= 1.0 - 0.5 * pos[2];
+                        pos[0] *= 1.0 - 0.2 * pos[2];
                     } else if (pos[2] < 0.0) {
-                        pos[0] *= 1.0 - 0.25 * -pos[2];
+                        pos[0] *= 1.0 - 0.4 * pos[2];
                     }
-                    if (pos[1] != 0.0) {
-                        vol[0] *= 1.0 - 0.2 * fabs(pos[1]);
-                        vol[1] *= 1.0 - 0.2 * fabs(pos[1]);
-                        if (pos[1] > 0.0) pos[0] *= 1.0 - 0.25 * pos[1];
+                    if (pos[1] > 0.0) {
+                        vol[0] *= 1.0 - 0.1 * pos[1];
+                        vol[1] *= 1.0 - 0.1 * pos[1];
+                        pos[0] *= 1.0 - 0.2 * pos[1];
+                    } else if (pos[1] > 0.0) {
+                        pos[0] *= 1.0 - 0.2 * pos[1];
                     }
-                    if (pos[0] > 0.0) vol[0] *= 1.0 - 0.9 * pos[0];
-                    else if (pos[0] < 0.0) vol[1] *= 1.0 - 0.9 * -pos[0];
+                    if (pos[0] > 0.0) vol[0] *= 1.0 - 0.8 * pos[0];
+                    else if (pos[0] < 0.0) vol[1] *= 1.0 - 0.8 * -pos[0];
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                     s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
-                    //printf("VOL: [%f, %f] -> [%d, %d]\n", vol[0], vol[1], (int)s->fx[1].volmul[0], (int)s->fx[1].volmul[0]);
                 } else {
                     s->fx[1].volmul[0] = 0;
                     s->fx[1].volmul[1] = 0;
                 }
             } else {
+                s->fx[1].posoff = 0;
                 s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                 s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
             }
         } else {
+            s->fx[1].posoff = 0;
             s->fx[1].volmul[0] = 0;
             s->fx[1].volmul[1] = 0;
         }
-        //s->fx[1].volmul[0] = 0;
-        //s->fx[1].volmul[1] = 0;
     } else {
+        s->fx[1].posoff = 0;
         s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
         s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
     }
@@ -336,6 +335,10 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, unsigned f, ...) {
         v->vol[0] = 1.0;
         v->vol[1] = 1.0;
         v->speed = 1.0;
+        v->pos[0] = 0.0;
+        v->pos[1] = 0.0;
+        v->pos[2] = 0.0;
+        v->range = 15.0;
         v->fx[0].posoff = 0;
         v->fx[1].posoff = 0;
         va_list args;
@@ -354,6 +357,9 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, unsigned f, ...) {
                     v->pos[0] = va_arg(args, double);
                     v->pos[1] = va_arg(args, double);
                     v->pos[2] = va_arg(args, double);
+                    break;
+                case SOUNDFX_RANGE:
+                    v->range = va_arg(args, double);
                     break;
             }
         }
