@@ -136,25 +136,26 @@ static int run(int argc, char** argv) {
 
     struct rc_sound* test;
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
-    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+    //if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "game:test/mp3test_1", NULL).sound;
-    //if (test) playSound(&states->audio, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
+    //if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "common:sounds/objects/ac1", NULL).sound;
     uint64_t testsound = -1;
-    if (test) testsound = playSound(&states->audio, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_END);
+    if (test) testsound = playSound(&states->audio, false, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
 
     uint64_t ticks = SDL_GetTicks() + 60000;
     #if PLATFORM == PLAT_XBOX
     plog__nodraw = true;
     #endif
+    uint64_t toff = SDL_GetTicks();
     while (!quitreq && !SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
-        long lt = SDL_GetTicks();
+        long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
+        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * -2.5) * 5.0, SOUNDFX_END);
         pollInput(&states->input);
         render(&states->renderer);
     }

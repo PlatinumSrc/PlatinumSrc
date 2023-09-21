@@ -10,6 +10,7 @@
 #define PLAT_OPENBSD 6
 #define PLAT_UNIX    7
 #define PLAT_WINDOWS 8
+#define PLAT_XBOX    9
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1

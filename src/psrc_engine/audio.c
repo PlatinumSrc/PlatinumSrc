@@ -184,11 +184,12 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                         pos[2] = out[2];
                     }
                     if (pos[2] > 0.0) {
-                        pos[0] *= 1.0 - 0.1 * pos[2];
+                        vol[0] *= 1.0 + 0.1 * pos[2];
+                        vol[1] *= 1.0 + 0.1 * pos[2];
                     } else if (pos[2] < 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 - 0.1 * -pos[2];
-                        vol[1] *= 1.0 - 0.1 * -pos[2];
+                        vol[0] *= 1.0 + 0.1 * pos[2];
+                        vol[1] *= 1.0 + 0.1 * pos[2];
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];
@@ -199,11 +200,11 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     }
                     if (pos[0] > 0.0) {
                         float tmp = 1.0 - (dist / range) * 0.67;
-                        vol[1] *= 1.0 + 0.25 * tmp * pos[0];
+                        vol[1] *= 1.0 + 0.33 * tmp * pos[0];
                         vol[0] *= 1.0 - 0.5 * tmp * 2.0 * pos[0];
                     } else if (pos[0] < 0.0) {
                         float tmp = 1.0 - (dist / range) * 0.67;
-                        vol[0] *= 1.0 - 0.25 * tmp * pos[0];
+                        vol[0] *= 1.0 - 0.33 * tmp * pos[0];
                         vol[1] *= 1.0 - 0.5 * tmp * 2.0 * -pos[0];
                     }
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
@@ -280,7 +281,7 @@ void changeSoundFlags(struct audiostate* a, int64_t id, unsigned disable, unsign
     unlockMutex(&a->lock);
 }
 
-int64_t playSound(struct audiostate* a, struct rc_sound* rc, unsigned f, ...) {
+int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsigned f, ...) {
     lockMutex(&a->lock);
     if (!a->valid) {
         unlockMutex(&a->lock);
@@ -339,7 +340,7 @@ int64_t playSound(struct audiostate* a, struct rc_sound* rc, unsigned f, ...) {
         }
         v->offset = 0;
         v->flags = f;
-        v->state.paused = 0;
+        v->state.paused = paused;
         v->state.fxchanged = 0;
         v->vol[0] = 1.0;
         v->vol[1] = 1.0;

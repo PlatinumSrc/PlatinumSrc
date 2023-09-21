@@ -109,7 +109,7 @@ enum soundfx {
     SOUNDFX_RANGE, // float
 };
 
-int64_t playSound(struct audiostate*, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
+int64_t playSound(struct audiostate*, bool paused, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
 void changeSoundFX(struct audiostate*, int64_t, int /*(bool)*/ immediate, ...);
 void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
 void stopSound(struct audiostate*, int64_t);

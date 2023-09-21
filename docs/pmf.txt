@@ -6,33 +6,46 @@ PMF - PlatinumSrc Map File/Format
 
 Format:
 
-    <Header><u64: Size of compressed <Data>><Compressed <Data>>
+    <Header>
+    <u64: Size of compressed <Data>>
+    <Compressed <Data>>
 
-    Header: <char[4]: {'P', 'M', 'F', 0}><Version><Metadata>
-    Version: <u16: Major version><u16: Minor version>
-    Metadata: <char[...0]: Name><char[...0]: Authors><char[...0]: Description>
-              <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
+    Header: <char[4]: {'P', 'M', 'F', 0}>
+            <u16: Major version> <u16: Minor version>
+            <char[...0]: Name> <char[...0]: Authors> <char[...0]: Description>
+            <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
 
-    Data: <u32: Cube count (must be at least 1)><Cube (First should be the root cube)>...<Cube data>...
+    Data: <u32: Cube count (must be at least 1)>
+          <Cube (First should be the root cube)>...
+          <u32: Triangle count>
+          [Triangle]...
 
-    Cube: <Cube type><u32: Index in byte array of <Cube data> (ignored for CUBE_EMPTY)>
-    Cube type: <u8: {CUBE_PARENT | CUBE_EMPTY | CUBE_SOLID | CUBE_ANGLE}>
-    Cube data: {<Parent cube data> | <Solid cube data> | <Angle cube data>}
-    Parent cube data: <u32: (+, +, +) child index><u32: (+, +, -) child index><u32: (+, -, +) child index>
-                      <u32: (+, -, -) child index><u32: (-, +, +) child index><u32: (-, +, -) child index>
-                      <u32: (-, -, +) child index><u32: (-, -, -) child index>
-    Solid cube data: <4 bits: 0><2 bits: +X # of <Triangle>s><2 bits: +Y # of <Triangle>s><2 bits: +Z # of <Triangle>s>
-                     <2 bits: -X # of <Triangle>s><2 bits: -Y # of <Triangle>s><2 bits: -Z # of <Triangle>s>
-                     <[Triangle]...: +X side><[Triangle]...: +Y side><[Triangle]...: +Z side>
-                     <[Triangle]...: -X side><[Triangle]...: -Y side><[Triangle]...: -Z side>
-    Angle cube data: <2 bits: 0><2 bits: Plane # of <Triangle>s><2 bits: +X # of <Triangle>s><2 bits: +Y # of
-                     <Triangle>s><2 bits: +Z # of <Triangle>s><2 bits: -X # of <Triangle>s><2 bits: -Y # of <Triangle>s>
-                     <2 bits: -Z # of <Triangle>s>
-                     <[Triangle]...: Plane><[Triangle]...: +X side><[Triangle]...: +Y side><[Triangle]...: +Z side>
-                     <[Triangle]...: -X side><[Triangle]...: -Y side><[Triangle]...: -Z side>
-                     <float: Fill (1 is full, -1 is empty)><float: Pitch (0 points up, 1 and -1 point down, positive
-                     rolls forward, negative rolls backward)><float: Yaw (0 aims forward, 1 and -1 aim backward,
-                     positive goes clockwise, negative goes counterclockwise)>
+    Cube: { <u8: CUBE_PARENT> <Parent cube data>
+          | <u8: CUBE_EMPTY>
+          | <u8: CUBE_SOLID> <Solid cube data>
+          | <u8: CUBE_ANGLE> <Angle cube data> }
 
-    Triangle: <u32: Index in array of <Triangle data>>
-    Triangle data: <float[3][3]: XYZ><float[3][2]: Lightmap XY>
+    Parent cube data: <u32: (+X, +Y, +Z) child index in array of <Cube>>
+                      <u32: (+X, +Y, -Z) child index in array of <Cube>>
+                      <u32: (+X, -Y, +Z) child index in array of <Cube>>
+                      <u32: (+X, -Y, -Z) child index in array of <Cube>>
+                      <u32: (-X, +Y, +Z) child index in array of <Cube>>
+                      <u32: (-X, +Y, -Z) child index in array of <Cube>>
+                      <u32: (-X, -Y, +Z) child index in array of <Cube>>
+                      <u32: (-X, -Y, -Z) child index in array of <Cube>>
+
+    Solid cube data: <u16: Material index>
+                     <u8: # of triangles>
+                     <u32: Starting index in array of <Triangle>>
+
+    Angle cube data: <Solid cube data>
+                     <float: Fill (1 is full, -1 is empty)>
+                     <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
+                     <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes
+                     counterclockwise)>
+
+    Triangle: <<Point>[3]>
+
+    Point: <float[3]: XYZ><float[3]: Texture XY><float[3]: Lightmap XY>
+
+

@@ -1,14 +1,58 @@
-client to server:
-    login: <u8: 0b00001111><u8: username length><char[0..255]: username>
-    data: <u8: 0b01010101><u32: CRC32><u32: message ID><u8: index><u32: UID><u64: key><u16: # of bytes - 1><u8[0..484]:
-          data>
+- All data should be little endian
 
-server to client:
-    login ok: <u8: 0b00001111><u8: index><u32: UID><u64: key>
-    bad login: <u8: 0b11110000>
-    data: <u8: 0b01010101><u32: CRC32><u32: message ID><u16: # of bytes - 1><u8[0..497]: data>
+Low-level protocol:
 
-both:
-    ack: <u8: 0b11111111>
-    resend: <u8: 0b00000000>
-    keepalive: <u8: 0b10101010>
+    - Used to transport the high-level protocol
+    - Current revision is 0
+
+    client to server:
+
+        query: <u8: 0b10000000>
+        query players: <u8: 0b10001000>
+
+        login: <u8: 0b00000011><u8: low-level protocol revision><u8: username length><char[0..255]: username>
+        login with encryption: <u8: 0b00001111><u8: protocol revision><u8[128]: public key><u8: username length>
+                               <char[0..255]: username>
+
+        data: <u8: 0b00000101><u32: CRC32><u32: message #><u8: user index><u32: UID><u64: rand from server><u16: # of
+              bytes><u8[0..484]: data>
+        encrypted data: <u8: 0b01010101><u32: CRC32><u32: message #><u8: user index><u32: UID><u16: # of bytes>
+                        <u8[0..480]: encrypted (using symmetrical key) data>
+
+        disconnect: <u32: CRC32><u8: 0b00000000>
+
+
+    server to client:
+
+        info 1: <u8: 0b10000000><u8: players><u8: max players>
+        info 2: <u8: 0b10000001><char[0..507]: server name>
+        info 3: <u8: 0b10000010><char[0..507]: game>
+        info 4: <u8: 0b10000011><char[0..507]: mods (separated by '\0')>
+        info 5: <u8: 0b10000100><char[0..507]: map>
+        info 6: <u8: 0b10000101><char[0..507]: description>
+        info 7: <u8: 0b10000110><char[0..507]: tags (separated by '\0')>
+        player info 1: <u8: 0b10001000><u8 0..15: team id><7 bits: 0><1 bit: ranked><u8[3]: team color><char[0..502]:
+                       team name>
+        player info 2: <u8: 0b10001001><u8 0..15: team id><u8: team rank><u16: ping><i8: platform><char[0..255]:
+                       username>
+
+        login success: <u8: 0b00000011><u8: index><u32: UID><u64: rand>
+        login with encryption success: <u8: 0b00001111><u8: index><u32: UID><u8[128]: symmetric key encrypted using
+                                       public key from client>
+        bad login: <u8: 0b11000000><char[0..507]: reason>
+
+        data: <u8: 0b00000101><u32: CRC32><u32: message #><u16: # of bytes><u8[0..497]: data>
+        encrypted data: <u8: 0b01010101><u32: CRC32><u32: message #><u16: # of bytes><u8[0..496]: data encrypted using
+                        symmetrical key>
+
+        disconnect: <u8: 0b00000000><char[0..507]: reason>
+
+
+    both:
+
+        ack: <u8: 0b11111111><u8: # of messages>[<u32: message #><u32: message # bitwise NOT>]...
+        resend: <u8: 0b10101010><u8: # of messages>[<u32: message #><u32: message # bitwise NOT>]...
+        keepalive: <u8: 0b00110011>
+        ack keepalive: <u8: 0b11001100>
+
+
