@@ -50,6 +50,10 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     return true;
 }
 
+void quitThread(thread_t* t) {
+    t->data.shouldclose = true;
+}
+
 void destroyThread(thread_t* t, void** r) {
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Stopping thread %s...", (t->name) ? t->name : "(null)");

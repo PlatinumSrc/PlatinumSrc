@@ -3,8 +3,11 @@
 
 #include <stdio.h>
 
+#define _STR(x) #x
+#define STR(x) _STR(x)
+
 char verstr[64];
-char platstr[64];
+char platstr[64] = "Platform: " PLATSTR " (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR;
 
 void makeVerStrs(void) {
     char* months[12] = {
@@ -20,10 +23,5 @@ void makeVerStrs(void) {
         ((unsigned)PSRC_BUILD / 100) % 100,
         (unsigned)PSRC_BUILD / 1000000,
         ((unsigned)PSRC_BUILD % 100) + 1
-    );
-    snprintf(
-        platstr, sizeof(platstr),
-        "Platform: %s; Architecture: %s",
-        (char*)PLATSTR, (char*)ARCHSTR
     );
 }

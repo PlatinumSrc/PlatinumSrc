@@ -60,12 +60,14 @@ struct audiostate {
     mutex_t lock;
     volatile bool valid;
     thread_t mixthread;
+    cond_t mixcond;
     SDL_AudioDeviceID output;
     int freq;
     int channels;
     volatile int audbufindex;
     volatile int mixaudbufindex;
     uint64_t buftime;
+    int audbuflen;
     struct {
         int len;
         int* data[2][2];
@@ -100,6 +102,7 @@ void termAudio(struct audiostate*);
 #define SOUNDFLAG_FORCEMONO (1 << 2)
 #define SOUNDFLAG_POSEFFECT (1 << 3)
 #define SOUNDFLAG_RELPOS (1 << 4)
+#define SOUNDFLAG_NODOPPLER (1 << 5)
 
 enum soundfx {
     SOUNDFX_END,

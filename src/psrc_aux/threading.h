@@ -41,6 +41,7 @@ typedef cnd_t cond_t;
 #endif
 
 bool createThread(thread_t*, const char* name, threadfunc_t func, void* args);
+void quitThread(thread_t*);
 void destroyThread(thread_t*, void** ret);
 
 #ifndef AUX_THREADING_STDC
@@ -81,6 +82,43 @@ static inline void destroyMutex(mutex_t* m) {
     pthread_mutex_destroy(m);
     #else
     mtx_destroy(m);
+    #endif
+}
+
+static inline bool createCond(cond_t* c) {
+    #ifndef AUX_THREADING_STDC
+    return !pthread_cond_init(c, NULL);
+    #else
+    return (cnd_init(c) == thrd_success);
+    #endif
+}
+static inline void waitOnCond(cond_t* c, mutex_t* m, uint64_t t) {
+    if (t) return; // TODO: imeplement later
+    #ifndef AUX_THREADING_STDC
+    pthread_cond_wait(c, m);
+    #else
+    cnd_wait(c, m);
+    #endif
+}
+static inline void signalCond(cond_t* c) {
+    #ifndef AUX_THREADING_STDC
+    pthread_cond_signal(c);
+    #else
+    cnd_signal(c);
+    #endif
+}
+static inline void broadcastCond(cond_t* c) {
+    #ifndef AUX_THREADING_STDC
+    pthread_cond_broadcast(c);
+    #else
+    cnd_broadcast(c);
+    #endif
+}
+static inline void destroyCond(cond_t* c) {
+    #ifndef AUX_THREADING_STDC
+    pthread_cond_destroy(c);
+    #else
+    cnd_destroy(c);
     #endif
 }
 

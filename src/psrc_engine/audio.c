@@ -17,19 +17,21 @@ static void wrsamples(struct audiostate* a, int16_t* stream, int len) {
     #if DEBUG(3)
     plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
     #endif
-    uint64_t d = a->buftime;
-    d = (d > 10000) ? d - 10000 : 0;
-    uint64_t t;
-    if (d) t = altutime();
-    recheck:;
+    //uint64_t d = a->buftime;
+    //d = (d > 10000) ? d - 10000 : 0;
+    //uint64_t t;
+    //if (d) t = altutime();
+    //recheck:;
     int mixbufi = a->mixaudbufindex;
     if (mixbufi == bufi || mixbufi < 0) {
-        if (d) if (altutime() - t < d) goto recheck;
+        //if (d) if (altutime() - t < d) goto recheck;
+        signalCond(&a->mixcond);
         #if DEBUG(2)
         plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
         #endif
         memset(stream, 0, len * sizeof(*stream));
     } else {
+        signalCond(&a->mixcond);
         int channels = a->channels;
         int samples = len / channels;
         #if DEBUG(1)
@@ -72,8 +74,9 @@ static void callback(void* data, uint8_t* stream, int len) {
 
 static void* mixthread(struct thread_data* td) {
     struct audiostate* a = td->args;
-    uint64_t d = a->buftime;
-    d = (d > 10000) ? d - 10000 : 0;
+    mutex_t m;
+    createMutex(&m);
+    lockMutex(&m);
     while (!td->shouldclose) {
         int mixbufi = a->mixaudbufindex;
         int bufi = a->audbufindex;
@@ -94,9 +97,14 @@ static void* mixthread(struct thread_data* td) {
             plog(LL_INFO | LF_DEBUG, "Finished mixing %d", mixbufi);
             #endif
             a->mixaudbufindex = mixbufi;
-            if (!mixbufilt0) microwait(d);
+            if (!mixbufilt0) {
+                if (td->shouldclose) break;
+                waitOnCond(&a->mixcond, &m, 0);
+            }
         }
     }
+    unlockMutex(&m);
+    destroyMutex(&m);
     return NULL;
 }
 
@@ -155,7 +163,11 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     pos[2] /= dist;
                     vol[0] *= 1.0 - (dist / range);
                     vol[1] *= 1.0 - (dist / range);
-                    s->fx[1].posoff = roundf(-dist * 0.001 * (float)s->rc->freq);
+                    if (s->flags & SOUNDFLAG_NODOPPLER) {
+                        s->fx[1].posoff = 0;
+                    } else {
+                        s->fx[1].posoff = roundf(-dist * 0.001 * (float)s->rc->freq);
+                    }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
                         tmpsin[0] = sin(a->camrot[0] / 180.0 * M_PI);
@@ -324,7 +336,7 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
             case RC_SOUND_FRMT_VORBIS: {
                 v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
                 v->audbuf.off = 0;
-                v->audbuf.len = 2048;
+                v->audbuf.len = a->audbuflen;
                 v->audbuf.data[0] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[0]));
                 v->audbuf.data[1] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[1]));
                 stb_vorbis_get_samples_short(v->vorbis, 2, v->audbuf.data, v->audbuf.len);
@@ -333,7 +345,7 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
                 v->mp3 = malloc(sizeof(*v->mp3));
                 mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
                 v->audbuf.off = 0;
-                v->audbuf.len = 2048;
+                v->audbuf.len = a->audbuflen;
                 v->audbuf.data_mp3 = malloc(v->audbuf.len * v->rc->channels * sizeof(*v->audbuf.data_mp3));
                 mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
             } break;
@@ -384,6 +396,7 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
 bool initAudio(struct audiostate* a) {
     memset(a, 0, sizeof(*a));
     if (!createMutex(&a->lock)) return false;
+    if (!createCond(&a->mixcond)) return false;
     if (SDL_Init(SDL_INIT_AUDIO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init audio: %s", SDL_GetError());
         return false;
@@ -402,7 +415,11 @@ bool startAudio(struct audiostate* a) {
         inspec.freq = atoi(tmp);
         free(tmp);
     } else {
+        #if PLATFORM == PLAT_XBOX
+        inspec.freq = 22050;
+        #else
         inspec.freq = 44100;
+        #endif
     }
     tmp = cfg_getvar(config, "Sound", "buffer");
     if (tmp) {
@@ -413,16 +430,15 @@ bool startAudio(struct audiostate* a) {
     }
     inspec.callback = callback;
     inspec.userdata = a;
-    SDL_AudioDeviceID output = SDL_OpenAudioDevice(
-        NULL, false, &inspec, &outspec,
-        SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE
-    );
+    #if PLATFORM != PLAT_XBOX
+    int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
+    #else
+    int flags = 0;
+    #endif
+    SDL_AudioDeviceID output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
     if (output <= 0) {
         inspec.channels = 1;
-        output = SDL_OpenAudioDevice(
-            NULL, false, &inspec, &outspec,
-            SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE
-        );
+        output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
     }
     if (output > 0) {
         a->output = output;
@@ -453,6 +469,13 @@ bool startAudio(struct audiostate* a) {
         for (int i = 0; i < voices; ++i) {
             a->voicedata[i].id = -1;
         }
+        tmp = cfg_getvar(config, "Sound", "decodebuf");
+        if (tmp) {
+            a->audbuflen = atoi(tmp);
+            free(tmp);
+        } else {
+            a->audbuflen = 2048;
+        }
         a->nextid = 0;
         a->audbufindex = 0;
         a->mixaudbufindex = -1;
@@ -474,7 +497,8 @@ void stopAudio(struct audiostate* a) {
         a->valid = false;
         SDL_PauseAudioDevice(a->output, 1);
         SDL_CloseAudioDevice(a->output);
-        lockMutex(&a->voicelock);
+        quitThread(&a->mixthread);
+        broadcastCond(&a->mixcond);
         destroyThread(&a->mixthread, NULL);
         destroyMutex(&a->voicelock);
         for (int i = 0; i < a->voices; ++i) {

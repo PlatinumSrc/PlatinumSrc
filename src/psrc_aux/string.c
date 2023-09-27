@@ -1,5 +1,4 @@
 #include "string.h"
-#include "../platform.h"
 
 #include <stdlib.h>
 #include <string.h>

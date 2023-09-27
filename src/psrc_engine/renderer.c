@@ -91,6 +91,8 @@ void render_gl_legacy(struct rendstate* r) {
     long lt = SDL_GetTicks();
     double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
+    float tsin = sin(t * 0.827535 * M_PI);
+    float tsin2 = sin(t * 0.628591 * M_PI);
     float tsinn = sin(t * M_PI) * 0.5 + 0.5;
     float tcosn = cos(t * M_PI) * 0.5 + 0.5;
     float tsini = 1.0 - tsinn;
@@ -117,6 +119,16 @@ void render_gl_legacy(struct rendstate* r) {
         glVertex3f(0.5, -0.5, 0.0);
         glColor3f(0.5, 0.0, 1.0);
         glVertex3f(-0.5, -0.5, 0.0);
+        glColor3f(0.0, 0.0, 0.0);
+        glVertex3f(-1.0, 0.025 + tsin2, 0.0);
+        glVertex3f(1.0, 0.025 + tsin2, 0.0);
+        glVertex3f(1.0, -0.025 + tsin2, 0.0);
+        glVertex3f(-1.0, -0.025 + tsin2, 0.0);
+        glColor3f(1.0, 1.0, 1.0);
+        glVertex3f(-0.025 + tsin, 1.0, 0.0);
+        glVertex3f(0.025 + tsin, 1.0, 0.0);
+        glVertex3f(0.025 + tsin, -1.0, 0.0);
+        glVertex3f(-0.025 + tsin, -1.0, 0.0);
     glEnd();
     glEnable(GL_BLEND);
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
@@ -194,7 +206,6 @@ void render(struct rendstate* r) {
         }
     }
     pb_draw_text_screen();
-    while (pb_busy()) {}
     #endif
     swapBuffers(r);
 }
@@ -339,6 +350,9 @@ static bool createWindow(struct rendstate* r) {
                 destroyWindow(r);
                 return false;
             }
+            SDL_GL_SetSwapInterval(r->vsync);
+            #else
+            pbgl_set_swap_interval(r->vsync);
             #endif
             plog(LL_INFO, "OpenGL info:");
             bool cond[4];
