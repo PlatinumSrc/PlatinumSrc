@@ -143,7 +143,7 @@ static int run(int argc, char** argv) {
     freeResource(test);
     test = loadResource(RC_SOUND, "common:sounds/objects/ac1", NULL).sound;
     uint64_t testsound = -1;
-    if (test) testsound = playSound(&states->audio, false, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_END);
+    if (test) testsound = playSound(&states->audio, false, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END);
     freeResource(test);
 
     uint64_t ticks = SDL_GetTicks() + 30000;

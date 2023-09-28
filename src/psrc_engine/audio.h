@@ -99,10 +99,11 @@ void termAudio(struct audiostate*);
 
 #define SOUNDFLAG_UNINTERRUPTIBLE (1 << 0)
 #define SOUNDFLAG_LOOP (1 << 1)
-#define SOUNDFLAG_FORCEMONO (1 << 2)
-#define SOUNDFLAG_POSEFFECT (1 << 3)
-#define SOUNDFLAG_RELPOS (1 << 4)
-#define SOUNDFLAG_NODOPPLER (1 << 5)
+#define SOUNDFLAG_WRAP (1 << 2)
+#define SOUNDFLAG_FORCEMONO (1 << 3)
+#define SOUNDFLAG_POSEFFECT (1 << 4)
+#define SOUNDFLAG_RELPOS (1 << 5)
+#define SOUNDFLAG_NODOPPLER (1 << 6)
 
 enum soundfx {
     SOUNDFX_END,
