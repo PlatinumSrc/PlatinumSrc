@@ -100,21 +100,21 @@ static int run(int argc, char** argv) {
     plog(LL_INFO | LF_DEBUG, "Initializing renderer...");
     #endif
     if (!initRenderer(&states->renderer)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init renderer");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing input manager...");
     #endif
     if (!initInput(&states->input, &states->renderer)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init input manager");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing audio manager...");
     #endif
     if (!initAudio(&states->audio)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init audio manager");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
         return 1;
     }
 
@@ -123,14 +123,14 @@ static int run(int argc, char** argv) {
     plog(LL_INFO | LF_DEBUG, "Starting renderer...");
     #endif
     if (!startRenderer(&states->renderer)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to start renderer");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Starting audio manager...");
     #endif
     if (!startAudio(&states->audio)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to start audio manager");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
         return 1;
     }
 
@@ -232,11 +232,11 @@ static int bootstrap(int argc, char** argv) {
     gameconfig = cfg_open(tmp);
     free(tmp);
     if (!gameconfig) {
-        plog(LL_CRIT, "Could not read game config for %s", gamedir);
+        plog(LL_CRIT | LF_MSGBOX, "Could not read game config for %s", gamedir);
         return 1;
     }
 
-    tmp = cfg_getvar(config, NULL, "userdir");
+    tmp = cfg_getvar(gameconfig, NULL, "userdir");
     if (tmp) {
         char* tmp2 = mkpath(NULL, tmp, NULL);
         free(tmp);
@@ -244,7 +244,6 @@ static int bootstrap(int argc, char** argv) {
     } else {
         tmp = strdup(gamedir);
     }
-
     #if PLATFORM != PLAT_XBOX
     userdir = SDL_GetPrefPath(NULL, tmp);
     free(tmp);
@@ -267,6 +266,12 @@ static int bootstrap(int argc, char** argv) {
         savedir = mkpath("E:\\UDATA", titleidstr, NULL);
     }
     #endif
+
+    tmp = cfg_getvar(gameconfig, NULL, "name");
+    if (tmp) {
+        free(titlestr);
+        titlestr = tmp;
+    }
 
     char* logfile = mkpath(userdir, "log.txt", NULL);
     if (!plog_setfile(logfile)) {

@@ -1,6 +1,12 @@
 #include "renderer.h"
+
+#include "../version.h"
+
 #include "../psrc_aux/logging.h"
 //#include "../psrc_aux/threads.h"
+
+#include "../stb/stb_image.h"
+
 #if PLATFORM != PLAT_XBOX
     // stuff to make sure i don't accidentally use gl things newer than 1.1 (will remove later)
     #if 0
@@ -17,7 +23,6 @@
 #ifndef GL_KHR_debug
     #define GL_KHR_debug 0
 #endif
-#include "../stb/stb_image.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -319,7 +324,7 @@ static bool createWindow(struct rendstate* r) {
     if (r->apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
     #endif
     r->window = SDL_CreateWindow(
-        "PlatinumSrc",
+        titlestr,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         r->res.windowed.width, r->res.windowed.height,
         SDL_WINDOW_SHOWN | flags

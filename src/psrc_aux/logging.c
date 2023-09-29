@@ -10,6 +10,13 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+#if PLATFORM != PLAT_XBOX
+    #include <SDL2/SDL.h>
+#endif
+
+#define _STR(x) #x
+#define STR(x) _STR(x)
+
 mutex_t loglock;
 
 bool initLogging(void) {
@@ -135,6 +142,27 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         va_start(v, s);
         writelog(lvl, logfile, func, file, line, s, v);
         va_end(v);
+    }
+    if (lvl & LF_MSGBOX) {
+        char* tmpstr = malloc(4096);
+        va_start(v, s);
+        vsnprintf(tmpstr, 4096, s, v);
+        va_end(v);
+        int flags;
+        switch (lvl & 0xFF) {
+            default:;
+                flags = SDL_MESSAGEBOX_INFORMATION;
+                break;
+            case LL_WARN:;
+                flags = SDL_MESSAGEBOX_WARNING;
+                break;
+            case LL_ERROR:;
+            case LL_CRIT:;
+                flags = SDL_MESSAGEBOX_ERROR;
+                break;
+        }
+        SDL_ShowSimpleMessageBox(flags, titlestr, tmpstr, NULL);
+        free(tmpstr);
     }
 }
 

@@ -15,7 +15,8 @@ enum loglevel {
     LL_CRIT,
     LF_FUNC = 1 << 8,
     LF_FUNCLN = 3 << 8,
-    LF_DEBUG = 1 << 10,
+    LF_MSGBOX = 1 << 10,
+    LF_DEBUG = 1 << 11,
 };
 
 #define LE_MEMALLOC "Memory allocation error"
@@ -28,7 +29,6 @@ enum loglevel {
 
 #define LW_SPECIALFILE(p) "%s is a special file", (p)
 
-#define LP_TASK "#### "
 #define LP_INFO "(i): "
 #define LP_WARN "/!\\: "
 #define LP_ERROR "[E]: "

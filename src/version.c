@@ -2,14 +2,17 @@
 #include "platform.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #define _STR(x) #x
 #define STR(x) _STR(x)
 
+char* titlestr;
 char verstr[64];
 char platstr[64] = "Platform: " PLATSTR " (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR;
 
 void makeVerStrs(void) {
+    titlestr = strdup("PlatinumSrc " STR(PSRC_BUILD));
     char* months[12] = {
         "Jan", "Feb", "Mar", "Apr",
         "May", "Jun", "Jul", "Aug",
