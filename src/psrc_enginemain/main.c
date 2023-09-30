@@ -135,16 +135,16 @@ static int run(int argc, char** argv) {
     }
 
     struct rc_sound* test;
-    test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", NULL).sound;
+    test = loadSound(&states->audio, "common:sounds/ambient/wind1");
     if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
-    freeResource(test);
-    test = loadResource(RC_SOUND, "game:test/mp3test_1", NULL).sound;
+    freeSound(&states->audio, test);
+    test = loadSound(&states->audio, "game:test/mp3test_1");
     //if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
-    freeResource(test);
-    test = loadResource(RC_SOUND, "common:sounds/objects/ac1", NULL).sound;
+    freeSound(&states->audio, test);
+    test = loadSound(&states->audio, "common:sounds/objects/ac1");
     uint64_t testsound = -1;
     if (test) testsound = playSound(&states->audio, false, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END);
-    freeResource(test);
+    freeSound(&states->audio, test);
 
     uint64_t ticks = SDL_GetTicks() + 30000;
     #if PLATFORM == PLAT_XBOX
@@ -155,7 +155,7 @@ static int run(int argc, char** argv) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
+        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 10.0, 0.0, cos(t * 2.5) * 10.0, SOUNDFX_END);
         pollInput(&states->input);
         render(&states->renderer);
     }

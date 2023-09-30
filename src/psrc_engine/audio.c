@@ -2,6 +2,7 @@
 #include "audiomixer.h"
 
 #include "../psrc_aux/logging.h"
+#include "../psrc_aux/string.h"
 
 #include "../psrc_game/game.h"
 #include "../psrc_game/time.h"
@@ -393,6 +394,15 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
     return id;
 }
 
+struct rc_sound* loadSound(struct audiostate* a, const char* p) {
+    return loadResource(RC_SOUND, p, &a->soundrcopt).sound;
+}
+
+void freeSound(struct audiostate* a, struct rc_sound* s) {
+    (void)a;
+    freeResource(s);
+}
+
 bool initAudio(struct audiostate* a) {
     memset(a, 0, sizeof(*a));
     if (!createMutex(&a->lock)) return false;
@@ -474,7 +484,18 @@ bool startAudio(struct audiostate* a) {
             a->audbuflen = atoi(tmp);
             free(tmp);
         } else {
-            a->audbuflen = 2048;
+            a->audbuflen = 4096;
+        }
+        tmp = cfg_getvar(config, "Sound", "decodewhole");
+        if (tmp) {
+            a->soundrcopt.decodewhole = strbool(tmp, true);
+            free(tmp);
+        } else {
+            #if PLATFORM != PLAT_XBOX
+            a->soundrcopt.decodewhole = true;
+            #else
+            a->soundrcopt.decodewhole = false;
+            #endif
         }
         a->nextid = 0;
         a->audbufindex = 0;

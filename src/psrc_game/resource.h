@@ -86,6 +86,9 @@ struct __attribute__((packed)) rc_sound {
     uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
     uint8_t stereo : 1;
 };
+struct __attribute__((packed)) rcopt_sound {
+    bool decodewhole;
+};
 
 // RC_MODEL
 struct __attribute__((packed)) rc_model_part {
@@ -153,7 +156,7 @@ union __attribute__((packed)) rcopt {
     struct rcopt_model* model;
     //struct rcopt_playermodel* playermodel;
     //struct rcopt_prop* prop;
-    //struct rcopt_sound* sonud;
+    struct rcopt_sound* sound;
     struct rcopt_texture* texture;
 };
 

@@ -4,6 +4,7 @@
 #include "../version.h"
 #include "../debug.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
@@ -12,6 +13,9 @@
 
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
+#endif
+#if PLATFORM == PLAT_WINDOWS
+    #include <windows.h>
 #endif
 
 #define _STR(x) #x
@@ -143,11 +147,13 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         writelog(lvl, logfile, func, file, line, s, v);
         va_end(v);
     }
+    #if PLATFORM != PLAT_XBOX
     if (lvl & LF_MSGBOX) {
         char* tmpstr = malloc(4096);
         va_start(v, s);
         vsnprintf(tmpstr, 4096, s, v);
         va_end(v);
+        #if PLATFORM != PLAT_WINDOWS
         int flags;
         switch (lvl & 0xFF) {
             default:;
@@ -162,8 +168,25 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
                 break;
         }
         SDL_ShowSimpleMessageBox(flags, titlestr, tmpstr, NULL);
+        #else
+        unsigned flags;
+        switch (lvl & 0xFF) {
+            default:;
+                flags = MB_ICONINFORMATION;
+                break;
+            case LL_WARN:;
+                flags = MB_ICONWARNING;
+                break;
+            case LL_ERROR:;
+            case LL_CRIT:;
+                flags = MB_ICONERROR;
+                break;
+        }
+        MessageBox(NULL, tmpstr, titlestr, flags);
+        #endif
         free(tmpstr);
     }
+    #endif
 }
 
 #if PLATFORM == PLAT_XBOX
@@ -241,7 +264,6 @@ void plog__draw(void) {
             glVertex3f(-1.0, -1.0, 0.0);
         glEnd();
         pb_draw_text_screen();
-        while (pb_busy()) {}
         pbgl_swap_buffers();
     }
 }

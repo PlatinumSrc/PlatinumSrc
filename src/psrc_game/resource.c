@@ -96,9 +96,25 @@ int groupsizes[RC__COUNT] = {4, 2, 8, 8, 1, 16, 8, 2, 16, 16, 16};
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
 };
-
+struct rcopt_sound soundopt_default = {
+    true
+};
 struct rcopt_texture textureopt_default = {
     false, RCOPT_TEXTURE_QLT_HIGH
+};
+
+void* defaultopt[RC__COUNT] = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    /*&mapopt_default*/ NULL,
+    &materialopt_default,
+    /*&modelopt_default*/ NULL,
+    NULL,
+    NULL,
+    &soundopt_default,
+    &textureopt_default,
 };
 
 static struct {
@@ -121,10 +137,6 @@ static char** extlist[RC__COUNT] = {
     (char*[4]){".ogg", ".mp3", ".wav", NULL},
     (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL}
 };
-
-static struct {
-    bool sound_decodewhole;
-} opt;
 
 static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {
     cb_addstr(tmpcb, s);
@@ -358,11 +370,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
             switch ((uint8_t)t) {
                 case RC_MATERIAL: {
-                    if (!o.ptr) o.material = &materialopt_default;
                     if (o.material->quality != d->materialopt.quality) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
-                    if (!o.ptr) o.texture = &textureopt_default;
                     if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
                     if (o.texture->quality != d->textureopt.quality) goto nomatch;
                 } break;
@@ -383,6 +393,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_MATERIAL: {
+            if (!o.material) o.material = &materialopt_default;
             struct cfg* mat = cfg_open(p);
             if (mat) {
                 d = loadResource_newptr(t, g, p, pcrc);
@@ -418,6 +429,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             } 
         } break;
         case RC_SOUND: {
+            if (!o.sound) o.sound = &soundopt_default;
             FILE* f = fopen(p, "r");
             if (f) {
                 if (!strcmp(ext, ".ogg")) {
@@ -430,7 +442,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
                         if (v) {
                             d = loadResource_newptr(t, g, p, pcrc);
-                            if (opt.sound_decodewhole) {
+                            if (o.sound->decodewhole) {
                                 d->sound.format = RC_SOUND_FRMT_WAV;
                                 stb_vorbis_info info = stb_vorbis_get_info(v);
                                 int len = stb_vorbis_stream_length_in_samples(v);
@@ -474,7 +486,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                             free(m);
                         } else {
                             d = loadResource_newptr(t, g, p, pcrc);
-                            if (opt.sound_decodewhole) {
+                            if (o.sound->decodewhole) {
                                 d->sound.format = RC_SOUND_FRMT_WAV;
                                 int len = m->samples / m->info.channels;
                                 int size = m->samples * sizeof(mp3d_sample_t);
@@ -562,6 +574,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_TEXTURE: {
+            if (!o.texture) o.texture = &textureopt_default;
             int w, h, c;
             if (stbi_info(p, &w, &h, &c)) {
                 if (o.texture->needsalpha) {
@@ -834,8 +847,6 @@ bool initResource(void) {
     } else {
         loadMods(NULL, 0);
     }
-    tmp = cfg_getvar(config, "Sound", "decodewhole");
-    opt.sound_decodewhole = strbool(tmp, false);
     free(tmp);
 
     return true;

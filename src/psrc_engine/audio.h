@@ -68,6 +68,7 @@ struct audiostate {
     volatile int mixaudbufindex;
     uint64_t buftime;
     int audbuflen;
+    struct rcopt_sound soundrcopt;
     struct {
         int len;
         int* data[2][2];
@@ -113,6 +114,8 @@ enum soundfx {
     SOUNDFX_RANGE, // float
 };
 
+struct rc_sound* loadSound(struct audiostate*, const char*);
+void freeSound(struct audiostate*, struct rc_sound*);
 int64_t playSound(struct audiostate*, bool paused, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
 void changeSoundFX(struct audiostate*, int64_t, int /*(bool)*/ immediate, ...);
 void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
