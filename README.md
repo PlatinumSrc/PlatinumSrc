@@ -58,9 +58,18 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
             - `2` - Detailed messages
         - `ASAN` - Set to any value to enable the address sanitizer \(requires `DEBUG` to be set\)
 
-    Example command:
+    Examples:
+    ```
+    make -j$(nproc)
+    ```
+    ```
+    make -j$(nproc) run
+    ```
     ```
     make DEBUG=1 ASAN=y -j$(nproc) run
+    ```
+    ```
+    make CROSS=xbox DEBUG=0 -j$(nproc) run
     ```
 
 ---
