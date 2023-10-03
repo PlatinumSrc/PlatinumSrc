@@ -31,10 +31,9 @@ Low-level protocol:
         info 5: <u8: 0b10000100><char[0..507]: map>
         info 6: <u8: 0b10000101><char[0..507]: description>
         info 7: <u8: 0b10000110><char[0..507]: tags (separated by '\0')>
-        player info 1: <u8: 0b10001000><u8 0..15: team id><7 bits: 0><1 bit: ranked><u8[3]: team color><char[0..502]:
-                       team name>
-        player info 2: <u8: 0b10001001><u8 0..15: team id><u8: team rank><u16: ping><i8: platform><char[0..255]:
-                       username>
+        player info 1: <u8: 0b10001000><u8: team id><7 bits: 0><1 bit: ranked><u8[3]: team color><char[0..502]: team
+                       name>
+        player info 2: <u8: 0b10001001><u8: team id><u8: team rank><u16: ping><i8: platform><char[0..255]: username>
 
         login success: <u8: 0b00000011><u8: index><u32: UID><u64: rand>
         login with encryption success: <u8: 0b00001111><u8: index><u32: UID><u8[128]: symmetric key encrypted using

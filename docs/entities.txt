@@ -1,0 +1,192 @@
+This is an extension of 'maps.txt'
+
+Entity data:
+
+    <u32: Entity count> [Entity]...
+    <u32: Entity Event count> [Entity event data]...
+    <u32: Entity signal count> [Entity signal data]...
+    <u32: Entity action count> [Entity action data]...
+    <u32: Entity filter count> [Entity filter data]...
+    <u32: Entity selector count> [Entity selector data]...
+
+    Entity: <char[...0]: Name> <u8: <Entity type>> <Entity data>
+    Entity type:
+        { ENT_HEADLESS | ENT_GENERIC | ENT_BOX | ENT_TRIGGERBOX | ENT_TRIGGERRADIUS
+        | ENT_USE | ENT_HOLDUSE | ENT_MULTIACTION | ENT_PARTICLES | ENT_TEXPARTICLES
+        | ENT_BEAM | ENT_GIBS | ENT_DOOR | ENT_SPAWN | ENT_SPAWNER
+        | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO | ENT_HEALTHSTATION
+        | ENT_SHIELDSTATION }
+    Entity flags:
+        <4 bits: 0>
+        <1 bit: Physics>
+        <1 bit: Better physics>
+        <1 bit: Interactable>
+        <1 bit: Selectable>
+    Entity data:
+        { <Headless entity data> | <Generic entity data> | <Box entity data>
+        | <Trigger box entity data> | <Trigger radius entity data> | <Press to use entity data>
+        | <Hold to use entity data> | <Multi-action entity data> | <Particles entity data>
+        | <Textured particles entity data> | <Beam entity data> | <Giblets entity data>
+        | <Door entity data> | <Spawn entity data> | <Spawner entity data>
+        | <Health entity data> | <Shield entity data> | <Weapon entity data>
+        | <Ammo entity data> | <Health station entity data> | <Shield station entity data> }
+
+    Entity event data:
+        <char[...0]: Name>
+    Entity signal data:
+        <char[...0]: Name>
+    Entity filter data:
+        { <u8: ENTFILT_ANY>
+        | <u8: ENTFILT_PLAYER>
+        | <u8: ENTFILT_ENTITY>
+        | <u8: ENTFILT_ANYBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTFILT_PLAYERBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTFILT_ENTITYBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTFILT_ANYRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTFILT_PLAYERRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTFILT_ENTITYRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTFILT_ANYTEAM> <Team>
+        | <u8: ENTFILT_PLAYERTEAM> <Team>
+        | <u8: ENTFILT_ENTITYTEAM> <Team>
+    Entity selector data:
+        { <u8: ENTSEL_SELF>
+        | <u8: ENTSEL_TARGET>
+        | <u8: ENTSEL_NEAREST>
+        | <u8: ENTSEL_NEARESTNOTTARGET>
+        | <u8: ENTSEL_ALL>
+        | <u8: ENTSEL_PLAYERS>
+        | <u8: ENTSEL_ENTITIES>
+        | <u8: ENTSEL_ANYBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTSEL_PLAYERBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTSEL_ENTITYBOX> <float[3]: Origin offset> <float[3]: Size>
+        | <u8: ENTSEL_ANYRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTSEL_PLAYERRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTSEL_ENTITYRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTSEL_ANYTEAM> <Team>
+        | <u8: ENTSEL_PLAYERTEAM> <Team>
+        | <u8: ENTSEL_ENTITYTEAM> <Team>
+    Entity action data:
+        { <u8: ENTACT_BROADCAST> <Entity signal>
+        | <u8: ENTACT_HEAL> <Entity selector> <float: Duration> <float: Rate>
+        | <u8: ENTACT_HURT> <Entity selector> <float: Duration> <float: Rate>
+        | <u8: ENTACT_KILL> <Entity selector>
+        | <u8: ENTACT_SHOW> <Entity selector>
+        | <u8: ENTACT_HIDE> <Entity selector>
+        | <u8: ENTACT_TELEPORT> <Entity selector> <float[3]: Position>
+        | <u8: ENTACT_PUSH> <Entity selector> <float[3]: Amount>
+        | <u8: ENTACT_SAVE>
+        | <u8: ENTACT_CHANGEMAP> <Resource>
+        | <u8: ENTACT_ENDMAP>
+        | <u8: ENTACT_PLAYSOUND> <Entity selector> <u8: { ENTSNDORIG_SELF | ENTSNDORIG_TARGET | ENTSNDORIG_FROMTARGET |
+          ENTSNDORIG_TOTARGET | ENTSNDORIG_WORLD }> <float[3]: Offset> <Resource>
+        | <u8: ENTACT_CHANGEMUSIC> <Entity selector> <Resource>
+        | <u8: ENTACT_CHANGEAMBIENCE> <Entity selector> <Resource>
+        | <u8: ENTACT_CHANGETEAM> <Entity selector> <Team> }
+
+    Entity script:
+        { <u8: ENTSCRIPT_EMBEDDED> <u32: Byte index in [Embedded script]...>
+        | <u8: ENTSCRIPT_FROMFILE> <Resource> }
+    Entity event:
+        <u32: Byte index in [Entity event data]...>
+    Entity signal:
+        <u32: Byte index in [Entity signal data]...>
+    Entity filter:
+        <u32: Byte index in [Entity filter data]...>
+    Entity selector:
+        <u32: Byte index in [Entity selector data]...>
+    Entity actions:
+        <u16: # of actions> <u32: Byte index in [Action]...>...
+
+    Headless entity data:
+        <Entity script>
+    Generic entity data:
+        <Entity flags>
+        <Entity script>
+        <<Resource>: Model>
+        <float[3]: Position>
+        <float[3]: Rotation (X and Z are ignored for now)>
+        <float[3]: Scale>
+    Box entity data:
+        <Entity script>
+        <float[3]: Origin>
+        <float[3]: Size>
+    Trigger box entity data:
+        <Entity filter>
+        <float[3]: Origin>
+        <float[3]: Size>
+        <Entity actions>
+    Trigger radius entity data:
+        <Entity filter>
+        <float[3]: Origin>
+        <float: Size>
+        <Entity actions>
+    Press to use entity data:
+        <Entity filter>
+        <float[3]: Origin>
+        <float[3]: Size>
+        <Entity actions>
+    Hold to use entity data:
+        <Entity filter>
+        <float[3]: Origin>
+        <float[3]: Size>
+        <Entity actions>
+    Multi-action entity data:
+        <Entity filter>
+        <u16: # of AND signals> <Entity signal>...
+        <u16: # of OR signals> <Entity signal>...
+        <Entity actions>
+    Particles entity data:
+        <float[3]: Position>
+        <u32: Pattern>
+        <float: Pattern speed>
+        <float[4]: Start color>
+        <float[4]: Start color randomness>
+        <float[4]: End color>
+        <float[4]: End color randomness>
+        <float: Width>
+        <float: Glow width>
+        <float: Segment length>
+        <u16: # of particles>
+        <float: Start randomness>
+        <float: Duration>
+        <float[3]: Rotation>
+        <float[3]: Rotation randomness (X and Z are ignored for now)>
+        <float: Start speed>
+        <float: End speed>
+        <float[3]: Gravity>
+    Textured particles entity data:
+        <float[3]: Position>
+        <u32: Pattern>
+        <float: Pattern speed>
+        <float[4]: Start color>
+        <float[4]: Start color randomness>
+        <float[4]: End color>
+        <float[4]: End color randomness>
+        <<Resource>: Texture>
+        <u16: # of particles>
+        <float: Start randomness>
+        <float: Duration>
+        <float[3]: Rotation>
+        <float[3]: Rotation randomness (X and Z are ignored for now)>
+        <float: Start speed>
+        <float: End speed>
+        <float[3]: Gravity>
+    Beam entity data:
+        <float[3]: Start position>
+        <float[3]: End position>
+        <u32: Pattern>
+        <float: Pattern speed>
+        <float[4]: Start color>
+        <float[4]: Start color randomness>
+        <float[4]: End color>
+        <float[4]: End color randomness>
+        <float: Width>
+        <float: Glow width>
+        <float: Segment length>
+        <float: Segment noise>
+        <float: Curve>
+    Giblets entity data:
+        <<Resource>: Model>
+        <<Resource>: Overlay texture>
+
+

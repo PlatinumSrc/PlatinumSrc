@@ -5,7 +5,6 @@
 #include "../psrc_aux/string.h"
 #include "../psrc_aux/filesystem.h"
 #include "../psrc_aux/threading.h"
-#include "../psrc_aux/config.h"
 #include "../psrc_aux/crc.h"
 
 #include "../debug.h"
@@ -38,22 +37,6 @@ struct __attribute__((packed)) rcdata {
     struct rcheader header;
     union __attribute__((packed)) {
         struct __attribute__((packed)) {
-            struct rc_config config;
-            //struct rcopt_config configopt;
-        };
-        struct __attribute__((packed)) {
-            //struct rc_consolescript consolescript;
-            //struct rcopt_consolescript consolescriptopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_entity entity;
-            //struct rcopt_entity entityopt;
-        };
-        struct __attribute__((packed)) {
-            //struct rc_gamescript gamescript;
-            //struct rcopt_gamescript gamescriptopt;
-        };
-        struct __attribute__((packed)) {
             struct rc_map map;
             struct rcopt_map mapopt;
         };
@@ -70,8 +53,8 @@ struct __attribute__((packed)) rcdata {
             //struct rcopt_playermodel playermodelopt;
         };
         struct __attribute__((packed)) {
-            //struct rc_prop prop;
-            //struct rcopt_prop propopt;
+            //struct rc_script script;
+            //struct rcopt_script scriptopt;
         };
         struct __attribute__((packed)) {
             struct rc_sound sound;
@@ -91,7 +74,7 @@ struct __attribute__((packed)) rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-int groupsizes[RC__COUNT] = {4, 2, 8, 8, 1, 16, 8, 2, 16, 16, 16};
+int groupsizes[RC__COUNT] = {1, 16, 8, 1, 4, 16, 16};
 
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
@@ -104,10 +87,6 @@ struct rcopt_texture textureopt_default = {
 };
 
 void* defaultopt[RC__COUNT] = {
-    NULL,
-    NULL,
-    NULL,
-    NULL,
     /*&mapopt_default*/ NULL,
     &materialopt_default,
     /*&modelopt_default*/ NULL,
@@ -125,15 +104,11 @@ static struct {
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
-    (char*[3]){".cfg", ".txt", NULL},
-    (char*[3]){".psh", ".txt", NULL},
-    (char*[2]){".txt", NULL},
-    (char*[3]){".pgs", ".txt", NULL},
     (char*[2]){".pmf", NULL},
     (char*[2]){".txt", NULL},
     (char*[2]){".p3m", NULL},
     (char*[2]){".txt", NULL},
-    (char*[2]){".txt", NULL},
+    (char*[3]){".psc", NULL},
     (char*[4]){".ogg", ".mp3", ".wav", NULL},
     (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL}
 };
@@ -300,12 +275,6 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     struct rcdata* ptr = NULL;
     size_t size = sizeof(struct rcheader);
     switch ((uint8_t)t) {
-        case RC_CONFIG:
-            size += sizeof(struct rc_config);
-            break;
-        case RC_ENTITY:
-            size += sizeof(struct rc_entity);
-            break;
         case RC_MAP:
             size += sizeof(struct rc_map) + sizeof(struct rcopt_map);
             break;
@@ -385,15 +354,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     }
     d = NULL;
     switch ((uint8_t)t) {
-        case RC_CONFIG: {
-            struct cfg* cfg = cfg_open(p);
-            if (cfg) {
-                d = loadResource_newptr(t, g, p, pcrc);
-                d->config.config = cfg;
-            }
-        } break;
         case RC_MATERIAL: {
-            if (!o.material) o.material = &materialopt_default;
             struct cfg* mat = cfg_open(p);
             if (mat) {
                 d = loadResource_newptr(t, g, p, pcrc);
@@ -408,6 +369,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 }
                 tmp = cfg_getvar(mat, NULL, "texture");
                 if (tmp) {
+                    if (!o.material) o.material = &materialopt_default;
                     struct rcopt_texture texopt = {false, o.material->quality};
                     d->material.texture = loadResource_union(RC_TEXTURE, tmp, &texopt).texture;
                     free(tmp);
@@ -429,9 +391,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             } 
         } break;
         case RC_SOUND: {
-            if (!o.sound) o.sound = &soundopt_default;
             FILE* f = fopen(p, "r");
             if (f) {
+                if (!o.sound) o.sound = &soundopt_default;
                 if (!strcmp(ext, ".ogg")) {
                     fseek(f, 0, SEEK_END);
                     long sz = ftell(f);
@@ -574,9 +536,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_TEXTURE: {
-            if (!o.texture) o.texture = &textureopt_default;
             int w, h, c;
             if (stbi_info(p, &w, &h, &c)) {
+                if (!o.texture) o.texture = &textureopt_default;
                 if (o.texture->needsalpha) {
                     c = 4;
                 } else {
@@ -653,9 +615,6 @@ static void freeResource_internal(struct rcdata* _r) {
     --r->header.refs;
     if (!r->header.refs) {
         switch ((uint8_t)type) {
-            case RC_CONFIG: {
-                cfg_close(r->config.config);
-            } break;
             case RC_MATERIAL: {
                 freeResource_union(r->material.texture);
             } break;

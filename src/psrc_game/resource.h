@@ -1,21 +1,15 @@
 #ifndef GAME_RESOURCE_H
 #define GAME_RESOURCE_H
 
-#include "../psrc_aux/config.h"
-
 #include <stdint.h>
 #include <stdbool.h>
 
 enum rctype {
-    RC_CONFIG,
-    RC_CONSOLESCRIPT,
-    RC_ENTITY,
-    RC_GAMESCRIPT,
     RC_MAP,
     RC_MATERIAL,
     RC_MODEL,
     RC_PLAYERMODEL,
-    RC_PROP,
+    RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
     RC__COUNT,
@@ -29,11 +23,6 @@ enum rcprefix {
     RCPREFIX_MOD,
     RCPREFIX_USER,
     RCPREFIX__COUNT,
-};
-
-// RC_CONFIG
-struct __attribute__((packed)) rc_config {
-    struct cfg* config;
 };
 
 // RC_TEXTURE
@@ -102,12 +91,6 @@ struct __attribute__((packed)) rcopt_model {
     enum rcopt_texture_qlt texture_quality;
 };
 
-// RC_ENTITY
-struct __attribute__((packed)) rc_entity {
-    struct rc_model* model;
-    //struct rc_gamescript* gamescript;
-};
-
 // RC_MAP
 struct __attribute__((packed)) rc_map {
     
@@ -132,30 +115,22 @@ struct __attribute__((packed)) rcheader {
 
 union __attribute__((packed)) resource {
     void* ptr;
-    struct rc_config* config;
-    //struct rc_consolescript* consolescript;
-    struct rc_entity* entity;
-    //struct rc_gamescript* gamescript;
     struct rc_map* map;
     struct rc_material* material;
     struct rc_model* model;
     //struct rc_playermodel* playermodel;
-    //struct rc_prop* prop;
+    //struct rc_script* script;
     struct rc_sound* sound;
     struct rc_texture* texture;
 };
 
 union __attribute__((packed)) rcopt {
     void* ptr;
-    //struct rcopt_config* config;
-    //struct rcopt_consolescript* consolescript;
-    //struct rcopt_entity* entity;
-    //struct rcopt_gamescript* gamescript;
     struct rcopt_map* map;
     struct rcopt_material* material;
     struct rcopt_model* model;
     //struct rcopt_playermodel* playermodel;
-    //struct rcopt_prop* prop;
+    //struct rcopt_script* script;
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
 };
