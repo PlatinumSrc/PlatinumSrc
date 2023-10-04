@@ -147,12 +147,13 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
         int len = rc->len;
         uint8_t flags = s->flags;
         int64_t pos;
+        bool stereo = rc->stereo;
         switch (rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
@@ -168,7 +169,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                             }
                         }
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
@@ -185,7 +186,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                         }
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO) {
+                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                         for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                             mixsounds_pre();
                             getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -204,7 +205,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
@@ -220,7 +221,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                             }
                         }
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
@@ -237,7 +238,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                         }
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO) {
+                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                         for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                             mixsounds_pre();
                             getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -260,11 +261,10 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                 } data;
                 data.ptr = rc->data;
                 bool is8bit = rc->is8bit;
-                bool stereo = rc->stereo;
                 int channels = rc->channels;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             if (is8bit) {
                                 for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                     mixsounds_pre();
@@ -308,7 +308,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                             }
                         }
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO) {
+                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             if (is8bit) {
                                 for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                     mixsounds_pre();
@@ -361,7 +361,7 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
                         }
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO) {
+                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                         if (is8bit) {
                             for (int i = 0, ii = samples; i < samples; ++i, --ii) {
                                 mixsounds_pre();

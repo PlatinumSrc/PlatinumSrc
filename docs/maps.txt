@@ -14,17 +14,19 @@ Format:
     Header:
         <char[4]: {'P', 'M', 'F', 0}>
         <u16: Major version> <u16: Minor version>
-        <char[...0]: Name> <char[...0]: Authors> <char[...0]: Description>
+        <char[... 0]: Name> <char[... 0]: Authors> <char[... 0]: Description>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
 
     Data:
         <u32: Cube count (must be at least 1)> <Cube (First should be the root cube)>... <Cube data>...
         <u32: Prop count> [Prop]...
         <u32: Prop table entries> [Prop table entry]...
+        <<String table>: Shared string table>
         <u32: Resource path count> [Resource path]...
     Server data:
-        <Entity data (see 'entities.txt')>
+        <<String table>: Server string table>
         <u8: Team count> [Team data]...
+        <Entity data (see 'entities.txt')>
         <u32: Script count> [Embedded script]...
     Client data:
         <u16: Material count> [Material]...
@@ -69,11 +71,13 @@ Format:
 
     Prop table entry: <u32: Index in array of <Prop>>
 
-    Resource: <u32: Byte index in [Resource path]...>
-    Resource path: <char[...0]: A resource path (see 'resource paths.txt')>
+    String table: <u32: Size of string data> <char: 0> <<char[... 0]: String>...: String data>
+    Server string table entry: <u32: Byte index in the server string table>
+
+    Resource: <u32: Byte index to a resource path (see 'resource paths.txt') in the shared string table>
 
     Team: <u32: Byte index in [Team data]...>
-    Team data: <char[...0]: Name>
+    Team data: <<Server string table entry>: Name> <float[3]: Color>
 
     Embedded script: <u32: Script length> <char[]: Script text>
 

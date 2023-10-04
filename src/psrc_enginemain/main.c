@@ -143,7 +143,11 @@ static int run(int argc, char** argv) {
     freeSound(&states->audio, test);
     test = loadSound(&states->audio, "common:sounds/objects/ac1");
     uint64_t testsound = -1;
-    if (test) testsound = playSound(&states->audio, false, test, SOUNDFLAG_POSEFFECT | SOUNDFLAG_LOOP, SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END);
+    if (test) testsound = playSound(
+        &states->audio, false, test,
+        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
+        SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
+    );
     freeSound(&states->audio, test);
 
     uint64_t ticks = SDL_GetTicks() + 30000;
