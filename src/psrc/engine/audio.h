@@ -3,11 +3,11 @@
 
 #include "../platform.h"
 
-#include "../psrc_game/resource.h"
-#include "../psrc_aux/threading.h"
+#include "../game/resource.h"
+#include "../aux/threading.h"
 
-#include "../stb/stb_vorbis.h"
-#include "../minimp3/minimp3_ex.h"
+#include "../../stb/stb_vorbis.h"
+#include "../../minimp3/minimp3_ex.h"
 
 #include "../platform.h"
 

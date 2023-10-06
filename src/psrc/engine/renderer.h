@@ -2,9 +2,9 @@
 #define ENGINE_RENDERER_H
 
 #include "../platform.h"
-#include "../psrc_game/resource.h"
+#include "../game/resource.h"
 
-#include "../cglm/cglm.h"
+#include "../../cglm/cglm.h"
 
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>

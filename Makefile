@@ -261,21 +261,21 @@ ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX
-    _LDLIBS += $(LDLIBS.dir.psrc_aux)
+    _LDLIBS += $(LDLIBS.dir.psrc/aux)
 endif
 
 ifeq ($(CROSS),xbox)
@@ -284,7 +284,6 @@ __CFLAGS := $(_CFLAGS) $(_CPPFLAGS)
 __CFLAGS := $(filter-out -Wall,$(__CFLAGS))
 __CFLAGS := $(filter-out -Wextra,$(__CFLAGS))
 __CFLAGS := $(filter-out -Wuninitialized,$(__CFLAGS))
-__CFLAGS := $(filter-out -include $(SRCDIR)/psrc_game/allocwrap.h,$(__CFLAGS))
 __LDFLAGS := $(_LDFLAGS)
 
 include $(NXDK_DIR)/lib/Makefile
@@ -429,7 +428,7 @@ endif
 .SECONDEXPANSION:
 
 define a
-$(_OBJDIR)/lib$(1).a
+$(_OBJDIR)/$(1).a
 endef
 define inc
 $$(patsubst noexist\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT noexist))))
@@ -438,8 +437,11 @@ endef
 default: target
 
 ifndef MKSUB
-$(_OBJDIR)/lib%.a: $$(wildcard $(SRCDIR)/$(notdir %)/*.c) $(call inc,$(SRCDIR)/$(notdir %)/*.c)
-	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(notdir $*) _OBJDIR=$(_OBJDIR)/$(notdir $*) OUTDIR=$(_OBJDIR) BINPATH=$@
+define a_path
+$(patsubst $(_OBJDIR)/%,%,$(1))
+endef
+$(_OBJDIR)/%.a: $$(wildcard $(SRCDIR)/$(call a_path,%)/*.c) $(call inc,$(SRCDIR)/$(call a_path,%)/*.c)
+	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
 endif
 
 $(OUTDIR):
@@ -455,25 +457,25 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc_editor) $(a.dir.psrc_toolbox) $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
+a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc/toolbox) $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
 
-a.dir.psrc_editormain = $(call a,psrc_editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
-a.dir.psrc_engine = $(call a,psrc_engine)
+a.dir.psrc_engine = $(call a,psrc/engine)
 ifneq ($(CROSS),xbox)
     a.dir.psrc_engine += $(call a,glad)
 endif
-a.dir.psrc_engine += $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
+a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
 
-a.dir.psrc_enginemain = $(call a,psrc_enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
-a.dir.psrc_server = $(call a,psrc_server) $(call a,psrc_game) $(call a,stb) $(call a,minimp3) $(call a,psrc_aux)
+a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
 
-a.dir.psrc_servermain = $(call a,psrc_servermain) $(a.dir.psrc_server) $(call a,psrc_game) $(call a,psrc_aux)
+a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
-a.dir.psrc_toolbox = $(call a,psrc_toolbox) $(call a,tinyobj) $(call a,psrc_aux)
+a.dir.psrc_toolbox = $(call a,psrc/toolbox) $(call a,tinyobj) $(call a,psrc/aux)
 
-a.dir.psrc_toolboxmain = $(call a,psrc_toolboxmain) $(a.dir.psrc_toolbox) $(call a,psrc_aux)
+a.dir.psrc_toolboxmain = $(call a,psrc/toolboxmain) $(a.dir.psrc_toolbox) $(call a,psrc/aux) $(call a,psrc)
 
 ifeq ($(MODULE),engine)
 a.list = $(a.dir.psrc_enginemain)

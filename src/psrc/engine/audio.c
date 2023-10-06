@@ -1,11 +1,11 @@
 #include "audio.h"
 #include "audiomixer.h"
 
-#include "../psrc_aux/logging.h"
-#include "../psrc_aux/string.h"
+#include "../aux/logging.h"
+#include "../aux/string.h"
 
-#include "../psrc_game/game.h"
-#include "../psrc_game/time.h"
+#include "../game/game.h"
+#include "../game/time.h"
 
 #include "../debug.h"
 
@@ -197,12 +197,13 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                         pos[2] = out[2];
                     }
                     if (pos[2] > 0.0) {
-                        vol[0] *= 1.0 + 0.1 * pos[2];
-                        vol[1] *= 1.0 + 0.1 * pos[2];
-                    } else if (pos[2] < 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 + 0.1 * pos[2];
-                        vol[1] *= 1.0 + 0.1 * pos[2];
+                        vol[0] *= 1.0 + 0.175 * pos[2];
+                        vol[1] *= 1.0 + 0.175 * pos[2];
+                    } else if (pos[2] < 0.0) {
+                        pos[0] *= 1.0 - 0.25 * -pos[2];
+                        vol[0] *= 1.0 + 0.15 * pos[2];
+                        vol[1] *= 1.0 + 0.15 * pos[2];
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];

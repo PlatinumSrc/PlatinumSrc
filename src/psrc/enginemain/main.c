@@ -1,13 +1,13 @@
-#include "../psrc_engine/renderer.h"
-#include "../psrc_engine/input.h"
-#include "../psrc_engine/audio.h"
-#include "../psrc_aux/logging.h"
-#include "../psrc_aux/string.h"
-#include "../psrc_aux/filesystem.h"
-#include "../psrc_aux/config.h"
-#include "../psrc_game/resource.h"
-#include "../psrc_game/game.h"
-#include "../psrc_game/time.h"
+#include "../engine/renderer.h"
+#include "../engine/input.h"
+#include "../engine/audio.h"
+#include "../aux/logging.h"
+#include "../aux/string.h"
+#include "../aux/filesystem.h"
+#include "../aux/config.h"
+#include "../game/resource.h"
+#include "../game/game.h"
+#include "../game/time.h"
 
 #include "../version.h"
 #include "../platform.h"
@@ -159,7 +159,7 @@ static int run(int argc, char** argv) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 10.0, 0.0, cos(t * 2.5) * 10.0, SOUNDFX_END);
+        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
         pollInput(&states->input);
         render(&states->renderer);
     }

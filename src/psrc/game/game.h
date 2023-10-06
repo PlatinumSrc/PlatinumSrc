@@ -1,7 +1,7 @@
 #ifndef GAME_GAME_H
 #define GAME_GAME_H
 
-#include "../psrc_aux/config.h"
+#include "../aux/config.h"
 
 extern char* maindir;
 extern char* userdir;

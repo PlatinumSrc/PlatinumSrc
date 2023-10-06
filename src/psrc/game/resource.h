@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 enum rctype {
+    RC_FONT,
     RC_MAP,
     RC_MATERIAL,
     RC_MODEL,
@@ -12,6 +13,7 @@ enum rctype {
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
+    RC_WEAPON,
     RC__COUNT,
 };
 
@@ -23,6 +25,11 @@ enum rcprefix {
     RCPREFIX_MOD,
     RCPREFIX_USER,
     RCPREFIX__COUNT,
+};
+
+// RC_FONT
+struct __attribute__((packed)) rc_font {
+    
 };
 
 // RC_TEXTURE

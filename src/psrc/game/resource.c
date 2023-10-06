@@ -1,18 +1,18 @@
 #include "resource.h"
 #include "game.h"
 
-#include "../psrc_aux/logging.h"
-#include "../psrc_aux/string.h"
-#include "../psrc_aux/filesystem.h"
-#include "../psrc_aux/threading.h"
-#include "../psrc_aux/crc.h"
+#include "../aux/logging.h"
+#include "../aux/string.h"
+#include "../aux/filesystem.h"
+#include "../aux/threading.h"
+#include "../aux/crc.h"
 
 #include "../debug.h"
 
-#include "../stb/stb_image.h"
-#include "../stb/stb_image_resize.h"
-#include "../stb/stb_vorbis.h"
-#include "../minimp3/minimp3_ex.h"
+#include "../../stb/stb_image.h"
+#include "../../stb/stb_image_resize.h"
+#include "../../stb/stb_vorbis.h"
+#include "../../minimp3/minimp3_ex.h"
 
 #if PLATFORM != PLAT_XBOX
     #include <SDL2/SDL.h>
@@ -36,6 +36,10 @@ static mutex_t rclock;
 struct __attribute__((packed)) rcdata {
     struct rcheader header;
     union __attribute__((packed)) {
+        struct __attribute__((packed)) {
+            struct rc_font font;
+            //struct rcopt_font fontopt;
+        };
         struct __attribute__((packed)) {
             struct rc_map map;
             struct rcopt_map mapopt;
@@ -64,6 +68,10 @@ struct __attribute__((packed)) rcdata {
             struct rc_texture texture;
             struct rcopt_texture textureopt;
         };
+        struct __attribute__((packed)) {
+            //struct rc_weapon weapon;
+            //struct rcopt_weapon weaponopt;
+        };
     };
 };
 
@@ -74,7 +82,7 @@ struct __attribute__((packed)) rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-int groupsizes[RC__COUNT] = {1, 16, 8, 1, 4, 16, 16};
+int groupsizes[RC__COUNT] = {1, 1, 16, 8, 1, 4, 16, 16, 8};
 
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
@@ -87,6 +95,7 @@ struct rcopt_texture textureopt_default = {
 };
 
 void* defaultopt[RC__COUNT] = {
+    NULL,
     /*&mapopt_default*/ NULL,
     &materialopt_default,
     /*&modelopt_default*/ NULL,
@@ -94,6 +103,7 @@ void* defaultopt[RC__COUNT] = {
     NULL,
     &soundopt_default,
     &textureopt_default,
+    NULL,
 };
 
 static struct {
@@ -104,13 +114,15 @@ static struct {
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
+    (char*[2]){".ttf", NULL},
     (char*[2]){".pmf", NULL},
     (char*[2]){".txt", NULL},
     (char*[2]){".p3m", NULL},
     (char*[2]){".txt", NULL},
     (char*[3]){".psc", NULL},
     (char*[4]){".ogg", ".mp3", ".wav", NULL},
-    (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL}
+    (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL},
+    (char*[2]){".txt", NULL}
 };
 
 static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {

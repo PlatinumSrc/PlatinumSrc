@@ -52,16 +52,20 @@ Format:
     Solid cube data:
         <u16: Material index>
         <u32: Triangle index>
-        <4 bits: 0>
-        <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
-        <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
+        <u16:
+            <4 bits: 0>
+            <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
+            <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
+        >
     Angle cube data:
         <u16: Material index>
         <u32: Triangle index>
-        <2 bits: 0>
-        <2 bits: Plane # of triangles>
-        <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
-        <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
+        <u16:
+            <2 bits: 0>
+            <2 bits: Plane # of triangles>
+            <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
+            <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
+        >
         <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
         <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes
         counterclockwise)>

@@ -1,6 +1,6 @@
 #include "input.h"
 #include "renderer.h"
-#include "../psrc_aux/logging.h"
+#include "../aux/logging.h"
 #include "../debug.h"
 
 int quitreq;

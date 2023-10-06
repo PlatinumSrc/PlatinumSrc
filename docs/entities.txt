@@ -12,16 +12,17 @@ Entity data:
         { ENT_HEADLESS | ENT_GENERIC | ENT_BOX | ENT_TRIGGERBOX | ENT_TRIGGERRADIUS
         | ENT_USE | ENT_HOLDUSE | ENT_MULTIPLEXER | ENT_PARTICLES | ENT_TEXPARTICLES
         | ENT_BEAM | ENT_GIBS | ENT_DOOR | ENT_SPAWN | ENT_SPAWNER
-        | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO | ENT_HEALTHSTATION
-        | ENT_SHIELDSTATION }
+        | ENT_DYNLIGHT | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO
+        | ENT_HEALTHSTATION | ENT_SHIELDSTATION }
     Entity data:
         { <Headless entity data> | <Generic entity data> | <Box entity data>
         | <Trigger box entity data> | <Trigger radius entity data> | <Press to use entity data>
         | <Hold to use entity data> | <Multiplexer entity data> | <Particles entity data>
         | <Textured particles entity data> | <Beam entity data> | <Giblets entity data>
         | <Door entity data> | <Spawn entity data> | <Spawner entity data>
-        | <Health entity data> | <Shield entity data> | <Weapon entity data>
-        | <Ammo entity data> | <Health station entity data> | <Shield station entity data> }
+        | <Dynamic light entity data> | <Health entity data> | <Shield entity data>
+        | <Weapon entity data> | <Ammo entity data> | <Health station entity data>
+        | <Shield station entity data> }
 
     Entity filter data:
         { <u8: ENTFILT_ANY>
@@ -88,11 +89,12 @@ Entity data:
     Headless entity data:
         <Entity script>
     Generic entity data:
-        <4 bits: 0>
-        <1 bit: Physics>
-        <1 bit: Better physics>
-        <1 bit: Interactable>
-        <1 bit: Selectable>
+        <u8:
+            <4 bits: 0>
+            <1 bit: Physics> <1 bit: Better physics>
+            <1 bit: Interactable>
+            <1 bit: Selectable>
+        >
         <Entity script>
         <<Resource>: Model>
         <float[3]: Position>
@@ -216,7 +218,10 @@ Entity data:
         <float[3]: Closed scale>
         <float[3]: Open scale>
         <float: Toggle duration>
-        <5 bits: 0> <1 bit: Start unusable> <1 bit: Start open> <1 bit: Start locked>
+        <u8:
+            <5 bits: 0>
+            <1 bit: Start unusable> <1 bit: Start open> <1 bit: Start locked>
+        >
         <<Entity signal>: Open>
         <<Entity signal>: Close>
         <<Entity signal>: Lock>
@@ -238,9 +243,29 @@ Entity data:
         <i8[2]: Grid size (-1 = random)>
         <float: Rate>
         <Entity>
+    Dynamic light entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
+        <<Entity signal>: Enable>
+        <<Entity signal>: Disable>
+        <Light>
     Health entity data:
         <<Resource>: Model>
+        <float: Respawn delay>
         <float: Amount>
-        <float: Delay>
+    Shield entity data:
+        <<Resource>: Model>
+        <float: Respawn delay>
+        <float: Amount>
+    Weapon entity data:
+        <<Resource>: Weapon>
+        <float: Respawn delay>
+        <i32: Ammo amount>
+    Ammo entity data:
+        <<Resource>: Weapon>
+        <float: Respawn delay>
+        <i32: Amount>
 
 

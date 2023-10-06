@@ -2,17 +2,17 @@
 
 #include "../version.h"
 
-#include "../psrc_aux/logging.h"
-//#include "../psrc_aux/threads.h"
+#include "../aux/logging.h"
+//#include "../aux/threads.h"
 
-#include "../stb/stb_image.h"
+#include "../../stb/stb_image.h"
 
 #if PLATFORM != PLAT_XBOX
     // stuff to make sure i don't accidentally use gl things newer than 1.1 (will remove later)
     #if 0
-    #include "../.glad11/gl.h"
+    #include "../../.glad11/gl.h"
     #else
-    #include "../glad/gl.h"
+    #include "../../glad/gl.h"
     #endif
 #else
     #include <pbkit/pbkit.h>
