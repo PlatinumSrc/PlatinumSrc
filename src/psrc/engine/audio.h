@@ -1,5 +1,5 @@
-#ifndef ENGINE_AUDIO_H
-#define ENGINE_AUDIO_H
+#ifndef PSRC_ENGINE_AUDIO_H
+#define PSRC_ENGINE_AUDIO_H
 
 #include "../platform.h"
 

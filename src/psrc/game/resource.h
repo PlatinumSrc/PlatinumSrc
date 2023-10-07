@@ -1,10 +1,13 @@
-#ifndef GAME_RESOURCE_H
-#define GAME_RESOURCE_H
+#ifndef PSRC_GAME_RESOURCE_H
+#define PSRC_GAME_RESOURCE_H
+
+#include "../aux/config.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
 enum rctype {
+    RC_CONFIG,
     RC_FONT,
     RC_MAP,
     RC_MATERIAL,
@@ -13,7 +16,7 @@ enum rctype {
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
-    RC_WEAPON,
+    RC_VALUES,
     RC__COUNT,
 };
 
@@ -25,6 +28,16 @@ enum rcprefix {
     RCPREFIX_MOD,
     RCPREFIX_USER,
     RCPREFIX__COUNT,
+};
+
+// RC_CONFIG
+struct __attribute__((packed)) rc_config {
+    struct cfg* config;
+};
+
+// RC_VALUES
+struct __attribute__((packed)) rc_values {
+    struct cfg* values;
 };
 
 // RC_FONT
@@ -122,6 +135,8 @@ struct __attribute__((packed)) rcheader {
 
 union __attribute__((packed)) resource {
     void* ptr;
+    struct rc_config* config;
+    struct rc_font* font;
     struct rc_map* map;
     struct rc_material* material;
     struct rc_model* model;
@@ -129,10 +144,13 @@ union __attribute__((packed)) resource {
     //struct rc_script* script;
     struct rc_sound* sound;
     struct rc_texture* texture;
+    struct rc_values* values;
 };
 
 union __attribute__((packed)) rcopt {
     void* ptr;
+    //struct rcopt_config* config;
+    //struct rcopt_font* font;
     struct rcopt_map* map;
     struct rcopt_material* material;
     struct rcopt_model* model;
@@ -140,12 +158,14 @@ union __attribute__((packed)) rcopt {
     //struct rcopt_script* script;
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
+    //struct rcopt_values* values;
 };
 
 bool initResource(void);
 union resource loadResource(enum rctype type, const char* path, union rcopt opt);
 void freeResource(union resource);
 void grabResource(union resource);
+char* getRcPath(const char* uri, enum rctype type, char** ext);
 
 #define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
 #define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})

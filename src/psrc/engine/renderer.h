@@ -1,5 +1,5 @@
-#ifndef ENGINE_RENDERER_H
-#define ENGINE_RENDERER_H
+#ifndef PSRC_ENGINE_RENDERER_H
+#define PSRC_ENGINE_RENDERER_H
 
 #include "../platform.h"
 #include "../game/resource.h"

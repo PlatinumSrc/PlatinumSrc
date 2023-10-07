@@ -1,5 +1,5 @@
-#ifndef AUX_THREADING_H
-#define AUX_THREADING_H
+#ifndef PSRC_AUX_THREADING_H
+#define PSRC_AUX_THREADING_H
 
 #include "../platform.h"
 

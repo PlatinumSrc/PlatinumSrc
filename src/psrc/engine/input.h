@@ -1,5 +1,5 @@
-#ifndef ENGINE_INPUT_H
-#define ENGINE_INPUT_H
+#ifndef PSRC_ENGINE_INPUT_H
+#define PSRC_ENGINE_INPUT_H
 
 #include "renderer.h"
 

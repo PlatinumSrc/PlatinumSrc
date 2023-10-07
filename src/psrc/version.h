@@ -1,5 +1,5 @@
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef PSRC_VERSION_H
+#define PSRC_VERSION_H
 
 #define PSRC_BUILD 2023100600
 

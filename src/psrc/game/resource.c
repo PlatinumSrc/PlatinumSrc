@@ -82,7 +82,7 @@ struct __attribute__((packed)) rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-int groupsizes[RC__COUNT] = {1, 1, 16, 8, 1, 4, 16, 16, 8};
+int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
 
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
@@ -103,7 +103,6 @@ void* defaultopt[RC__COUNT] = {
     NULL,
     &soundopt_default,
     &textureopt_default,
-    NULL,
 };
 
 static struct {
@@ -114,7 +113,8 @@ static struct {
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
-    (char*[2]){".ttf", NULL},
+    (char*[2]){".cfg", NULL},
+    (char*[3]){".ttf", ".otf", NULL},
     (char*[2]){".pmf", NULL},
     (char*[2]){".txt", NULL},
     (char*[2]){".p3m", NULL},
@@ -122,7 +122,7 @@ static char** extlist[RC__COUNT] = {
     (char*[3]){".psc", NULL},
     (char*[4]){".ogg", ".mp3", ".wav", NULL},
     (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL},
-    (char*[2]){".txt", NULL}
+    (char*[2]){".txt", NULL},
 };
 
 static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {
@@ -154,7 +154,7 @@ static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** 
     }
     return -1;
 }
-static char* getRcPath(const char* uri, enum rctype type, char** ext) {
+char* getRcPath(const char* uri, enum rctype type, char** ext) {
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
     const char* tmp = uri;

@@ -1,5 +1,5 @@
-#ifndef DEBUG_H
-#define DEBUG_H
+#ifndef PSRC_DEBUG_H
+#define PSRC_DEBUG_H
 
 // DBGLVL:
 // <= -1: off

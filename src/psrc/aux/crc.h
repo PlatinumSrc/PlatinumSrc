@@ -1,5 +1,5 @@
-#ifndef AUX_CRC_H
-#define AUX_CRC_H
+#ifndef PSRC_AUX_CRC_H
+#define PSRC_AUX_CRC_H
 
 #include <stdint.h>
 #include <stddef.h>

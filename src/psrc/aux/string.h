@@ -1,5 +1,5 @@
-#ifndef AUX_STRING_H
-#define AUX_STRING_H
+#ifndef PSRC_AUX_STRING_H
+#define PSRC_AUX_STRING_H
 
 #include <stdlib.h>
 #include <stdbool.h>

@@ -1,5 +1,5 @@
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#ifndef PSRC_PLATFORM_H
+#define PSRC_PLATFORM_H
 
 #define PLAT_UNKNOWN 0
 #define PLAT_ANDROID 1

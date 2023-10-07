@@ -1,5 +1,5 @@
-#ifndef GLUE_H
-#define GLUE_H
+#ifndef PSRC_GLUE_H
+#define PSRC_GLUE_H
 
 #ifndef _WIN32
     #define mkdir(x) mkdir(x, (S_IRWXU) | (S_IRGRP | S_IXGRP) | (S_IROTH | S_IXOTH))

@@ -1,5 +1,5 @@
-#ifndef AUX_CONFIG_H
-#define AUX_CONFIG_H
+#ifndef PSRC_AUX_CONFIG_H
+#define PSRC_AUX_CONFIG_H
 
 #include "threading.h"
 
