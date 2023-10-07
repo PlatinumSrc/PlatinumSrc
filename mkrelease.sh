@@ -5,7 +5,7 @@
 source util.sh
 
 tsk "Getting info..."
-VER="$(grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')"
+VER="$(grep '#define PSRC_BUILD ' src/psrc/version.h | sed 's/#define .* //')"
 printf "${I} ${TB}Version:${TR} [%s]\n" "${VER}"
 getchanges() {
     sed -n '/^### DONE:$/,$p' TODO.md | tail -n +2

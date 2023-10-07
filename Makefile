@@ -9,122 +9,100 @@ LIBDIR ?= $(EXTDIR)/lib
 INCDIR ?= $(EXTDIR)/include
 OUTDIR ?= .
 
-ifndef OS
-    ifeq ($(CROSS),)
-        CC ?= gcc
-        LD := $(CC)
-        AR ?= ar
-        STRIP ?= strip
-        WINDRES ?= true
-        ifndef M32
-            PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
-        else
-            PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
-        endif
-        SOSUF := .so
-    else ifeq ($(CROSS),freebsd)
-        FREEBSD_VERSION := 12.4
-        ifndef M32
-            CC := clang -target x86_64-unknown-freebsd$(FREEBSD_VERSION)
-        else
-            CC := clang -target i686-unknown-freebsd$(FREEBSD_VERSION)
-        endif
-        LD := $(CC)
-        AR ?= ar
-        STRIP ?= strip
-        WINDRES ?= true
-        ifndef M32
-            PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
-        else
-            PLATFORM := FreeBSD_$(FREEBSD_VERSION)_i686
-        endif
-        CC += --sysroot=$(EXTDIR)/$(PLATFORM)
-        SOSUF := .so
-    else ifeq ($(CROSS),win32)
-        ifndef M32
-            CC := x86_64-w64-mingw32-gcc
-            LD := $(CC)
-            AR := x86_64-w64-mingw32-ar
-            STRIP := x86_64-w64-mingw32-strip
-            WINDRES := x86_64-w64-mingw32-windres
-            PLATFORM := Windows_x86_64
-        else
-            CC := i686-w64-mingw32-gcc
-            LD := $(CC)
-            AR := i686-w64-mingw32-ar
-            STRIP := i686-w64-mingw32-strip
-            WINDRES := i686-w64-mingw32-windres
-            PLATFORM := Windows_i686
-        endif
-        SOSUF := .dll
-    else ifeq ($(CROSS),xbox)
-        ifndef NXDK_DIR
-            $(error Please define the NXDK_DIR environment variable)
-        endif
-        ifneq ($(MODULE),engine)
-            $(error Invalid module: $(MODULE))
-        endif
-
-        _CC := $(CC)
-        _LD := $(LD)
-        CC := nxdk-cc
-        LD := nxdk-link
-        AR ?= ar
-        STRIP ?= strip
-        WINDRES ?= true
-
-        CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
-        EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
-
-        PLATFORM := Xbox
-
-        XBE_TITLE := PlatinumSrc
-        XBE_TITLEID := PQ-001
-        XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
-        XBE_XTIMAGE := icons/engine.xpr
-
-        XISO ?= $(XBE_TITLE).xiso.iso
-        XISODIR ?= $(OUTDIR)/xiso
-
-        MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
-        MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) FREETYPE_SRCS="" FREETYPE_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) SDL_TTF_SRCS="" SDL_TTF_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) SDL2TEST_SRCS="" SDL2TEST_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) LIBCXX_SRCS="" LIBCXX_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) LIBPNG_SRCS="" LIBPNG_OBJS=""
-        MKENV.NXDK := $(MKENV.NXDK) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
-
-        NOSTRIP := y
-        NOLTO := y
-
-        EMULATOR ?= xemu -dvd_path
-
-        _default: default
-	        @$(nop)
-    else
-        $(error Invalid cross-compilation target: $(CROSS))
-    endif
-    SHCMD := unix
-else
-    CC := gcc
+ifeq ($(CROSS),)
+    CC ?= gcc
     LD := $(CC)
-    AR := ar
-    STRIP := strip
-    WINDRES := windres
-    CROSS := win32
+    AR ?= ar
+    STRIP ?= strip
+    WINDRES ?= true
     ifndef M32
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
+    else
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
+    endif
+    SOSUF := .so
+else ifeq ($(CROSS),freebsd)
+    FREEBSD_VERSION := 12.4
+    ifndef M32
+        CC := clang -target x86_64-unknown-freebsd$(FREEBSD_VERSION)
+    else
+        CC := clang -target i686-unknown-freebsd$(FREEBSD_VERSION)
+    endif
+    LD := $(CC)
+    AR ?= ar
+    STRIP ?= strip
+    WINDRES ?= true
+    ifndef M32
+        PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
+    else
+        PLATFORM := FreeBSD_$(FREEBSD_VERSION)_i686
+    endif
+    CC += --sysroot=$(EXTDIR)/$(PLATFORM)
+    SOSUF := .so
+else ifeq ($(CROSS),win32)
+    ifndef M32
+        CC := x86_64-w64-mingw32-gcc
+        LD := $(CC)
+        AR := x86_64-w64-mingw32-ar
+        STRIP := x86_64-w64-mingw32-strip
+        WINDRES := x86_64-w64-mingw32-windres
         PLATFORM := Windows_x86_64
     else
+        CC := i686-w64-mingw32-gcc
+        LD := $(CC)
+        AR := i686-w64-mingw32-ar
+        STRIP := i686-w64-mingw32-strip
+        WINDRES := i686-w64-mingw32-windres
         PLATFORM := Windows_i686
     endif
     SOSUF := .dll
-    ifdef MSYS2
-        SHCMD := unix
-    else
-        SHCMD := win32
+else ifeq ($(CROSS),xbox)
+    ifndef NXDK_DIR
+        $(error Please define the NXDK_DIR environment variable)
     endif
+    ifneq ($(MODULE),engine)
+        $(error Invalid module: $(MODULE))
+    endif
+
+    _CC := $(CC)
+    _LD := $(LD)
+    CC := nxdk-cc
+    LD := nxdk-link
+    AR ?= ar
+    STRIP ?= strip
+    WINDRES ?= true
+
+    CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
+    EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
+
+    PLATFORM := Xbox
+
+    XBE_TITLE := PlatinumSrc
+    XBE_TITLEID := PQ-001
+    XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
+    XBE_XTIMAGE := icons/engine.xpr
+
+    XISO ?= $(XBE_TITLE).xiso.iso
+    XISODIR ?= $(OUTDIR)/xiso
+
+    MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
+    MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) FREETYPE_SRCS="" FREETYPE_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) SDL_TTF_SRCS="" SDL_TTF_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) SDL2TEST_SRCS="" SDL2TEST_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) LIBCXX_SRCS="" LIBCXX_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) LIBPNG_SRCS="" LIBPNG_OBJS=""
+    MKENV.NXDK := $(MKENV.NXDK) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
+
+    NOSTRIP := y
     NOLTO := y
+
+    EMULATOR ?= xemu -dvd_path
+
+    _default: default
+        @$(nop)
+else
+    $(error Invalid cross-compilation target: $(CROSS))
 endif
 
 ifeq ($(MODULE),engine)
@@ -139,12 +117,12 @@ PLATFORMDIRNAME := $(MODULE)
 ifdef USE_DISCORD_GAME_SDK
     PLATFORMDIRNAME := $(PLATFORMDIRNAME)_discordgsdk
 endif
-ifdef ASAN
-    PLATFORMDIRNAME := $(PLATFORMDIRNAME)_asan
-endif
 ifndef DEBUG
     PLATFORMDIR := release/$(PLATFORM)
 else
+    ifdef ASAN
+        PLATFORMDIRNAME := $(PLATFORMDIRNAME)_asan
+    endif
     PLATFORMDIR := debug/$(PLATFORM)
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
@@ -358,13 +336,6 @@ export _OBJDIR
 export PLATFORM
 export PLATFORMDIR
 
-ifeq ($(SHCMD),win32)
-define mkpath
-$(subst /,\,$(1))
-endef
-endif
-
-ifeq ($(SHCMD),unix)
 define mkdir
 if [ ! -d '$(1)' ]; then echo 'Creating $(1)...'; mkdir -p '$(1)'; fi; true
 endef
@@ -376,52 +347,24 @@ if [ -d '$(1)' ]; then echo 'Removing $(1)...'; rm -rf '$(1)'; fi; true
 endef
 ifndef EMULATOR
 define exec
-'$(1)'
+'$(dir $(1))$(notdir $(1))'
 endef
 else
 define exec
 $(EMULATOR) '$(1)'
 endef
 endif
-else ifeq ($(SHCMD),win32)
-define mkdir
-if not exist "$(call mkpath,$(1))" echo Creating $(1)... & md "$(call mkpath,$(1))"
-endef
-define rm
-if exist "$(call mkpath,$(1))" echo Removing $(1)... & del /Q "$(call mkpath,$(1))"
-endef
-define rmdir
-if exist "$(call mkpath,$(1))" echo Removing $(1)... & rmdir /S /Q "$(call mkpath,$(1))"
-endef
-ifndef EMULATOR
-define exec
-$(1)
-endef
-else
-define exec
-$(EMULATOR) "$(1)"
-endef
-endif
-endif
 
-ifeq ($(SHCMD),unix)
 define nop
-:
+true
 endef
+ifndef OS
 define null
 /dev/null
 endef
-else ifeq ($(SHCMD),win32)
-define nop
-echo. > NUL
-endef
+else
 define null
 NUL
-endef
-endif
-ifndef inc.null
-define inc.null
-$(null)
 endef
 endif
 
@@ -431,7 +374,7 @@ define a
 $(_OBJDIR)/$(1).a
 endef
 define inc
-$$(patsubst noexist\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT noexist))))
+$$(patsubst $(null)\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT $(null)))))
 endef
 
 default: target
@@ -441,7 +384,7 @@ define a_path
 $(patsubst $(_OBJDIR)/%,%,$(1))
 endef
 $(_OBJDIR)/%.a: $$(wildcard $(SRCDIR)/$(call a_path,%)/*.c) $(call inc,$(SRCDIR)/$(call a_path,%)/*.c)
-	@$(MAKE) --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
+	@'$(MAKE)' --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
 endif
 
 $(OUTDIR):
@@ -490,7 +433,7 @@ endif
 $(BINPATH): $(OBJECTS) $(a.list)
 ifeq ($(CROSS),xbox)
 	@echo Making NXDK libs...
-	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; $(MAKE) --no-print-directory -C $(NXDK_DIR) ${MKENV.NXDK} main.exe
+	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; '$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} main.exe
 	@echo Made NXDK libs
 endif
 	@echo Linking $(notdir $@)...
@@ -502,10 +445,10 @@ endif
 ifneq ($(CROSS),xbox)
 	@$(LD) $(_LDFLAGS) $^ $(WROBJ) $(_LDLIBS) -o $@
 ifndef NOSTRIP
-	@$(STRIP) -s -R ".comment" -R ".note.*" -R ".gnu.build-id" $@
+	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@
 endif
 else
-	@$(LD) $(_LDFLAGS) $^ $(NXDK_DIR)/lib/*.lib $(NXDK_DIR)/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(_LDLIBS) -out:$@ > $(null)
+	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
 	@objcopy --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
@@ -532,7 +475,7 @@ run: $(TARGET)
 clean:
 ifeq ($(CROSS),xbox)
 	@echo Cleaning NXDK...
-	@$(MAKE) --no-print-directory -C $(NXDK_DIR) ${MKENV.NXDK} clean
+	@'$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} clean
 	@$(call rm,$(XISODIR)/default.xbe)
 	@$(call rm,$(BINPATH))
 endif
@@ -548,18 +491,18 @@ $(XISODIR):
 
 $(CXBE):
 	@echo Making NXDK Cxbe tool...
-	@$(MAKE) CC=$(_CC) LD=$(_LD) --no-print-directory -C $(NXDK_DIR) cxbe > $(null)
+	@'$(MAKE)' CC='$(_CC)' LD='$(_LD)' --no-print-directory -C '$(NXDK_DIR)' cxbe > $(null)
 
 $(EXTRACT_XISO):
 	@echo Making NXDK extract-xiso tool...
-	@$(MAKE) CC=$(_CC) LD=$(_LD) --no-print-directory -C $(NXDK_DIR) extract-xiso > $(null)
+	@'$(MAKE)' CC='$(_CC)' LD='$(_LD)' --no-print-directory -C '$(NXDK_DIR)' extract-xiso > $(null)
 
 $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 	@echo Relinking $@ from $<...
-	@$(CXBE) -OUT:$@ -TITLE:$(XBE_TITLE) -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
+	@'$(CXBE)' -OUT:$@ -TITLE:$(XBE_TITLE) -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
 
 $(XISO): $(XISODIR)/default.xbe $(EXTRACT_XISO) | $(XISODIR)
 	@echo Creating $@...
-	@$(EXTRACT_XISO) -c $(XISODIR) "$@" > $(null)
+	@'$(EXTRACT_XISO)' -c $(XISODIR) "$@" > $(null)
 
 endif

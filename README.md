@@ -11,7 +11,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
         - A C compiler
         - GNU Make
     - Windows
-        - MinGW and Make for Windows, or MSYS2 with a C compiler and GNU Make
+        - Git bash with MinGW and Make for Windows in the `PATH`, or MSYS2 with a C compiler and GNU Make
     - Xbox
         - NXDK 
             - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
