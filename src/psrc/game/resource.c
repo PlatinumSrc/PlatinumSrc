@@ -1,13 +1,13 @@
 #include "resource.h"
 #include "game.h"
 
+#include "../debug.h"
+
 #include "../aux/logging.h"
 #include "../aux/string.h"
 #include "../aux/filesystem.h"
 #include "../aux/threading.h"
 #include "../aux/crc.h"
-
-#include "../debug.h"
 
 #include "../../stb/stb_image.h"
 #include "../../stb/stb_image_resize.h"
@@ -36,6 +36,10 @@ static mutex_t rclock;
 struct __attribute__((packed)) rcdata {
     struct rcheader header;
     union __attribute__((packed)) {
+        struct __attribute__((packed)) {
+            struct rc_config config;
+            //struct rcopt_config configopt;
+        };
         struct __attribute__((packed)) {
             struct rc_font font;
             //struct rcopt_font fontopt;
@@ -69,8 +73,8 @@ struct __attribute__((packed)) rcdata {
             struct rcopt_texture textureopt;
         };
         struct __attribute__((packed)) {
-            //struct rc_weapon weapon;
-            //struct rcopt_weapon weaponopt;
+            struct rc_values values;
+            //struct rcopt_values valuesopt;
         };
     };
 };
@@ -121,7 +125,7 @@ static char** extlist[RC__COUNT] = {
     (char*[2]){".txt", NULL},
     (char*[3]){".psc", NULL},
     (char*[4]){".ogg", ".mp3", ".wav", NULL},
-    (char*[6]){".png", ".jpg", ".tga", ".bmp", "", NULL},
+    (char*[5]){".png", ".jpg", ".tga", ".bmp", NULL},
     (char*[2]){".txt", NULL},
 };
 
@@ -287,6 +291,12 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     struct rcdata* ptr = NULL;
     size_t size = sizeof(struct rcheader);
     switch ((uint8_t)t) {
+        case RC_CONFIG:
+            size += sizeof(struct rc_config);
+            break;
+        case RC_FONT:
+            size += sizeof(struct rc_font);
+            break;
         case RC_MAP:
             size += sizeof(struct rc_map) + sizeof(struct rcopt_map);
             break;
@@ -297,10 +307,13 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
             size += sizeof(struct rc_model) + sizeof(struct rcopt_model);
             break;
         case RC_SOUND:
-            size += sizeof(struct rc_sound);
+            size += sizeof(struct rc_sound) + sizeof(struct rcopt_sound);
             break;
         case RC_TEXTURE:
             size += sizeof(struct rc_texture) + sizeof(struct rcopt_texture);
+            break;
+        case RC_VALUES:
+            size += sizeof(struct rc_values);
             break;
     }
     for (int i = 0; i < g->len; ++i) {
@@ -366,6 +379,20 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     }
     d = NULL;
     switch ((uint8_t)t) {
+        case RC_CONFIG: {
+            struct cfg* config = cfg_open(p);
+            if (config) {
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->config.config = config;
+            }
+        } break;
+        case RC_FONT: {
+            SFT_Font* font = sft_loadfile(p);
+            if (font) {
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->font.font = font;
+            }
+        } break;
         case RC_MATERIAL: {
             struct cfg* mat = cfg_open(p);
             if (mat) {
@@ -595,6 +622,13 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     d->texture.data = data;
                     d->textureopt = *o.texture;
                 }
+            }
+        } break;
+        case RC_VALUES: {
+            struct cfg* values = cfg_open(p);
+            if (values) {
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->values.values = values;
             }
         } break;
     }

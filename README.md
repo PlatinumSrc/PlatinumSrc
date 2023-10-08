@@ -49,8 +49,12 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
             - `freebsd`
             - `win32`
             - `xbox`
-        - `EMULATOR` - Set to override the command used to run the ROM 
+        - `EMULATOR` - Set to override the command used to run the ROM
         - `USE_DISCORD_GAME_SDK` - Set to any value to use the Discord Game SDK
+        - `NATIVE` - Tune build for native system
+        - `M32` - Produce a 32-bit binary
+        - `NOSTRIP` - Do not strip symbols
+        - `NOLTO` - Disable link-time optimization
         - `DEBUG` - Enable debug symbols and messages
             - `0` - Symbols only
             - `1` - Basic messages

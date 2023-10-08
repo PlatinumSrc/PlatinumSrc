@@ -3,6 +3,8 @@
 
 #include "../aux/config.h"
 
+#include "../../schrift/schrift.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -42,7 +44,7 @@ struct __attribute__((packed)) rc_values {
 
 // RC_FONT
 struct __attribute__((packed)) rc_font {
-    
+    SFT_Font* font;
 };
 
 // RC_TEXTURE

@@ -29,7 +29,9 @@
 # define WIN32_LEAN_AND_MEAN 1
 # include <windows.h>
 #else
-# define _POSIX_C_SOURCE 1
+# ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 1
+# endif
 # include <fcntl.h>
 # include <sys/mman.h>
 # include <sys/stat.h>
@@ -38,7 +40,7 @@
 
 #include "schrift.h"
 
-#define SCHRIFT_VERSION "0.10.2"
+#define SCHRIFT_VERSION "0.10.2-psrc"
 
 #define FILE_MAGIC_ONE             0x00010000
 #define FILE_MAGIC_TWO             0x74727565
@@ -125,7 +127,7 @@ struct SFT_Font
 
 /* function declarations */
 /* generic utility functions */
-static void *reallocarray(void *optr, size_t nmemb, size_t size);
+static void *reallocarray_internal(void *optr, size_t nmemb, size_t size);
 static inline int fast_floor(double x);
 static inline int fast_ceil (double x);
 /* file loading */
@@ -410,7 +412,7 @@ failure:
  * A wrapper for realloc() that takes two size args like calloc().
  * Useful because it eliminates common integer overflow bugs. */
 static void *
-reallocarray(void *optr, size_t nmemb, size_t size)
+reallocarray_internal(void *optr, size_t nmemb, size_t size)
 {
 	if ((nmemb >= MUL_NO_OVERFLOW || size >= MUL_NO_OVERFLOW) &&
 	    nmemb > 0 && SIZE_MAX / nmemb < size) {
@@ -434,6 +436,8 @@ fast_ceil(double x)
 	int i = (int) x;
 	return i + (i < x);
 }
+
+#ifndef SCHRIFT_NO_FILE_MAPPING
 
 #if defined(_WIN32)
 
@@ -519,6 +523,30 @@ unmap_file(SFT_Font *font)
 {
 	assert(font->memory != MAP_FAILED);
 	munmap((void *) font->memory, font->size);
+}
+
+#endif
+
+#else
+
+static int
+map_file(SFT_Font *font, const char *filename)
+{
+    FILE* f = fopen(filename, "rb");
+    if (!f) return -1;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    font->memory = malloc(sz);
+    fread((void *) font->memory, 1, sz, f);
+    fclose(f);
+    return 0;
+}
+
+static void
+unmap_file(SFT_Font *font)
+{
+	free((void *) font->memory);
 }
 
 #endif
@@ -636,7 +664,7 @@ grow_points(Outline *outl)
 	if (outl->capPoints > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capPoints);
-	if (!(mem = reallocarray(outl->points, cap, sizeof *outl->points)))
+	if (!(mem = reallocarray_internal(outl->points, cap, sizeof *outl->points)))
 		return -1;
 	outl->capPoints = (uint_least16_t) cap;
 	outl->points    = mem;
@@ -652,7 +680,7 @@ grow_curves(Outline *outl)
 	if (outl->capCurves > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capCurves);
-	if (!(mem = reallocarray(outl->curves, cap, sizeof *outl->curves)))
+	if (!(mem = reallocarray_internal(outl->curves, cap, sizeof *outl->curves)))
 		return -1;
 	outl->capCurves = (uint_least16_t) cap;
 	outl->curves    = mem;
@@ -668,7 +696,7 @@ grow_lines(Outline *outl)
 	if (outl->capLines > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capLines);
-	if (!(mem = reallocarray(outl->lines, cap, sizeof *outl->lines)))
+	if (!(mem = reallocarray_internal(outl->lines, cap, sizeof *outl->lines)))
 		return -1;
 	outl->capLines = (uint_least16_t) cap;
 	outl->lines    = mem;

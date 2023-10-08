@@ -79,7 +79,7 @@ else ifeq ($(CROSS),xbox)
 
     XBE_TITLE := PlatinumSrc
     XBE_TITLEID := PQ-001
-    XBE_VERSION := $(shell grep '#define PSRC_BUILD ' src/version.h | sed 's/#define .* //')
+    XBE_VERSION := $(shell grep '#define PSRC_BUILD ' $(SRCDIR)/psrc/version.h | sed 's/#define .* //')
     XBE_XTIMAGE := icons/engine.xpr
 
     XISO ?= $(XBE_TITLE).xiso.iso
@@ -100,7 +100,7 @@ else ifeq ($(CROSS),xbox)
     EMULATOR ?= xemu -dvd_path
 
     _default: default
-        @$(nop)
+	    @$(nop)
 else
     $(error Invalid cross-compilation target: $(CROSS))
 endif
@@ -177,7 +177,7 @@ else
     endif
 endif
 ifneq ($(CROSS),xbox)
-    _CFLAGS += -pthread -ffast-math
+    _CFLAGS += -pthread -ffast-math -fvisibility=hidden
     _LDLIBS := -lm
     ifdef DEBUG
         _LDFLAGS += -Wl,-R$(LIBDIR)/$(PLATFORM) -Wl,-R$(LIBDIR)
@@ -212,10 +212,14 @@ ifeq ($(CROSS),xbox)
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif
 
-CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
-CPPFLAGS.dir.stb += -DSTB_VORBIS_NO_PUSHDATA_API -DSTB_VORBIS_NO_STDIO
+CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
 ifeq ($(CROSS),xbox)
-    CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
+    CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
+endif
+
+CPPFLAGS.dir.schrift := 
+ifeq ($(CROSS),xbox)
+    CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
 endif
 
 CPPFLAGS.lib.discord_game_sdk := 
@@ -235,25 +239,38 @@ else
     LDLIBS.lib.SDL2 += -lSDL2
 endif
 
+LDLIBS.lib.zlib := 
+ifeq ($(CROSS),win32)
+    LDLIBS.lib.zlib += -l:libz.a
+else ifeq ($(CROSS),xbox)
+else
+    LDLIBS.lib.zlib += -lz
+endif
+
+CPPFLAGS.dir.psrc_engine = $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift)
+CPPFLAGS.dir.psrc_engine += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
+LDLIBS.dir.psrc_engine = $(LDLIBS.dir.psrc_aux)
+LDLIBS.dir.psrc_engine += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
+
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.dir.psrc_engine)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_engine)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.lib.SDL2) $(LDLIBS.dir.psrc/aux) $(LDLIBS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.dir.psrc_engine)
+    _LDLIBS += $(LDLIBS.dir.psrc_engine)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX
-    _LDLIBS += $(LDLIBS.dir.psrc/aux)
+    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.zlib)
 endif
 
 ifeq ($(CROSS),xbox)
@@ -300,8 +317,8 @@ BINPATH := $(OUTDIR)/$(BINPATH)
 
 ifeq ($(CROSS),win32)
     ifneq ($(WINDRES),)
-        WRSRC := $(SRCDIR)/winver.rc
-        WROBJ := $(_OBJDIR)/winver.o
+        WRSRC := $(SRCDIR)/psrc/winver.rc
+        WROBJ := $(_OBJDIR)/psrc/winver.o
     endif
 endif
 
@@ -400,7 +417,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc/toolbox) $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
+a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc/toolbox) $(call a,psrc/game) $(call a,psrc/aux)
 
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
@@ -408,11 +425,11 @@ a.dir.psrc_engine = $(call a,psrc/engine)
 ifneq ($(CROSS),xbox)
     a.dir.psrc_engine += $(call a,glad)
 endif
-a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
+a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/aux)
 
 a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
-a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,psrc/aux)
+a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/game) $(call a,psrc/aux)
 
 a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 
