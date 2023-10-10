@@ -12,6 +12,8 @@
 #include <stdarg.h>
 #include <math.h>
 
+struct audiostate audiostate;
+
 static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab) {
     stb_vorbis_seek(s->vorbis, ab->off);
     stb_vorbis_get_samples_short(s->vorbis, 2, ab->data, ab->len);
@@ -138,11 +140,11 @@ static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_f
     audbuf[1][i] += r * fx.volmul[1] / 65536;\
 }
 
-void mixsounds(struct audiostate* a, int samples, int** audbuf) {
-    int outfreq = a->freq;
+void mixsounds(int samples, int** audbuf) {
+    int outfreq = audiostate.freq;
     int tmpbuf[2];
-    for (int si = 0; si < a->voices; ++si) {
-        struct audiosound* s = &a->voicedata[si];
+    for (int si = 0; si < audiostate.voices; ++si) {
+        struct audiosound* s = &audiostate.voicedata[si];
         if (s->id < 0 || s->state.paused) continue;
         struct rc_sound* rc = s->rc;
         struct audiosound_fx sfx[2];
@@ -432,34 +434,34 @@ void mixsounds(struct audiostate* a, int samples, int** audbuf) {
     }
 }
 
-static void wrsamples(struct audiostate* a, int16_t* stream, int len) {
-    int bufi = a->audbufindex;
+static void wrsamples(int16_t* stream, int len) {
+    int bufi = audiostate.audbufindex;
     #if DEBUG(3)
     plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
     #endif
-    //uint64_t d = a->buftime;
+    //uint64_t d = audiostate.buftime;
     //d = (d > 10000) ? d - 10000 : 0;
     //uint64_t t;
     //if (d) t = altutime();
     //recheck:;
-    int mixbufi = a->mixaudbufindex;
+    int mixbufi = audiostate.mixaudbufindex;
     if (mixbufi == bufi || mixbufi < 0) {
         //if (d) if (altutime() - t < d) goto recheck;
-        signalCond(&a->mixcond);
+        signalCond(&audiostate.mixcond);
         #if DEBUG(2)
         plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
         #endif
         memset(stream, 0, len * sizeof(*stream));
     } else {
-        signalCond(&a->mixcond);
-        int channels = a->channels;
+        signalCond(&audiostate.mixcond);
+        int channels = audiostate.channels;
         int samples = len / channels;
         #if DEBUG(1)
-        if (a->audbuf.len != samples) {
-            plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", a->audbuf.len, samples);
+        if (audiostate.audbuf.len != samples) {
+            plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", audiostate.audbuf.len, samples);
         }
         #endif
-        int* audbuf[2] = {a->audbuf.data[bufi][0], a->audbuf.data[bufi][1]}; // prevent an extra dereference on each write
+        int* audbuf[2] = {audiostate.audbuf.data[bufi][0], audiostate.audbuf.data[bufi][1]}; // prevent an extra dereference on each write
         if (channels < 2) {
             for (int i = 0; i < samples; ++i) {
                 int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
@@ -480,46 +482,46 @@ static void wrsamples(struct audiostate* a, int16_t* stream, int len) {
         #if DEBUG(3)
         plog(LL_INFO | LF_DEBUG, "Finished playing %d", bufi);
         #endif
-        a->audbufindex = (bufi + 1) % 2;
+        audiostate.audbufindex = (bufi + 1) % 2;
     }
 }
 
 static void callback(void* data, uint8_t* stream, int len) {
-    if (((struct audiostate*)data)->valid) {
-        wrsamples(data, (int16_t*)stream, len / sizeof(int16_t));
+    (void)data;
+    if (audiostate.valid) {
+        wrsamples((int16_t*)stream, len / sizeof(int16_t));
     } else {
         memset(stream, 0, len);
     }
 }
 
 static void* mixthread(struct thread_data* td) {
-    struct audiostate* a = td->args;
     mutex_t m;
     createMutex(&m);
     lockMutex(&m);
     while (!td->shouldclose) {
-        int mixbufi = a->mixaudbufindex;
-        int bufi = a->audbufindex;
+        int mixbufi = audiostate.mixaudbufindex;
+        int bufi = audiostate.audbufindex;
         bool mixbufilt0 = (mixbufi < 0);
         if (bufi == mixbufi || mixbufilt0) {
             mixbufi = (mixbufi + 1) % 2;
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Mixing %d...", mixbufi);
             #endif
-            lockMutex(&a->voicelock);
-            int* audbuf[2] = {a->audbuf.data[bufi][0], a->audbuf.data[bufi][1]};
-            int samples = a->audbuf.len;
+            acquireWriteAccess(&audiostate.lock);
+            int* audbuf[2] = {audiostate.audbuf.data[bufi][0], audiostate.audbuf.data[bufi][1]};
+            int samples = audiostate.audbuf.len;
             memset(audbuf[0], 0, samples * sizeof(*audbuf[0]));
             memset(audbuf[1], 0, samples * sizeof(*audbuf[1]));
-            mixsounds(a, samples, audbuf);
-            unlockMutex(&a->voicelock);
+            mixsounds(samples, audbuf);
+            releaseWriteAccess(&audiostate.lock);
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Finished mixing %d", mixbufi);
             #endif
-            a->mixaudbufindex = mixbufi;
+            audiostate.mixaudbufindex = mixbufi;
             if (!mixbufilt0) {
                 if (td->shouldclose) break;
-                waitOnCond(&a->mixcond, &m, 0);
+                waitOnCond(&audiostate.mixcond, &m, 0);
             }
         }
     }
@@ -545,21 +547,22 @@ static inline void stopSound_inline(struct audiosound* v) {
     releaseResource(v->rc);
 }
 
-void stopSound(struct audiostate* a, int64_t id) {
-    lockMutex(&a->lock);
+void stopSound(int64_t id) {
+    acquireReadAccess(&audiostate.lock);
     if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)a->voices);
-        struct audiosound* v = &a->voicedata[i];
+        int i = (int64_t)(id % (int64_t)audiostate.voices);
+        struct audiosound* v = &audiostate.voicedata[i];
         if (v->id >= 0 && id == v->id) {
-            lockMutex(&a->voicelock);
+            readToWriteAccess(&audiostate.lock);
             stopSound_inline(v);
-            unlockMutex(&a->voicelock);
+            releaseWriteAccess(&audiostate.lock);
+        } else {
+            releaseReadAccess(&audiostate.lock);
         }
     }
-    unlockMutex(&a->lock);
 }
 
-static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
+static inline void calcSoundFX(struct audiosound* s) {
     s->fx[1].speedmul = roundf(s->speed * 1000.0);
     if (s->flags & SOUNDFLAG_POSEFFECT) {
         float vol[2] = {s->vol[0], s->vol[1]};
@@ -569,9 +572,9 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
             pos[1] = s->pos[1];
             pos[2] = s->pos[2];
         } else {
-            pos[0] = s->pos[0] - a->campos[0];
-            pos[1] = s->pos[1] - a->campos[1];
-            pos[2] = s->pos[2] - a->campos[2];
+            pos[0] = s->pos[0] - audiostate.campos[0];
+            pos[1] = s->pos[1] - audiostate.campos[1];
+            pos[2] = s->pos[2] - audiostate.campos[2];
         }
         float range = s->range;
         if (isnormal(range)) {
@@ -590,13 +593,13 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
-                        tmpsin[0] = sin(a->camrot[0] / 180.0 * M_PI);
-                        tmpsin[1] = sin(-a->camrot[1] / 180.0 * M_PI);
-                        tmpsin[2] = sin(a->camrot[2] / 180.0 * M_PI);
+                        tmpsin[0] = sin(audiostate.camrot[0] / 180.0 * M_PI);
+                        tmpsin[1] = sin(-audiostate.camrot[1] / 180.0 * M_PI);
+                        tmpsin[2] = sin(audiostate.camrot[2] / 180.0 * M_PI);
                         float tmpcos[3];
-                        tmpcos[0] = cos(a->camrot[0] / 180.0 * M_PI);
-                        tmpcos[1] = cos(-a->camrot[1] / 180.0 * M_PI);
-                        tmpcos[2] = cos(a->camrot[2] / 180.0 * M_PI);
+                        tmpcos[0] = cos(audiostate.camrot[0] / 180.0 * M_PI);
+                        tmpcos[1] = cos(-audiostate.camrot[1] / 180.0 * M_PI);
+                        tmpcos[2] = cos(audiostate.camrot[2] / 180.0 * M_PI);
                         float tmp[3][3];
                         tmp[0][0] = tmpcos[2] * tmpcos[1];
                         tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
@@ -620,9 +623,10 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
                         vol[0] *= 1.0 + 0.175 * pos[2];
                         vol[1] *= 1.0 + 0.175 * pos[2];
                     } else if (pos[2] < 0.0) {
-                        pos[0] *= 1.0 - 0.25 * -pos[2];
-                        vol[0] *= 1.0 + 0.15 * pos[2];
-                        vol[1] *= 1.0 + 0.15 * pos[2];
+                        float a = pos[2] * 2.0;
+                        if (a < -1.0) a = -1.0;
+                        vol[0] *= 1.0 + 0.25 * a;
+                        vol[1] *= 1.0 + 0.25 * a;
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];
@@ -663,13 +667,13 @@ static inline void calcSoundFX(struct audiostate* a, struct audiosound* s) {
     }
 }
 
-void changeSoundFX(struct audiostate* a, int64_t id, int immediate, ...) {
-    lockMutex(&a->lock);
+void changeSoundFX(int64_t id, int immediate, ...) {
+    acquireReadAccess(&audiostate.lock);
     if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)a->voices);
-        struct audiosound* v = &a->voicedata[i];
+        int i = (int64_t)(id % (int64_t)audiostate.voices);
+        struct audiosound* v = &audiostate.voicedata[i];
         if (v->id >= 0 && id == v->id) {
-            lockMutex(&a->voicelock);
+            readToWriteAccess(&audiostate.lock);
             if (!immediate && !v->state.fxchanged) {
                 v->fx[0] = v->fx[1];
                 v->state.fxchanged = 1;
@@ -694,54 +698,59 @@ void changeSoundFX(struct audiostate* a, int64_t id, int immediate, ...) {
                 }
             }
             va_end(args);
-            calcSoundFX(a, v);
-            unlockMutex(&a->voicelock);
+            calcSoundFX(v);
+            releaseWriteAccess(&audiostate.lock);
+        } else {
+            releaseReadAccess(&audiostate.lock);
         }
     }
-    unlockMutex(&a->lock);
 }
 
-void changeSoundFlags(struct audiostate* a, int64_t id, unsigned disable, unsigned enable) {
-    lockMutex(&a->lock);
+void changeSoundFlags(int64_t id, unsigned disable, unsigned enable) {
+    acquireReadAccess(&audiostate.lock);
     if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)a->voices);
-        struct audiosound* v = &a->voicedata[i];
+        int i = (int64_t)(id % (int64_t)audiostate.voices);
+        struct audiosound* v = &audiostate.voicedata[i];
         if (v->id >= 0 && id == v->id) {
+            readToWriteAccess(&audiostate.lock);
             v->flags &= ~(uint8_t)disable;
             v->flags |= (uint8_t)enable;
+            releaseWriteAccess(&audiostate.lock);
+        } else {
+            releaseReadAccess(&audiostate.lock);
         }
     }
-    unlockMutex(&a->lock);
 }
 
-int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsigned f, ...) {
-    lockMutex(&a->lock);
-    if (!a->valid) {
-        unlockMutex(&a->lock);
+int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
+    acquireReadAccess(&audiostate.lock);
+    if (!audiostate.valid) {
+        releaseReadAccess(&audiostate.lock);
         return -1;
     }
-    int64_t nextid = a->nextid;
-    int64_t stopid = nextid + a->voices;
-    int voices = a->voices;
+    int64_t nextid = audiostate.nextid;
+    int64_t stopid = nextid + audiostate.voices;
+    int voices = audiostate.voices;
     int64_t id = -1;
     struct audiosound* v = NULL;
     for (int64_t vi = nextid; vi < stopid; ++vi) {
         int i = (int64_t)(vi % (int64_t)voices);
-        struct audiosound* tmpv = &a->voicedata[i];
+        struct audiosound* tmpv = &audiostate.voicedata[i];
         if (tmpv->id < 0) {
             id = vi;
             v = tmpv;
             break;
         }
     }
-    if (!v) {
+    if (v) {
+        readToWriteAccess(&audiostate.lock);
+    } else {
         for (int64_t vi = nextid; vi < stopid; ++vi) {
             int i = (int64_t)(vi % (int64_t)voices);
-            struct audiosound* tmpv = &a->voicedata[i];
+            struct audiosound* tmpv = &audiostate.voicedata[i];
             if (!(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
-                lockMutex(&a->voicelock);
+                readToWriteAccess(&audiostate.lock);
                 stopSound_inline(tmpv);
-                unlockMutex(&a->voicelock);
                 id = vi;
                 v = tmpv;
                 break;
@@ -749,7 +758,6 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
         }
     }
     if (v) {
-        lockMutex(&a->voicelock);
         grabResource(rc);
         v->id = id;
         v->rc = rc;
@@ -757,7 +765,7 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
             case RC_SOUND_FRMT_VORBIS: {
                 v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
                 v->audbuf.off = 0;
-                v->audbuf.len = a->audbuflen;
+                v->audbuf.len = audiostate.audbuflen;
                 v->audbuf.data[0] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[0]));
                 v->audbuf.data[1] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[1]));
                 stb_vorbis_get_samples_short(v->vorbis, 2, v->audbuf.data, v->audbuf.len);
@@ -766,7 +774,7 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
                 v->mp3 = malloc(sizeof(*v->mp3));
                 mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
                 v->audbuf.off = 0;
-                v->audbuf.len = a->audbuflen;
+                v->audbuf.len = audiostate.audbuflen;
                 v->audbuf.data_mp3 = malloc(v->audbuf.len * v->rc->channels * sizeof(*v->audbuf.data_mp3));
                 mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
             } break;
@@ -807,26 +815,17 @@ int64_t playSound(struct audiostate* a, bool paused, struct rc_sound* rc, unsign
             }
         }
         va_end(args);
-        calcSoundFX(a, v);
-        unlockMutex(&a->voicelock);
+        calcSoundFX(v);
+        releaseWriteAccess(&audiostate.lock);
+    } else {
+        releaseReadAccess(&audiostate.lock);
     }
-    unlockMutex(&a->lock);
     return id;
 }
 
-struct rc_sound* loadSound(struct audiostate* a, const char* p) {
-    return loadResource(RC_SOUND, p, &a->soundrcopt).sound;
-}
-
-void freeSound(struct audiostate* a, struct rc_sound* s) {
-    (void)a;
-    freeResource(s);
-}
-
-bool initAudio(struct audiostate* a) {
-    memset(a, 0, sizeof(*a));
-    if (!createMutex(&a->lock)) return false;
-    if (!createCond(&a->mixcond)) return false;
+bool initAudio(void) {
+    if (!createAccessLock(&audiostate.lock)) return false;
+    if (!createCond(&audiostate.mixcond)) return false;
     if (SDL_Init(SDL_INIT_AUDIO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init audio: %s", SDL_GetError());
         return false;
@@ -834,8 +833,8 @@ bool initAudio(struct audiostate* a) {
     return true;
 }
 
-bool startAudio(struct audiostate* a) {
-    lockMutex(&a->lock);
+bool startAudio(void) {
+    acquireWriteAccess(&audiostate.lock);
     SDL_AudioSpec inspec;
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
@@ -859,7 +858,7 @@ bool startAudio(struct audiostate* a) {
         inspec.samples = 1024;
     }
     inspec.callback = callback;
-    inspec.userdata = a;
+    inspec.userdata = NULL;
     #if PLATFORM != PLAT_XBOX
     int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
     #else
@@ -871,19 +870,18 @@ bool startAudio(struct audiostate* a) {
         output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
     }
     if (output > 0) {
-        a->output = output;
+        audiostate.output = output;
         plog(LL_INFO, "Audio info (device id %d):", (int)output);
         plog(LL_INFO, "  Frequency: %d", outspec.freq);
         plog(LL_INFO, "  Channels: %d (%s)", outspec.channels, (outspec.channels == 1) ? "mono" : "stereo");
         plog(LL_INFO, "  Samples: %d", (int)outspec.samples);
-        a->freq = outspec.freq;
-        a->channels = outspec.channels;
-        a->audbuf.len = outspec.samples;
-        a->audbuf.data[0][0] = malloc(outspec.samples * sizeof(*a->audbuf.data[0][0]));
-        a->audbuf.data[0][1] = malloc(outspec.samples * sizeof(*a->audbuf.data[0][1]));
-        a->audbuf.data[1][0] = malloc(outspec.samples * sizeof(*a->audbuf.data[1][0]));
-        a->audbuf.data[1][1] = malloc(outspec.samples * sizeof(*a->audbuf.data[1][1]));
-        createMutex(&a->voicelock);
+        audiostate.freq = outspec.freq;
+        audiostate.channels = outspec.channels;
+        audiostate.audbuf.len = outspec.samples;
+        audiostate.audbuf.data[0][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][0]));
+        audiostate.audbuf.data[0][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][1]));
+        audiostate.audbuf.data[1][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][0]));
+        audiostate.audbuf.data[1][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][1]));
         int voices;
         tmp = cfg_getvar(config, "Sound", "voices");
         if (tmp) {
@@ -892,71 +890,70 @@ bool startAudio(struct audiostate* a) {
         } else {
             voices = 256;
         }
-        if (a->voices != voices) {
-            a->voices = voices;
-            a->voicedata = realloc(a->voicedata, voices * sizeof(*a->voicedata));
+        if (audiostate.voices != voices) {
+            audiostate.voices = voices;
+            audiostate.voicedata = realloc(audiostate.voicedata, voices * sizeof(*audiostate.voicedata));
         }
         for (int i = 0; i < voices; ++i) {
-            a->voicedata[i].id = -1;
+            audiostate.voicedata[i].id = -1;
         }
         tmp = cfg_getvar(config, "Sound", "decodebuf");
         if (tmp) {
-            a->audbuflen = atoi(tmp);
+            audiostate.audbuflen = atoi(tmp);
             free(tmp);
         } else {
-            a->audbuflen = 4096;
+            audiostate.audbuflen = 4096;
         }
         tmp = cfg_getvar(config, "Sound", "decodewhole");
         if (tmp) {
-            a->soundrcopt.decodewhole = strbool(tmp, true);
+            audiostate.soundrcopt.decodewhole = strbool(tmp, true);
             free(tmp);
         } else {
             #if PLATFORM != PLAT_XBOX
-            a->soundrcopt.decodewhole = true;
+            audiostate.soundrcopt.decodewhole = true;
             #else
-            a->soundrcopt.decodewhole = false;
+            audiostate.soundrcopt.decodewhole = false;
             #endif
         }
-        a->nextid = 0;
-        a->audbufindex = 0;
-        a->mixaudbufindex = -1;
-        a->buftime = outspec.samples * 1000000 / outspec.freq;
-        createThread(&a->mixthread, "mix", mixthread, a);
-        a->valid = true;
+        audiostate.nextid = 0;
+        audiostate.audbufindex = 0;
+        audiostate.mixaudbufindex = -1;
+        audiostate.buftime = outspec.samples * 1000000 / outspec.freq;
+        createThread(&audiostate.mixthread, "mix", mixthread, NULL);
+        audiostate.valid = true;
         SDL_PauseAudioDevice(output, 0);
     } else {
         plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
-        a->valid = false;
+        audiostate.valid = false;
     }
-    unlockMutex(&a->lock);
+    releaseWriteAccess(&audiostate.lock);
     return true;
 }
 
-void stopAudio(struct audiostate* a) {
-    lockMutex(&a->lock);
-    if (a->valid) {
-        a->valid = false;
-        //SDL_PauseAudioDevice(a->output, 1);
-        SDL_CloseAudioDevice(a->output);
-        quitThread(&a->mixthread);
-        broadcastCond(&a->mixcond);
-        destroyThread(&a->mixthread, NULL);
-        destroyMutex(&a->voicelock);
-        for (int i = 0; i < a->voices; ++i) {
-            struct audiosound* v = &a->voicedata[i];
+void stopAudio(void) {
+    acquireWriteAccess(&audiostate.lock);
+    if (audiostate.valid) {
+        audiostate.valid = false;
+        //SDL_PauseAudioDevice(audiostate.output, 1);
+        SDL_CloseAudioDevice(audiostate.output);
+        quitThread(&audiostate.mixthread);
+        broadcastCond(&audiostate.mixcond);
+        destroyThread(&audiostate.mixthread, NULL);
+        for (int i = 0; i < audiostate.voices; ++i) {
+            struct audiosound* v = &audiostate.voicedata[i];
             if (v->id >= 0) {
                stopSound_inline(v);
             }
         }
-        free(a->voicedata);
-        free(a->audbuf.data[0][0]);
-        free(a->audbuf.data[0][1]);
-        free(a->audbuf.data[1][0]);
-        free(a->audbuf.data[1][1]);
+        free(audiostate.voicedata);
+        free(audiostate.audbuf.data[0][0]);
+        free(audiostate.audbuf.data[0][1]);
+        free(audiostate.audbuf.data[1][0]);
+        free(audiostate.audbuf.data[1][1]);
     }
-    unlockMutex(&a->lock);
+    releaseWriteAccess(&audiostate.lock);
 }
 
-void termAudio(struct audiostate* a) {
-    destroyMutex(&a->lock);
+void termAudio(void) {
+    destroyAccessLock(&audiostate.lock);
 }

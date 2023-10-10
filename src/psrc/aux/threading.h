@@ -39,6 +39,10 @@ typedef pthread_cond_t cond_t;
 typedef mtx_t mutex_t;
 typedef cnd_t cond_t;
 #endif
+struct accesslock {
+    int counter;
+    mutex_t lock;
+};
 
 bool createThread(thread_t*, const char* name, threadfunc_t func, void* args);
 void quitThread(thread_t*);
@@ -120,6 +124,58 @@ static inline void destroyCond(cond_t* c) {
     #else
     cnd_destroy(c);
     #endif
+}
+
+static inline bool createAccessLock(struct accesslock* a) {
+    if (!createMutex(&a->lock)) return false;
+    a->counter = 0;
+    return true;
+}
+static inline void destroyAccessLock(struct accesslock* a) {
+    destroyMutex(&a->lock);
+}
+static inline void acquireReadAccess(struct accesslock* a) {
+    lockMutex(&a->lock);
+    ++a->counter;
+    unlockMutex(&a->lock);
+}
+static inline void releaseReadAccess(struct accesslock* a) {
+    lockMutex(&a->lock);
+    --a->counter;
+    unlockMutex(&a->lock);
+}
+static inline void acquireWriteAccess(struct accesslock* a) {
+    lockMutex(&a->lock);
+    while (a->counter) {
+        unlockMutex(&a->lock);
+        yield();
+        lockMutex(&a->lock);
+    }
+}
+static inline void releaseWriteAccess(struct accesslock* a) {
+    unlockMutex(&a->lock);
+}
+static inline void readToWriteAccess(struct accesslock* a) {
+    lockMutex(&a->lock);
+    --a->counter;
+    while (a->counter) {
+        unlockMutex(&a->lock);
+        yield();
+        lockMutex(&a->lock);
+    }
+}
+static inline void writeToReadAccess(struct accesslock* a) {
+    ++a->counter;
+    unlockMutex(&a->lock);
+}
+static inline void yieldReadAccess(struct accesslock* a) {
+    lockMutex(&a->lock);
+    --a->counter;
+    unlockMutex(&a->lock);
+    yield();
+    lockMutex(&a->lock);
+    ++a->counter;
+    unlockMutex(&a->lock);
 }
 
 #endif

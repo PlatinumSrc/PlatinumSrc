@@ -3,20 +3,19 @@
 #include "../aux/logging.h"
 #include "../debug.h"
 
+struct inputstate inputstate;
+
 int quitreq;
 
-bool initInput(struct inputstate* s, struct rendstate* r) {
-    memset(s, 0, sizeof(*s));
-    s->r = r;
-    s->eventcache.size = 256;
-    s->eventcache.data = malloc(s->eventcache.size * sizeof(*s->eventcache.data));
+bool initInput(void) {
+    inputstate.eventcache.size = 256;
+    inputstate.eventcache.data = malloc(inputstate.eventcache.size * sizeof(*inputstate.eventcache.data));
     if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
     SDL_GameControllerEventState(SDL_ENABLE);
     return true;
 }
 
-void pollInput(struct inputstate* s) {
-    (void)s;
+void pollInput(void) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -31,7 +30,7 @@ void pollInput(struct inputstate* s) {
                             .height = e.window.data2,
                             .hz = -1
                         };
-                        updateRendererConfig(s->r, RENDOPT_RES, &res, RENDOPT_END);
+                        updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
                     } break;
                 }
             } break;
@@ -39,7 +38,7 @@ void pollInput(struct inputstate* s) {
     }
 }
 
-void termInput(struct inputstate* s) {
-    free(s->events.data);
-    free(s->eventcache.data);
+void termInput(void) {
+    free(inputstate.events.data);
+    free(inputstate.eventcache.data);
 }

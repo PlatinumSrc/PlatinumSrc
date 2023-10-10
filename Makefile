@@ -417,7 +417,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc/toolbox) $(call a,psrc/game) $(call a,psrc/aux)
+a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/game) $(call a,psrc/aux)
 
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
 

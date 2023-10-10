@@ -86,6 +86,8 @@ struct rendstate {
     bool evenframe;
 };
 
+extern struct rendstate rendstate;
+
 enum rendopt {
     RENDOPT_END,
     RENDOPT_ICON, // char*
@@ -97,15 +99,15 @@ enum rendopt {
     RENDOPT_TEXTUREQLT, // enum rcopt_texture_qlt
 };
 
-bool initRenderer(struct rendstate*);
-bool startRenderer(struct rendstate*);
-bool updateRendererConfig(struct rendstate*, ...);
-void lockRendererConfig(struct rendstate*);
-void unlockRendererConfig(struct rendstate*);
-bool restartRenderer(struct rendstate*);
-void stopRenderer(struct rendstate*);
-void termRenderer(struct rendstate*);
-void render(struct rendstate*);
+bool initRenderer(void);
+bool startRenderer(void);
+bool updateRendererConfig(enum rendopt, ...);
+void lockRendererConfig(void);
+void unlockRendererConfig(void);
+bool restartRenderer(void);
+void stopRenderer(void);
+void termRenderer(void);
+void render(void);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];

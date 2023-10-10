@@ -31,7 +31,6 @@ struct inputevent {
 };
 
 struct inputstate {
-    struct rendstate* r;
     struct {
         int count;
         struct inputinfo* data;
@@ -47,12 +46,14 @@ struct inputstate {
     } eventcache;
 };
 
-bool initInput(struct inputstate*, struct rendstate*);
-int registerEvent(struct inputstate*, char*, struct inputkey*);
-void removeEvent(struct inputstate*, int);
-void pollInput(struct inputstate*);
-bool getNextEvent(struct inputstate*, struct inputevent*);
-void termInput(struct inputstate*);
+extern struct inputstate inputstate;
+
+bool initInput(void);
+int registerEvent(char*, struct inputkey*);
+void removeEvent(int);
+void pollInput(void);
+bool getNextEvent(struct inputevent*);
+void termInput(void);
 
 extern int quitreq;
 

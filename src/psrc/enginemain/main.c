@@ -71,12 +71,6 @@ static void sigh(int sig) {
 
 #endif
 
-struct states {
-    struct rendstate renderer;
-    struct inputstate input;
-    struct audiostate audio;
-};
-
 static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -85,8 +79,6 @@ static int run(int argc, char** argv) {
     plog(LL_INFO, "User directory: %s", userdir);
     plog(LL_INFO, "Game directory: %s", gamedir);
     plog(LL_INFO, "Save directory: %s", savedir);
-
-    struct states* states = malloc(sizeof(*states));
 
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing resource manager...");
@@ -99,56 +91,56 @@ static int run(int argc, char** argv) {
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing renderer...");
     #endif
-    if (!initRenderer(&states->renderer)) {
+    if (!initRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing input manager...");
     #endif
-    if (!initInput(&states->input, &states->renderer)) {
+    if (!initInput()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing audio manager...");
     #endif
-    if (!initAudio(&states->audio)) {
+    if (!initAudio()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
         return 1;
     }
 
-    states->renderer.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Starting renderer...");
     #endif
-    if (!startRenderer(&states->renderer)) {
+    if (!startRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
         return 1;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Starting audio manager...");
     #endif
-    if (!startAudio(&states->audio)) {
+    if (!startAudio()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
         return 1;
     }
 
     struct rc_sound* test;
-    test = loadSound(&states->audio, "common:sounds/ambient/wind1");
-    if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
-    freeSound(&states->audio, test);
-    test = loadSound(&states->audio, "game:test/mp3test_1");
-    //if (test) playSound(&states->audio, false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
-    freeSound(&states->audio, test);
-    test = loadSound(&states->audio, "common:sounds/objects/ac1");
+    test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt).sound;
+    if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    freeResource(test);
+    test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt).sound;
+    //if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
+    freeResource(test);
+    test = loadResource(RC_SOUND, "common:sounds/objects/ac1", &audiostate.soundrcopt).sound;
     uint64_t testsound = -1;
     if (test) testsound = playSound(
-        &states->audio, false, test,
+        false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
         SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
     );
-    freeSound(&states->audio, test);
+    freeResource(test);
 
     uint64_t ticks = SDL_GetTicks() + 30000;
     #if PLATFORM == PLAT_XBOX
@@ -159,22 +151,20 @@ static int run(int argc, char** argv) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(&states->audio, testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
-        pollInput(&states->input);
-        render(&states->renderer);
+        changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 5.0, 0.0, cos(t * 2.5) * 5.0, SOUNDFX_END);
+        pollInput();
+        render();
     }
     #if PLATFORM == PLAT_XBOX
     plog__nodraw = false;
     #endif
 
-    stopAudio(&states->audio);
-    stopRenderer(&states->renderer);
+    stopAudio();
+    stopRenderer();
 
-    termAudio(&states->audio);
-    termInput(&states->input);
-    termRenderer(&states->renderer);
-
-    free(states);
+    termAudio();
+    termInput();
+    termRenderer();
 
     return 0;
 }

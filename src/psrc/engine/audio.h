@@ -57,7 +57,7 @@ struct audiosound {
 };
 
 struct audiostate {
-    mutex_t lock;
+    struct accesslock lock;
     volatile bool valid;
     thread_t mixthread;
     cond_t mixcond;
@@ -73,13 +73,14 @@ struct audiostate {
         int len;
         int* data[2][2];
     } audbuf;
-    mutex_t voicelock;
     int voices;
     struct audiosound* voicedata;
     int64_t nextid;
     float campos[3]; // for position effect
     float camrot[3];
 };
+
+extern struct audiostate audiostate;
 
 enum audioopt {
     AUDIOOPT_END,
@@ -89,14 +90,12 @@ enum audioopt {
     AUDIOOPT_VOICES, // int
 };
 
-bool initAudio(struct audiostate*);
-bool startAudio(struct audiostate*);
-void updateAudioConfig(struct audiostate*, ...);
-void lockAudioConfig(struct audiostate*);
-void unlockAudioConfig(struct audiostate*);
-void stopAudio(struct audiostate*);
-bool restartAudio(struct audiostate*);
-void termAudio(struct audiostate*);
+bool initAudio(void);
+bool startAudio(void);
+void updateAudioConfig(void);
+void stopAudio(void);
+bool restartAudio(void);
+void termAudio(void);
 
 #define SOUNDFLAG_UNINTERRUPTIBLE (1 << 0)
 #define SOUNDFLAG_LOOP (1 << 1)
@@ -114,12 +113,10 @@ enum soundfx {
     SOUNDFX_RANGE, // float
 };
 
-struct rc_sound* loadSound(struct audiostate*, const char*);
-void freeSound(struct audiostate*, struct rc_sound*);
-int64_t playSound(struct audiostate*, bool paused, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
-void changeSoundFX(struct audiostate*, int64_t, int /*(bool)*/ immediate, ...);
-void changeSoundFlags(struct audiostate*, int64_t, unsigned disable, unsigned enable);
-void stopSound(struct audiostate*, int64_t);
-void pauseSound(struct audiostate*, int64_t, bool);
+int64_t playSound(bool paused, struct rc_sound* rc, unsigned flags, ... /*soundfx*/);
+void changeSoundFX(int64_t, int /*(bool)*/ immediate, ...);
+void changeSoundFlags(int64_t, unsigned disable, unsigned enable);
+void stopSound(int64_t);
+void pauseSound(int64_t, bool);
 
 #endif
