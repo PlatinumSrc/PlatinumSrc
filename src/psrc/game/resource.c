@@ -31,7 +31,7 @@
 #undef grabResource
 #undef releaseResource
 
-static mutex_t rclock;
+static mutex_t rclock; // TODO: turn into an access lock
 
 struct __attribute__((packed)) rcdata {
     struct rcheader header;
@@ -647,12 +647,32 @@ union resource loadResource(enum rctype t, const char* uri, union rcopt o) {
 
 static void freeResource_internal(struct rcdata*);
 
-static void freeResource_union(union resource r) {
+static inline void freeResource_union(union resource r) {
     if (r.ptr) {
         freeResource_internal(r.ptr - sizeof(struct rcheader));
     }
 }
 #define freeResource_union(r) freeResource_union((union resource){.ptr = (void*)(r)})
+
+static inline void freeResource_force(enum rctype type, struct rcdata* r) {
+    switch ((uint8_t)type) {
+        case RC_MATERIAL: {
+            freeResource_union(r->material.texture);
+        } break;
+        case RC_MODEL: {
+            for (unsigned i = 0; i < r->model.parts; ++i) {
+                freeResource_union(r->model.partdata[i].material);
+            }
+        } break;
+        case RC_SOUND: {
+            free(r->sound.data);
+        } break;
+        case RC_TEXTURE: {
+            free(r->texture.data);
+        } break;
+    }
+    free(r->header.path);
+}
 
 static void freeResource_internal(struct rcdata* _r) {
     enum rctype type = _r->header.type;
@@ -660,23 +680,7 @@ static void freeResource_internal(struct rcdata* _r) {
     struct rcdata* r = groups[type].data[index];
     --r->header.refs;
     if (!r->header.refs) {
-        switch ((uint8_t)type) {
-            case RC_MATERIAL: {
-                freeResource_union(r->material.texture);
-            } break;
-            case RC_MODEL: {
-                for (unsigned i = 0; i < r->model.parts; ++i) {
-                    freeResource_union(r->model.partdata[i].material);
-                }
-            } break;
-            case RC_SOUND: {
-                free(r->sound.data);
-            } break;
-            case RC_TEXTURE: {
-                free(r->texture.data);
-            } break;
-        }
-        free(r->header.path);
+        freeResource_force(type, r);
         free(r);
         groups[type].data[index] = NULL;
     }
@@ -855,4 +859,20 @@ bool initResource(void) {
     free(tmp);
 
     return true;
+}
+
+void termResource(void) {
+    for (int i = 0; i < RC__COUNT; ++i) {
+        int grouplen = groups[i].len;
+        for (int j = 0; j < grouplen; ++j) {
+            struct rcdata* r = groups[i].data[j];
+            if (r) {
+                freeResource_force(r->header.type, r);
+                free(r);
+            }
+        }
+    }
+
+    destroyMutex(&rclock);
+    destroyMutex(&modinfo.lock);
 }

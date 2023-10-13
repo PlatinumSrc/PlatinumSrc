@@ -936,9 +936,11 @@ void stopAudio(void) {
         audiostate.valid = false;
         //SDL_PauseAudioDevice(audiostate.output, 1);
         SDL_CloseAudioDevice(audiostate.output);
+        releaseWriteAccess(&audiostate.lock);
         quitThread(&audiostate.mixthread);
         broadcastCond(&audiostate.mixcond);
         destroyThread(&audiostate.mixthread, NULL);
+        acquireWriteAccess(&audiostate.lock);
         for (int i = 0; i < audiostate.voices; ++i) {
             struct audiosound* v = &audiostate.voicedata[i];
             if (v->id >= 0) {

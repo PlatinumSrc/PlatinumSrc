@@ -132,6 +132,12 @@ static inline bool createAccessLock(struct accesslock* a) {
     return true;
 }
 static inline void destroyAccessLock(struct accesslock* a) {
+    lockMutex(&a->lock);
+    while (a->counter) {
+        unlockMutex(&a->lock);
+        yield();
+        lockMutex(&a->lock);
+    }
     destroyMutex(&a->lock);
 }
 static inline void acquireReadAccess(struct accesslock* a) {

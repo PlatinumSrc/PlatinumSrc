@@ -164,6 +164,7 @@ union __attribute__((packed)) rcopt {
 };
 
 bool initResource(void);
+void termResource(void);
 union resource loadResource(enum rctype type, const char* path, union rcopt opt);
 void freeResource(union resource);
 void grabResource(union resource);

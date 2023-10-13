@@ -1,5 +1,6 @@
 #include "../engine/renderer.h"
 #include "../engine/input.h"
+#include "../engine/ui.h"
 #include "../engine/audio.h"
 #include "../aux/logging.h"
 #include "../aux/string.h"
@@ -103,6 +104,13 @@ static int run(int argc, char** argv) {
         return 1;
     }
     #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Initializing UI manager...");
+    #endif
+    if (!initUI()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init UI manager");
+        return 1;
+    }
+    #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Initializing audio manager...");
     #endif
     if (!initAudio()) {
@@ -163,8 +171,11 @@ static int run(int argc, char** argv) {
     stopRenderer();
 
     termAudio();
+    termUI();
     termInput();
     termRenderer();
+
+    termResource();
 
     return 0;
 }
