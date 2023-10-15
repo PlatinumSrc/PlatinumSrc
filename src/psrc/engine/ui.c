@@ -4,15 +4,15 @@
 
 struct uistate uistate;
 
-int newUIElem(enum uielemtype etype, enum uiattr attr, ...) {
+bool newUIElem(struct uielemptr*, enum uielemtype etype, enum uiattr attr, ...) {
     
 }
 
-void editUIElem(int e, enum uiattr attr, ...) {
+void editUIElem(struct uielemptr* e, enum uiattr attr, ...) {
     
 }
 
-void deleteUIElem(int e) {
+void deleteUIElem(struct uielemptr* e) {
     
 }
 
