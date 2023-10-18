@@ -1,7 +1,6 @@
 ifndef MKSUB
 
 MODULE ?= engine
-CROSS ?= 
 SRCDIR ?= src
 OBJDIR ?= obj
 EXTDIR ?= external
@@ -16,9 +15,9 @@ ifeq ($(CROSS),)
     STRIP ?= strip
     WINDRES ?= true
     ifndef M32
-        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -s)_$(shell uname -m)))
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o)_$(shell uname -m)))
     else
-        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -s)_$(shell i386 uname -m)))
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o)_$(shell i386 uname -m)))
     endif
     SOSUF := .so
 else ifeq ($(CROSS),freebsd)
@@ -127,6 +126,10 @@ else
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
 _OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
+
+ifeq ($(OS),Windows_NT)
+    CROSS := win32
+endif
 
 _CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
 _CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
