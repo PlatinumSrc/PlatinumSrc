@@ -269,11 +269,11 @@ struct uistate {
 extern struct uistate uistate;
 
 bool initUI(void);
-void termUI(void);
 bool newUIElem(struct uielemptr*, enum uielemtype, enum uiattr, ...);
 void editUIElem(struct uielemptr*, enum uiattr, ...);
 void deleteUIElem(struct uielemptr*);
 void clearUIElems(void);
 void doUIEvents(void);
+void termUI(void);
 
 #endif

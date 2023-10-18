@@ -5,16 +5,43 @@
 
 #include <stdbool.h>
 
-enum inputdevice {
-    INPUTDEVICE_KEYBOARD,
-    INPUTDEVICE_MOUSE,
-    INPUTDEVICE__COUNT,
+enum inputdev {
+    INPUTDEV_KEYBOARD,
+    INPUTDEV_MOUSE,
+    INPUTDEV_GAMEPAD,
+};
+
+enum inputdevpart {
+    INPUTDEVPART_MOUSE_BUTTONS,
+    INPUTDEVPART_MOUSE_SCROLLWHEEL,
+    INPUTDEVPART_GAMEPAD_AXIS,
+    INPUTDEVPART_GAMEPAD_BUTTON,
 };
 
 struct inputkey {
-    enum inputdevice devtype;
-    int devid;
-    int button;
+    enum inputdev dev;
+    union {
+        struct {
+            int key;
+        } keyboard;
+        struct {
+            enum inputdevpart part;
+            union {
+                uint8_t button;
+                uint8_t scrolldir;
+            };
+        } mouse;
+        struct {
+            enum inputdevpart part;
+            union {
+                struct {
+                    int8_t id;
+                    uint8_t positive : 1;
+                } axis;
+                int8_t button;
+            };
+        } gamepad;
+    };
 };
 
 struct inputinfo {
@@ -23,37 +50,30 @@ struct inputinfo {
     struct inputkey* keys;
 };
 
-struct inputevent {
+struct inputaction {
     int id;
     char* name;
-    struct inputkey* key;
+    float amount;
+};
+
+struct inputactiondata {
+    char* name;
     float amount;
 };
 
 struct inputstate {
-    struct {
-        int count;
-        struct inputinfo* data;
-    } events;
-    struct {
-        int size;
-        int rptr;
-        int wptr;
-        struct {
-            int id;
-            float amount;
-        }* data;
-    } eventcache;
 };
 
 extern struct inputstate inputstate;
 
 bool initInput(void);
-int registerEvent(char*, struct inputkey*);
-void removeEvent(int);
+int registerAction(const char*, struct inputkey*);
+void removeAction(int);
 void pollInput(void);
-bool getNextEvent(struct inputevent*);
+bool getNextAction(struct inputaction*);
 void termInput(void);
+struct inputkey* inputKeysFromStr(const char*);
+char* inputKeysToStr(const struct inputkey*);
 
 extern int quitreq;
 

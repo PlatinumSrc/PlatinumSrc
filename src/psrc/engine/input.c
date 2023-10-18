@@ -8,8 +8,6 @@ struct inputstate inputstate;
 int quitreq;
 
 bool initInput(void) {
-    inputstate.eventcache.size = 256;
-    inputstate.eventcache.data = malloc(inputstate.eventcache.size * sizeof(*inputstate.eventcache.data));
     if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
     SDL_GameControllerEventState(SDL_ENABLE);
     return true;
@@ -39,6 +37,4 @@ void pollInput(void) {
 }
 
 void termInput(void) {
-    free(inputstate.events.data);
-    free(inputstate.eventcache.data);
 }

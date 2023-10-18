@@ -4,7 +4,7 @@
 
 struct uistate uistate;
 
-bool newUIElem(struct uielemptr*, enum uielemtype etype, enum uiattr attr, ...) {
+bool newUIElem(struct uielemptr* e, enum uielemtype etype, enum uiattr attr, ...) {
     
 }
 
