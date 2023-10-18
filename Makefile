@@ -13,7 +13,6 @@ ifeq ($(CROSS),)
     LD := $(CC)
     AR ?= ar
     STRIP ?= strip
-    WINDRES ?= true
     ifndef M32
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o)_$(shell uname -m)))
     else
@@ -30,7 +29,6 @@ else ifeq ($(CROSS),freebsd)
     LD := $(CC)
     AR ?= ar
     STRIP ?= strip
-    WINDRES ?= true
     ifndef M32
         PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
     else
@@ -69,7 +67,6 @@ else ifeq ($(CROSS),xbox)
     LD := nxdk-link
     AR ?= ar
     STRIP ?= strip
-    WINDRES ?= true
 
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
     EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
@@ -129,6 +126,7 @@ _OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 
 ifeq ($(OS),Windows_NT)
     CROSS := win32
+    WINDRES := windres
 endif
 
 _CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
