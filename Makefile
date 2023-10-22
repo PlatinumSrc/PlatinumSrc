@@ -330,6 +330,7 @@ ifeq ($(CROSS),win32)
     ifneq ($(WINDRES),)
         WRSRC := $(SRCDIR)/psrc/winver.rc
         WROBJ := $(_OBJDIR)/psrc/winver.o
+        _WROBJ = $(shell test -f $(WROBJ) && echo $(WROBJ))
     endif
 endif
 
@@ -471,7 +472,7 @@ ifneq ($(WINDRES),)
 endif
 endif
 ifneq ($(CROSS),nxdk)
-	@$(LD) $(_LDFLAGS) $^ $(patsubst %,%*,$(WROBJ)) $(_LDLIBS) -o $@
+	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
