@@ -108,7 +108,15 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
-    rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
+    {
+        char* tmp = cfg_getvar(gameconfig, NULL, "icon");
+        if (tmp) {
+            rendstate.icon = getRcPath(tmp, RC_TEXTURE, NULL);
+            free(tmp);
+        } else {
+            rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
+        }
+    }
     plog(LL_INFO, "Starting renderer...");
     if (!startRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
