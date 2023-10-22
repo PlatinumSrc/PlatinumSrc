@@ -1,7 +1,7 @@
 #include "audio.h"
 
-#include "../aux/logging.h"
-#include "../aux/string.h"
+#include "../utils/logging.h"
+#include "../utils/string.h"
 
 #include "../game/game.h"
 #include "../game/time.h"
@@ -549,6 +549,10 @@ static inline void stopSound_inline(struct audiosound* v) {
 
 void stopSound(int64_t id) {
     acquireReadAccess(&audiostate.lock);
+    if (!audiostate.valid) {
+        releaseReadAccess(&audiostate.lock);
+        return;
+    }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voices);
         struct audiosound* v = &audiostate.voicedata[i];
@@ -589,7 +593,7 @@ static inline void calcSoundFX(struct audiosound* s) {
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = roundf(dist * -0.002898 * (float)s->rc->freq);
+                        s->fx[1].posoff = dist * -0.002898 * (float)s->rc->freq;
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
@@ -620,13 +624,14 @@ static inline void calcSoundFX(struct audiosound* s) {
                     }
                     if (pos[2] > 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 + 0.175 * pos[2];
-                        vol[1] *= 1.0 + 0.175 * pos[2];
+                        vol[0] *= 1.0 + 0.1 * pos[2];
+                        vol[1] *= 1.0 + 0.1 * pos[2];
                     } else if (pos[2] < 0.0) {
-                        float a = pos[2] * 2.0;
+                        float a = pos[2] * 2.2;
                         if (a < -1.0) a = -1.0;
-                        vol[0] *= 1.0 + 0.25 * a;
-                        vol[1] *= 1.0 + 0.25 * a;
+                        pos[0] *= 1.0 - 0.2 * pos[2];
+                        vol[0] *= 1.0 + 0.2 * a;
+                        vol[1] *= 1.0 + 0.2 * a;
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];
@@ -669,6 +674,10 @@ static inline void calcSoundFX(struct audiosound* s) {
 
 void changeSoundFX(int64_t id, int immediate, ...) {
     acquireReadAccess(&audiostate.lock);
+    if (!audiostate.valid) {
+        releaseReadAccess(&audiostate.lock);
+        return;
+    }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voices);
         struct audiosound* v = &audiostate.voicedata[i];
@@ -708,6 +717,10 @@ void changeSoundFX(int64_t id, int immediate, ...) {
 
 void changeSoundFlags(int64_t id, unsigned disable, unsigned enable) {
     acquireReadAccess(&audiostate.lock);
+    if (!audiostate.valid) {
+        releaseReadAccess(&audiostate.lock);
+        return;
+    }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voices);
         struct audiosound* v = &audiostate.voicedata[i];
@@ -931,16 +944,14 @@ bool startAudio(void) {
 }
 
 void stopAudio(void) {
-    acquireWriteAccess(&audiostate.lock);
     if (audiostate.valid) {
-        audiostate.valid = false;
-        //SDL_PauseAudioDevice(audiostate.output, 1);
-        SDL_CloseAudioDevice(audiostate.output);
-        releaseWriteAccess(&audiostate.lock);
         quitThread(&audiostate.mixthread);
         broadcastCond(&audiostate.mixcond);
         destroyThread(&audiostate.mixthread, NULL);
         acquireWriteAccess(&audiostate.lock);
+        audiostate.valid = false;
+        //SDL_PauseAudioDevice(audiostate.output, 1);
+        SDL_CloseAudioDevice(audiostate.output);
         for (int i = 0; i < audiostate.voices; ++i) {
             struct audiosound* v = &audiostate.voicedata[i];
             if (v->id >= 0) {
@@ -952,10 +963,11 @@ void stopAudio(void) {
         free(audiostate.audbuf.data[0][1]);
         free(audiostate.audbuf.data[1][0]);
         free(audiostate.audbuf.data[1][1]);
+        releaseWriteAccess(&audiostate.lock);
     }
-    releaseWriteAccess(&audiostate.lock);
 }
 
 void termAudio(void) {
     destroyAccessLock(&audiostate.lock);
+    destroyCond(&audiostate.mixcond);
 }

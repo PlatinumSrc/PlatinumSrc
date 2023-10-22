@@ -1,7 +1,7 @@
 #ifndef PSRC_GAME_RESOURCE_H
 #define PSRC_GAME_RESOURCE_H
 
-#include "../aux/config.h"
+#include "../utils/config.h"
 
 #include "../../schrift/schrift.h"
 

@@ -2,6 +2,8 @@
 
 #include "input.h"
 
+#include <stdlib.h>
+
 struct uistate uistate;
 
 bool newUIElem(struct uielemptr* e, enum uielemtype etype, enum uiattr attr, ...) {

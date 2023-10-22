@@ -1,7 +1,7 @@
 #ifndef PSRC_ENGINE_INPUT_H
 #define PSRC_ENGINE_INPUT_H
 
-#include "renderer.h"
+#include "../utils/threading.h"
 
 #include <stdbool.h>
 
@@ -44,37 +44,56 @@ struct inputkey {
     };
 };
 
-struct inputinfo {
-    char* name;
-    int keyct;
-    struct inputkey* keys;
-};
-
 struct inputaction {
     int id;
-    char* name;
     float amount;
+    struct inputactiondata* data;
+};
+
+enum inputactiontype {
+    INPUTACTIONTYPE_INVALID = -1,
+    INPUTACTIONTYPE_SINGLE,
+    INPUTACTIONTYPE_MULTI,
 };
 
 struct inputactiondata {
+    enum inputactiontype type;
     char* name;
-    float amount;
+    struct inputkey* keys;
+};
+
+enum inputmode {
+    INPUTMODE_UI,
+    INPUTMODE_INGAME,
+    INPUTMODE_TEXTINPUT,
+    INPUTMODE_GETKEY,
 };
 
 struct inputstate {
+    struct accesslock lock;
+    enum inputmode mode;
+    int keystates;
+    const uint8_t* keystatedata;
+    struct {
+        int size;
+        int len;
+        struct inputactiondata* data;
+    } actions;
+    int curaction;
+    int activeaction;
 };
 
 extern struct inputstate inputstate;
 
 bool initInput(void);
-int registerAction(const char*, struct inputkey*);
-void removeAction(int);
+void setInputMode(enum inputmode);
 void pollInput(void);
-bool getNextAction(struct inputaction*);
 void termInput(void);
-struct inputkey* inputKeysFromStr(const char*);
-char* inputKeysToStr(const struct inputkey*);
-
-extern int quitreq;
+int newInputAction(enum inputactiontype, const char*, struct inputkey*);
+void setInputActionKeys(int, struct inputkey*);
+void deleteInputAction(int);
+bool getNextAction(struct inputaction*);
+bool getInputKey(struct inputkey*);
+struct inputkey* strToInputKeys(const char*);
 
 #endif

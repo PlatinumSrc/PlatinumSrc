@@ -2,10 +2,10 @@
 #include "../engine/input.h"
 #include "../engine/ui.h"
 #include "../engine/audio.h"
-#include "../aux/logging.h"
-#include "../aux/string.h"
-#include "../aux/filesystem.h"
-#include "../aux/config.h"
+#include "../utils/logging.h"
+#include "../utils/string.h"
+#include "../utils/filesystem.h"
+#include "../utils/config.h"
 #include "../game/resource.h"
 #include "../game/game.h"
 #include "../game/time.h"
@@ -81,54 +81,40 @@ static int run(int argc, char** argv) {
     plog(LL_INFO, "Game directory: %s", gamedir);
     plog(LL_INFO, "Save directory: %s", savedir);
 
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Initializing resource manager...");
-    #endif
+    plog(LL_INFO, "Initializing resource manager...");
     if (!initResource()) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
         return 1;
     }
 
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Initializing renderer...");
-    #endif
+    plog(LL_INFO, "Initializing renderer...");
     if (!initRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Initializing input manager...");
-    #endif
+    plog(LL_INFO, "Initializing input manager...");
     if (!initInput()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Initializing UI manager...");
-    #endif
+    plog(LL_INFO, "Initializing UI manager...");
     if (!initUI()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init UI manager");
         return 1;
     }
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Initializing audio manager...");
-    #endif
+    plog(LL_INFO, "Initializing audio manager...");
     if (!initAudio()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
         return 1;
     }
 
     rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Starting renderer...");
-    #endif
+    plog(LL_INFO, "Starting renderer...");
     if (!startRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
         return 1;
     }
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Starting audio manager...");
-    #endif
+    plog(LL_INFO, "Starting audio manager...");
     if (!startAudio()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
         return 1;
@@ -141,7 +127,7 @@ static int run(int argc, char** argv) {
     test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt).sound;
     //if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "common:sounds/objects/ac1", &audiostate.soundrcopt).sound;
+    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt).sound;
     uint64_t testsound = -1;
     if (test) testsound = playSound(
         false, test,

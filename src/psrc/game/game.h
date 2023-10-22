@@ -1,7 +1,9 @@
 #ifndef PSRC_GAME_GAME_H
 #define PSRC_GAME_GAME_H
 
-#include "../aux/config.h"
+#include "../utils/config.h"
+
+extern int quitreq;
 
 extern char* maindir;
 extern char* userdir;

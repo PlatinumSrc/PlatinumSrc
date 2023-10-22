@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "../aux/threading.h"
+#include "../utils/threading.h"
 
 enum uielemtype {
     UIELEMTYPE_CONTAINER,

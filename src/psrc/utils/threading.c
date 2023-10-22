@@ -6,8 +6,8 @@
 #include <stdlib.h>
 
 static void* threadwrapper(void* t) {
-    #ifndef AUX_THREADING_NONAMES
-        #ifndef AUX_THREADING_STDC
+    #ifndef UTILS_THREADING_NONAMES
+        #ifndef UTILS_THREADING_STDC
             #if defined(__GLIBC__)
                 pthread_setname_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_NETBSD
@@ -32,7 +32,7 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.args = a;
     t->data.shouldclose = false;
     bool fail;
-    #ifndef AUX_THREADING_STDC
+    #ifndef UTILS_THREADING_STDC
     fail = pthread_create(&t->thread, NULL, threadwrapper, t);
     #else
     fail = (thrd_create(&t->thread, (thrd_start_t)threadwrapper, t) != thrd_success);
@@ -59,7 +59,7 @@ void destroyThread(thread_t* t, void** r) {
     plog(LL_INFO | LF_DEBUG, "Stopping thread %s...", (t->name) ? t->name : "(null)");
     #endif
     t->data.shouldclose = true;
-    #ifndef AUX_THREADING_STDC
+    #ifndef UTILS_THREADING_STDC
     pthread_join(t->thread, r);
     #else
     thrd_join(t->thread, (int*)r);

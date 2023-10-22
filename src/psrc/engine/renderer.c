@@ -2,8 +2,8 @@
 
 #include "../version.h"
 
-#include "../aux/logging.h"
-//#include "../aux/threads.h"
+#include "../utils/logging.h"
+//#include "../utils/threads.h"
 
 #include "../../stb/stb_image.h"
 

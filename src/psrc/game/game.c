@@ -1,3 +1,5 @@
+int quitreq;
+
 char* maindir;
 char* userdir;
 

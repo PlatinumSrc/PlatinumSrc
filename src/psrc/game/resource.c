@@ -3,11 +3,11 @@
 
 #include "../debug.h"
 
-#include "../aux/logging.h"
-#include "../aux/string.h"
-#include "../aux/filesystem.h"
-#include "../aux/threading.h"
-#include "../aux/crc.h"
+#include "../utils/logging.h"
+#include "../utils/string.h"
+#include "../utils/filesystem.h"
+#include "../utils/threading.h"
+#include "../utils/crc.h"
 
 #include "../../stb/stb_image.h"
 #include "../../stb/stb_image_resize.h"

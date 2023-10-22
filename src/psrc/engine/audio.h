@@ -4,7 +4,7 @@
 #include "../platform.h"
 
 #include "../game/resource.h"
-#include "../aux/threading.h"
+#include "../utils/threading.h"
 
 #include "../../stb/stb_vorbis.h"
 #include "../../minimp3/minimp3_ex.h"

@@ -1,5 +1,5 @@
-#ifndef PSRC_AUX_LOGGING_H
-#define PSRC_AUX_LOGGING_H
+#ifndef PSRC_UTILS_LOGGING_H
+#define PSRC_UTILS_LOGGING_H
 
 #include "../platform.h"
 #include "threading.h"

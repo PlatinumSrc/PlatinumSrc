@@ -198,9 +198,13 @@ define so
 $(1)$(SOSUF)
 endef
 
-LDLIBS.dir.psrc_aux := 
+CPPFLAGS.dir.psrc_utils := 
+ifeq ($(CROSS),xbox)
+    CPPFLAGS.dir.psrc_utils += -DUTILS_THREADING_STDC
+endif
+LDLIBS.dir.psrc_utils := 
 ifeq ($(CROSS),win32)
-    LDLIBS.dir.psrc_aux += -lwinmm
+    LDLIBS.dir.psrc_utils += -lwinmm
 endif
 
 LDLIBS.dir.psrc_server := 
@@ -250,7 +254,7 @@ endif
 
 CPPFLAGS.dir.psrc_engine = $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift)
 CPPFLAGS.dir.psrc_engine += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-LDLIBS.dir.psrc_engine = $(LDLIBS.dir.psrc_aux)
+LDLIBS.dir.psrc_engine = $(LDLIBS.dir.psrc_utils)
 LDLIBS.dir.psrc_engine += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
 
 ifeq ($(MODULE),engine)
@@ -262,7 +266,7 @@ else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
     _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.zlib)
+    _LDLIBS += $(LDLIBS.dir.psrc_utils) $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
@@ -271,7 +275,7 @@ else ifeq ($(MODULE),editor)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX
-    _LDLIBS += $(LDLIBS.dir.psrc_aux) $(LDLIBS.lib.zlib)
+    _LDLIBS += $(LDLIBS.dir.psrc_utils) $(LDLIBS.lib.zlib)
 endif
 
 ifeq ($(CROSS),xbox)
@@ -418,25 +422,25 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/game) $(call a,psrc/aux)
+a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/game) $(call a,psrc/utils)
 
-a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
+a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/utils) $(call a,psrc)
 
 a.dir.psrc_engine = $(call a,psrc/engine)
 ifneq ($(CROSS),xbox)
     a.dir.psrc_engine += $(call a,glad)
 endif
-a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/aux)
+a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
 
-a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
+a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/utils) $(call a,psrc)
 
-a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/game) $(call a,psrc/aux)
+a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/game) $(call a,psrc/utils)
 
-a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/aux) $(call a,psrc)
+a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/game) $(call a,psrc/utils) $(call a,psrc)
 
-a.dir.psrc_toolbox = $(call a,psrc/toolbox) $(call a,tinyobj) $(call a,psrc/aux)
+a.dir.psrc_toolbox = $(call a,psrc/toolbox) $(call a,tinyobj) $(call a,psrc/utils)
 
-a.dir.psrc_toolboxmain = $(call a,psrc/toolboxmain) $(a.dir.psrc_toolbox) $(call a,psrc/aux) $(call a,psrc)
+a.dir.psrc_toolboxmain = $(call a,psrc/toolboxmain) $(a.dir.psrc_toolbox) $(call a,psrc/utils) $(call a,psrc)
 
 ifeq ($(MODULE),engine)
 a.list = $(a.dir.psrc_enginemain)
