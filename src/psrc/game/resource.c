@@ -14,7 +14,7 @@
 #include "../../stb/stb_vorbis.h"
 #include "../../minimp3/minimp3_ex.h"
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
 #else
     #include <SDL.h>

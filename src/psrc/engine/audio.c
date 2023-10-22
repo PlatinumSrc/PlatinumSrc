@@ -857,7 +857,7 @@ bool startAudio(void) {
         inspec.freq = atoi(tmp);
         free(tmp);
     } else {
-        #if PLATFORM == PLAT_XBOX
+        #if PLATFORM == PLAT_NXDK
         inspec.freq = 22050;
         #else
         inspec.freq = 44100;
@@ -872,7 +872,7 @@ bool startAudio(void) {
     }
     inspec.callback = callback;
     inspec.userdata = NULL;
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
     #else
     int flags = 0;
@@ -922,7 +922,7 @@ bool startAudio(void) {
             audiostate.soundrcopt.decodewhole = strbool(tmp, true);
             free(tmp);
         } else {
-            #if PLATFORM != PLAT_XBOX
+            #if PLATFORM != PLAT_NXDK
             audiostate.soundrcopt.decodewhole = true;
             #else
             audiostate.soundrcopt.decodewhole = false;

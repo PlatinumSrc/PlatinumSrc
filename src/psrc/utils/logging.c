@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
 #endif
 #if PLATFORM == PLAT_WINDOWS
@@ -58,7 +58,7 @@ bool plog_setfile(char* f) {
         logfile = fopen(f, "w");
         if (logfile) {
             bool writelog;
-            #if PLATFORM != PLAT_XBOX
+            #if PLATFORM != PLAT_NXDK
             writelog = !isatty(fileno(logfile));
             #else
             writelog = true;
@@ -81,7 +81,7 @@ bool plog_setfile(char* f) {
 }
 
 static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, char* s, va_list v) {
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     if (!isatty(fileno(f))) plog_writedate(f);
     #else
     plog_writedate(f);
@@ -147,7 +147,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         writelog(lvl, logfile, func, file, line, s, v);
         va_end(v);
     }
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     if (lvl & LF_MSGBOX) {
         char* tmpstr = malloc(4096);
         va_start(v, s);
@@ -189,7 +189,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
     #endif
 }
 
-#if PLATFORM == PLAT_XBOX
+#if PLATFORM == PLAT_NXDK
 
 #include <pbgl.h>
 #include <GL/gl.h>

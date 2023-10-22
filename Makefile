@@ -18,7 +18,6 @@ ifeq ($(CROSS),)
     else
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o)_$(shell i386 uname -m)))
     endif
-    SOSUF := .so
 else ifeq ($(CROSS),freebsd)
     FREEBSD_VERSION := 12.4
     ifndef M32
@@ -35,7 +34,6 @@ else ifeq ($(CROSS),freebsd)
         PLATFORM := FreeBSD_$(FREEBSD_VERSION)_i686
     endif
     CC += --sysroot=$(EXTDIR)/$(PLATFORM)
-    SOSUF := .so
 else ifeq ($(CROSS),win32)
     ifndef M32
         CC := x86_64-w64-mingw32-gcc
@@ -52,8 +50,7 @@ else ifeq ($(CROSS),win32)
         WINDRES := i686-w64-mingw32-windres
         PLATFORM := Windows_i686
     endif
-    SOSUF := .dll
-else ifeq ($(CROSS),xbox)
+else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
     endif
@@ -71,7 +68,7 @@ else ifeq ($(CROSS),xbox)
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
     EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
 
-    PLATFORM := Xbox
+    PLATFORM := NXDK
 
     XBE_TITLE := PlatinumSrc
     XBE_TITLEID := PQ-001
@@ -125,8 +122,17 @@ PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
 _OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 
 ifeq ($(OS),Windows_NT)
+    CC := gcc
+    LD := $(CC)
     CROSS := win32
     WINDRES := windres
+endif
+
+ifeq ($(CROSS),win32)
+    SOSUF := .dll
+else ifeq ($(CROSS),nxdk)
+else
+    SOSUF := .so
 endif
 
 _CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
@@ -134,13 +140,13 @@ _CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
 _LDFLAGS := $(LDFLAGS)
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
-ifneq ($(CROSS),xbox)
+ifneq ($(CROSS),nxdk)
     _LDFLAGS += -L$(LIBDIR)/$(PLATFORM) -L$(LIBDIR)
 endif
 ifeq ($(CROSS),win32)
     _LDFLAGS += -static
     _LDLIBS := -l:libwinpthread.a -lwinmm
-else ifeq ($(CROSS),xbox)
+else ifeq ($(CROSS),nxdk)
     _CPPFLAGS += -DPB_HAL_FONT
 else
     _LDLIBS += -lpthread
@@ -153,7 +159,7 @@ ifndef DEBUG
     _CFLAGS += -O$(O) -fno-exceptions
     ifndef NOLTO
         _CFLAGS += -flto=auto
-        ifneq ($(CROSS),xbox)
+        ifneq ($(CROSS),nxdk)
             _LDFLAGS += -flto=auto
         else
             MKENV.NXDK := $(MKENV.NXDK) LTO=y
@@ -161,7 +167,7 @@ ifndef DEBUG
     endif
 else
     _CPPFLAGS += -DDBGLVL=$(DEBUG)
-    ifneq ($(CROSS),xbox)
+    ifneq ($(CROSS),nxdk)
         _CFLAGS += -Og -g
     else
         _CFLAGS += -g -gdwarf-4
@@ -177,7 +183,7 @@ else
         _LDFLAGS += -fsanitize=address
     endif
 endif
-ifneq ($(CROSS),xbox)
+ifneq ($(CROSS),nxdk)
     _CFLAGS += -pthread -ffast-math -fvisibility=hidden
     _LDLIBS := -lm
     ifdef DEBUG
@@ -199,7 +205,7 @@ $(1)$(SOSUF)
 endef
 
 CPPFLAGS.dir.psrc_utils := 
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.psrc_utils += -DUTILS_THREADING_STDC
 endif
 LDLIBS.dir.psrc_utils := 
@@ -213,17 +219,17 @@ ifeq ($(CROSS),win32)
 endif
 
 CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif
 
 CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif
 
 CPPFLAGS.dir.schrift := 
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
 endif
 
@@ -239,7 +245,7 @@ LDLIBS.lib.SDL2 :=
 ifeq ($(CROSS),win32)
     CPPFLAGS.lib.SDL2 += -DSDL_MAIN_HANDLED
     LDLIBS.lib.SDL2 += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
-else ifeq ($(CROSS),xbox)
+else ifeq ($(CROSS),nxdk)
 else
     LDLIBS.lib.SDL2 += -lSDL2
 endif
@@ -247,7 +253,7 @@ endif
 LDLIBS.lib.zlib := 
 ifeq ($(CROSS),win32)
     LDLIBS.lib.zlib += -l:libz.a
-else ifeq ($(CROSS),xbox)
+else ifeq ($(CROSS),nxdk)
 else
     LDLIBS.lib.zlib += -lz
 endif
@@ -278,7 +284,7 @@ else ifeq ($(MODULE),toolbox)
     _LDLIBS += $(LDLIBS.dir.psrc_utils) $(LDLIBS.lib.zlib)
 endif
 
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
 
 __CFLAGS := $(_CFLAGS) $(_CPPFLAGS)
 __CFLAGS := $(filter-out -Wall,$(__CFLAGS))
@@ -315,7 +321,7 @@ endif
 ifeq ($(CROSS),win32)
     BINPATH := $(BINPATH).exe
 endif
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
     BINPATH := $(BINPATH).exe
 endif
 BINPATH := $(OUTDIR)/$(BINPATH)
@@ -327,7 +333,7 @@ ifeq ($(CROSS),win32)
     endif
 endif
 
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
 TARGET = $(XISO)
 else
 TARGET = $(BINPATH)
@@ -427,7 +433,7 @@ a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/ga
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/game) $(call a,psrc/utils) $(call a,psrc)
 
 a.dir.psrc_engine = $(call a,psrc/engine)
-ifneq ($(CROSS),xbox)
+ifneq ($(CROSS),nxdk)
     a.dir.psrc_engine += $(call a,glad)
 endif
 a.dir.psrc_engine += $(call a,psrc/game) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
@@ -453,7 +459,7 @@ a.list = $(a.dir.psrc_toolboxmain)
 endif
 
 $(BINPATH): $(OBJECTS) $(a.list)
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
 	@echo Making NXDK libs...
 	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; '$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} main.exe
 	@echo Made NXDK libs
@@ -461,13 +467,13 @@ endif
 	@echo Linking $(notdir $@)...
 ifeq ($(CROSS),win32)
 ifneq ($(WINDRES),)
-	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ)
+	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
 endif
 endif
-ifneq ($(CROSS),xbox)
+ifneq ($(CROSS),nxdk)
 	@$(LD) $(_LDFLAGS) $^ $(WROBJ) $(_LDLIBS) -o $@
 ifndef NOSTRIP
-	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@
+	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
 else
 	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(_LDLIBS) -out:$@ > $(null)
@@ -495,7 +501,7 @@ run: $(TARGET)
 	@$(call exec,$(TARGET))
 
 clean:
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
 	@echo Cleaning NXDK...
 	@'$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} clean
 	@$(call rm,$(XISODIR)/default.xbe)
@@ -506,7 +512,7 @@ endif
 
 .PHONY: clean target run
 
-ifeq ($(CROSS),xbox)
+ifeq ($(CROSS),nxdk)
 
 $(XISODIR):
 	@$(call mkdir,$@)

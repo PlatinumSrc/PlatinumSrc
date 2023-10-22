@@ -11,7 +11,7 @@
 
 #include "../platform.h"
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
 #else
     #include <SDL.h>

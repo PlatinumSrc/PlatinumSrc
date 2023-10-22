@@ -3,16 +3,16 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <time.h>
-#if PLATFORM == PLAT_XBOX
+#if PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_XBOX
+#if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_NXDK
 LARGE_INTEGER perfctfreq = {.QuadPart = 100};
 #endif
 
 uint64_t altutime(void) {
-    #if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_NXDK
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     return time.QuadPart * 1000000 / perfctfreq.QuadPart;
@@ -30,7 +30,7 @@ void microwait(uint64_t d) {
     SetWaitableTimer(timer, &_d, 0, NULL, NULL, false);
     WaitForSingleObject(timer, INFINITE);
     CloseHandle(timer);
-    #elif PLATFORM == PLAT_XBOX
+    #elif PLATFORM == PLAT_NXDK
     LARGE_INTEGER _d = {.QuadPart = d * -10};
     KeDelayExecutionThread(UserMode, true, &_d);
     #else

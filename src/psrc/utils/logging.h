@@ -39,7 +39,7 @@ extern mutex_t loglock;
 
 bool initLogging(void);
 void plog__write(enum loglevel, const char*, const char*, unsigned, char*, ...);
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     #define plog(lvl, ...) do {\
         lockMutex(&loglock);\
         plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\

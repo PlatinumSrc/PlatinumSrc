@@ -6,7 +6,7 @@
 
 #include "../../cglm/cglm.h"
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
 #else
     #include <SDL.h>
@@ -18,7 +18,7 @@
 enum rendapi {
     RENDAPI__INVAL = -1,
     RENDAPI_GL11,
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     RENDAPI_GL33,
     RENDAPI_GLES30,
     #endif
@@ -67,14 +67,14 @@ struct rendstate {
     union {
         struct {
             bool init;
-            #if PLATFORM != PLAT_XBOX
+            #if PLATFORM != PLAT_NXDK
             SDL_GLContext ctx;
             #endif
             union {
                 struct {
                     bool depthstate;
                 } gl11;
-                #if PLATFORM != PLAT_XBOX
+                #if PLATFORM != PLAT_NXDK
                 struct {
                 } gl33;
                 struct {

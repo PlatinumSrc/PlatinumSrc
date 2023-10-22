@@ -48,7 +48,8 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
         - `CROSS` - Cross compile
             - `freebsd`
             - `win32`
-            - `xbox`
+            - `nxdk`
+        - `FREEBSD_VERSION` - Version of FreeBSD to cross-compile to \(default is `12.4`\)
         - `EMULATOR` - Set to override the command used to run the ROM
         - `USE_DISCORD_GAME_SDK` - Set to any value to use the Discord Game SDK
         - `NATIVE` - Tune build for native system
@@ -73,7 +74,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
     make DEBUG=1 ASAN=y -j$(nproc) run
     ```
     ```
-    make CROSS=xbox DEBUG=0 -j$(nproc) run
+    make CROSS=nxdk DEBUG=0 -j$(nproc) run
     ```
 
 ---

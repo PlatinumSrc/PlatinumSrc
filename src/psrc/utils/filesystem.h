@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_NXDK
     #define PATHSEP '/'
     #define PATHSEPSTR "/"
 #else

@@ -10,7 +10,7 @@
 #define PLAT_OPENBSD 6
 #define PLAT_UNIX    7
 #define PLAT_WINDOWS 8
-#define PLAT_XBOX    9
+#define PLAT_NXDK    9
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -38,13 +38,13 @@
     #define PLATSTR "OpenBSD"
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
-    #define PLATSTR "Unix or Unix-like"
+    #define PLATSTR "Unix"
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
     #define PLATFORM PLAT_WINDOWS
     #define PLATSTR "Windows"
-#elif defined(NXDK) || defined(_XBOX)
-    #define PLATFORM PLAT_XBOX
-    #define PLATSTR "Xbox"
+#elif defined(NXDK)
+    #define PLATFORM PLAT_NXDK
+    #define PLATSTR "Xbox (NXDK)"
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATSTR "Unknown"

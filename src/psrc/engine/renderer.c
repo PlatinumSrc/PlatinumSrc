@@ -7,7 +7,7 @@
 
 #include "../../stb/stb_image.h"
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
     // stuff to make sure i don't accidentally use gl things newer than 1.1 (will remove later)
     #if 0
     #include "../../.glad11/gl.h"
@@ -33,21 +33,21 @@ struct rendstate rendstate;
 
 const char* rendapi_ids[] = {
     "gl11",
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     "gl33",
     "gles30"
     #endif
 };
 const char* rendapi_names[] = {
     "OpenGL 1.1",
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     "OpenGL 3.3",
     "OpenGL ES 3.0"
     #endif
 };
 
 static void swapBuffers(void) {
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     SDL_GL_SwapWindow(rendstate.window);
     #else
     pbgl_swap_buffers();
@@ -151,7 +151,7 @@ void render_gl_legacy(void) {
 }
 #endif
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
 void render_gl_advanced(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -184,7 +184,7 @@ void render(void) {
                 case RENDAPI_GL11:
                     render_gl_legacy();
                     break;
-                #if PLATFORM != PLAT_XBOX
+                #if PLATFORM != PLAT_NXDK
                 case RENDAPI_GL33:
                 case RENDAPI_GLES30:
                     render_gl_advanced();
@@ -197,7 +197,7 @@ void render(void) {
         default: {
         } break;
     }
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_NXDK
     static uint64_t ticks = 0;
     static bool cleared = false;
     if (plog__wrote) {
@@ -220,7 +220,7 @@ static void destroyWindow(void) {
     if (rendstate.window != NULL) {
         switch (rendstate.apigroup) {
             case RENDAPIGROUP_GL:
-                #if PLATFORM != PLAT_XBOX
+                #if PLATFORM != PLAT_NXDK
                 SDL_GL_DeleteContext(rendstate.gl.ctx);
                 #endif
                 break;
@@ -253,7 +253,7 @@ static void updateWindowRes(void) {
     }
 }
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
 static void updateWindowIcon(void) {
     int w, h, c;
     void* data = stbi_load(rendstate.icon, &w, &h, &c, STBI_rgb_alpha);
@@ -281,14 +281,14 @@ static bool createWindow(void) {
         #if 1
         case RENDAPI_GL11:
             rendstate.apigroup = RENDAPIGROUP_GL;
-            #if PLATFORM != PLAT_XBOX
+            #if PLATFORM != PLAT_NXDK
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             #endif
             break;
         #endif
-        #if PLATFORM != PLAT_XBOX
+        #if PLATFORM != PLAT_NXDK
         #if 0
         case RENDAPI_GL33:
             rendstate.apigroup = RENDAPIGROUP_GL;
@@ -311,7 +311,7 @@ static bool createWindow(void) {
             return false;
             break;
     }
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     #endif
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
@@ -320,7 +320,7 @@ static bool createWindow(void) {
     SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
     //SDL_SetRelativeMouseMode(SDL_TRUE);
     uint32_t flags = 0;
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     flags |= SDL_WINDOW_RESIZABLE;
     if (rendstate.apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
     #endif
@@ -334,7 +334,7 @@ static bool createWindow(void) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
     }
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
     SDL_DisplayMode dtmode;
@@ -343,7 +343,7 @@ static bool createWindow(void) {
     updateWindowRes();
     switch (rendstate.apigroup) {
         case RENDAPIGROUP_GL: {
-            #if PLATFORM != PLAT_XBOX
+            #if PLATFORM != PLAT_NXDK
             rendstate.gl.ctx = SDL_GL_CreateContext(rendstate.window);
             if (!rendstate.gl.ctx) {
                 plog(LL_CRIT | LF_FUNCLN, "Failed to create OpenGL context: %s", SDL_GetError());
@@ -456,7 +456,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
             case RENDOPT_ICON: {
                 free(rendstate.icon);
                 rendstate.icon = strdup(va_arg(args, char*));
-                #if PLATFORM != PLAT_XBOX
+                #if PLATFORM != PLAT_NXDK
                 updateWindowIcon();
                 #endif
             } break;
@@ -485,7 +485,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 bool vsync = va_arg(args, int);
                 rendstate.vsync = vsync;
                 if (rendstate.apigroup == RENDAPIGROUP_GL) {
-                    #if PLATFORM != PLAT_XBOX
+                    #if PLATFORM != PLAT_NXDK
                     SDL_GL_SetSwapInterval(vsync);
                     #else
                     pbgl_set_swap_interval(vsync);
@@ -520,7 +520,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 
 bool initRenderer(void) {
     rendstate.api = RENDAPI_GL11;
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     rendstate.res.windowed = (struct rendres){800, 600, 60};
     #else
     rendstate.res.windowed = (struct rendres){640, 480, 60};

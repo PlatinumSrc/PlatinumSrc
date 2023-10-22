@@ -20,7 +20,7 @@
 #include <stdio.h>
 #if PLATFORM == PLAT_WINDOWS
     #include <windows.h>
-#elif PLATFORM == PLAT_XBOX
+#elif PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
@@ -30,7 +30,7 @@
 
 #include "../glue.h"
 
-#if PLATFORM != PLAT_XBOX
+#if PLATFORM != PLAT_NXDK
 
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
@@ -137,7 +137,7 @@ static int run(int argc, char** argv) {
     freeResource(test);
 
     uint64_t ticks = SDL_GetTicks() + 30000;
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_NXDK
     plog__nodraw = true;
     #endif
     uint64_t toff = SDL_GetTicks();
@@ -149,7 +149,7 @@ static int run(int argc, char** argv) {
         pollInput();
         render();
     }
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_NXDK
     plog__nodraw = false;
     #endif
 
@@ -169,7 +169,7 @@ static int run(int argc, char** argv) {
 static int bootstrap(int argc, char** argv) {
     makeVerStrs();
 
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     puts(verstr);
     puts(platstr);
     #else
@@ -182,11 +182,11 @@ static int bootstrap(int argc, char** argv) {
         fputs(LP_ERROR "Failed to init logging\n", stderr);
         return 1;
     }
-    #if PLATFORM == PLAT_XBOX
+    #if PLATFORM == PLAT_NXDK
     plog_setfile("D:\\log.txt");
     #endif
 
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     maindir = SDL_GetBasePath();
     if (!maindir) {
         plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
@@ -235,7 +235,7 @@ static int bootstrap(int argc, char** argv) {
     } else {
         tmp = strdup(gamedir);
     }
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     userdir = SDL_GetPrefPath(NULL, tmp);
     free(tmp);
     if (userdir) {
@@ -291,7 +291,7 @@ static int bootstrap(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     signal(SIGINT, sigh);
     signal(SIGTERM, sigh);
     #ifdef SIGQUIT
@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
     }
     timeBeginPeriod(tmrres);
     QueryPerformanceFrequency(&perfctfreq);
-    #elif PLATFORM == PLAT_XBOX
+    #elif PLATFORM == PLAT_NXDK
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_init(true);
     pbgl_set_swap_interval(0);
@@ -334,7 +334,7 @@ int main(int argc, char** argv) {
 
     #if PLATFORM == PLAT_WINDOWS
     timeEndPeriod(tmrres);
-    #elif PLATFORM == PLAT_XBOX
+    #elif PLATFORM == PLAT_NXDK
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif

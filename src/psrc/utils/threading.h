@@ -62,7 +62,7 @@ static inline void lockMutex(mutex_t* m) {
     #ifndef UTILS_THREADING_STDC
     while (pthread_mutex_lock(m)) {}
     #else
-    #if PLATFORM != PLAT_XBOX
+    #if PLATFORM != PLAT_NXDK
     while (mtx_lock(m) != thrd_success) {}
     #else
     // Ignore return value on Xbox. The NXDK doesn't check the return code of NtWaitForSingleObject correctly (mtx_lock
