@@ -471,12 +471,12 @@ ifneq ($(WINDRES),)
 endif
 endif
 ifneq ($(CROSS),nxdk)
-	@$(LD) $(_LDFLAGS) $^ $(WROBJ) $(_LDLIBS) -o $@
+	@$(LD) $(_LDFLAGS) $^ $(patsubst %,%*,$(WROBJ)) $(_LDLIBS) -o $@
 ifndef NOSTRIP
 	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
 else
-	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(WROBJ) $(_LDLIBS) -out:$@ > $(null)
+	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
 	@objcopy --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
