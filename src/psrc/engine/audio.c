@@ -585,11 +585,14 @@ static inline void calcSoundFX(struct audiosound* s) {
             float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
             if (isnormal(dist)) {
                 if (vol[0] * range >= dist && vol[1] * range >= dist) {
+                    float loudness = 1.0 - (dist / range);
+                    loudness *= loudness;
+                    loudness *= loudness;
                     pos[0] /= dist;
                     pos[1] /= dist;
                     pos[2] /= dist;
-                    vol[0] *= 1.0 - (dist / range);
-                    vol[1] *= 1.0 - (dist / range);
+                    vol[0] *= loudness;
+                    vol[1] *= loudness;
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
@@ -624,14 +627,14 @@ static inline void calcSoundFX(struct audiosound* s) {
                     }
                     if (pos[2] > 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 + 0.1 * pos[2];
-                        vol[1] *= 1.0 + 0.1 * pos[2];
+                        vol[0] *= 1.0 + 0.5 * pos[2] * loudness;
+                        vol[1] *= 1.0 + 0.5 * pos[2] * loudness;
                     } else if (pos[2] < 0.0) {
-                        float a = pos[2] * 2.2;
+                        float a = pos[2] * 2.33;
                         if (a < -1.0) a = -1.0;
-                        pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 + 0.2 * a;
-                        vol[1] *= 1.0 + 0.2 * a;
+                        pos[0] *= 1.0 - 0.25 * pos[2];
+                        vol[0] *= 1.0 + 0.33 * a * loudness;
+                        vol[1] *= 1.0 + 0.33 * a * loudness;
                     }
                     if (pos[1] > 0.0) {
                         vol[0] *= 1.0 - 0.1 * pos[1];
@@ -641,13 +644,11 @@ static inline void calcSoundFX(struct audiosound* s) {
                         pos[0] *= 1.0 - 0.2 * pos[1];
                     }
                     if (pos[0] > 0.0) {
-                        float tmp = 1.0 - (dist / range) * 0.67;
-                        vol[1] *= 1.0 + 0.33 * tmp * pos[0];
-                        vol[0] *= 1.0 - 0.5 * tmp * 2.0 * pos[0];
+                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.8;
+                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.8;
                     } else if (pos[0] < 0.0) {
-                        float tmp = 1.0 - (dist / range) * 0.67;
-                        vol[0] *= 1.0 - 0.33 * tmp * pos[0];
-                        vol[1] *= 1.0 - 0.5 * tmp * 2.0 * -pos[0];
+                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.8;
+                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.8;
                     }
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                     s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
@@ -901,7 +902,7 @@ bool startAudio(void) {
             voices = atoi(tmp);
             free(tmp);
         } else {
-            voices = 256;
+            voices = 64;
         }
         if (audiostate.voices != voices) {
             audiostate.voices = voices;

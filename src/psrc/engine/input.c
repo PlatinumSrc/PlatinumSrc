@@ -6,18 +6,6 @@
 
 struct inputstate inputstate;
 
-static uint8_t keystates[(SDL_NUM_SCANCODES + 7) / 8];
-
-static inline void keystatedown(int i) {
-    keystates[i / 8] |= 0x01 << (i % 8);
-}
-static inline void keystateup(int i) {
-    keystates[i / 8] &= ~(0x01 << (i % 8));
-}
-static inline uint8_t getkeystate(int i) {
-    return keystates[i / 8] & (0x01 << (i % 8));
-}
-
 void setInputMode(enum inputmode m) {
     switch (m) {
         case INPUTMODE_UI: {

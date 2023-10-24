@@ -146,6 +146,7 @@ struct uielem_list {
 };
 
 enum uievent {
+    UIEVENT_BOUNDSREQ,
     UIEVENT_BUTTON_USE, // May happen on RELEASE instead of PRESS
     UIEVENT_BUTTON_PRESS,
     UIEVENT_BUTTON_RELEASE,
@@ -163,6 +164,9 @@ struct uievent_data {
     struct uielemptr element;
     void* userdata;
     union {
+        struct {
+            float coords[2][2];
+        } boundsreq;
         union {
             struct {
                 char* text; // dup to use outside of callback
@@ -197,47 +201,7 @@ struct uielem {
         unsigned size;
         struct uielemptr* data;
     } children;
-    struct {
-        char* pos;
-        char* size;
-        char* maxsize;
-        char* margin;
-        char* padding;
-        char* alignment;
-    } dim;
-    struct {
-        struct {
-            float x;
-            float y;
-        } pos;
-        struct {
-            float x;
-            float y;
-        } size;
-        struct {
-            float x;
-            float y;
-        } maxsize;
-        struct {
-            float top;
-            float bottom;
-            float left;
-            float right;
-        } margin;
-        struct {
-            float top;
-            float bottom;
-            float left;
-            float right;
-        } padding;
-        struct {
-            int8_t x : 2;
-            int8_t y : 2;
-        } alignment;
-    } interpdim;
-    struct {
-        float coords[4][2];
-    } calcdim;
+    float coords[2][2];
     union {
         struct uielem_container container;
         struct uielem_box box;
