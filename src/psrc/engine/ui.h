@@ -27,15 +27,7 @@ enum uiattr {
     UIATTR_HIDDEN, // unsigned
     UIATTR_DISABLED, // unsigned
     UIATTR_CALLBACK, // void (*)(enum uievent, struct uievent_data*), void*
-    UIATTR_POSITION, // char*
-    UIATTR_SIZE, // char*
-    UIATTR_MAXSIZE, // char*
-    UIATTR_MARGIN, // char*
-    UIATTR_PADDING, // char*
-    UIATTR_ALIGNMENT, // char*
-    UIATTR_SCROLL, // double, double
     UIATTR_PARENT, // struct uielemptr*
-    UIATTR_ANCHOR, // struct uielemptr*
     // element-specific
     UIATTR_CONTAINER_FORCESCROLLBAR, // unsigned
     UIATTR_BOX_COLOR, // struct uidata_color*
@@ -60,6 +52,7 @@ enum uiattr {
     UIATTR_PROGRESSBAR_PERCENTAGE, // double
     UIATTR_LIST_ITEMS, // int, char**, int, char***
     UIATTR_LIST_ROW, // int, char**
+    UIATTR_LIST_NEWROW, // char**
     UIATTR_LIST_ITEM, // int, int, char*
     UIATTR_LIST_SORTBY, // int, unsigned
     UIATTR_LIST_HIDECOLNAMES, // unsigned
@@ -141,6 +134,8 @@ struct uielem_list {
     int sortcolumn;
     uint8_t sortreversed : 1;
     uint8_t hidecolnames : 1;
+    float* seppos; // # of cols - 1
+    float* rowpos; // # of rows - 1
     char** colnames;
     char*** data;
 };
@@ -157,6 +152,7 @@ enum uievent {
     UIEVENT_CHECKBOX_CHECK,
     UIEVENT_CHECKBOX_UNCHECK,
     UIEVENT_SLIDER_MOVE, // Fires only when released if UIATTR_SLIDER_FLUID is disabled
+    UIEVENT_LIST_SEPPOSREQ,
     UIEVENT_LIST_SORT, // Fires when the list is changed
 };
 
@@ -165,7 +161,8 @@ struct uievent_data {
     void* userdata;
     union {
         struct {
-            float coords[2][2];
+            float elem[2][2];
+            float parent[2][2];
         } boundsreq;
         union {
             struct {
@@ -178,6 +175,9 @@ struct uievent_data {
             } move;
         } slider;
         union {
+            struct {
+                float* seppos;
+            } sepposreq;
             struct {
                 int column;
                 uint8_t reversed : 1;

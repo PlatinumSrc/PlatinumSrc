@@ -12,7 +12,7 @@ enum inputdev {
 };
 
 enum inputdevpart {
-    INPUTDEVPART_MOUSE_BUTTONS,
+    INPUTDEVPART_MOUSE_BUTTON,
     INPUTDEVPART_MOUSE_SCROLLWHEEL,
     INPUTDEVPART_GAMEPAD_AXIS,
     INPUTDEVPART_GAMEPAD_BUTTON,
@@ -88,12 +88,11 @@ extern struct inputstate inputstate;
 bool initInput(void);
 void setInputMode(enum inputmode);
 void pollInput(void);
-void termInput(void);
 int newInputAction(enum inputactiontype, const char*, struct inputkey*);
 void setInputActionKeys(int, struct inputkey*);
 void deleteInputAction(int);
 bool getNextAction(struct inputaction*);
-bool getInputKey(struct inputkey*);
+void termInput(void);
 struct inputkey* strToInputKeys(const char*);
 
 #endif

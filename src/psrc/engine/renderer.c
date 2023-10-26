@@ -257,13 +257,17 @@ static void updateWindowRes(void) {
 static void updateWindowIcon(void) {
     int w, h, c;
     void* data = stbi_load(rendstate.icon, &w, &h, &c, STBI_rgb_alpha);
-    SDL_Surface* s = SDL_CreateRGBSurfaceFrom(
-        data, w, h, 32, w * 4,
-        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
-    );
-    SDL_SetWindowIcon(rendstate.window, s);
-    SDL_FreeSurface(s);
-    stbi_image_free(data);
+    if (data) {
+        SDL_Surface* s = SDL_CreateRGBSurfaceFrom(
+            data, w, h, 32, w * 4,
+            0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
+        );
+        SDL_SetWindowIcon(rendstate.window, s);
+        SDL_FreeSurface(s);
+        stbi_image_free(data);
+    } else {
+        plog(LL_WARN, "Failed to set window icon");
+    }
 }
 #endif
 

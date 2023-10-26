@@ -330,7 +330,7 @@ ifeq ($(CROSS),win32)
     ifneq ($(WINDRES),)
         WRSRC := $(SRCDIR)/psrc/winver.rc
         WROBJ := $(_OBJDIR)/psrc/winver.o
-        _WROBJ = $(shell test -f $(WROBJ) && echo $(WROBJ))
+        _WROBJ = $$(test -f $(WROBJ) && echo $(WROBJ))
     endif
 endif
 

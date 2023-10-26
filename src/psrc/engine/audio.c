@@ -587,7 +587,6 @@ static inline void calcSoundFX(struct audiosound* s) {
                 if (vol[0] * range >= dist && vol[1] * range >= dist) {
                     float loudness = 1.0 - (dist / range);
                     loudness *= loudness;
-                    loudness *= loudness;
                     pos[0] /= dist;
                     pos[1] /= dist;
                     pos[2] /= dist;

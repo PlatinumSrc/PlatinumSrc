@@ -10,11 +10,12 @@
         maps/ - Maps should be named using an [<Abbreviated game name or game mode>_]<Name> scheme and must have the
                 .pmf file extension. See 'pmf.txt' for details.
         materials/ - File extension must be .txt. See 'example material.txt' for details.
-        models/ - File extension must be .p3m or .obj.
-        music/ - File extension must be .wav or .ogg.
+        models/ - File extension must be .p3m.
+        music/ - File extension must be .ogg, .mp3, or .wav.
+        playermodels/ - File extension must be .txt.
         scripts/ - File extension must be .psc.
-        sounds/ - File extension must be .wav or .ogg.
-        textures/ - File extension must not have an extension or must be .png, .jpg, .tga, or .bmp.
+        sounds/ - File extension must be .ogg, .mp3, or .wav.
+        textures/ - File extension must be .png, .jpg, .tga, or .bmp.
         autoexec.psc - The script that starts the game (this should typically display a splash screen then load the main
                        menu).
         game.cfg - Game info/config. See 'game config.txt' for details.
@@ -25,11 +26,19 @@
     config/
         autoexec.psc - (Optional) console commands to run after autoexec.psc in <Main dir>/engine/.
         config.cfg - Optional. See 'default user config.txt' for details.
-    downloads/ - Files have the CRC64 and an underscore prepended to the name and mount over the current game.
+    custom/ - Custom user content
+        <First 8 hex digits of %016x CRC64>/
+            <Next 4 hex digits of %016x CRC64>/
+                <Next 4 hex digits of %016x CRC64>/
+    downloads/
+        <First 8 hex digits of %016x CRC64>/
+            <Next 4 hex digits of %016x CRC64>/
+                <Next 4 hex digits of %016x CRC64>/ - Files overlay like a mod.
     mods/
+    playermodels/
 
-<Server dir>/ - The location the server executable was started in
-    content/ - Subfolders have the same layout as mods/ in <Main dir> or <User dir>
-        all/ - Content for all platforms
-        <platform>/ - Override files when sending to a client with a specific platform
+<Server dir>/ - The location the server executable was started in.
+    content/ - Subfolders have the same layout as mods/ in <Main dir> or <User dir>.
+        all/ - Content for all platforms.
+        <platform>/ - Override files when sending to a client with a specific platform.
     server.cfg

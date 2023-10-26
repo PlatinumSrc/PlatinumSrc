@@ -140,7 +140,7 @@ static int run(int argc, char** argv) {
     if (test) testsound = playSound(
         false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
+        SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
     );
     freeResource(test);
 

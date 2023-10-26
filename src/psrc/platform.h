@@ -21,30 +21,39 @@
 #if defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
     #define PLATSTR "Android"
+    #define PLATDIR "android"
 #elif defined(__FreeBSD__)
     #define PLATFORM PLAT_FREEBSD
     #define PLATSTR "FreeBSD"
+    #define PLATDIR "freebsd"
 #elif defined(__linux__)
     #define PLATFORM PLAT_LINUX
     #define PLATSTR "Linux"
+    #define PLATDIR "linux"
 #elif defined(macintosh) || defined(Macintosh) || (defined(__APPLE__) && defined(__MACH__))
     #define PLATFORM PLAT_MACOS
     #define PLATSTR "MacOS"
+    #define PLATDIR "macos"
 #elif defined(__NetBSD__)
     #define PLATFORM PLAT_NETBSD
     #define PLATSTR "NetBSD"
+    #define PLATDIR "netbsd"
 #elif defined(__OpenBSD__)
     #define PLATFORM PLAT_OPENBSD
     #define PLATSTR "OpenBSD"
+    #define PLATDIR "openbsd"
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
     #define PLATSTR "Unix"
+    #define PLATDIR "unix"
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
     #define PLATFORM PLAT_WINDOWS
     #define PLATSTR "Windows"
+    #define PLATDIR "windows"
 #elif defined(NXDK)
     #define PLATFORM PLAT_NXDK
     #define PLATSTR "Xbox (NXDK)"
+    #define PLATDIR "nxdk"
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATSTR "Unknown"
