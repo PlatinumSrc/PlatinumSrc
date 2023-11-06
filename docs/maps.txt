@@ -13,7 +13,7 @@ Format:
 
     Header:
         <char[4]: {'P', 'M', 'F', 0}>
-        <u16: Major version> <u16: Minor version>
+        <u8: Major version> <u8: Minor version>
         <char[... 0]: Name> <char[... 0]: Authors> <char[... 0]: Description>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
 

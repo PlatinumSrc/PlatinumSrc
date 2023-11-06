@@ -30,6 +30,11 @@
 #undef freeResource
 #undef grabResource
 #undef releaseResource
+#undef setRcAtt
+#undef setRcAttData
+#undef setRcAttCallback
+#undef getRcAtt
+#undef delRcAtt
 
 static mutex_t rclock; // TODO: turn into an access lock
 

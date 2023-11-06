@@ -595,7 +595,7 @@ static inline void calcSoundFX(struct audiosound* s) {
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = dist * -0.002898 * (float)s->rc->freq;
+                        s->fx[1].posoff = roundf(dist * -0.002898 * (float)s->rc->freq);
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
@@ -643,11 +643,11 @@ static inline void calcSoundFX(struct audiosound* s) {
                         pos[0] *= 1.0 - 0.2 * pos[1];
                     }
                     if (pos[0] > 0.0) {
-                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.8;
-                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.8;
+                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0];
+                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.5;
                     } else if (pos[0] < 0.0) {
-                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.8;
-                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.8;
+                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.5;
+                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0];
                     }
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                     s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
@@ -868,7 +868,7 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
-        inspec.samples = 1024;
+        inspec.samples = 512;
     }
     inspec.callback = callback;
     inspec.userdata = NULL;

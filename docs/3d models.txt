@@ -1,0 +1,63 @@
+P3M - PlatinumSrc 3D Model File/Format
+
+- .p3m extension
+- Current version is 0.0
+- All data should be little endian
+
+Format:
+
+    <Header>
+    <u64: Size of <Data> before compression> <Compressed <Data>>
+
+    Header:
+        <char[4]: {'P', '3', 'M', 0}>
+        <u8: Major version> <u8: Minor version>
+        <u8: <6 bits: 0> <1 bit: Has AABB> <1 bit: Has animations>>
+
+    Data:
+        <u16: Vertex count> [Vertex]...
+        <u8: Part count> [Part]...
+        <u8: Texture count> [Texture]...
+        [AABB]
+        [
+            <u8: Bone count> [Bone]...
+            <u8: Animation count> [Animation]...
+        ]
+        <char[]: String table>
+
+    String:
+        <u32: Offset in string table>
+
+    Vertex:
+        <float: X> <float: Y> <float: Z>
+        <u8: Texture> <float: U> <float: V>
+
+    Part:
+        <<String>: Name>
+        <u16: Vertex count> [u16: Index]...
+
+    Texture:
+        <<String>: Texture path>
+
+    AABB:
+        <float[3]: Origin>
+        <float[3]: Radius>
+
+    Bone:
+        <u16: Vertex count> [ <u16: Index> <float: Weight> ]...
+
+    Animation:
+        <<String>: Name>
+        <u32: Microseconds per frame>
+        <u8: Bone count> [u8: Bone index]...
+        <u8: Frame count> [Animation frame]...
+
+    Animation frame:
+        [Animation transform]...
+
+    Animation transform:
+        <float[3]: Translation>
+        <float[3]: Rotation>
+        <float[3]: Scale>
+
+

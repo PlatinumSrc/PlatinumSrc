@@ -7,15 +7,17 @@
         fonts/
         shaders/
     games/ - This layout is optional but is highly recommended.
+        items/
         maps/ - Maps should be named using an [<Abbreviated game name or game mode>_]<Name> scheme and must have the
                 .pmf file extension. See 'pmf.txt' for details.
-        materials/ - File extension must be .txt. See 'example material.txt' for details.
-        models/ - File extension must be .p3m.
-        music/ - File extension must be .ogg, .mp3, or .wav.
-        playermodels/ - File extension must be .txt.
-        scripts/ - File extension must be .psc.
-        sounds/ - File extension must be .ogg, .mp3, or .wav.
-        textures/ - File extension must be .png, .jpg, .tga, or .bmp.
+        materials/ - Material definitions. See 'example material.txt' for details.
+        models/
+        music/
+        playermodels/
+        scripts/
+        sounds/
+        textures/
+        weapons/
         autoexec.psc - The script that starts the game (this should typically display a splash screen then load the main
                        menu).
         game.cfg - Game info/config. See 'game config.txt' for details.

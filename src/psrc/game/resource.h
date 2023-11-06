@@ -127,12 +127,23 @@ struct __attribute__((packed)) rcopt_map {
     enum rcopt_texture_qlt texture_quality;
 };
 
+struct __attribute__((packed)) rcatt {
+    int16_t key;
+    void* data;
+    void (*cb)(void*);
+};
+
 struct __attribute__((packed)) rcheader {
     enum rctype type;
     char* path; // full file path
     uint32_t pathcrc;
     int refs;
     int index;
+    struct {
+        struct rcatt* data;
+        int16_t len;
+        int16_t size;
+    } att;
 };
 
 union __attribute__((packed)) resource {
@@ -169,10 +180,21 @@ union resource loadResource(enum rctype type, const char* path, union rcopt opt)
 void freeResource(union resource);
 void grabResource(union resource);
 char* getRcPath(const char* uri, enum rctype type, char** ext);
+int16_t genRcAttKey(void);
+void setRcAtt(union resource, int16_t, void*, void (*)(void*));
+void setRcAttData(union resource, int16_t, void*);
+void setRcAttCallback(union resource, int16_t, void (*)(void*));
+bool getRcAtt(union resource, int16_t, void**);
+void delRcAtt(union resource, int16_t);
 
 #define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
 #define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
 #define grabResource(r) grabResource((union resource){.ptr = (void*)(r)})
 #define releaseResource freeResource
+#define setRcAtt(r, k, d, c) setRcAtt((union resource){.ptr = (void*)(r)}, (k), (d), (c))
+#define setRcAttData(r, k, d) setRcAttData((union resource){.ptr = (void*)(r)}, (k), (d))
+#define setRcAttCallback(r, k, c) setRcAttCallback((union resource){.ptr = (void*)(r)}, (k), (c))
+#define getRcAtt(r, k, o) getRcAtt((union resource){.ptr = (void*)(r)}, (k), (o))
+#define delRcAtt(r, k) delRcAtt((union resource){.ptr = (void*)(r)}, (k))
 
 #endif

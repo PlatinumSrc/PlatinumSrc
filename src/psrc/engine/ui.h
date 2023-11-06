@@ -17,7 +17,7 @@ enum uielemtype {
     UIELEMTYPE_CHECKBOX,
     UIELEMTYPE_SLIDER,
     UIELEMTYPE_PROGRESSBAR,
-    UIELEMTYPE_SCROLLBAR,
+    UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
 };
 
@@ -28,6 +28,7 @@ enum uiattr {
     UIATTR_DISABLED, // unsigned
     UIATTR_CALLBACK, // void (*)(enum uievent, struct uievent_data*), void*
     UIATTR_PARENT, // struct uielemptr*
+    UIATTR_ANCHOR, // struct uielemptr*
     // element-specific
     UIATTR_CONTAINER_FORCESCROLLBAR, // unsigned
     UIATTR_BOX_COLOR, // struct uidata_color*
@@ -50,6 +51,7 @@ enum uiattr {
     UIATTR_SLIDER_AMOUNT, // double
     UIATTR_SLIDER_FLUID, // unsigned
     UIATTR_PROGRESSBAR_PERCENTAGE, // double
+    UIATTR_DROPDOWN_ITEMS, // int, char**
     UIATTR_LIST_ITEMS, // int, char**, int, char***
     UIATTR_LIST_ROW, // int, char**
     UIATTR_LIST_NEWROW, // char**
@@ -158,7 +160,6 @@ enum uievent {
 
 struct uievent_data {
     struct uielemptr element;
-    void* userdata;
     union {
         struct {
             float elem[2][2];
@@ -174,6 +175,11 @@ struct uievent_data {
                 float amount;
             } move;
         } slider;
+        union {
+            struct {
+                int item;
+            } select;
+        } dropdown;
         union {
             struct {
                 float* seppos;
@@ -193,7 +199,7 @@ struct uielem {
     uint64_t id;
     uint8_t hidden : 1;
     uint8_t disabled : 1;
-    void (*callback)(enum uievent, struct uievent_data*);
+    void (*callback)(enum uievent, struct uievent_data*, void*);
     void* userdata;
     struct uielemptr anchor;
     struct {

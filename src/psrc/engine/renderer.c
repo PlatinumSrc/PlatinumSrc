@@ -338,6 +338,7 @@ static bool createWindow(void) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
     }
+    SDL_SetWindowMinimumSize(rendstate.window, 320, 240);
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
@@ -367,12 +368,13 @@ static bool createWindow(void) {
             plog(LL_INFO, "OpenGL info:");
             bool cond[4];
             int tmpint[4];
-            char* tmpstr[1] = {""};
+            char* tmpstr[1];
             cond[0] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &tmpint[0]);
             cond[1] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &tmpint[1]);
             cond[2] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &tmpint[2]);
             if (cond[2]) {
                 switch (tmpint[2]) {
+                    default: tmpstr[0] = ""; break;
                     case SDL_GL_CONTEXT_PROFILE_CORE: tmpstr[0] = " core"; break;
                     case SDL_GL_CONTEXT_PROFILE_COMPATIBILITY: tmpstr[0] = " compat"; break;
                     case SDL_GL_CONTEXT_PROFILE_ES: tmpstr[0] = " ES"; break;

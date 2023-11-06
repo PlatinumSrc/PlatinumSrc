@@ -76,10 +76,10 @@ static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    plog(LL_INFO, "Main directory: %s", maindir);
-    plog(LL_INFO, "User directory: %s", userdir);
-    plog(LL_INFO, "Game directory: %s", gamedir);
-    plog(LL_INFO, "Save directory: %s", savedir);
+    plog(LL_INFO, "Main directory (absolute): %s", maindir);
+    plog(LL_INFO, "Game directory (relative): %s", gamedir);
+    plog(LL_INFO, "User directory (absolute): %s", userdir);
+    plog(LL_INFO, "Save directory (absolute): %s", savedir);
 
     plog(LL_INFO, "Initializing resource manager...");
     if (!initResource()) {
@@ -132,9 +132,9 @@ static int run(int argc, char** argv) {
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt).sound;
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt).sound;
+    //test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt).sound;
     //if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
-    freeResource(test);
+    //freeResource(test);
     test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt).sound;
     uint64_t testsound = -1;
     if (test) testsound = playSound(

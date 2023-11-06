@@ -13,7 +13,7 @@ Entity data:
         | ENT_USE | ENT_HOLDUSE | ENT_MULTIPLEXER | ENT_PARTICLES | ENT_TEXPARTICLES
         | ENT_BEAM | ENT_GIBS | ENT_DOOR | ENT_SPAWN | ENT_SPAWNER
         | ENT_DYNLIGHT | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO
-        | ENT_HEALTHSTATION | ENT_SHIELDSTATION }
+        | ENT_HEALTHSTATION | ENT_SHIELDSTATION | ENT_COLLIDE }
     Entity data:
         { <Headless entity data> | <Generic entity data> | <Box entity data>
         | <Trigger box entity data> | <Trigger radius entity data> | <Press to use entity data>
@@ -22,18 +22,12 @@ Entity data:
         | <Door entity data> | <Spawn entity data> | <Spawner entity data>
         | <Dynamic light entity data> | <Health entity data> | <Shield entity data>
         | <Weapon entity data> | <Ammo entity data> | <Health station entity data>
-        | <Shield station entity data> }
+        | <Shield station entity data> | <Collide entity data> }
 
     Entity filter data:
         { <u8: ENTFILT_ANY>
         | <u8: ENTFILT_PLAYER>
         | <u8: ENTFILT_ENTITY>
-        | <u8: ENTFILT_ANYBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTFILT_PLAYERBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTFILT_ENTITYBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTFILT_ANYRADIUS> <float[3]: Origin offset> <float: Size>
-        | <u8: ENTFILT_PLAYERRADIUS> <float[3]: Origin offset> <float: Size>
-        | <u8: ENTFILT_ENTITYRADIUS> <float[3]: Origin offset> <float: Size>
         | <u8: ENTFILT_ANYTEAM> <Team>
         | <u8: ENTFILT_PLAYERTEAM> <Team>
         | <u8: ENTFILT_ENTITYTEAM> <Team>
@@ -45,12 +39,12 @@ Entity data:
         | <u8: ENTSEL_ALL>
         | <u8: ENTSEL_PLAYERS>
         | <u8: ENTSEL_ENTITIES>
-        | <u8: ENTSEL_ANYBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTSEL_PLAYERBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTSEL_ENTITYBOX> <float[3]: Origin offset> <float[3]: Size>
-        | <u8: ENTSEL_ANYRADIUS> <float[3]: Origin offset> <float: Size>
-        | <u8: ENTSEL_PLAYERRADIUS> <float[3]: Origin offset> <float: Size>
-        | <u8: ENTSEL_ENTITYRADIUS> <float[3]: Origin offset> <float: Size>
+        | <u8: ENTSEL_ANYBOX> <float[3]: Origin offset> <float[3]: Radius>
+        | <u8: ENTSEL_PLAYERBOX> <float[3]: Origin offset> <float[3]: Radius>
+        | <u8: ENTSEL_ENTITYBOX> <float[3]: Origin offset> <float[3]: Radius>
+        | <u8: ENTSEL_ANYRADIUS> <float[3]: Origin offset> <float: Radius>
+        | <u8: ENTSEL_PLAYERRADIUS> <float[3]: Origin offset> <float: Radius>
+        | <u8: ENTSEL_ENTITYRADIUS> <float[3]: Origin offset> <float: Radius>
         | <u8: ENTSEL_ANYTEAM> <Team>
         | <u8: ENTSEL_PLAYERTEAM> <Team>
         | <u8: ENTSEL_ENTITYTEAM> <Team>
@@ -107,28 +101,28 @@ Entity data:
         <<Entity signal>: Move back>
         <Material>
         <float[3]: Origin>
-        <float[3]: Size>
+        <float[3]: Radius>
         <float[3]: New origin>
-        <float[3]: New size>
+        <float[3]: New radius>
     Trigger box entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
         <Entity filter>
         <float[3]: Origin>
-        <float[3]: Size>
+        <float[3]: Radius>
         <Entity actions>
     Trigger radius entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
         <Entity filter>
         <float[3]: Origin>
-        <float: Size>
+        <float: Radius>
         <Entity actions>
     Press to use entity data:
         <<Entity signal>: Make usable>
         <<Entity signal>: Make unusable>
         <float[3]: Origin>
-        <float[3]: Size>
+        <float[3]: Radius>
         <<Resource>: Model>
         <<Server string table entry>: Animation>
         <float: In-use and animation duration>
@@ -137,7 +131,7 @@ Entity data:
         <<Entity signal>: Make usable>
         <<Entity signal>: Make unusable>
         <float[3]: Origin>
-        <float[3]: Size>
+        <float[3]: Radius>
         <<Resource>: Model>
         <<Server string table entry>: Animation>
         <float: Animation speed>
@@ -232,14 +226,14 @@ Entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
         <float[3]: Origin>
-        <float[2]: Size>
+        <float[2]: Radius>
         <i8[2]: Grid size (-1 = random)>
         <Entity filter>
     Spawner entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
         <float[3]: Origin>
-        <float[2]: Size>
+        <float[2]: Radius>
         <i8[2]: Grid size (-1 = random)>
         <float: Rate>
         <Entity>
@@ -267,5 +261,8 @@ Entity data:
         <<Resource>: Weapon>
         <float: Respawn delay>
         <i32: Amount>
+    Collide entity data:
+        <float[3]: Origin>
+        <float[2]: Radius>
 
 
