@@ -12,11 +12,11 @@ Format:
     Header:
         <char[4]: {'P', '3', 'M', 0}>
         <u8: Major version> <u8: Minor version>
-        <u8: <6 bits: 0> <1 bit: Has AABB> <1 bit: Has animations>>
+        <u8: <7 bits: 0> <1 bit: Has animations>>
 
     Data:
         <u16: Vertex count> [Vertex]...
-        <u8: Part count> [Part]...
+        <u16: Index count> [u32: Index]...
         <u8: Texture count> [Texture]...
         [AABB]
         [
@@ -32,16 +32,8 @@ Format:
         <float: X> <float: Y> <float: Z>
         <u8: Texture> <float: U> <float: V>
 
-    Part:
-        <<String>: Name>
-        <u16: Vertex count> [u16: Index]...
-
     Texture:
         <<String>: Texture path>
-
-    AABB:
-        <float[3]: Origin>
-        <float[3]: Radius>
 
     Bone:
         <u16: Vertex count> [ <u16: Index> <float: Weight> ]...
