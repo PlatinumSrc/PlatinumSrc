@@ -9,6 +9,8 @@
 !/icons/**
 !/src/
 !/src/**
+!/tools/
+!/tools/**
 !/.github/
 !/*.sh
 !/CONTRIBUTING.md
@@ -16,5 +18,8 @@
 !/Makefile
 !/README.md
 .**
+__pycache__/
+*.py[cod]
+*$py.class
 !/.gitattributes
 !/.gitignore
