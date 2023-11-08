@@ -7,7 +7,7 @@ P3M - PlatinumSrc 3D Model File/Format
 Format:
 
     <Header>
-    <u64: Size of <Data> before compression> <Compressed <Data>>
+    <Data>
 
     Header:
         <char[4]: {'P', '3', 'M', 0}>
