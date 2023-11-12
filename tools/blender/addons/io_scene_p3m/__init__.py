@@ -1,8 +1,8 @@
 bl_info = {
     "name": "PlatinumSrc P3M",
     "author": "PQCraft",
-    "version": (0, 0, 0),
-    "blender": (3, 0, 0),
+    "version": (1, 0, 0),
+    "blender": (3, 6, 0),
     "location": "File > Import-Export",
     "description": "Import-Export P3M",
     "category": "Import-Export",
@@ -23,12 +23,10 @@ from bpy.props import (
 from bpy_extras.io_utils import (
     ImportHelper,
     ExportHelper,
-    orientation_helper,
     path_reference_mode,
     axis_conversion,
 )
 
-@orientation_helper(axis_forward='Z', axis_up='Y')
 class ImportP3M(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.p3m"
     bl_label = "Import P3M"
@@ -36,14 +34,18 @@ class ImportP3M(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".p3m"
     filter_glob: StringProperty(
-        default="*.p3m",
-        options={'HIDDEN'},
+        default = "*.p3m",
+        options = {'HIDDEN'},
     )
 
     def draw(self, context):
         pass
 
-@orientation_helper(axis_forward='Z', axis_up='Y')
+    def execute(self, context):
+        from . import import_p3m
+        keywords = self.as_keywords()
+        return import_p3m.load(self, context, **keywords)
+
 class ExportP3M(bpy.types.Operator, ExportHelper):
     bl_idname = "export_scene.p3m"
     bl_label = 'Export P3M'
@@ -51,19 +53,24 @@ class ExportP3M(bpy.types.Operator, ExportHelper):
 
     filename_ext = ".p3m"
     filter_glob: StringProperty(
-        default="*.p3m",
-        options={'HIDDEN'},
+        default = "*.p3m",
+        options = {'HIDDEN'}
     )
 
     export_bones: BoolProperty(
-        name="Bones",
-        description="Export bones",
-        default=True,
+        name = "Bones",
+        description = "Export bones",
+        default = True
     )
     export_anims: BoolProperty(
-        name="Animations",
-        description="Export animations",
-        default=True,
+        name = "Animations",
+        description = "Export animations",
+        default = True
+    )
+    use_absolute: BoolProperty(
+        name = "Absolute",
+        description = "Use absolute coordinates",
+        default = False
     )
 
     def draw(self, context):
@@ -72,11 +79,6 @@ class ExportP3M(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         from . import export_p3m
         keywords = self.as_keywords()
-        global_matrix = global_matrix = axis_conversion(
-            from_forward=self.axis_forward,
-            from_up=self.axis_up,
-        ).to_4x4()
-        keywords["global_matrix"] = global_matrix
         return export_p3m.save(self, context, **keywords)
 
 class P3M_PT_export_main(bpy.types.Panel):
@@ -99,12 +101,13 @@ class P3M_PT_export_main(bpy.types.Panel):
         operator = context.space_data.active_operator
         layout.prop(operator, "export_bones")
         layout.prop(operator, "export_anims")
+        layout.prop(operator, "use_absolute")
 
 def menu_func_import(self, context):
-    self.layout.operator(ImportP3M.bl_idname, text="PlatinumSrc (.p3m)")
+    self.layout.operator(ImportP3M.bl_idname, text = "PlatinumSrc (.p3m)")
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportP3M.bl_idname, text="PlatinumSrc (.p3m)")
+    self.layout.operator(ExportP3M.bl_idname, text = "PlatinumSrc (.p3m)")
 
 classes = (
     ImportP3M,
