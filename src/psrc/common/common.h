@@ -1,5 +1,5 @@
-#ifndef PSRC_GAME_GAME_H
-#define PSRC_GAME_GAME_H
+#ifndef PSRC_COMMON_COMMON_H
+#define PSRC_COMMON_COMMON_H
 
 #include "../utils/config.h"
 

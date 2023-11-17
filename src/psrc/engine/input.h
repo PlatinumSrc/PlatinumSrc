@@ -5,13 +5,13 @@
 
 #include <stdbool.h>
 
-enum inputdev {
+enum __attribute__((packed)) inputdev {
     INPUTDEV_KEYBOARD,
     INPUTDEV_MOUSE,
     INPUTDEV_GAMEPAD,
 };
 
-enum inputdevpart {
+enum __attribute__((packed)) inputdevpart {
     INPUTDEVPART_MOUSE_BUTTON,
     INPUTDEVPART_MOUSE_SCROLLWHEEL,
     INPUTDEVPART_GAMEPAD_AXIS,
@@ -50,7 +50,7 @@ struct inputaction {
     struct inputactiondata* data;
 };
 
-enum inputactiontype {
+enum __attribute__((packed)) inputactiontype {
     INPUTACTIONTYPE_INVALID = -1,
     INPUTACTIONTYPE_SINGLE,
     INPUTACTIONTYPE_MULTI,
@@ -62,7 +62,7 @@ struct inputactiondata {
     struct inputkey* keys;
 };
 
-enum inputmode {
+enum __attribute__((packed)) inputmode {
     INPUTMODE_UI,
     INPUTMODE_INGAME,
     INPUTMODE_TEXTINPUT,

@@ -6,9 +6,9 @@
 #include "../utils/string.h"
 #include "../utils/filesystem.h"
 #include "../utils/config.h"
-#include "../game/resource.h"
-#include "../game/game.h"
-#include "../game/time.h"
+#include "../common/resource.h"
+#include "../common/common.h"
+#include "../common/time.h"
 
 #include "../version.h"
 #include "../platform.h"

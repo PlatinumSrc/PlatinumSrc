@@ -1,5 +1,5 @@
-#ifndef PSRC_GAME_TIME_H
-#define PSRC_GAME_TIME_H
+#ifndef PSRC_COMMON_TIME_H
+#define PSRC_COMMON_TIME_H
 
 #include "../platform.h"
 

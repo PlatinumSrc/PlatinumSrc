@@ -7,7 +7,7 @@
 
 #include "../utils/threading.h"
 
-enum uielemtype {
+enum __attribute__((packed)) uielemtype {
     UIELEMTYPE_CONTAINER,
     UIELEMTYPE_BOX,
     UIELEMTYPE_TEXT,
@@ -60,7 +60,7 @@ enum uiattr {
     UIATTR_LIST_HIDECOLNAMES, // unsigned
 };
 
-enum uiborder {
+enum __attribute__((packed)) uiborder {
     UIBORDER_NONE,
     UIBORDER_RAISED,
     UIBORDER_SUNKEN,

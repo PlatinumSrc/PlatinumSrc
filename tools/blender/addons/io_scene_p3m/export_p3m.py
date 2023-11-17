@@ -217,6 +217,7 @@ def save(operator, context, filepath,
         f.write(struct.pack("<f", v.x))
         f.write(struct.pack("<f", v.y))
         f.write(struct.pack("<f", v.z))
+    for v in vertices:
         f.write(struct.pack("<B", v.t))
         f.write(struct.pack("<f", v.u))
         f.write(struct.pack("<f", v.v))

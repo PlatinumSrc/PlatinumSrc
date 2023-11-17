@@ -2,7 +2,7 @@
 #define PSRC_ENGINE_RENDERER_H
 
 #include "../platform.h"
-#include "../game/resource.h"
+#include "../common/resource.h"
 
 #include "../../cglm/cglm.h"
 

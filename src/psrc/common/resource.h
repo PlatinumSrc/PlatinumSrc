@@ -1,5 +1,5 @@
-#ifndef PSRC_GAME_RESOURCE_H
-#define PSRC_GAME_RESOURCE_H
+#ifndef PSRC_COMMON_RESOURCE_H
+#define PSRC_COMMON_RESOURCE_H
 
 #include "../utils/config.h"
 
@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum rctype {
+enum __attribute__((packed)) rctype {
     RC_CONFIG,
     RC_FONT,
     RC_MAP,
@@ -22,7 +22,7 @@ enum rctype {
     RC__COUNT,
 };
 
-enum rcprefix {
+enum __attribute__((packed)) rcprefix {
     RCPREFIX_SELF = -1,
     RCPREFIX_COMMON,
     RCPREFIX_ENGINE,
@@ -82,7 +82,7 @@ struct __attribute__((packed)) rcopt_material {
 };
 
 // RC_SOUND
-enum rc_sound_frmt {
+enum __attribute__((packed)) rc_sound_frmt {
     RC_SOUND_FRMT_VORBIS,
     RC_SOUND_FRMT_MP3,
     RC_SOUND_FRMT_WAV,
@@ -102,12 +102,10 @@ struct __attribute__((packed)) rcopt_sound {
 };
 
 // RC_MODEL
-struct __attribute__((packed)) rc_model_part {
-    struct rc_material* material;
-};
 struct __attribute__((packed)) rc_model {
-    unsigned parts;
-    struct rc_model_part* partdata;
+    struct p3m* model;
+    uint8_t texturecount;
+    struct rc_texture** textures;
 };
 struct __attribute__((packed)) rcopt_model {
     enum rcopt_texture_qlt texture_quality;
@@ -117,7 +115,7 @@ struct __attribute__((packed)) rcopt_model {
 struct __attribute__((packed)) rc_map {
     
 };
-enum rcopt_map_loadsect {
+enum __attribute__((packed)) rcopt_map_loadsect {
     RCOPT_MAP_LOADSECT_ALL,
     RCOPT_MAP_LOADSECT_CLIENT,
     RCOPT_MAP_LOADSECT_SERVER,

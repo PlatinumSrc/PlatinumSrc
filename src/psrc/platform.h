@@ -18,6 +18,9 @@
 #define ARCH_ARM64   3
 #define ARCH_I386    4
 
+#define BO_LE 1234
+#define BO_BE 4321
+
 #if defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
     #define PLATSTR "Android"
@@ -64,20 +67,69 @@
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64)
     #define ARCH ARCH_AMD64
     #define ARCHSTR "x86 64-bit"
+    #ifndef BYTEORDER
+        #define BYTEORDER BO_LE
+    #endif
 #elif defined(__arm__) && !defined(__aarch64__)
     #define ARCH ARCH_ARM
     #define ARCHSTR "Arm"
+    #ifndef BYTEORDER
+        #if defined(__ARMEL__)
+            #define BYTEORDER BO_LE
+        #elif defined(__ARMEB__)
+            #define BYTEORDER BO_BE
+        #endif
+    #endif
 #elif defined(__aarch64__)
     #define ARCH ARCH_ARM64
     #define ARCHSTR "Arm 64-bit"
+    #ifndef BYTEORDER
+        #if defined(__AARCH64EL__)
+            #define BYTEORDER BO_LE
+        #elif defined(__AARCH64EB__)
+            #define BYTEORDER BO_BE
+        #endif
+    #endif
 #elif defined(__i386__) || defined(__i386)
     #define ARCH ARCH_I386
     #define ARCHSTR "x86"
+    #ifndef BYTEORDER
+        #define BYTEORDER BO_LE
+    #endif
 #else
     #define ARCH ARCH_UNKNOWN
     #define ARCHSTR "Unknown"
     #warning Unknown OS. \
     This will probably result in a broken build.
+#endif
+
+#ifndef BYTEORDER
+    #if defined(__LITTLE_ENDIAN__)
+        #define BYTEORDER BO_LE
+    #elif defined(__BIG_ENDIAN__)
+        #define BYTEORDER BO_BE
+    #else
+        #ifdef __BYTE_ORDER__
+            #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+                #define BYTEORDER BO_LE
+            #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+                #define BYTEORDER BO_BE
+            #endif
+        #endif
+        #ifndef BYTEORDER
+            #ifdef __BYTE_ORDER
+                #if __BYTE_ORDER == __LITTLE_ENDIAN
+                    #define BYTEORDER BO_LE
+                #elif __BYTE_ORDER == __BIG_ENDIAN
+                    #define BYTEORDER BO_BE
+                #endif
+            #endif
+        #endif
+    #endif
+    #ifndef BYTEORDER
+        #warning Unknown byte order. \
+        This will probably result in a broken build.
+    #endif
 #endif
 
 #endif

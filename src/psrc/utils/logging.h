@@ -7,7 +7,7 @@
 #include <string.h>
 #include <errno.h>
 
-enum loglevel {
+enum __attribute__((packed)) loglevel {
     LL_PLAIN,
     LL_INFO,
     LL_WARN,
@@ -25,6 +25,7 @@ enum loglevel {
 #define LE_DIRNOEXIST(p) "The directory %s does not exist", (p)
 #define LE_ISDIR(p) "%s is a directory", (p)
 #define LE_ISFILE(p) "%s is a file", (p)
+#define LE_EOF "Unexpected EOF"
 #define LE_RECVNULL "Received NULL"
 
 #define LW_SPECIALFILE(p) "%s is a special file", (p)
@@ -38,30 +39,8 @@ enum loglevel {
 extern mutex_t loglock;
 
 bool initLogging(void);
-void plog__write(enum loglevel, const char*, const char*, unsigned, char*, ...);
-#if PLATFORM != PLAT_NXDK
-    #define plog(lvl, ...) do {\
-        lockMutex(&loglock);\
-        plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\
-        unlockMutex(&loglock);\
-    } while (0)
-#else
-    #include <pbkit/pbkit.h>
-    #include <stdbool.h>
-    extern bool plog__nodraw;
-    extern bool plog__wrote;
-    void plog__info(enum loglevel, const char*, const char*, unsigned);
-    void plog__draw(void);
-    #define plog(lvl, ...) do {\
-        lockMutex(&loglock);\
-        plog__info(lvl, __func__, __FILE__, __LINE__);\
-        pb_print(__VA_ARGS__); pb_print("\n");\
-        plog__wrote = true;\
-        plog__write(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__);\
-        plog__draw();\
-        unlockMutex(&loglock);\
-    } while (0)
-#endif
+void plog(enum loglevel lvl, const char* fn, const char* f, unsigned l, char* s, ...);
+#define plog(lvl, ...) plog(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
 bool plog_setfile(char*);
 
 #endif

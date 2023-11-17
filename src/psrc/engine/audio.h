@@ -3,7 +3,7 @@
 
 #include "../platform.h"
 
-#include "../game/resource.h"
+#include "../common/resource.h"
 #include "../utils/threading.h"
 
 #include "../../stb/stb_vorbis.h"
@@ -73,8 +73,8 @@ struct audiostate {
         int len;
         int* data[2][2];
     } audbuf;
-    int voices;
-    struct audiosound* voicedata;
+    int voicecount;
+    struct audiosound* voices;
     int64_t nextid;
     float campos[3]; // for position effect
     float camrot[3];

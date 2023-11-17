@@ -623,15 +623,19 @@ struct cfg* cfg_open(const char* p) {
     if (p) {
         int tmp = isFile(p);
         if (tmp < 1) {
-            #if DEBUG(1)
-            int e = (tmp) ? ENOENT : EISDIR;
-            plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_CANTOPEN(p, e));
-            #endif
+            if (tmp) {
+                #if DEBUG(1)
+                plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_NOEXIST(p));
+                #endif
+            } else {
+                plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
+            }
             return NULL;
         }
         FILE* f = fopen(p, "r");
         if (!f) {
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+            int e = errno;
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, e));
             return NULL;
         }
         #if DEBUG(1)
@@ -665,16 +669,20 @@ struct cfg* cfg_open(const char* p) {
 bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     int tmp = isFile(p);
     if (tmp < 1) {
-        #if DEBUG(1)
-        int e = (tmp) ? ENOENT : EISDIR;
-        plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_CANTOPEN(p, e));
-        #endif
-        return false;
+        if (tmp) {
+            #if DEBUG(1)
+            plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_NOEXIST(p));
+            #endif
+        } else {
+            plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
+        }
+        return NULL;
     }
     FILE* f = fopen(p, "r");
     if (!f) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-        return false;
+        int e = errno;
+        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, e));
+        return NULL;
     }
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) %s...", p);

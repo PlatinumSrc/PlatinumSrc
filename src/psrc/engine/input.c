@@ -1,7 +1,7 @@
 #include "input.h"
 #include "renderer.h"
 #include "../utils/logging.h"
-#include "../game/game.h"
+#include "../common/common.h"
 #include "../debug.h"
 
 struct inputstate inputstate;

@@ -11,11 +11,12 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#endif
-#if PLATFORM == PLAT_WINDOWS
+#if PLATFORM == PLAT_NXDK
+    #include <pbkit/pbkit.h>
+#elif PLATFORM == PLAT_WINDOWS
     #include <windows.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #define _STR(x) #x
@@ -70,8 +71,7 @@ bool plog_setfile(char* f) {
         } else {
             unlockMutex(&loglock);
             #if DEBUG(1)
-            int e = errno;
-            plog(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, e));
+            plog(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, errno));
             #endif
             return false;
         }
@@ -86,7 +86,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     #else
     plog_writedate(f);
     #endif
-    switch (lvl & 0xFF) {
+    switch (lvl) {
         default:
             break;
         case LL_INFO:
@@ -126,10 +126,10 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     fputc('\n', f);
 }
 
-void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, va_list ov) {
     va_list v;
     FILE* f;
-    switch (lvl & 0xFF) {
+    switch (lvl) {
         default:
             f = stdout;
             break;
@@ -139,20 +139,17 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
             f = stderr;
             break;
     }
-    va_start(v, s);
+    va_copy(v, ov);
     writelog(lvl, f, func, file, line, s, v);
-    va_end(v);
     if (logfile != NULL) {
-        va_start(v, s);
+        va_copy(v, ov);
         writelog(lvl, logfile, func, file, line, s, v);
-        va_end(v);
     }
     #if PLATFORM != PLAT_NXDK
     if (lvl & LF_MSGBOX) {
         char* tmpstr = malloc(4096);
-        va_start(v, s);
+        va_copy(v, ov);
         vsnprintf(tmpstr, 4096, s, v);
-        va_end(v);
         #if PLATFORM != PLAT_WINDOWS
         int flags;
         switch (lvl & 0xFF) {
@@ -209,7 +206,7 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
         pb_print("[ ? ]: ");
     }
     #endif
-    switch (lvl & 0xFF) {
+    switch (lvl) {
         default:
             break;
         case LL_INFO:
@@ -266,6 +263,32 @@ void plog__draw(void) {
         pb_draw_text_screen();
         pbgl_swap_buffers();
     }
+}
+
+#undef plog
+void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+    lockMutex(&loglock);
+    plog__info(lvl, func, file, line);
+    pb_print(__VA_ARGS__); pb_print("\n");
+    plog__wrote = true;
+    va_list v;
+    va_start(v, s);
+    plog__write(lvl, func, file, line, s, v);
+    va_end(v);
+    plog__draw();
+    unlockMutex(&loglock);
+}
+
+#else
+
+#undef plog
+void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+    lockMutex(&loglock);
+    va_list v;
+    va_start(v, s);
+    plog__write(lvl, func, file, line, s, v);
+    va_end(v);
+    unlockMutex(&loglock);
 }
 
 #endif

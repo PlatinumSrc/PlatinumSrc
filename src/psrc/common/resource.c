@@ -1,5 +1,5 @@
 #include "resource.h"
-#include "game.h"
+#include "common.h"
 
 #include "../debug.h"
 
@@ -665,8 +665,8 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
             freeResource_union(r->material.texture);
         } break;
         case RC_MODEL: {
-            for (unsigned i = 0; i < r->model.parts; ++i) {
-                freeResource_union(r->model.partdata[i].material);
+            for (unsigned i = 0; i < r->model.texturecount; ++i) {
+                freeResource_union(r->model.textures[i]);
             }
         } break;
         case RC_SOUND: {
