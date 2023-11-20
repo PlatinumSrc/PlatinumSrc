@@ -5,6 +5,8 @@
 #include "../utils/logging.h"
 //#include "../utils/threads.h"
 
+#include "../common/p3m.h"
+
 #include "../../stb/stb_image.h"
 
 #if PLATFORM != PLAT_NXDK
@@ -65,6 +67,38 @@ static void gl11_cleardepth(void) {
     rendstate.gl.gl11.depthstate = !rendstate.gl.gl11.depthstate;
 }
 
+struct rc_model* testmodel;
+
+void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
+    if (!verts) verts = m->vertices;
+    for (int ig = 0; ig < m->indexgroupcount; ++ig) {
+        uint16_t indcount = m->indexgroups[ig].indexcount;
+        uint16_t* inds = m->indexgroups[ig].indices;
+        glBegin(GL_TRIANGLES);
+        glColor3f(1.0, 1.0, 1.0);
+        long lt = SDL_GetTicks();
+        double dt = (double)(lt % 1000) / 1000.0;
+        double t = (double)(lt / 1000) + dt;
+        float tsin = sin(t * 0.189254 * M_PI) * 0.25;
+        float tsin2 = fabs(sin(t * M_PI)) * 0.2;
+        for (uint16_t i = 0; i < indcount; ++i) {
+            #if 0
+            int ci = (*inds * 0x10492851) ^ *inds;
+            uint8_t c[3] = {ci >> 16, ci >> 8, ci};
+            glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
+            #else
+            if (!(i % 3)) {
+                int ci = (i * 0x10492851) ^ i;
+                uint8_t c[3] = {ci >> 16, ci >> 8, ci};
+                glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
+            }
+            #endif
+            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.0 + tsin2, -verts[*inds].z - 0.25);
+            ++inds;
+        }
+        glEnd();
+    }
+}
 #if 0
 void render_gl_legacy(void) {
     gl11_cleardepth();
@@ -103,51 +137,61 @@ void render_gl_legacy(void) {
     float tcosn = cos(t * M_PI) * 0.5 + 0.5;
     float tsini = 1.0 - tsinn;
     float tcosi = 1.0 - tcosn;
+
     gl11_cleardepth();
     glLoadIdentity();
-    glDisable(GL_BLEND);
+
     glBegin(GL_QUADS);
         #if 1
         glColor3f(tsini, tcosn, tsinn);
         glVertex3f(-1.0, 1.0, 0.0);
         glColor3f(tcosi, tsini, tcosn);
-        glVertex3f(1.0, 1.0, 0.0);
+        glVertex3f(-1.0, -1.0, 0.0);
         glColor3f(tsinn, tcosi, tsini);
         glVertex3f(1.0, -1.0, 0.0);
         glColor3f(tcosn, tsinn, tcosi);
-        glVertex3f(-1.0, -1.0, 0.0);
+        glVertex3f(1.0, 1.0, 0.0);
         #endif
         glColor3f(1.0, 0.0, 0.0);
         glVertex3f(-0.5, 0.5, 0.0);
         glColor3f(0.5, 1.0, 0.0);
-        glVertex3f(0.5, 0.5, 0.0);
+        glVertex3f(-0.5, -0.5, 0.0);
         glColor3f(0.0, 1.0, 1.0);
         glVertex3f(0.5, -0.5, 0.0);
         glColor3f(0.5, 0.0, 1.0);
-        glVertex3f(-0.5, -0.5, 0.0);
+        glVertex3f(0.5, 0.5, 0.0);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(-1.0, 0.025 + tsin2, 0.0);
-        glVertex3f(1.0, 0.025 + tsin2, 0.0);
-        glVertex3f(1.0, -0.025 + tsin2, 0.0);
         glVertex3f(-1.0, -0.025 + tsin2, 0.0);
+        glVertex3f(1.0, -0.025 + tsin2, 0.0);
+        glVertex3f(1.0, 0.025 + tsin2, 0.0);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-0.025 + tsin, 1.0, 0.0);
-        glVertex3f(0.025 + tsin, 1.0, 0.0);
-        glVertex3f(0.025 + tsin, -1.0, 0.0);
         glVertex3f(-0.025 + tsin, -1.0, 0.0);
+        glVertex3f(0.025 + tsin, -1.0, 0.0);
+        glVertex3f(0.025 + tsin, 1.0, 0.0);
     glEnd();
+
+    if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
+
     glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+
     glBegin(GL_QUADS);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-0.75, 0.75, 0.0);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(0.75, 0.75, 0.0);
+        glVertex3f(-0.75, -0.75, 0.0);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(0.75, -0.75, 0.0);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(-0.75, -0.75, 0.0);
+        glVertex3f(0.75, 0.75, 0.0);
     glEnd();
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 #endif
 
@@ -417,7 +461,10 @@ static bool createWindow(void) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
+            glEnable(GL_DEPTH_TEST);
             glDepthMask(GL_TRUE);
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_BACK);
         } break;
         default: {
         } break;
@@ -536,9 +583,11 @@ bool initRenderer(void) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
     }
+    testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);
     return true;
 }
 
 void termRenderer(void) {
+    freeResource(testmodel);
     free(rendstate.icon);
 }

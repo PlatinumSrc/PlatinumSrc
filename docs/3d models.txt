@@ -16,8 +16,7 @@ Format:
 
     Data:
         <u16: Vertex count> [Vertex]... [Texture vertex]...
-        <u16: Index count> [u16: Index]...
-        <u8: Texture count> [Texture]...
+        <u8: Index group count> [Index group]...
         [
             <u8: Bone count> [Bone]...
             <u8: Action count> [Action]...
@@ -26,16 +25,17 @@ Format:
         <char[]: String table>
 
     String:
-        <u32: Offset in string table>
+        <u16: Offset in string table>
 
     Vertex:
         <float: X> <float: Y> <float: Z>
 
     Texture vertex:
-        <u8: Texture> <float: U> <float: V>
+        <float: U> <float: V>
 
-    Texture:
+    Index group:
         <<String>: Texture path>
+        <u16: Index count> [u16: Index]...
 
     Bone:
         <<String>: Name>

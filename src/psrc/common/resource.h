@@ -3,6 +3,8 @@
 
 #include "../utils/config.h"
 
+#include "../common/p3m.h"
+
 #include "../../schrift/schrift.h"
 
 #include <stdint.h>
@@ -104,10 +106,10 @@ struct __attribute__((packed)) rcopt_sound {
 // RC_MODEL
 struct __attribute__((packed)) rc_model {
     struct p3m* model;
-    uint8_t texturecount;
     struct rc_texture** textures;
 };
 struct __attribute__((packed)) rcopt_model {
+    uint8_t flags;
     enum rcopt_texture_qlt texture_quality;
 };
 
@@ -144,55 +146,19 @@ struct __attribute__((packed)) rcheader {
     } att;
 };
 
-union __attribute__((packed)) resource {
-    void* ptr;
-    struct rc_config* config;
-    struct rc_font* font;
-    struct rc_map* map;
-    struct rc_material* material;
-    struct rc_model* model;
-    //struct rc_playermodel* playermodel;
-    //struct rc_script* script;
-    struct rc_sound* sound;
-    struct rc_texture* texture;
-    struct rc_values* values;
-};
-
-union __attribute__((packed)) rcopt {
-    void* ptr;
-    //struct rcopt_config* config;
-    //struct rcopt_font* font;
-    struct rcopt_map* map;
-    struct rcopt_material* material;
-    struct rcopt_model* model;
-    //struct rcopt_playermodel* playermodel;
-    //struct rcopt_script* script;
-    struct rcopt_sound* sound;
-    struct rcopt_texture* texture;
-    //struct rcopt_values* values;
-};
-
 bool initResource(void);
 void termResource(void);
-union resource loadResource(enum rctype type, const char* path, union rcopt opt);
-void freeResource(union resource);
-void grabResource(union resource);
+void* loadResource(enum rctype type, const char* path, void* opt);
+void freeResource(void*);
+void grabResource(void*);
 char* getRcPath(const char* uri, enum rctype type, char** ext);
 int16_t genRcAttKey(void);
-void setRcAtt(union resource, int16_t, void*, void (*)(void*));
-void setRcAttData(union resource, int16_t, void*);
-void setRcAttCallback(union resource, int16_t, void (*)(void*));
-bool getRcAtt(union resource, int16_t, void**);
-void delRcAtt(union resource, int16_t);
+void setRcAtt(void*, int16_t key, void* data, void (*cb)(void*));
+void setRcAttData(void*, int16_t key, void*);
+void setRcAttCallback(void*, int16_t key, void (*)(void*));
+bool getRcAtt(void*, int16_t key, void** out);
+void delRcAtt(void*, int16_t key);
 
-#define loadResource(t, p, o) loadResource((t), (p), (union rcopt){.ptr = (void*)(o)})
-#define freeResource(r) freeResource((union resource){.ptr = (void*)(r)})
-#define grabResource(r) grabResource((union resource){.ptr = (void*)(r)})
 #define releaseResource freeResource
-#define setRcAtt(r, k, d, c) setRcAtt((union resource){.ptr = (void*)(r)}, (k), (d), (c))
-#define setRcAttData(r, k, d) setRcAttData((union resource){.ptr = (void*)(r)}, (k), (d))
-#define setRcAttCallback(r, k, c) setRcAttCallback((union resource){.ptr = (void*)(r)}, (k), (c))
-#define getRcAtt(r, k, o) getRcAtt((union resource){.ptr = (void*)(r)}, (k), (o))
-#define delRcAtt(r, k) delRcAtt((union resource){.ptr = (void*)(r)}, (k))
 
 #endif

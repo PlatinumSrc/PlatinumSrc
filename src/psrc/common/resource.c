@@ -38,6 +38,34 @@
 
 static mutex_t rclock; // TODO: turn into an access lock
 
+union __attribute__((packed)) resource {
+    void* ptr;
+    struct rc_config* config;
+    struct rc_font* font;
+    struct rc_map* map;
+    struct rc_material* material;
+    struct rc_model* model;
+    //struct rc_playermodel* playermodel;
+    //struct rc_script* script;
+    struct rc_sound* sound;
+    struct rc_texture* texture;
+    struct rc_values* values;
+};
+
+union __attribute__((packed)) rcopt {
+    void* ptr;
+    //struct rcopt_config* config;
+    //struct rcopt_font* font;
+    struct rcopt_map* map;
+    struct rcopt_material* material;
+    struct rcopt_model* model;
+    //struct rcopt_playermodel* playermodel;
+    //struct rcopt_script* script;
+    struct rcopt_sound* sound;
+    struct rcopt_texture* texture;
+    //struct rcopt_values* values;
+};
+
 struct __attribute__((packed)) rcdata {
     struct rcheader header;
     union __attribute__((packed)) {
@@ -95,6 +123,9 @@ int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
 
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
+};
+struct rcopt_model modelopt_default = {
+    0, RCOPT_TEXTURE_QLT_HIGH
 };
 struct rcopt_sound soundopt_default = {
     true
@@ -242,7 +273,7 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
     free(path);
     path = cb_reinit(&tmpcb, 256);
     int filestatus = -1;
-    switch ((int8_t)prefix) {
+    switch (prefix) {
         case RCPREFIX_SELF: {
             for (int i = 0; i < modinfo.len; ++i) {
                 if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "games", gamedir, path, NULL)) >= 1) goto found;
@@ -279,6 +310,7 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
         case RCPREFIX_USER: {
             if ((filestatus = getRcPath_try(&tmpcb, type, ext, userdir, path, NULL)) >= 1) goto found;
         } break;
+        default: break;
     }
     free(path);
     cb_dump(&tmpcb);
@@ -295,7 +327,7 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
 static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, const char* p, uint32_t pcrc) {
     struct rcdata* ptr = NULL;
     size_t size = sizeof(struct rcheader);
-    switch ((uint8_t)t) {
+    switch (t) {
         case RC_CONFIG:
             size += sizeof(struct rc_config);
             break;
@@ -319,6 +351,8 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
             break;
         case RC_VALUES:
             size += sizeof(struct rc_values);
+            break;
+        default:
             break;
     }
     for (int i = 0; i < g->len; ++i) {
@@ -347,12 +381,12 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
 
 static struct rcdata* loadResource_internal(enum rctype, const char*, union rcopt);
 
-static union resource loadResource_union(enum rctype t, const char* uri, union rcopt o) {
+static void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o) {
     struct rcdata* r = loadResource_internal(t, uri, o);
-    if (!r) return (union resource){.ptr = NULL};
-    return (union resource){.ptr = (void*)r + sizeof(struct rcheader)};
+    if (!r) return NULL;
+    return (void*)r + sizeof(struct rcheader);
 }
-#define loadResource_union(t, p, o) loadResource_union((t), (p), (union rcopt){.ptr = (void*)(o)})
+#define loadResource_wrapper(t, p, o) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)})
 
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
     char* ext;
@@ -367,14 +401,21 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     for (int i = 0; i < g->len; ++i) {
         d = g->data[i];
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
-            switch ((uint8_t)t) {
+            switch (t) {
                 case RC_MATERIAL: {
                     if (o.material->quality != d->materialopt.quality) goto nomatch;
+                } break;
+                case RC_MODEL: {
+                    if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREVERTS) ||
+                        (o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREBONES) ||
+                        (o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
+                    if (o.model->texture_quality != d->modelopt.texture_quality) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
                     if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
                     if (o.texture->quality != d->textureopt.quality) goto nomatch;
                 } break;
+                default: break;
             }
             ++d->header.refs;
             free(p);
@@ -383,7 +424,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         }
     }
     d = NULL;
-    switch ((uint8_t)t) {
+    switch (t) {
         case RC_CONFIG: {
             struct cfg* config = cfg_open(p);
             if (config) {
@@ -415,7 +456,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 if (tmp) {
                     if (!o.material) o.material = &materialopt_default;
                     struct rcopt_texture texopt = {false, o.material->quality};
-                    d->material.texture = loadResource_union(RC_TEXTURE, tmp, &texopt).texture;
+                    d->material.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt);
                     free(tmp);
                 } else {
                     d->material.texture = NULL;
@@ -433,6 +474,20 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     sscanf(tmp, "%f", &d->material.color[3]);
                 }
             } 
+        } break;
+        case RC_MODEL: {
+            if (!o.model) o.model = &modelopt_default;
+            struct p3m* m = p3m_loadfile(p, o.model->flags);
+            if (m) {
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->model.model = m;
+                d->model.textures = malloc(m->indexgroupcount * sizeof(*d->model.textures));
+                //struct rcopt_texture texopt = {false, o.model->texture_quality};
+                for (int i = 0; i < m->indexgroupcount; ++i) {
+                    //d->model.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt);
+                    d->model.textures[i] = NULL;
+                }
+            }
         } break;
         case RC_SOUND: {
             FILE* f = fopen(p, "r");
@@ -636,38 +691,37 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->values.values = values;
             }
         } break;
+        default: break;
     }
     free(p);
     if (!d) plog(LL_WARN, "Failed to load resource %s", uri);
     return d;
 }
 
-union resource loadResource(enum rctype t, const char* uri, union rcopt o) {
+void* loadResource(enum rctype t, const char* uri, void* o) {
     lockMutex(&rclock);
-    struct rcdata* r = loadResource_internal(t, uri, o);
+    void* r = loadResource_wrapper(t, uri, o);
     unlockMutex(&rclock);
-    if (!r) return (union resource){.ptr = NULL};
-    return (union resource){.ptr = (void*)r + sizeof(struct rcheader)};
+    return r;
 }
 
 static void freeResource_internal(struct rcdata*);
 
-static inline void freeResource_union(union resource r) {
-    if (r.ptr) {
-        freeResource_internal(r.ptr - sizeof(struct rcheader));
-    }
+static inline void freeResource_wrapper(void* r) {
+    if (r) freeResource_internal(r - sizeof(struct rcheader));
 }
-#define freeResource_union(r) freeResource_union((union resource){.ptr = (void*)(r)})
 
 static inline void freeResource_force(enum rctype type, struct rcdata* r) {
-    switch ((uint8_t)type) {
+    switch (type) {
         case RC_MATERIAL: {
-            freeResource_union(r->material.texture);
+            freeResource_wrapper(r->material.texture);
         } break;
         case RC_MODEL: {
-            for (unsigned i = 0; i < r->model.texturecount; ++i) {
-                freeResource_union(r->model.textures[i]);
+            for (unsigned i = 0; i < r->model.model->indexgroupcount; ++i) {
+                freeResource_wrapper(r->model.textures[i]);
             }
+            p3m_free(r->model.model);
+            free(r->model.textures);
         } break;
         case RC_SOUND: {
             free(r->sound.data);
@@ -675,6 +729,7 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
         case RC_TEXTURE: {
             free(r->texture.data);
         } break;
+        default: break;
     }
     free(r->header.path);
 }
@@ -691,18 +746,18 @@ static void freeResource_internal(struct rcdata* _r) {
     }
 }
 
-void freeResource(union resource r) {
-    if (r.ptr) {
+void freeResource(void* r) {
+    if (r) {
         lockMutex(&rclock);
-        freeResource_internal(r.ptr - sizeof(struct rcheader));
+        freeResource_internal(r - sizeof(struct rcheader));
         unlockMutex(&rclock);
     }
 }
 
-void grabResource(union resource _r) {
-    if (_r.ptr) {
+void grabResource(void* _r) {
+    if (_r) {
         lockMutex(&rclock);
-        struct rcdata* r = _r.ptr - sizeof(struct rcheader);
+        struct rcdata* r = _r - sizeof(struct rcheader);
         ++r->header.refs;
         unlockMutex(&rclock);
     }

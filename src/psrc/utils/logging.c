@@ -86,7 +86,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     #else
     plog_writedate(f);
     #endif
-    switch (lvl) {
+    switch (lvl & 0xFF) {
         default:
             break;
         case LL_INFO:
@@ -129,7 +129,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
 void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, va_list ov) {
     va_list v;
     FILE* f;
-    switch (lvl) {
+    switch (lvl & 0xFF) {
         default:
             f = stdout;
             break;
@@ -206,7 +206,7 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
         pb_print("[ ? ]: ");
     }
     #endif
-    switch (lvl) {
+    switch (lvl & 0xFF) {
         default:
             break;
         case LL_INFO:

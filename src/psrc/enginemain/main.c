@@ -129,13 +129,13 @@ static int run(int argc, char** argv) {
     }
 
     struct rc_sound* test;
-    test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt).sound;
+    test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
-    //test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt).sound;
+    //test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt);
     //if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
     //freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt).sound;
+    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
     uint64_t testsound = -1;
     if (test) testsound = playSound(
         false, test,

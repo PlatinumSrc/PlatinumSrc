@@ -12,19 +12,26 @@ struct __attribute__((packed)) p3m_vertex {
     float z;
 };
 struct __attribute__((packed)) p3m_texturevertex {
-    uint8_t t;
     float u;
     float v;
 };
-struct __attribute__((packed)) p3m_texture {
-    char* path;
+struct __attribute__((packed)) p3m_indexgroup {
+    union {
+        char* texture;
+        uint16_t _texture;
+    };
+    uint16_t indexcount;
+    uint16_t* indices;
 };
 struct __attribute__((packed)) p3m_bonevertex {
     uint16_t index;
     float weight;
 };
 struct __attribute__((packed)) p3m_bone {
-    char* name;
+    union {
+        char* name;
+        uint16_t _name;
+    };
     struct __attribute__((packed)) {
         float x;
         float y;
@@ -58,7 +65,11 @@ struct __attribute__((packed)) p3m_actionscale {
     float z;
 };
 struct __attribute__((packed)) p3m_actionbone {
-    char* name;
+    union {
+        char* name;
+        uint16_t _name;
+    };
+    uint8_t index;
     uint8_t translationcount;
     struct p3m_actiontranslation* translations;
     uint8_t rotationcount;
@@ -70,10 +81,12 @@ struct __attribute__((packed)) p3m_action {
     float maxframe;
     uint8_t bonecount;
     struct p3m_actionbone* bones;
-    uint8_t* boneindices;
 };
 struct __attribute__((packed)) p3m_animation {
-    char* name;
+    union {
+        char* name;
+        uint16_t _name;
+    };
     uint32_t frametime;
     uint8_t actioncount;
     struct p3m_action* actions;
@@ -83,18 +96,20 @@ struct p3m {
     uint16_t vertexcount;
     struct p3m_vertex* vertices;
     struct p3m_texturevertex* texturevertices;
-    uint16_t indexcount;
-    uint16_t* indices;
-    uint8_t texturecount;
-    struct p3m_texture* textures;
+    uint8_t indexgroupcount;
+    struct p3m_indexgroup* indexgroups;
     uint8_t bonecount;
     struct p3m_bone* bones;
     uint8_t actioncount;
     struct p3m_action* actions;
     uint8_t animationcount;
     struct p3m_animation* animations;
-    uint8_t* data;
+    char* strtable;
 };
+
+#define P3M_LOADFLAG_IGNOREVERTS (1 << 0)
+#define P3M_LOADFLAG_IGNOREBONES (1 << 1)
+#define P3M_LOADFLAG_IGNOREANIMS (1 << 2)
 
 enum __attribute__((packed)) p3m_animmode {
     ANIMMODE_SET,
@@ -122,13 +137,16 @@ struct __attribute__((packed)) p3m_animstackitem {
 };
 struct p3m_animstate {
     struct p3m* target;
-    int stacklen;
-    struct p3m_animstackitem* stack;
+    struct {
+        struct p3m_animstackitem* data;
+        int len;
+        int size;
+    } stack;
     uint16_t outsize;
     struct p3m_vertex* out;
 };
 
-struct p3m* p3m_loadfile(const char*);
+struct p3m* p3m_loadfile(const char*, uint8_t flags);
 void p3m_free(struct p3m*);
 
 uint8_t* p3m_newbonemap(struct p3m* from, struct p3m* to);
@@ -137,8 +155,8 @@ void p3m_delbonemap(uint8_t*);
 struct p3m_animstate* p3m_newanimstate(struct p3m*);
 void p3m_delanimstate(struct p3m_animstate*);
 
-int p3m_newanim(struct p3m_animstate*, struct p3m*, uint8_t* bm, char* name, uint64_t t, uint8_t f);
-int p3m_swapanim(struct p3m_animstate*, int, struct p3m*, uint8_t* bm, char* name, uint64_t t, uint8_t f);
+int p3m_newanim(struct p3m_animstate*, struct p3m*, uint8_t* bm, char* name, uint64_t t, uint8_t flags);
+int p3m_swapanim(struct p3m_animstate*, int, struct p3m*, uint8_t* bm, char* name, uint64_t t, uint8_t flags);
 void p3m_changeanimflags(struct p3m_animstate*, int, uint8_t disable, uint8_t enable);
 void p3m_delanim(struct p3m_animstate*, int);
 

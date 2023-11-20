@@ -5,9 +5,9 @@
 #include <stdbool.h>
 
 struct charbuf {
+    char* data;
     int len;
     int size;
-    char* data;
 };
 
 char* strcombine(const char*, ...);

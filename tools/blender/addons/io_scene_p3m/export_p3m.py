@@ -13,18 +13,17 @@ def save(operator, context, filepath,
         x: float
         y: float
         z: float
-        t: int
         u: float
         v: float
         def __eq__(self, other):
             return (
                 self.x == other.x and self.y == other.y and self.z == other.z and
-                self.t == other.t and self.u == other.u and self.v == other.v
+                self.u == other.u and self.v == other.v
             )
         def __ne__(self, other):
             return (
                 self.x != other.x or self.y != other.y or self.z != other.z or
-                self.t != other.t or self.u != other.u or self.v != other.v
+                self.u != other.u or self.v != other.v
             )
 
     print("Exporting " + filepath + "...")
@@ -34,8 +33,7 @@ def save(operator, context, filepath,
     armature = None
 
     vertices = []
-    indices = []
-    materials = [] # [index, name]
+    indexgroups = [] # [[material index, material name], indices]
     bones = [] # [name, deform, head, tail, [index, weight], child count]
     actions = [] # [name, frames, [bone, [frame, translation], [frame, rotation], [frame, scale]]]
     animations = [] # [name, frametime, [action, speed, start, end]]
@@ -50,28 +48,28 @@ def save(operator, context, filepath,
             strtable += b
             return l
         return p
-    def addmaterial(mi, md):
-        nonlocal materials
-        for i, m in enumerate(materials):
-            if m[0] == mi: return i
-        materials.append([mi, md[mi].material.name])
-        return len(materials) - 1
     def addvertex(v):
         nonlocal vertices
         for i, v2 in enumerate(vertices):
             if v2 == v: return i
         vertices.append(v)
         return len(vertices) - 1
+    def addindexgroup(mi, md):
+        nonlocal indexgroups
+        for i, g in enumerate(indexgroups):
+            if g[0][0] == mi: return i
+        indexgroups.append([[mi, md[mi].material.name], []])
+        return len(indexgroups) - 1
     def addfaces(fl, md, uvl):
-        nonlocal indices
+        nonlocal indexgroups
         for f in fl:
-            m = addmaterial(f.material_index, md)
+            g = addindexgroup(f.material_index, md)
             for l in f.loops:
                 i = addvertex(p3mvert(
                     l.vert.co.x, l.vert.co.z, l.vert.co.y,
-                    m, l[uvl].uv.x, l[uvl].uv.y
+                    l[uvl].uv.x, l[uvl].uv.y
                 ))
-                indices.append(i)
+                indexgroups[g][1].append(i)
     def addmesh(obj):
         bm = bmesh.new()
         bm.from_mesh(obj.data)
@@ -206,42 +204,32 @@ def save(operator, context, filepath,
 
     f = open(filepath, "wb")
     f.write(b"P3M\0")
-    f.write(struct.pack("<B", ver[0]))
-    f.write(struct.pack("<B", ver[1]))
+    f.write(struct.pack("<BB", ver[0], ver[1]))
     flags = 0b00000000
     if armature is not None:
         flags |= 0b00000001
     f.write(struct.pack("<B", flags))
     f.write(struct.pack("<H", len(vertices)))
     for v in vertices:
-        f.write(struct.pack("<f", v.x))
-        f.write(struct.pack("<f", v.y))
-        f.write(struct.pack("<f", v.z))
+        f.write(struct.pack("<fff", v.x, v.y, v.z))
     for v in vertices:
-        f.write(struct.pack("<B", v.t))
-        f.write(struct.pack("<f", v.u))
-        f.write(struct.pack("<f", v.v))
-    f.write(struct.pack("<H", len(indices)))
-    for i in indices:
-        f.write(struct.pack("<H", i))
-    f.write(struct.pack("<B", len(materials)))
-    for m in materials:
-        f.write(struct.pack("<I", addtostrtable(m[1])))
+        f.write(struct.pack("<ff", v.u, v.v))
+    f.write(struct.pack("<B", len(indexgroups)))
+    for g in indexgroups:
+        f.write(struct.pack("<H", addtostrtable(g[0][1])))
+        f.write(struct.pack("<H", len(g[1])))
+        for i in g[1]:
+            f.write(struct.pack("<H", i))
     if armature is not None:
         if export_bones:
             f.write(struct.pack("<B", len(bones)))
             for b in bones:
-                f.write(struct.pack("<I", addtostrtable(b[0])))
-                f.write(struct.pack("<f", b[2][0]))
-                f.write(struct.pack("<f", b[2][1]))
-                f.write(struct.pack("<f", b[2][2]))
-                f.write(struct.pack("<f", b[3][0]))
-                f.write(struct.pack("<f", b[3][1]))
-                f.write(struct.pack("<f", b[3][2]))
+                f.write(struct.pack("<H", addtostrtable(b[0])))
+                f.write(struct.pack("<fff", b[2][0], b[2][1], b[2][2]))
+                f.write(struct.pack("<fff", b[3][0], b[3][1], b[3][2]))
                 f.write(struct.pack("<H", len(b[4])))
                 for w in b[4]:
-                    f.write(struct.pack("<H", w[0]))
-                    f.write(struct.pack("<f", w[1]))
+                    f.write(struct.pack("<Hf", w[0], w[1]))
                 f.write(struct.pack("<B", b[5]))
         else:
             f.write(struct.pack("<B", 0))
@@ -251,38 +239,25 @@ def save(operator, context, filepath,
                 f.write(struct.pack("<f", a[1]))
                 f.write(struct.pack("<B", len(a[2])))
                 for b in a[2]:
-                    f.write(struct.pack("<I", addtostrtable(b[0])))
+                    f.write(struct.pack("<H", addtostrtable(b[0])))
                     f.write(struct.pack("<B", len(b[1])))
                     for d in b[1]:
-                        f.write(struct.pack("<f", d[0]))
-                        f.write(struct.pack("<f", d[1][0]))
-                        f.write(struct.pack("<f", d[1][1]))
-                        f.write(struct.pack("<f", d[1][2]))
+                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
                     f.write(struct.pack("<B", len(b[2])))
                     for d in b[2]:
-                        f.write(struct.pack("<f", d[0]))
-                        f.write(struct.pack("<f", d[1][0]))
-                        f.write(struct.pack("<f", d[1][1]))
-                        f.write(struct.pack("<f", d[1][2]))
+                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
                     f.write(struct.pack("<B", len(b[3])))
                     for d in b[3]:
-                        f.write(struct.pack("<f", d[0]))
-                        f.write(struct.pack("<f", d[1][0]))
-                        f.write(struct.pack("<f", d[1][1]))
-                        f.write(struct.pack("<f", d[1][2]))
+                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
             f.write(struct.pack("<B", len(animations)))
             for a in animations:
-                f.write(struct.pack("<I", addtostrtable(a[0])))
+                f.write(struct.pack("<H", addtostrtable(a[0])))
                 f.write(struct.pack("<I", a[1]))
                 f.write(struct.pack("<B", len(a[2])))
                 for d in a[2]:
-                    f.write(struct.pack("<B", d[0]))
-                    f.write(struct.pack("<f", d[1]))
-                    f.write(struct.pack("<f", d[2]))
-                    f.write(struct.pack("<f", d[3]))
+                    f.write(struct.pack("<Bfff", d[0], d[1], d[2], d[3]))
         else:
-            f.write(struct.pack("<B", 0))
-            f.write(struct.pack("<B", 0))
+            f.write(struct.pack("<BB", 0, 0))
     f.write(strtable)
     f.close()
 
