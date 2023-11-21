@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef UTILS_THREADING_STDC
+#ifndef PSRC_UTILS_THREADING_STDC
     #include <pthread.h>
 #else
     #include <threads.h>
@@ -20,7 +20,7 @@ struct thread_data {
 };
 typedef void* (*threadfunc_t)(struct thread_data*);
 typedef struct thread_t {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_t thread;
     #else
     thrd_t thread;
@@ -29,7 +29,7 @@ typedef struct thread_t {
     threadfunc_t func;
     struct thread_data data;
 } thread_t;
-#ifndef UTILS_THREADING_STDC
+#ifndef PSRC_UTILS_THREADING_STDC
 typedef pthread_mutex_t mutex_t;
 typedef pthread_cond_t cond_t;
 #else
@@ -45,21 +45,21 @@ bool createThread(thread_t*, const char* name, threadfunc_t func, void* args);
 void quitThread(thread_t*);
 void destroyThread(thread_t*, void** ret);
 
-#ifndef UTILS_THREADING_STDC
+#ifndef PSRC_UTILS_THREADING_STDC
     #define yield() sched_yield()
 #else
     #define yield() thrd_yield()
 #endif
 
 static inline bool createMutex(mutex_t* m) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     return !pthread_mutex_init(m, NULL);
     #else
     return (mtx_init(m, mtx_plain) == thrd_success);
     #endif
 }
 static inline void lockMutex(mutex_t* m) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     while (pthread_mutex_lock(m)) {}
     #else
     #if PLATFORM != PLAT_NXDK
@@ -72,14 +72,14 @@ static inline void lockMutex(mutex_t* m) {
     #endif
 }
 static inline void unlockMutex(mutex_t* m) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     while (pthread_mutex_unlock(m)) {}
     #else
     while (mtx_unlock(m) != thrd_success) {}
     #endif
 }
 static inline void destroyMutex(mutex_t* m) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_mutex_destroy(m);
     #else
     mtx_destroy(m);
@@ -87,7 +87,7 @@ static inline void destroyMutex(mutex_t* m) {
 }
 
 static inline bool createCond(cond_t* c) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     return !pthread_cond_init(c, NULL);
     #else
     return (cnd_init(c) == thrd_success);
@@ -95,28 +95,28 @@ static inline bool createCond(cond_t* c) {
 }
 static inline void waitOnCond(cond_t* c, mutex_t* m, uint64_t t) {
     if (t) return; // TODO: imeplement later
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_cond_wait(c, m);
     #else
     cnd_wait(c, m);
     #endif
 }
 static inline void signalCond(cond_t* c) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_cond_signal(c);
     #else
     cnd_signal(c);
     #endif
 }
 static inline void broadcastCond(cond_t* c) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_cond_broadcast(c);
     #else
     cnd_broadcast(c);
     #endif
 }
 static inline void destroyCond(cond_t* c) {
-    #ifndef UTILS_THREADING_STDC
+    #ifndef PSRC_UTILS_THREADING_STDC
     pthread_cond_destroy(c);
     #else
     cnd_destroy(c);

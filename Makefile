@@ -206,7 +206,7 @@ endef
 
 CPPFLAGS.dir.psrc_utils := 
 ifeq ($(CROSS),nxdk)
-    CPPFLAGS.dir.psrc_utils += -DUTILS_THREADING_STDC
+    CPPFLAGS.dir.psrc_utils += -DPSRC_UTILS_THREADING_STDC
 endif
 LDLIBS.dir.psrc_utils := 
 ifeq ($(CROSS),win32)
@@ -231,6 +231,11 @@ endif
 CPPFLAGS.dir.schrift := 
 ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
+endif
+
+CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
+ifeq ($(CROSS),nxdk)
+    CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
 endif
 
 CPPFLAGS.lib.discord_game_sdk := 
@@ -258,16 +263,13 @@ else
     LDLIBS.lib.zlib += -lz
 endif
 
-CPPFLAGS.dir.psrc_engine = $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift)
-CPPFLAGS.dir.psrc_engine += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-LDLIBS.dir.psrc_engine = $(LDLIBS.dir.psrc_utils)
-LDLIBS.dir.psrc_engine += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
-
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
-    _CPPFLAGS += $(CPPFLAGS.dir.psrc_engine)
-    _LDLIBS +=  $(LDLIBS.dir.psrc_engine)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_utils)
+    _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
@@ -276,8 +278,10 @@ else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
-    _CPPFLAGS += $(CPPFLAGS.dir.psrc_engine)
-    _LDLIBS += $(LDLIBS.dir.psrc_engine)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_utils)
+    _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
     _WRFLAGS += -DMODULE_TOOLBOX

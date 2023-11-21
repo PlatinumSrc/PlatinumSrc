@@ -37,6 +37,10 @@ enum __attribute__((packed)) loglevel {
 #define LP_DEBUG "<D>: "
 
 extern mutex_t loglock;
+#if PLATFORM == PLAT_NXDK
+    extern bool plog__nodraw;
+    extern bool plog__wrote;
+#endif
 
 bool initLogging(void);
 void plog(enum loglevel lvl, const char* fn, const char* f, unsigned l, char* s, ...);

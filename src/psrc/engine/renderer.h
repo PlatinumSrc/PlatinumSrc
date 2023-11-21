@@ -58,7 +58,7 @@ struct rendstate {
     enum rendapigroup apigroup;
     enum rendmode mode;
     uint8_t vsync : 1;
-    uint8_t : 7;
+    uint8_t borderless : 1;
     float fov;
     float aspect;
     struct {
@@ -72,12 +72,12 @@ struct rendstate {
             #if PLATFORM != PLAT_NXDK
             SDL_GLContext ctx;
             #endif
+            uint8_t fastclear : 1;
             float near;
             float far;
             mat4 projmat;
             union {
                 struct {
-                    bool depthstate;
                 } gl11;
                 #if PLATFORM != PLAT_NXDK
                 struct {
@@ -96,7 +96,8 @@ enum rendopt {
     RENDOPT_END,
     RENDOPT_ICON, // char*
     RENDOPT_API, // enum rendapi
-    RENDOPT_MODE, // enum rendmode
+    RENDOPT_FULLSCREEN, // bool
+    RENDOPT_BORDERLESS, // bool
     RENDOPT_VSYNC, // bool
     RENDOPT_FOV, // float
     RENDOPT_RES, // struct rendres*

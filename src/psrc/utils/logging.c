@@ -250,18 +250,29 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
 void plog__draw(void) {
     if (!plog__nodraw) {
         // glClear doesn't work for some reason
+        GLboolean tmp;
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
+        glDepthMask(false);
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
         glBegin(GL_QUADS);
-            glColor3f(0.0, 0.0, 0.0);
+            glColor3f(0.0, 0.25, 0.0);
             glVertex3f(-1.0, 1.0, 0.0);
-            glColor3f(0.0, 0.0, 0.0);
-            glVertex3f(1.0, 1.0, 0.0);
-            glColor3f(0.0, 0.0, 0.0);
-            glVertex3f(1.0, -1.0, 0.0);
-            glColor3f(0.0, 0.0, 0.0);
             glVertex3f(-1.0, -1.0, 0.0);
+            glVertex3f(1.0, -1.0, 0.0);
+            glVertex3f(1.0, 1.0, 0.0);
         glEnd();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
         pb_draw_text_screen();
         pbgl_swap_buffers();
+        glDepthMask(tmp);
     }
 }
 
@@ -269,10 +280,17 @@ void plog__draw(void) {
 void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
     lockMutex(&loglock);
     plog__info(lvl, func, file, line);
-    pb_print(__VA_ARGS__); pb_print("\n");
-    plog__wrote = true;
     va_list v;
     va_start(v, s);
+    {
+        va_list v2;
+        va_copy(v2, v);
+        static char buf[512];
+        vsnprintf(buf, sizeof(buf), s, v2);
+        pb_print("%s", buf);
+        pb_print("\n");
+    }
+    plog__wrote = true;
     plog__write(lvl, func, file, line, s, v);
     va_end(v);
     plog__draw();

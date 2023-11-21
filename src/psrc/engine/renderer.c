@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include "../version.h"
+#include "../debug.h"
 
 #include "../utils/logging.h"
 #include "../utils/string.h"
@@ -66,32 +67,46 @@ static void gl_calcProjMat(void) {
     );
 }
 
-static void gl11_updateProjMat(void) {
-    gl_calcProjMat();
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf((float*)rendstate.gl.projmat);
-}
-
 static void gl_updateWindow(void) {
     glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
-    switch (rendstate.api) {
-        case RENDAPI_GL11:
-            gl11_updateProjMat();
-            break;
-        default:
-            break;
-    }
+    if (rendstate.apigroup == RENDAPIGROUP_GL) gl_calcProjMat();
 }
 
-static void gl11_cleardepth(void) {
-    if (rendstate.gl.gl11.depthstate) {
-        glDepthRange(0.0, 0.5);
-        glDepthFunc(GL_LEQUAL);
+static inline __attribute__((always_inline)) void gl_clearScreen(void) {
+    #if PLATFORM != PLAT_NXDK
+    if (rendstate.gl.fastclear) {
+        glClear(GL_DEPTH_BUFFER_BIT);
     } else {
-        glDepthRange(1.0, 0.5);
-        glDepthFunc(GL_GEQUAL);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
-    rendstate.gl.gl11.depthstate = !rendstate.gl.gl11.depthstate;
+    #else
+    // glClear doesn't work on pbgl?
+    GLboolean tmp;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glDepthMask(true);
+    glDepthFunc(GL_ALWAYS);
+    float c[4] = {0.0, 0.0, 0.1, 1.0};
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, c);
+    glBegin(GL_QUADS);
+        glColor4f(c[0], c[1], c[2], c[3]);
+        glVertex3f(-1.0, 1.0, 1.0);
+        glVertex3f(-1.0, -1.0, 1.0);
+        glVertex3f(1.0, -1.0, 1.0);
+        glVertex3f(1.0, 1.0, 1.0);
+    glEnd();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(tmp);
+    #endif
 }
 
 struct rc_model* testmodel;
@@ -106,8 +121,8 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        float tsin = sin(t * 0.189254 * M_PI);
-        float tsin2 = fabs(sin(t * 0.834124 * M_PI)) * 0.5;
+        float tsin = sin(t * 0.129254 * M_PI);
+        float tsin2 = fabs(sin(t * 0.274124 * M_PI));
         for (uint16_t i = 0; i < indcount; ++i) {
             float tmp1 = verts[*inds].z * 7.5;
             #if 1
@@ -123,7 +138,7 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             uint8_t c[3] = {ci >> 16, ci >> 8, ci};
             #endif
             glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
-            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.75 + tsin2, verts[*inds].z - 1.5);
+            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, verts[*inds].z - 1.5);
             ++inds;
         }
         glEnd();
@@ -131,8 +146,12 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
 }
 #if 0
 void render_gl_legacy(void) {
-    gl11_cleardepth();
-    glLoadIdentity();
+    gl_clearScreen();
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf((float*)rendstate.gl.projmat);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf((float*)rendstate.gl.viewmat);
 
     if (rendstate.lighting >= 1) {
         // TODO: render opaque materials front to back
@@ -154,6 +173,11 @@ void render_gl_legacy(void) {
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
     // TODO: render UI
 }
 #else
@@ -168,7 +192,11 @@ void render_gl_legacy(void) {
     float tsini = 1.0 - tsinn;
     float tcosi = 1.0 - tcosn;
 
-    gl11_cleardepth();
+    //glDepthMask(GL_TRUE);
+    gl_clearScreen();
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf((float*)rendstate.gl.projmat);
 
     float z = -2.0;
 
@@ -203,6 +231,8 @@ void render_gl_legacy(void) {
         glVertex3f(0.025 + tsin, 1.0, z);
     glEnd();
 
+    if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
+
     glEnable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
@@ -222,7 +252,8 @@ void render_gl_legacy(void) {
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
-    if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
 }
 #endif
 
@@ -286,7 +317,11 @@ void render(void) {
             cleared = true;
         }
     }
+    GLboolean tmp;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
+    glDepthMask(false);
     pb_draw_text_screen();
+    glDepthMask(tmp);
     #endif
     swapBuffers();
 }
@@ -487,23 +522,30 @@ static bool createWindow(void) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             }
             if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
+            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.near");
+            rendstate.gl.near = (tmpstr[0]) ? atof(tmpstr[0]) : 0.05;
+            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
+            rendstate.gl.far = (tmpstr[0]) ? atof(tmpstr[0]) : 1000.0;
+            #if DEBUG(1)
+            // makes debugging easier
+            rendstate.gl.fastclear = strbool(cfg_getvar(config, "Renderer", "gl.fastclear"), false);
+            #else
+            rendstate.gl.fastclear = strbool(cfg_getvar(config, "Renderer", "gl.fastclear"), true);
+            #endif
             glClearColor(0.0, 0.0, 0.1, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            swapBuffers();
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            swapBuffers();
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            char* tmp = cfg_getvar(config, "Renderer", "gl.near");
-            rendstate.gl.near = (tmp) ? atof(tmp) : 0.05;
-            tmp = cfg_getvar(config, "Renderer", "gl.far");
-            rendstate.gl.far = (tmp) ? atof(tmp) : 1000.0;
             gl_updateWindow();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
-            glEnable(GL_DEPTH_TEST);
             glDepthMask(GL_TRUE);
-            glEnable(GL_CULL_FACE);
+            glDepthFunc(GL_LEQUAL);
+            glEnable(GL_DEPTH_TEST);
             glCullFace(GL_BACK);
+            glEnable(GL_CULL_FACE);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            swapBuffers();
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            swapBuffers();
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         } break;
         default: {
         } break;
@@ -569,8 +611,18 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     }
                 }
             } break;
-            case RENDOPT_MODE: {
-                rendstate.mode = va_arg(args, enum rendmode);
+            case RENDOPT_FULLSCREEN: {
+                rendstate.mode = (va_arg(args, int)) ?
+                    ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
+                    RENDMODE_WINDOWED;
+                updateWindowMode();
+                if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
+            } break;
+            case RENDOPT_BORDERLESS: {
+                rendstate.borderless = va_arg(args, int);
+                rendstate.mode = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) ?
+                    ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
+                    RENDMODE_WINDOWED;
                 updateWindowMode();
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
             } break;
@@ -586,10 +638,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
             } break;
             case RENDOPT_FOV: {
                 rendstate.fov = va_arg(args, double);
-                switch (rendstate.api) {
-                    case RENDAPI_GL11: gl11_updateProjMat(); break;
-                    default: break;
-                }
+                if (rendstate.apigroup == RENDAPIGROUP_GL) gl_calcProjMat();
             } break;
             case RENDOPT_RES: {
                 struct rendres* res = va_arg(args, struct rendres*);
@@ -598,14 +647,20 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 if (res->hz >= 0) rendstate.res.current.hz = res->hz;
                 switch (rendstate.mode) {
                     case RENDMODE_WINDOWED:
+                        if (rendstate.res.current.width == rendstate.res.windowed.width &&
+                            rendstate.res.current.height == rendstate.res.windowed.height &&
+                            rendstate.res.current.hz == rendstate.res.windowed.hz) goto rettrue;
                         rendstate.res.windowed = rendstate.res.current;
                         break;
                     case RENDMODE_BORDERLESS:
                     case RENDMODE_FULLSCREEN:
+                        if (rendstate.res.current.width == rendstate.res.fullscr.width &&
+                            rendstate.res.current.height == rendstate.res.fullscr.height &&
+                            rendstate.res.current.hz == rendstate.res.fullscr.hz) goto rettrue;
                         rendstate.res.fullscr = rendstate.res.current;
                         break;
                 }
-                SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
+                SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
                 rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
             } break;
@@ -629,6 +684,11 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 bool initRenderer(void) {
     rendstate.api = RENDAPI_GL11;
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
+    #if PLATFORM != PLAT_NXDK
+    rendstate.res.windowed = (struct rendres){800, 600, -1};
+    #else
+    rendstate.res.windowed = (struct rendres){640, 480, -1};
+    #endif
     if (tmp) {
         sscanf(
             tmp, "%dx%d@%d",
@@ -636,14 +696,9 @@ bool initRenderer(void) {
             &rendstate.res.windowed.height,
             &rendstate.res.windowed.hz
         );
-    } else {
-        #if PLATFORM != PLAT_NXDK
-        rendstate.res.windowed = (struct rendres){800, 600, 60};
-        #else
-        rendstate.res.windowed = (struct rendres){640, 480, 60};
-        #endif
     }
     tmp = cfg_getvar(config, "Renderer", "resolution.fullscreen");
+    rendstate.res.fullscr = (struct rendres){-1, -1, -1};
     if (tmp) {
         sscanf(
             tmp, "%dx%d@%d",
@@ -651,10 +706,13 @@ bool initRenderer(void) {
             &rendstate.res.windowed.height,
             &rendstate.res.windowed.hz
         );
-    } else {
-        rendstate.res.fullscr = (struct rendres){-1, -1, -1};
     }
-    rendstate.vsync = strbool(cfg_getvar(config, "Renderer", "vsync"), false);
+    rendstate.mode = RENDMODE_FULLSCREEN;
+    rendstate.borderless = strbool(cfg_getvar(config, "Renderer", "borderless"), false);
+    rendstate.mode = (strbool(cfg_getvar(config, "Renderer", "fullscreen"), false)) ?
+        ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
+        RENDMODE_WINDOWED;
+    rendstate.vsync = strbool(cfg_getvar(config, "Renderer", "vsync"), true);
     tmp = cfg_getvar(config, "Renderer", "fov");
     rendstate.fov = (tmp) ? atof(tmp) : 90.0;
     if (SDL_Init(SDL_INIT_VIDEO)) {

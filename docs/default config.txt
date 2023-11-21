@@ -3,12 +3,15 @@ defaultgame = h74
 [ Renderer ]
   resolution.windowed = 1024x768 # WxH@R
   resolution.fullscreen = 
+  fullscreen = false
+  borderless = false
   vsync = true
   fov = 90
-  gl.near = 0.05
-  gl.far = 1000.0
   quality.texture = 2 # 0 = low, 1 = medium, 2 = high
   quality.lighting = 2
+  gl.near = 0.05
+  gl.far = 1000.0
+  gl.fastclear = true
 
 [ UI ]
   scale = 1

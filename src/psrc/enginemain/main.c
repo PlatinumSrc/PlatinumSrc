@@ -24,6 +24,7 @@
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
+    #include <pbkit/pbkit.h>
     #include <pbgl.h>
     #include <GL/gl.h>
 #endif
