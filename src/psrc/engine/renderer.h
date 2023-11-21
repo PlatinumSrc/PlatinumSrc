@@ -57,7 +57,10 @@ struct rendstate {
     enum rendapi api;
     enum rendapigroup apigroup;
     enum rendmode mode;
-    bool vsync;
+    uint8_t vsync : 1;
+    uint8_t : 7;
+    float fov;
+    float aspect;
     struct {
         struct rendres current;
         struct rendres windowed, fullscr;
@@ -66,10 +69,12 @@ struct rendstate {
     enum rendlighting lighting;
     union {
         struct {
-            bool init;
             #if PLATFORM != PLAT_NXDK
             SDL_GLContext ctx;
             #endif
+            float near;
+            float far;
+            mat4 projmat;
             union {
                 struct {
                     bool depthstate;
@@ -83,7 +88,6 @@ struct rendstate {
             };
         } gl;
     };
-    bool evenframe;
 };
 
 extern struct rendstate rendstate;
@@ -94,6 +98,7 @@ enum rendopt {
     RENDOPT_API, // enum rendapi
     RENDOPT_MODE, // enum rendmode
     RENDOPT_VSYNC, // bool
+    RENDOPT_FOV, // float
     RENDOPT_RES, // struct rendres*
     RENDOPT_LIGHTING, // enum rendlighting
     RENDOPT_TEXTUREQLT, // enum rcopt_texture_qlt

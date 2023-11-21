@@ -67,9 +67,9 @@ class ExportP3M(bpy.types.Operator, ExportHelper):
         description = "Export animations",
         default = True
     )
-    use_absolute: BoolProperty(
-        name = "Absolute",
-        description = "Use absolute coordinates",
+    do_transform: BoolProperty(
+        name = "Transform",
+        description = "Apply object transformations",
         default = False
     )
 
@@ -101,7 +101,7 @@ class P3M_PT_export_main(bpy.types.Panel):
         operator = context.space_data.active_operator
         layout.prop(operator, "export_bones")
         layout.prop(operator, "export_anims")
-        layout.prop(operator, "use_absolute")
+        layout.prop(operator, "do_transform")
 
 def menu_func_import(self, context):
     self.layout.operator(ImportP3M.bl_idname, text = "PlatinumSrc (.p3m)")

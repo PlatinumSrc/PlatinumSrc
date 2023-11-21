@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import struct
 
 def save(operator, context, filepath,
-        export_bones, export_anims, use_absolute,
+        export_bones, export_anims, do_transform,
         **kwargs
     ):
 
@@ -58,7 +58,10 @@ def save(operator, context, filepath,
         nonlocal indexgroups
         for i, g in enumerate(indexgroups):
             if g[0][0] == mi: return i
-        indexgroups.append([[mi, md[mi].material.name], []])
+        if len(md) == 0:
+            indexgroups.append([[mi, ""], []])
+        else:
+            indexgroups.append([[mi, md[mi].material.name], []])
         return len(indexgroups) - 1
     def addfaces(fl, md, uvl):
         nonlocal indexgroups
@@ -73,8 +76,8 @@ def save(operator, context, filepath,
     def addmesh(obj):
         bm = bmesh.new()
         bm.from_mesh(obj.data)
-        if use_absolute:
-            bmesh.ops.translate(bm, vec=obj.location, verts=bm.verts[:])
+        if do_transform:
+            bmesh.ops.transform(bm, matrix=obj.matrix_world, verts=bm.verts[:])
         bmesh.ops.triangulate(bm, faces=bm.faces[:])
         addfaces(bm.faces, obj.material_slots, bm.loops.layers.uv.active)
         bm.free()

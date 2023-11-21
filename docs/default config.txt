@@ -4,6 +4,9 @@ defaultgame = h74
   resolution.windowed = 1024x768 # WxH@R
   resolution.fullscreen = 
   vsync = true
+  fov = 90
+  gl.near = 0.05
+  gl.far = 1000.0
   quality.texture = 2 # 0 = low, 1 = medium, 2 = high
   quality.lighting = 2
 

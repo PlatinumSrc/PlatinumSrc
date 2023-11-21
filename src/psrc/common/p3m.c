@@ -124,6 +124,9 @@ struct p3m* p3m_loadfile(const char* p, uint8_t loadflags) {
     plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading data...");
     #endif
     if (loadflags & P3M_LOADFLAG_IGNOREVERTS) {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "  Ignoring vertex data");
+        #endif
         {
             uint16_t vertexcount;
             if (!get16(f, &vertexcount)) {

@@ -3,8 +3,10 @@
 #include "../version.h"
 
 #include "../utils/logging.h"
+#include "../utils/string.h"
 //#include "../utils/threads.h"
 
+#include "../common/common.h"
 #include "../common/p3m.h"
 
 #include "../../stb/stb_image.h"
@@ -56,6 +58,31 @@ static void swapBuffers(void) {
     #endif
 }
 
+static void gl_calcProjMat(void) {
+    glm_perspective(
+        rendstate.fov * M_PI / 180.0, rendstate.aspect,
+        rendstate.gl.near, rendstate.gl.far,
+        rendstate.gl.projmat
+    );
+}
+
+static void gl11_updateProjMat(void) {
+    gl_calcProjMat();
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf((float*)rendstate.gl.projmat);
+}
+
+static void gl_updateWindow(void) {
+    glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
+    switch (rendstate.api) {
+        case RENDAPI_GL11:
+            gl11_updateProjMat();
+            break;
+        default:
+            break;
+    }
+}
+
 static void gl11_cleardepth(void) {
     if (rendstate.gl.gl11.depthstate) {
         glDepthRange(0.0, 0.5);
@@ -79,21 +106,24 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        float tsin = sin(t * 0.189254 * M_PI) * 0.25;
-        float tsin2 = fabs(sin(t * M_PI)) * 0.2;
+        float tsin = sin(t * 0.189254 * M_PI);
+        float tsin2 = fabs(sin(t * 0.834124 * M_PI)) * 0.5;
         for (uint16_t i = 0; i < indcount; ++i) {
-            #if 0
+            float tmp1 = verts[*inds].z * 7.5;
+            #if 1
             int ci = (*inds * 0x10492851) ^ *inds;
             uint8_t c[3] = {ci >> 16, ci >> 8, ci};
             glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
             #else
-            if (!(i % 3)) {
-                int ci = (i * 0x10492851) ^ i;
-                uint8_t c[3] = {ci >> 16, ci >> 8, ci};
-                glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
-            }
+            //glColor3f(tmp1, tmp1, tmp1);
+            int tmpi = i - (i % 3);
+            int ci = (tmpi * 0x10632151);
+            ci ^= (tmpi >> 16) * 0x234120B4;
+            ci -= 0x12E23827;
+            uint8_t c[3] = {ci >> 16, ci >> 8, ci};
             #endif
-            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.0 + tsin2, -verts[*inds].z - 0.25);
+            glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
+            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.75 + tsin2, verts[*inds].z - 1.5);
             ++inds;
         }
         glEnd();
@@ -139,40 +169,39 @@ void render_gl_legacy(void) {
     float tcosi = 1.0 - tcosn;
 
     gl11_cleardepth();
-    glLoadIdentity();
+
+    float z = -2.0;
 
     glBegin(GL_QUADS);
         #if 1
         glColor3f(tsini, tcosn, tsinn);
-        glVertex3f(-1.0, 1.0, 0.0);
+        glVertex3f(-1.0, 1.0, z);
         glColor3f(tcosi, tsini, tcosn);
-        glVertex3f(-1.0, -1.0, 0.0);
+        glVertex3f(-1.0, -1.0, z);
         glColor3f(tsinn, tcosi, tsini);
-        glVertex3f(1.0, -1.0, 0.0);
+        glVertex3f(1.0, -1.0, z);
         glColor3f(tcosn, tsinn, tcosi);
-        glVertex3f(1.0, 1.0, 0.0);
+        glVertex3f(1.0, 1.0, z);
         #endif
         glColor3f(1.0, 0.0, 0.0);
-        glVertex3f(-0.5, 0.5, 0.0);
+        glVertex3f(-0.5, 0.5, z);
         glColor3f(0.5, 1.0, 0.0);
-        glVertex3f(-0.5, -0.5, 0.0);
+        glVertex3f(-0.5, -0.5, z);
         glColor3f(0.0, 1.0, 1.0);
-        glVertex3f(0.5, -0.5, 0.0);
+        glVertex3f(0.5, -0.5, z);
         glColor3f(0.5, 0.0, 1.0);
-        glVertex3f(0.5, 0.5, 0.0);
+        glVertex3f(0.5, 0.5, z);
         glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(-1.0, 0.025 + tsin2, 0.0);
-        glVertex3f(-1.0, -0.025 + tsin2, 0.0);
-        glVertex3f(1.0, -0.025 + tsin2, 0.0);
-        glVertex3f(1.0, 0.025 + tsin2, 0.0);
+        glVertex3f(-1.0, 0.025 + tsin2, z);
+        glVertex3f(-1.0, -0.025 + tsin2, z);
+        glVertex3f(1.0, -0.025 + tsin2, z);
+        glVertex3f(1.0, 0.025 + tsin2, z);
         glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.025 + tsin, 1.0, 0.0);
-        glVertex3f(-0.025 + tsin, -1.0, 0.0);
-        glVertex3f(0.025 + tsin, -1.0, 0.0);
-        glVertex3f(0.025 + tsin, 1.0, 0.0);
+        glVertex3f(-0.025 + tsin, 1.0, z);
+        glVertex3f(-0.025 + tsin, -1.0, z);
+        glVertex3f(0.025 + tsin, -1.0, z);
+        glVertex3f(0.025 + tsin, 1.0, z);
     glEnd();
-
-    if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
 
     glEnable(GL_BLEND);
     glDepthMask(GL_FALSE);
@@ -181,17 +210,19 @@ void render_gl_legacy(void) {
 
     glBegin(GL_QUADS);
         glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.75, 0.75, 0.0);
+        glVertex3f(-0.75, 0.75, z);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(-0.75, -0.75, 0.0);
+        glVertex3f(-0.75, -0.75, z);
         glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(0.75, -0.75, 0.0);
+        glVertex3f(0.75, -0.75, z);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(0.75, 0.75, 0.0);
+        glVertex3f(0.75, 0.75, z);
     glEnd();
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
+
+    if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
 }
 #endif
 
@@ -277,7 +308,7 @@ static void destroyWindow(void) {
     }
 }
 
-static void updateWindowRes(void) {
+static void updateWindowMode(void) {
     switch (rendstate.mode) {
         case RENDMODE_WINDOWED:
             rendstate.res.current = rendstate.res.windowed;
@@ -295,6 +326,7 @@ static void updateWindowRes(void) {
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
             break;
     }
+    rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
 }
 
 #if PLATFORM != PLAT_NXDK
@@ -386,10 +418,12 @@ static bool createWindow(void) {
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
-    SDL_DisplayMode dtmode;
-    SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(rendstate.window), &dtmode);
-    rendstate.res.fullscr = (struct rendres){dtmode.w, dtmode.h, dtmode.refresh_rate};
-    updateWindowRes();
+    if (rendstate.res.fullscr.width < 0 || rendstate.res.fullscr.height < 0 || rendstate.res.fullscr.hz < 0) {
+        SDL_DisplayMode dtmode;
+        SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(rendstate.window), &dtmode);
+        rendstate.res.fullscr = (struct rendres){dtmode.w, dtmode.h, dtmode.refresh_rate};
+    }
+    updateWindowMode();
     switch (rendstate.apigroup) {
         case RENDAPIGROUP_GL: {
             #if PLATFORM != PLAT_NXDK
@@ -459,6 +493,11 @@ static bool createWindow(void) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             swapBuffers();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            char* tmp = cfg_getvar(config, "Renderer", "gl.near");
+            rendstate.gl.near = (tmp) ? atof(tmp) : 0.05;
+            tmp = cfg_getvar(config, "Renderer", "gl.far");
+            rendstate.gl.far = (tmp) ? atof(tmp) : 1000.0;
+            gl_updateWindow();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
             glEnable(GL_DEPTH_TEST);
@@ -532,17 +571,24 @@ bool updateRendererConfig(enum rendopt opt, ...) {
             } break;
             case RENDOPT_MODE: {
                 rendstate.mode = va_arg(args, enum rendmode);
-                updateWindowRes();
+                updateWindowMode();
+                if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
             } break;
             case RENDOPT_VSYNC: {
-                bool vsync = va_arg(args, int);
-                rendstate.vsync = vsync;
+                rendstate.vsync = va_arg(args, int);
                 if (rendstate.apigroup == RENDAPIGROUP_GL) {
                     #if PLATFORM != PLAT_NXDK
-                    SDL_GL_SetSwapInterval(vsync);
+                    SDL_GL_SetSwapInterval(rendstate.vsync);
                     #else
-                    pbgl_set_swap_interval(vsync);
+                    pbgl_set_swap_interval(rendstate.vsync);
                     #endif
+                }
+            } break;
+            case RENDOPT_FOV: {
+                rendstate.fov = va_arg(args, double);
+                switch (rendstate.api) {
+                    case RENDAPI_GL11: gl11_updateProjMat(); break;
+                    default: break;
                 }
             } break;
             case RENDOPT_RES: {
@@ -550,9 +596,18 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 if (res->width >= 0) rendstate.res.current.width = res->width;
                 if (res->height >= 0) rendstate.res.current.height = res->height;
                 if (res->hz >= 0) rendstate.res.current.hz = res->hz;
-                if (rendstate.apigroup == RENDAPIGROUP_GL) {
-                    glViewport(0, 0, res->width, res->height);
+                switch (rendstate.mode) {
+                    case RENDMODE_WINDOWED:
+                        rendstate.res.windowed = rendstate.res.current;
+                        break;
+                    case RENDMODE_BORDERLESS:
+                    case RENDMODE_FULLSCREEN:
+                        rendstate.res.fullscr = rendstate.res.current;
+                        break;
                 }
+                SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
+                rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+                if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
             } break;
             case RENDOPT_LIGHTING: {
                 rendstate.lighting = va_arg(args, enum rendlighting);
@@ -573,12 +628,35 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 
 bool initRenderer(void) {
     rendstate.api = RENDAPI_GL11;
-    #if PLATFORM != PLAT_NXDK
-    rendstate.res.windowed = (struct rendres){800, 600, 60};
-    #else
-    rendstate.res.windowed = (struct rendres){640, 480, 60};
-    #endif
-    rendstate.vsync = false;
+    char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
+    if (tmp) {
+        sscanf(
+            tmp, "%dx%d@%d",
+            &rendstate.res.windowed.width,
+            &rendstate.res.windowed.height,
+            &rendstate.res.windowed.hz
+        );
+    } else {
+        #if PLATFORM != PLAT_NXDK
+        rendstate.res.windowed = (struct rendres){800, 600, 60};
+        #else
+        rendstate.res.windowed = (struct rendres){640, 480, 60};
+        #endif
+    }
+    tmp = cfg_getvar(config, "Renderer", "resolution.fullscreen");
+    if (tmp) {
+        sscanf(
+            tmp, "%dx%d@%d",
+            &rendstate.res.windowed.width,
+            &rendstate.res.windowed.height,
+            &rendstate.res.windowed.hz
+        );
+    } else {
+        rendstate.res.fullscr = (struct rendres){-1, -1, -1};
+    }
+    rendstate.vsync = strbool(cfg_getvar(config, "Renderer", "vsync"), false);
+    tmp = cfg_getvar(config, "Renderer", "fov");
+    rendstate.fov = (tmp) ? atof(tmp) : 90.0;
     if (SDL_Init(SDL_INIT_VIDEO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
