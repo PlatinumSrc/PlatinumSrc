@@ -21,6 +21,7 @@
     #endif
 #else
     #include <pbkit/pbkit.h>
+    #include <pbkit/nv_regs.h>
     #include <pbgl.h>
     #include <GL/gl.h>
     #include <GL/glext.h>
@@ -51,7 +52,7 @@ const char* rendapi_names[] = {
     #endif
 };
 
-static void swapBuffers(void) {
+static inline void swapBuffers(void) {
     #if PLATFORM != PLAT_NXDK
     SDL_GL_SwapWindow(rendstate.window);
     #else
@@ -62,9 +63,33 @@ static void swapBuffers(void) {
 static void gl_calcProjMat(void) {
     glm_perspective(
         rendstate.fov * M_PI / 180.0, rendstate.aspect,
+        #if PLATFORM != PLAT_NXDK
         rendstate.gl.near, rendstate.gl.far,
+        #else
+        rendstate.gl.near * rendstate.gl.scale, rendstate.gl.far * rendstate.gl.scale,
+        #endif
         rendstate.gl.projmat
     );
+}
+
+static void gl_calcViewMat(void) {
+    static float campos[3];
+    static float front[3];
+    static float up[3];
+    campos[0] = rendstate.campos[0];
+    campos[1] = rendstate.campos[1];
+    campos[2] = -rendstate.campos[2];
+    float rotradx = rendstate.camrot[0] * M_PI / 180.0;
+    float rotrady = (rendstate.camrot[1] - 180.0) * M_PI / 180.0;
+    float rotradz = rendstate.camrot[2] * M_PI / 180.0;
+    front[0] = (-sin(rotrady)) * cos(rotradx);
+    front[1] = sin(rotradx);
+    front[2] = cos(rotrady) * cos(rotradx);
+    up[0] = sin(rotrady) * sin(rotradx) * cos(rotradz) + cos(rotrady) * (-sin(rotradz));
+    up[1] = cos(rotradx) * cos(rotradz);
+    up[2] = (-cos(rotrady)) * sin(rotradx) * cos(rotradz) + sin(rotrady) * (-sin(rotradz));
+    glm_vec3_add(campos, front, front);
+    glm_lookat(campos, front, up, rendstate.gl.viewmat);
 }
 
 static void gl_updateWindow(void) {
@@ -73,40 +98,11 @@ static void gl_updateWindow(void) {
 }
 
 static inline __attribute__((always_inline)) void gl_clearScreen(void) {
-    #if PLATFORM != PLAT_NXDK
     if (rendstate.gl.fastclear) {
         glClear(GL_DEPTH_BUFFER_BIT);
     } else {
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
-    #else
-    // glClear doesn't work on pbgl?
-    GLboolean tmp;
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glDepthMask(true);
-    glDepthFunc(GL_ALWAYS);
-    float c[4] = {0.0, 0.0, 0.1, 1.0};
-    glGetFloatv(GL_COLOR_CLEAR_VALUE, c);
-    glBegin(GL_QUADS);
-        glColor4f(c[0], c[1], c[2], c[3]);
-        glVertex3f(-1.0, 1.0, 1.0);
-        glVertex3f(-1.0, -1.0, 1.0);
-        glVertex3f(1.0, -1.0, 1.0);
-        glVertex3f(1.0, 1.0, 1.0);
-    glEnd();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-    glDepthFunc(GL_LEQUAL);
-    glDepthMask(tmp);
-    #endif
 }
 
 struct rc_model* testmodel;
@@ -121,8 +117,9 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        float tsin = sin(t * 0.129254 * M_PI);
-        float tsin2 = fabs(sin(t * 0.274124 * M_PI));
+        float tsin = sin(t * 0.179254 * M_PI) * 2.0;
+        float tsin2 = fabs(sin(t * 0.374124 * M_PI));
+        float tcos = cos(t * 0.214682 * M_PI) * 0.5;
         for (uint16_t i = 0; i < indcount; ++i) {
             float tmp1 = verts[*inds].z * 7.5;
             #if 1
@@ -138,7 +135,7 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             uint8_t c[3] = {ci >> 16, ci >> 8, ci};
             #endif
             glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
-            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, verts[*inds].z - 1.5);
+            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, verts[*inds].z - 1.75 + tcos);
             ++inds;
         }
         glEnd();
@@ -192,11 +189,21 @@ void render_gl_legacy(void) {
     float tsini = 1.0 - tsinn;
     float tcosi = 1.0 - tcosn;
 
-    //glDepthMask(GL_TRUE);
+    glDepthMask(GL_TRUE);
     gl_clearScreen();
 
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixf((float*)rendstate.gl.projmat);
+    #if PLATFORM == PLAT_NXDK
+    // workaround for some depth buffer issues
+    glScalef(rendstate.gl.scale, rendstate.gl.scale, rendstate.gl.scale);
+    #endif
+    glMatrixMode(GL_MODELVIEW);
+    gl_calcViewMat();
+    glLoadMatrixf((float*)rendstate.gl.viewmat);
+    #if PLATFORM == PLAT_NXDK
+    glScalef(rendstate.gl.scale, rendstate.gl.scale, rendstate.gl.scale);
+    #endif
 
     float z = -2.0;
 
@@ -229,6 +236,11 @@ void render_gl_legacy(void) {
         glVertex3f(-0.025 + tsin, -1.0, z);
         glVertex3f(0.025 + tsin, -1.0, z);
         glVertex3f(0.025 + tsin, 1.0, z);
+        glColor3f(0.0, 0.5, 0.0);
+        glVertex3f(-0.5, -1.0, z);
+        glVertex3f(-0.5, -1.0, z + 1.0);
+        glVertex3f(0.5, -1.0, z + 1.0);
+        glVertex3f(0.5, -1.0, z);
     glEnd();
 
     if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
@@ -240,19 +252,21 @@ void render_gl_legacy(void) {
 
     glBegin(GL_QUADS);
         glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.75, 0.75, z);
+        glVertex3f(-1.0, 1.0, z);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(-0.75, -0.75, z);
+        glVertex3f(-1.0, -1.0, z);
         glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(0.75, -0.75, z);
+        glVertex3f(1.0, -1.0, z);
         glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(0.75, 0.75, z);
+        glVertex3f(1.0, 1.0, z);
     glEnd();
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
     glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
 #endif
@@ -321,6 +335,11 @@ void render(void) {
     glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
     glDepthMask(false);
     pb_draw_text_screen();
+    uint32_t* p = pb_begin();
+    pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
+    *(p++) = (rendstate.res.current.width - 1) << 16;
+    *(p++) = (rendstate.res.current.height - 1) << 16;
+    pb_end(p);
     glDepthMask(tmp);
     #endif
     swapBuffers();
@@ -526,6 +545,10 @@ static bool createWindow(void) {
             rendstate.gl.near = (tmpstr[0]) ? atof(tmpstr[0]) : 0.05;
             tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
             rendstate.gl.far = (tmpstr[0]) ? atof(tmpstr[0]) : 1000.0;
+            #if PLATFORM == PLAT_NXDK
+            tmpstr[0] = cfg_getvar(config, "Renderer", "nxdk.gl.scale");
+            rendstate.gl.scale = (tmpstr[0]) ? atof(tmpstr[0]) : 25.0;
+            #endif
             #if DEBUG(1)
             // makes debugging easier
             rendstate.gl.fastclear = strbool(cfg_getvar(config, "Renderer", "gl.fastclear"), false);
@@ -537,15 +560,9 @@ static bool createWindow(void) {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
-            glDepthFunc(GL_LEQUAL);
-            glEnable(GL_DEPTH_TEST);
-            glCullFace(GL_BACK);
             glEnable(GL_CULL_FACE);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            swapBuffers();
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            swapBuffers();
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LEQUAL);
         } break;
         default: {
         } break;

@@ -331,8 +331,12 @@ int main(int argc, char** argv) {
     QueryPerformanceFrequency(&perfctfreq);
     #elif PLATFORM == PLAT_NXDK
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
+    pbgl_set_swap_interval(1);
     pbgl_init(true);
-    pbgl_set_swap_interval(0);
+    pbgl_set_swap_interval(1);
+    glClearColor(0.0, 0.25, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    pbgl_swap_buffers();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     pbgl_swap_buffers();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

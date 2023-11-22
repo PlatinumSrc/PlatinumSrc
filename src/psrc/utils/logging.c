@@ -13,6 +13,9 @@
 
 #if PLATFORM == PLAT_NXDK
     #include <pbkit/pbkit.h>
+    #include <pbkit/nv_regs.h>
+    #include <pbgl.h>
+    #include <GL/gl.h>
 #elif PLATFORM == PLAT_WINDOWS
     #include <windows.h>
 #else
@@ -247,41 +250,25 @@ void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned 
     }
 }
 
-void plog__draw(void) {
+static void plog__draw(void) {
     if (!plog__nodraw) {
-        // glClear doesn't work for some reason
-        GLboolean tmp;
-        glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
-        glDepthMask(false);
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-        glBegin(GL_QUADS);
-            glColor3f(0.0, 0.25, 0.0);
-            glVertex3f(-1.0, 1.0, 0.0);
-            glVertex3f(-1.0, -1.0, 0.0);
-            glVertex3f(1.0, -1.0, 0.0);
-            glVertex3f(1.0, 1.0, 0.0);
-        glEnd();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
+        glClear(GL_COLOR_BUFFER_BIT);
         pb_draw_text_screen();
+        uint32_t* p = pb_begin();
+        pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
+        *(p++) = 639 << 16;
+        *(p++) = 479 << 16;
+        pb_end(p);
         pbgl_swap_buffers();
-        glDepthMask(tmp);
     }
 }
 
 #undef plog
 void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
     lockMutex(&loglock);
-    plog__info(lvl, func, file, line);
     va_list v;
     va_start(v, s);
+    plog__info(lvl, func, file, line);
     {
         va_list v2;
         va_copy(v2, v);

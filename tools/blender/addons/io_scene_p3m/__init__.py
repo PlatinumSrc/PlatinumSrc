@@ -68,8 +68,13 @@ class ExportP3M(bpy.types.Operator, ExportHelper):
         default = True
     )
     do_transform: BoolProperty(
-        name = "Transform",
-        description = "Apply object transformations",
+        name = "Transforms",
+        description = "Apply object transformations to mesh",
+        default = False
+    )
+    use_selected: BoolProperty(
+        name = "Only selected",
+        description = "Only use selected objects",
         default = False
     )
 
@@ -102,6 +107,7 @@ class P3M_PT_export_main(bpy.types.Panel):
         layout.prop(operator, "export_bones")
         layout.prop(operator, "export_anims")
         layout.prop(operator, "do_transform")
+        layout.prop(operator, "use_selected")
 
 def menu_func_import(self, context):
     self.layout.operator(ImportP3M.bl_idname, text = "PlatinumSrc (.p3m)")

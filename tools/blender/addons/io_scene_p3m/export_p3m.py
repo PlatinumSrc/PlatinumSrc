@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import struct
 
 def save(operator, context, filepath,
-        export_bones, export_anims, do_transform,
+        export_bones, export_anims, do_transform, use_selected,
         **kwargs
     ):
 
@@ -29,6 +29,8 @@ def save(operator, context, filepath,
     print("Exporting " + filepath + "...")
 
     if bpy.ops.object.mode_set.poll(): bpy.ops.object.mode_set(mode = 'OBJECT')
+
+    objects = bpy.data.objects if use_selected else context.selected_objects
 
     armature = None
 
@@ -84,8 +86,10 @@ def save(operator, context, filepath,
 
     if export_bones or export_anims:
         print("Finding an armature...")
-        for obj in bpy.data.objects:
-            if obj.type == 'ARMATURE':
+        for obj in objects:
+            print(obj)
+            print("")
+            if not obj.hide_get() and obj.type == 'ARMATURE':
                 print("Found an armature: " + obj.name)
                 armature = obj
                 break
@@ -94,41 +98,42 @@ def save(operator, context, filepath,
 
     if armature is None:
         print("Finding meshes...")
-        for obj in bpy.data.objects:
-            if obj.type != 'MESH': continue
-            print("Found a mesh: " + obj.name)
-            addmesh(obj)
+        for obj in objects:
+            if not obj.hide_get() and obj.type == 'MESH':
+                print("Found a mesh: " + obj.name)
+                addmesh(obj)
     else:
         print("Finding meshes...")
         for obj in armature.children:
-            if obj.type != 'MESH': continue
-            print("Found a mesh: " + obj.name)
-            addmesh(obj)
-            if export_bones:
-                def addbone(b):
-                    bones.append([
-                        b.name,
-                        b.use_deform,
-                        [b.head_local.x, b.head_local.z, b.head_local.y],
-                        [b.tail_local.x, b.tail_local.z, b.tail_local.y],
-                        [],
-                        len(b.children)
-                    ])
-                    for c in b.children:
-                        addbone(c)
-                for bone in armature.data.bones:
-                    if bone.parent is None:
-                        addbone(bone)
-                for v in obj.data.vertices:
-                    for g in v.groups:
-                        if g.weight > 0.0:
-                            name = obj.vertex_groups[g.group].name
-                            for b in bones:
-                                if b[1] and b[0] == name:
-                                    for i, v2 in enumerate(vertices):
-                                        if (v.co.x == v2.x and v.co.z == v2.y and v.co.y == v2.z):
-                                            b[4].append([i, g.weight])
-                                    break
+            if not obj.hide_get() and obj.type == 'MESH':
+                if use_selected and not obj.select_get(): continue
+                print("Found a mesh: " + obj.name)
+                addmesh(obj)
+                if export_bones:
+                    def addbone(b):
+                        bones.append([
+                            b.name,
+                            b.use_deform,
+                            [b.head_local.x, b.head_local.z, b.head_local.y],
+                            [b.tail_local.x, b.tail_local.z, b.tail_local.y],
+                            [],
+                            len(b.children)
+                        ])
+                        for c in b.children:
+                            addbone(c)
+                    for bone in armature.data.bones:
+                        if bone.parent is None:
+                            addbone(bone)
+                    for v in obj.data.vertices:
+                        for g in v.groups:
+                            if g.weight > 0.0:
+                                name = obj.vertex_groups[g.group].name
+                                for b in bones:
+                                    if b[1] and b[0] == name:
+                                        for i, v2 in enumerate(vertices):
+                                            if (v.co.x == v2.x and v.co.z == v2.y and v.co.y == v2.z):
+                                                b[4].append([i, g.weight])
+                                        break
         if export_anims:
             def getfclist(act, name, count):
                 fclist = []

@@ -41,10 +41,6 @@ struct rendres {
     int width, height, hz;
 };
 
-struct material {
-    
-};
-
 enum rendlighting {
     RENDLIGHTING_LOW,
     RENDLIGHTING_MEDIUM,
@@ -61,6 +57,8 @@ struct rendstate {
     uint8_t borderless : 1;
     float fov;
     float aspect;
+    float campos[3];
+    float camrot[3];
     struct {
         struct rendres current;
         struct rendres windowed, fullscr;
@@ -76,6 +74,10 @@ struct rendstate {
             float near;
             float far;
             mat4 projmat;
+            mat4 viewmat;
+            #if PLATFORM == PLAT_NXDK
+            float scale;
+            #endif
             union {
                 struct {
                 } gl11;
