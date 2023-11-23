@@ -145,18 +145,21 @@ static int run(int argc, char** argv) {
     );
     freeResource(test);
 
-    uint64_t ticks = SDL_GetTicks() + 30000;
     #if PLATFORM == PLAT_NXDK
+    uint64_t ticks = SDL_GetTicks() + 30000;
     plog__nodraw = true;
     #endif
     uint64_t toff = SDL_GetTicks();
-    while (!quitreq && !SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) {
+    while (!quitreq) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
         changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 2.0, 0.0, cos(t * 2.5) * 2.0, SOUNDFX_END);
         pollInput();
         render();
+        #if PLATFORM == PLAT_NXDK
+        if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) ++quitreq;
+        #endif
     }
     #if PLATFORM == PLAT_NXDK
     plog__nodraw = false;
@@ -331,10 +334,11 @@ int main(int argc, char** argv) {
     QueryPerformanceFrequency(&perfctfreq);
     #elif PLATFORM == PLAT_NXDK
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
-    pbgl_set_swap_interval(1);
+    pbgl_set_swap_interval(0);
+    //pbgl_set_swap_interval(1);
     pbgl_init(true);
-    pbgl_set_swap_interval(1);
-    glClearColor(0.0, 0.25, 0.0, 0.0);
+    //pbgl_set_swap_interval(1);
+    glClearColor(0.0, 0.25, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     pbgl_swap_buffers();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

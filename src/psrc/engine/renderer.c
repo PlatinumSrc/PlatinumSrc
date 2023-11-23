@@ -64,9 +64,9 @@ static void gl_calcProjMat(void) {
     glm_perspective(
         rendstate.fov * M_PI / 180.0, rendstate.aspect,
         #if PLATFORM != PLAT_NXDK
-        rendstate.gl.near, rendstate.gl.far,
+        rendstate.gl.nearplane, rendstate.gl.farplane,
         #else
-        rendstate.gl.near * rendstate.gl.scale, rendstate.gl.far * rendstate.gl.scale,
+        rendstate.gl.nearplane * rendstate.gl.scale, rendstate.gl.farplane * rendstate.gl.scale,
         #endif
         rendstate.gl.projmat
     );
@@ -495,7 +495,7 @@ static bool createWindow(void) {
             }
             SDL_GL_SetSwapInterval(rendstate.vsync);
             #else
-            pbgl_set_swap_interval(rendstate.vsync);
+            //pbgl_set_swap_interval(rendstate.vsync);
             #endif
             plog(LL_INFO, "OpenGL info:");
             bool cond[4];
@@ -541,10 +541,10 @@ static bool createWindow(void) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             }
             if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
-            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.near");
-            rendstate.gl.near = (tmpstr[0]) ? atof(tmpstr[0]) : 0.05;
-            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
-            rendstate.gl.far = (tmpstr[0]) ? atof(tmpstr[0]) : 1000.0;
+            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.nearplane");
+            rendstate.gl.nearplane = (tmpstr[0]) ? atof(tmpstr[0]) : 0.05;
+            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.farplane");
+            rendstate.gl.farplane = (tmpstr[0]) ? atof(tmpstr[0]) : 1000.0;
             #if PLATFORM == PLAT_NXDK
             tmpstr[0] = cfg_getvar(config, "Renderer", "nxdk.gl.scale");
             rendstate.gl.scale = (tmpstr[0]) ? atof(tmpstr[0]) : 25.0;
@@ -649,7 +649,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     #if PLATFORM != PLAT_NXDK
                     SDL_GL_SetSwapInterval(rendstate.vsync);
                     #else
-                    pbgl_set_swap_interval(rendstate.vsync);
+                    //pbgl_set_swap_interval(rendstate.vsync);
                     #endif
                 }
             } break;
@@ -699,6 +699,10 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 }
 
 bool initRenderer(void) {
+    if (SDL_Init(SDL_INIT_VIDEO)) {
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
+        return false;
+    }
     rendstate.api = RENDAPI_GL11;
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM != PLAT_NXDK
@@ -732,10 +736,6 @@ bool initRenderer(void) {
     rendstate.vsync = strbool(cfg_getvar(config, "Renderer", "vsync"), true);
     tmp = cfg_getvar(config, "Renderer", "fov");
     rendstate.fov = (tmp) ? atof(tmp) : 90.0;
-    if (SDL_Init(SDL_INIT_VIDEO)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
-        return false;
-    }
     testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);
     return true;
 }

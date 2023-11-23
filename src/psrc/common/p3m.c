@@ -73,7 +73,7 @@ struct p3m* p3m_loadfile(const char* p, uint8_t loadflags) {
             }
             return NULL;
         }
-        f = fopen(p, "r");
+        f = fopen(p, "rb");
         if (!f) {
             plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
             return NULL;

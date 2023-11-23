@@ -71,8 +71,8 @@ struct rendstate {
             SDL_GLContext ctx;
             #endif
             uint8_t fastclear : 1;
-            float near;
-            float far;
+            float nearplane;
+            float farplane;
             mat4 projmat;
             mat4 viewmat;
             #if PLATFORM == PLAT_NXDK
