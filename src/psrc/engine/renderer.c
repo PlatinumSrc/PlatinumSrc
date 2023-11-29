@@ -472,10 +472,12 @@ static bool createWindow(void) {
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
-    if (rendstate.res.fullscr.width < 0 || rendstate.res.fullscr.height < 0 || rendstate.res.fullscr.hz < 0) {
+    {
         SDL_DisplayMode dtmode;
         SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(rendstate.window), &dtmode);
-        rendstate.res.fullscr = (struct rendres){dtmode.w, dtmode.h, dtmode.refresh_rate};
+        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = dtmode.w;
+        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = dtmode.h;
+        if (rendstate.fps < 0) rendstate.fps = dtmode.refresh_rate;
     }
     updateWindowMode();
     switch (rendstate.apigroup) {
@@ -661,19 +663,16 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 struct rendres* res = va_arg(args, struct rendres*);
                 if (res->width >= 0) rendstate.res.current.width = res->width;
                 if (res->height >= 0) rendstate.res.current.height = res->height;
-                if (res->hz >= 0) rendstate.res.current.hz = res->hz;
                 switch (rendstate.mode) {
                     case RENDMODE_WINDOWED:
                         if (rendstate.res.current.width == rendstate.res.windowed.width &&
-                            rendstate.res.current.height == rendstate.res.windowed.height &&
-                            rendstate.res.current.hz == rendstate.res.windowed.hz) goto rettrue;
+                            rendstate.res.current.height == rendstate.res.windowed.height) goto rettrue;
                         rendstate.res.windowed = rendstate.res.current;
                         break;
                     case RENDMODE_BORDERLESS:
                     case RENDMODE_FULLSCREEN:
                         if (rendstate.res.current.width == rendstate.res.fullscr.width &&
-                            rendstate.res.current.height == rendstate.res.fullscr.height &&
-                            rendstate.res.current.hz == rendstate.res.fullscr.hz) goto rettrue;
+                            rendstate.res.current.height == rendstate.res.fullscr.height) goto rettrue;
                         rendstate.res.fullscr = rendstate.res.current;
                         break;
                 }
@@ -706,34 +705,53 @@ bool initRenderer(void) {
     rendstate.api = RENDAPI_GL11;
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM != PLAT_NXDK
-    rendstate.res.windowed = (struct rendres){800, 600, -1};
+    rendstate.res.windowed = (struct rendres){800, 600};
     #else
-    rendstate.res.windowed = (struct rendres){640, 480, -1};
+    rendstate.res.windowed = (struct rendres){640, 480};
     #endif
     if (tmp) {
         sscanf(
-            tmp, "%dx%d@%d",
+            tmp, "%dx%d",
             &rendstate.res.windowed.width,
-            &rendstate.res.windowed.height,
-            &rendstate.res.windowed.hz
+            &rendstate.res.windowed.height
         );
+        free(tmp);
     }
     tmp = cfg_getvar(config, "Renderer", "resolution.fullscreen");
-    rendstate.res.fullscr = (struct rendres){-1, -1, -1};
+    rendstate.res.fullscr = (struct rendres){-1, -1};
     if (tmp) {
         sscanf(
-            tmp, "%dx%d@%d",
-            &rendstate.res.windowed.width,
-            &rendstate.res.windowed.height,
-            &rendstate.res.windowed.hz
+            tmp, "%dx%d",
+            &rendstate.res.fullscr.width,
+            &rendstate.res.fullscr.height
         );
+        free(tmp);
     }
-    rendstate.mode = RENDMODE_FULLSCREEN;
-    rendstate.borderless = strbool(cfg_getvar(config, "Renderer", "borderless"), false);
-    rendstate.mode = (strbool(cfg_getvar(config, "Renderer", "fullscreen"), false)) ?
+    tmp = cfg_getvar(config, "Renderer", "fps");
+    rendstate.fps = -1;
+    if (tmp) {
+        sscanf(tmp, "%d", &rendstate.fps);
+        free(tmp);
+    }
+    tmp = cfg_getvar(config, "Renderer", "borderless");
+    if (tmp) {
+        rendstate.borderless = strbool(tmp, false);
+        free(tmp);
+    } else {
+        rendstate.borderless = false;
+    }
+    tmp = cfg_getvar(config, "Renderer", "fullscreen");
+    rendstate.mode = (strbool(tmp, false)) ?
         ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
         RENDMODE_WINDOWED;
-    rendstate.vsync = strbool(cfg_getvar(config, "Renderer", "vsync"), true);
+    free(tmp);
+    tmp = cfg_getvar(config, "Renderer", "vsync");
+    if (tmp) {
+        rendstate.vsync = strbool(tmp, true);
+        free(tmp);
+    } else {
+        rendstate.vsync = true;
+    }
     tmp = cfg_getvar(config, "Renderer", "fov");
     rendstate.fov = (tmp) ? atof(tmp) : 90.0;
     testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);

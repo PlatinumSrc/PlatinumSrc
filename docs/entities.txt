@@ -7,7 +7,7 @@ Entity data:
     <u32: Entity filter count> [Entity filter data]...
     <u32: Entity selector count> [Entity selector data]...
 
-    Entity: <<Server string table entry>: Name> <u8: <Entity type>> <Entity data>
+    Entity: <<Server string>: Name> <u8: <Entity type>> <Entity data>
     Entity type:
         { ENT_HEADLESS | ENT_GENERIC | ENT_BOX | ENT_TRIGGERBOX | ENT_TRIGGERRADIUS
         | ENT_USE | ENT_HOLDUSE | ENT_MULTIPLEXER | ENT_PARTICLES | ENT_TEXPARTICLES
@@ -58,21 +58,21 @@ Entity data:
         | <u8: ENTACT_TELEPORT> <Entity selector> <float[3]: Position>
         | <u8: ENTACT_PUSH> <Entity selector> <float[3]: Amount>
         | <u8: ENTACT_SAVE>
-        | <u8: ENTACT_CHANGEMAP> <Resource>
+        | <u8: ENTACT_CHANGEMAP> <Server resource>
         | <u8: ENTACT_ENDMAP>
         | <u8: ENTACT_PLAYSOUND> <Entity selector> <u8: { ENTSNDORIG_SELF | ENTSNDORIG_TARGET | ENTSNDORIG_FROMTARGET |
-          ENTSNDORIG_TOTARGET | ENTSNDORIG_WORLD }> <float[3]: Offset> <Resource>
-        | <u8: ENTACT_CHANGEMUSIC> <Entity selector> <Resource>
-        | <u8: ENTACT_CHANGEAMBIENCE> <Entity selector> <Resource>
+          ENTSNDORIG_TOTARGET | ENTSNDORIG_WORLD }> <float[3]: Offset> <Server resource>
+        | <u8: ENTACT_CHANGEMUSIC> <Entity selector> <Server resource>
+        | <u8: ENTACT_CHANGEAMBIENCE> <Entity selector> <Server resource>
         | <u8: ENTACT_CHANGETEAM> <Entity selector> <Team> }
 
     Entity script:
         { <u8: ENTSCRIPT_EMBEDDED> <u32: Byte index in [Embedded script]...>
-        | <u8: ENTSCRIPT_FROMFILE> <Resource> }
+        | <u8: ENTSCRIPT_FROMFILE> <Server resource> }
     Entity event:
-        <<Server string table entry>: Name>
+        <<Server string>: Name>
     Entity signal:
-        <<Server string table entry>: Name>
+        <<Server string>: Name>
     Entity filter:
         <u32: Byte index in [Entity filter data]...>
     Entity selector:
@@ -90,7 +90,7 @@ Entity data:
             <1 bit: Selectable>
         >
         <Entity script>
-        <<Resource>: Model>
+        <<Server resource>: Model>
         <float[3]: Position>
         <float[3]: Rotation (X and Z are ignored for now)>
         <float[3]: Scale>
@@ -123,8 +123,8 @@ Entity data:
         <<Entity signal>: Make unusable>
         <float[3]: Origin>
         <float[3]: Radius>
-        <<Resource>: Model>
-        <<Server string table entry>: Animation>
+        <<Server resource>: Model>
+        <<Server string>: Animation>
         <float: In-use and animation duration>
         <Entity actions>
     Hold to use entity data:
@@ -132,8 +132,8 @@ Entity data:
         <<Entity signal>: Make unusable>
         <float[3]: Origin>
         <float[3]: Radius>
-        <<Resource>: Model>
-        <<Server string table entry>: Animation>
+        <<Server resource>: Model>
+        <<Server string>: Animation>
         <float: Animation speed>
         <Entity actions>
     Multiplexer entity data:
@@ -174,7 +174,7 @@ Entity data:
         <float[4]: Start color randomness (HSVA)>
         <float[4]: End color>
         <float[4]: End color randomness (HSVA)>
-        <<Resource>: Texture>
+        <<Server resource>: Texture>
         <u16: # of particles>
         <float: Start randomness>
         <float: Duration>
@@ -201,10 +201,10 @@ Entity data:
         <float[3]: Direction>
         <float: Curve>
     Giblets entity data:
-        <<Resource>: Model>
-        <<Resource>: Overlay texture>
+        <<Server resource>: Model>
+        <<Server resource>: Overlay texture>
     Door entity data:
-        <<Resource>: Model>
+        <<Server resource>: Model>
         <float[3]: Closed position>
         <float[3]: Open position>
         <float[3]: Closed rotation>
@@ -246,19 +246,19 @@ Entity data:
         <<Entity signal>: Disable>
         <Light>
     Health entity data:
-        <<Resource>: Model>
+        <<Server resource>: Model>
         <float: Respawn delay>
         <float: Amount>
     Shield entity data:
-        <<Resource>: Model>
+        <<Server resource>: Model>
         <float: Respawn delay>
         <float: Amount>
     Weapon entity data:
-        <<Resource>: Weapon>
+        <<Server resource>: Weapon>
         <float: Respawn delay>
         <i32: Ammo amount>
     Ammo entity data:
-        <<Resource>: Weapon>
+        <<Server resource>: Weapon>
         <float: Respawn delay>
         <i32: Amount>
     Collide entity data:

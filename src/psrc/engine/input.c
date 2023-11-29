@@ -1,12 +1,14 @@
 #include "input.h"
 #include "renderer.h"
 #include "../utils/logging.h"
+#include "../utils/string.h"
 #include "../common/common.h"
 #include "../debug.h"
 
 struct inputstate inputstate;
 
 void setInputMode(enum inputmode m) {
+    inputstate.mode = m;
     switch (m) {
         case INPUTMODE_UI: {
             SDL_SetRelativeMouseMode(false);
@@ -15,16 +17,21 @@ void setInputMode(enum inputmode m) {
             SDL_SetRelativeMouseMode(true);
         } break;
         case INPUTMODE_TEXTINPUT: {
+            SDL_SetRelativeMouseMode(false);
         } break;
         case INPUTMODE_GETKEY: {
+            SDL_SetRelativeMouseMode(false);
         } break;
     }
 }
 
 bool initInput(void) {
-    if (!createAccessLock(&inputstate.lock)) return false;
-    if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
-    SDL_GameControllerEventState(SDL_ENABLE);
+    char* tmp = cfg_getvar(config, "Input", "nocontroller");
+    if (!strbool(tmp, false)) {
+        if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
+        SDL_GameControllerEventState(SDL_ENABLE);
+    }
+    free(tmp);
     inputstate.keystatedata = SDL_GetKeyboardState(&inputstate.keystates);
     inputstate.mode = INPUTMODE_UI;
     setInputMode(INPUTMODE_UI);
@@ -44,8 +51,7 @@ void pollInput(void) {
                     case SDL_WINDOWEVENT_RESIZED: {
                         struct rendres res = {
                             .width = e.window.data1,
-                            .height = e.window.data2,
-                            .hz = -1
+                            .height = e.window.data2
                         };
                         updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
                     } break;
@@ -56,21 +62,14 @@ void pollInput(void) {
 }
 
 bool getNextAction(struct inputaction* a) {
-    acquireReadAccess(&inputstate.lock);
     struct inputactiondata* actdata;
     trynext:;
-    if (inputstate.curaction >= inputstate.actions.len) {
-        releaseReadAccess(&inputstate.lock);
-        return false;
-    }
-    actdata = &inputstate.actions.data[inputstate.curaction];
-    ++inputstate.curaction;
+    if (inputstate.curaction >= inputstate.actions.len) return false;
+    actdata = &inputstate.actions.data[inputstate.curaction++];
     if (actdata->type == INPUTACTIONTYPE_INVALID) goto trynext;
     if (inputstate.activeaction >= 0 && actdata->type == INPUTACTIONTYPE_SINGLE) goto trynext;
-    releaseReadAccess(&inputstate.lock);
     return true;
 }
 
 void termInput(void) {
-    destroyAccessLock(&inputstate.lock);
 }

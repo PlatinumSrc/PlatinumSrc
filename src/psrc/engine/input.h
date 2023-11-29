@@ -70,7 +70,6 @@ enum __attribute__((packed)) inputmode {
 };
 
 struct inputstate {
-    struct accesslock lock;
     enum inputmode mode;
     int keystates;
     const uint8_t* keystatedata;

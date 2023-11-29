@@ -5,6 +5,7 @@ defaultgame = h74
   resolution.fullscreen = 
   fullscreen = false
   borderless = false
+  fps = # default uses desktop's refresh rate
   vsync = true
   fov = 90
   quality.texture = 2 # 0 = low, 1 = medium, 2 = high
@@ -23,6 +24,9 @@ defaultgame = h74
   decodewhole = false
 
 [ Input ]
+  nocontroller = false
+
+[ Actions ]
 # action = device,[section,]key;...
 
 [ Multiplayer ]

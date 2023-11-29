@@ -20,34 +20,36 @@ Format:
     Data:
         <u32: Cube count (must be at least 1)> <Cube (First should be the root cube)>... <Cube data>...
         <u32: Prop count> [Prop]...
-        <u32: Prop table entries> [Prop table entry]...
-        <<String table>: Shared string table>
-        <u32: Resource path count> [Resource path]...
+        <u32: Prop reference count> [Prop reference]...
+        <u32: String table size> <<char: 0> <char[... 0]>...: String table>
     Server data:
-        <<String table>: Server string table>
         <u8: Team count> [Team data]...
         <Entity data (see 'entities.txt')>
+        <u32: Server string table size> <<char: 0> <char[... 0]>...: Server string table>
         <u32: Script count> [Embedded script]...
     Client data:
         <u16: Material count> [Material]...
         <u32: Triangle count> [Triangle]...
 
     Cube: <u8: <Cube type>> <Cube data>
-    Cube type: { CUBE_EMPTY | CUBE_CHUNK | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLE }
-    Cube data: [ { <Chunk cube data> | <Parent cube data> | <Solid cube data> | <Angle cube data> } ]
+    Cube type: { CUBE_EMPTY | CUBE_CHUNK | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLED }
+    Cube data: [ { <Chunk cube data> | <Parent cube data> | <Solid cube data> | <Angled cube data> } ]
 
+    Empty cube data:
+        <u8[3]: Base light>
+        <u32: Index in array of <Dynamic light reference>> <u8: # of dynamic lights>
     Chunk cube data:
-        <u32: Index in array of <Prop table entry>> <u32: # of props>
-        <u32: Index in visibility list> <u32: # of cubes>
+        <u32: Index in array of <Prop reference>> <u16: # of props>
+        <u32: Index in visibility data> <u32: # of cubes>
         <u32: Child index in array of <Cube>>
     Parent cube data:
         <u32: (+X, +Y, +Z) child index in array of <Cube>>
-        <u32: (+X, +Y, -Z) child index in array of <Cube>>
-        <u32: (+X, -Y, +Z) child index in array of <Cube>>
-        <u32: (+X, -Y, -Z) child index in array of <Cube>>
         <u32: (-X, +Y, +Z) child index in array of <Cube>>
+        <u32: (+X, +Y, -Z) child index in array of <Cube>>
         <u32: (-X, +Y, -Z) child index in array of <Cube>>
+        <u32: (+X, -Y, +Z) child index in array of <Cube>>
         <u32: (-X, -Y, +Z) child index in array of <Cube>>
+        <u32: (+X, -Y, -Z) child index in array of <Cube>>
         <u32: (-X, -Y, -Z) child index in array of <Cube>>
     Solid cube data:
         <u16: Material index>
@@ -57,7 +59,7 @@ Format:
             <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
             <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
         >
-    Angle cube data:
+    Angled cube data:
         <u16: Material index>
         <u32: Triangle index>
         <u16:
@@ -66,22 +68,22 @@ Format:
             <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
             <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
         >
+        <float: Fill (0 is empty, 1 is full)>
         <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
-        <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes
-        counterclockwise)>
+        <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes counterclockwise)>
+
+    String: <u32: Byte index in the string table>
+    Server string: <u32: Byte index in the server string table>
+    Resource: <<String>: Byte index to a resource path in the string table>
+    Server resource: <<Server string>: Byte index to a resource path in the server string table>
 
     Triangle: <<Point>[3]>
     Point: <float[3]: XYZ><float[3]: Texture XY><float[3]: Lightmap XY>
 
-    Prop table entry: <u32: Index in array of <Prop>>
-
-    String table: <u32: Size of string data> <char: 0> <<char[... 0]: String>...: String data>
-    Server string table entry: <u32: Byte index in the server string table>
-
-    Resource: <u32: Byte index to a resource path (see 'resource paths.txt') in the shared string table>
+    Prop reference: <u32: Index in array of <Prop>>
 
     Team: <u32: Byte index in [Team data]...>
-    Team data: <<Server string table entry>: Name> <float[3]: Color>
+    Team data: <<Server string>: Name> <float[3]: Color>
 
     Embedded script: <u32: Script length> <char[]: Script text>
 

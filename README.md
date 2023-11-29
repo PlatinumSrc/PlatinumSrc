@@ -16,7 +16,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
         - NXDK 
             - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
             - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
-        - pbgl
+        - [pbGL](https://github.com/fgsfdsfgs/pbgl)
             1. Go to the NXDK directory
             2. Copy the pbgl folder into `lib/`
             3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
@@ -60,7 +60,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
             - `0` - Symbols only
             - `1` - Basic messages
             - `2` - Advanced messages
-            - `2` - Detailed messages
+            - `3` - Detailed messages
         - `ASAN` - Set to any value to enable the address sanitizer \(requires `DEBUG` to be set\)
 
     Examples:
@@ -90,37 +90,70 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
 
 ---
 **Progress \(checked = done, <- = being worked on, ? = maybe\):**<br>
-- [ ] Engine
-    - [ ] Renderer
-        - [ ] OpenGL 1.1
-            - [ ] Maps
-            - [ ] Entities
-            - [ ] Particles
-        - [ ] OpenGL 3.3 and ES 3.0
-            - [ ] Maps
-            - [ ] Entities
-            - [ ] Particles
-        - [ ] Direct3D 7?
-            - [ ] Maps
-            - [ ] Entities
-            - [ ] Particles
-    - [ ] Sound manager
-        - Sources \(emulated by scripting\)
-            - 0 - `global`: Stereo
-            - 1 - `world`: Mono + position effect
-            - 2 - `ambient`: Stereo + 2 second crossfade
-            - 3 - `music`: Stereo + 2.5 second fade-in and fade-out
-            - 4 - `ui`: 1 sound, stereo
-- [ ] Server
-- [ ] Editor
-- [ ] Toolbox
-- [ ] File formats
-    - [ ] Compiled maps <-
-        - [ ] Read PMF
-        - [ ] Write PMF
-    - [ ] Map projects
-        - [ ] Read PMP
-        - [ ] Write PMP
-    - [ ] 3D models
-        - [ ] Read P3M
-        - [ ] Write P3M
+- Modules
+    - [ ] Engine
+        - [ ] Renderer
+            - [ ] OpenGL 1.1 <-
+                - [ ] Maps
+                - [ ] Entities
+            - [ ] OpenGL 3.3 and ES 3.0
+                - [ ] Maps
+                - [ ] Entities
+            - [ ] Direct3D 7?
+                - [ ] Maps
+                - [ ] Entities
+            - [ ] PBKit (NXDK)?
+                - [ ] Maps
+                - [ ] Entities
+        - [ ] Audio
+            - [ ] Effects
+                - [ ] Filters
+                - [X] 3D
+                - [ ] Reverb
+        - [ ] UI
+        - [ ] Input
+            - [ ] Keyboard and mouse <-
+            - [ ] Controller
+            - [ ] Touch UI
+        - [ ] File I/O
+            - [ ] Read P3M 3D models <-
+            - [ ] Read PMF compiled maps
+    - [ ] Server
+    - [ ] Editor
+        - [ ] Read PMP map projects
+        - [ ] Write PMP map projects
+        - [ ] Write PMF compiled maps
+        - [ ] Decompile PMF to PMP?
+    - [ ] Toolbox
+- Platforms
+    - Supported
+        - Linux
+        - Windows XP+
+        - Xbox (NXDK)
+    - Untested
+        - Windows 2000
+        - MacOS
+        - FreeBSD
+        - NetBSD
+        - OpenBSD
+    - Wanted
+        - Emscripten
+        - Xbox (XDK)?
+            - No OpenGL
+            - Uses MSVC
+        - Dreamcast?
+            - SDL 1.2 instead of 2.x
+            - RAM might be an issue
+        - PS2
+        - PSP
+        - PS Vita
+        - GameCube?
+            - SDL 1.2 instead of 2.x
+            - OpenGX is not OpenGL and gl2gx is unmaintained
+        - Wii?
+            - SDL 1.2 instead of 2.x
+            - OpenGX is not OpenGL and gl2gx is unmaintained
+        - Windows 95/98?
+            - No SDL
+        - MSDOS?
+            - Requires low-level tomfoolery

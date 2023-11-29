@@ -38,7 +38,7 @@ enum rendmode {
 };
 
 struct rendres {
-    int width, height, hz;
+    int width, height;
 };
 
 enum rendlighting {
@@ -55,6 +55,7 @@ struct rendstate {
     enum rendmode mode;
     uint8_t vsync : 1;
     uint8_t borderless : 1;
+    int fps;
     float fov;
     float aspect;
     float campos[3];
