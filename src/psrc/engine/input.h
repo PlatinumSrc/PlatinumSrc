@@ -6,16 +6,33 @@
 #include <stdbool.h>
 
 enum __attribute__((packed)) inputdev {
+    INPUTDEV__NULL = -2,
+    INPUTDEV__INVALID,
     INPUTDEV_KEYBOARD,
     INPUTDEV_MOUSE,
     INPUTDEV_GAMEPAD,
 };
 
-enum __attribute__((packed)) inputdevpart {
+enum __attribute__((packed)) inputdevpart_mouse {
     INPUTDEVPART_MOUSE_BUTTON,
-    INPUTDEVPART_MOUSE_SCROLLWHEEL,
+    INPUTDEVPART_MOUSE_MOVEMENT,
+    INPUTDEVPART_MOUSE_SCROLL,
+};
+enum __attribute__((packed)) inputdevpart_gamepad {
     INPUTDEVPART_GAMEPAD_AXIS,
     INPUTDEVPART_GAMEPAD_BUTTON,
+};
+
+enum __attribute__((packed)) inputdevkey_mouse_button {
+    INPUTDEVKEY_MOUSE_BUTTON_LEFT,
+    INPUTDEVKEY_MOUSE_BUTTON_RIGHT,
+    INPUTDEVKEY_MOUSE_BUTTON_MIDDLE,
+};
+enum __attribute__((packed)) inputdevkey_mouse_movement {
+    INPUTDEVKEY_MOUSE_MOVEMENT_PX,
+    INPUTDEVKEY_MOUSE_MOVEMENT_PY,
+    INPUTDEVKEY_MOUSE_MOVEMENT_NX,
+    INPUTDEVKEY_MOUSE_MOVEMENT_NY,
 };
 
 struct inputkey {
@@ -25,20 +42,21 @@ struct inputkey {
             int key;
         } keyboard;
         struct {
-            enum inputdevpart part;
+            enum inputdevpart_mouse part;
             union {
-                uint8_t button;
-                uint8_t scrolldir;
+                enum inputdevkey_mouse_button button;
+                enum inputdevkey_mouse_movement movement;
+                uint8_t scroll;
             };
         } mouse;
         struct {
-            enum inputdevpart part;
+            enum inputdevpart_gamepad part;
             union {
                 struct {
-                    int8_t id;
                     uint8_t positive : 1;
+                    uint8_t id : 7;
                 } axis;
-                int8_t button;
+                uint8_t button;
             };
         } gamepad;
     };
@@ -46,7 +64,7 @@ struct inputkey {
 
 struct inputaction {
     int id;
-    float amount;
+    int value;
     struct inputactiondata* data;
 };
 
@@ -56,7 +74,7 @@ enum __attribute__((packed)) inputactiontype {
     INPUTACTIONTYPE_MULTI,
 };
 
-struct inputactiondata {
+struct __attribute__((packed)) inputactiondata {
     enum inputactiontype type;
     char* name;
     struct inputkey* keys;
@@ -71,12 +89,14 @@ enum __attribute__((packed)) inputmode {
 
 struct inputstate {
     enum inputmode mode;
-    int keystates;
-    const uint8_t* keystatedata;
+    int keystatecount;
+    const uint8_t* keystates;
+    int mousechx;
+    int mousechy;
     struct {
-        int size;
-        int len;
         struct inputactiondata* data;
+        int len;
+        int size;
     } actions;
     int curaction;
     int activeaction;
@@ -88,8 +108,13 @@ bool initInput(void);
 void setInputMode(enum inputmode);
 void pollInput(void);
 int newInputAction(enum inputactiontype, const char*, struct inputkey*);
+void clearInputActionKeys(int);
 void setInputActionKeys(int, struct inputkey*);
-void deleteInputAction(int);
+void addInputActionKey(int, struct inputkey*);
+void clearInputActions(void);
+struct inputkey* inputKeysFromStr(char*);
+char* strFromInputKeys(struct inputkey*);
+void deleteInputKeys(struct inputkey*);
 bool getNextAction(struct inputaction*);
 void termInput(void);
 struct inputkey* strToInputKeys(const char*);

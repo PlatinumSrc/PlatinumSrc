@@ -544,19 +544,36 @@ static bool createWindow(void) {
             }
             if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
             tmpstr[0] = cfg_getvar(config, "Renderer", "gl.nearplane");
-            rendstate.gl.nearplane = (tmpstr[0]) ? atof(tmpstr[0]) : 0.05;
+            if (tmpstr[0]) {
+                rendstate.gl.nearplane = atof(tmpstr[0]);
+                free(tmpstr[0]);
+            } else {
+                rendstate.gl.nearplane = 0.1;
+            }
             tmpstr[0] = cfg_getvar(config, "Renderer", "gl.farplane");
-            rendstate.gl.farplane = (tmpstr[0]) ? atof(tmpstr[0]) : 1000.0;
+            if (tmpstr[0]) {
+                rendstate.gl.farplane = atof(tmpstr[0]);
+                free(tmpstr[0]);
+            } else {
+                rendstate.gl.farplane = 1000.0;
+            }
             #if PLATFORM == PLAT_NXDK
             tmpstr[0] = cfg_getvar(config, "Renderer", "nxdk.gl.scale");
-            rendstate.gl.scale = (tmpstr[0]) ? atof(tmpstr[0]) : 25.0;
+            if (tmpstr[0]) {
+                rendstate.gl.scale = atof(tmpstr[0]);
+                free(tmpstr[0]);
+            } else {
+                rendstate.gl.scale = 25.0;
+            }
             #endif
+            tmpstr[0] = cfg_getvar(config, "Renderer", "gl.fastclear");
             #if DEBUG(1)
             // makes debugging easier
-            rendstate.gl.fastclear = strbool(cfg_getvar(config, "Renderer", "gl.fastclear"), false);
+            rendstate.gl.fastclear = strbool(tmpstr[0], false);
             #else
-            rendstate.gl.fastclear = strbool(cfg_getvar(config, "Renderer", "gl.fastclear"), true);
+            rendstate.gl.fastclear = strbool(tmpstr[0], true);
             #endif
+            free(tmpstr[0]);
             glClearColor(0.0, 0.0, 0.1, 1.0);
             gl_updateWindow();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

@@ -129,6 +129,8 @@ static int run(int argc, char** argv) {
         return 1;
     }
 
+    plog(LL_INFO, "Almost there...");
+
     struct rc_sound* test;
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
@@ -150,6 +152,7 @@ static int run(int argc, char** argv) {
     plog__nodraw = true;
     #endif
     uint64_t toff = SDL_GetTicks();
+    plog(LL_INFO, "All systems go!");
     while (!quitreq) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
@@ -161,20 +164,29 @@ static int run(int argc, char** argv) {
         if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) ++quitreq;
         #endif
     }
+    plog(LL_INFO, "Quit requested");
     #if PLATFORM == PLAT_NXDK
     plog__nodraw = false;
     #endif
 
+    plog(LL_INFO, "Stopping audio manager...");
     stopAudio();
+    plog(LL_INFO, "Stopping renderer...");
     stopRenderer();
 
+    plog(LL_INFO, "Terminating audio manager...");
     termAudio();
+    plog(LL_INFO, "Terminating UI manager...");
     termUI();
+    plog(LL_INFO, "Terminating input manager...");
     termInput();
+    plog(LL_INFO, "Terminating renderer...");
     termRenderer();
 
+    plog(LL_INFO, "Terminating resource manager...");
     termResource();
 
+    plog(LL_INFO, "Done");
     return 0;
 }
 
