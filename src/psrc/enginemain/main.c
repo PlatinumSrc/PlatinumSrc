@@ -141,15 +141,19 @@ static int run(int argc, char** argv) {
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
-    //test = loadResource(RC_SOUND, "game:test/mp3test_1", &audiostate.soundrcopt);
-    //if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.25, 0.25, SOUNDFX_END);
-    //freeResource(test);
     test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
+    if (test) playSound(
+        false, test,
+        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
+        SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END
+    );
+    freeResource(test);
+    test = loadResource(RC_SOUND, "common:sounds/objects/ac1", &audiostate.soundrcopt);
     uint64_t testsound = -1;
     if (test) testsound = playSound(
         false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
+        SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
     );
     freeResource(test);
 

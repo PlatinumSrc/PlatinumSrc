@@ -130,16 +130,119 @@ static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_f
     return (offset + i * (int64_t)fx->speedmul / 1000) * freq / outfreq + (int64_t)fx->posoff;
 }
 
+static inline void calcSoundFX(struct audiosound* s) {
+    s->fx[1].speedmul = roundf(s->speed * 1000.0);
+    if (s->flags & SOUNDFLAG_POSEFFECT) {
+        float vol[2] = {s->vol[0], s->vol[1]};
+        float pos[3];
+        if (s->flags & SOUNDFLAG_RELPOS) {
+            pos[0] = s->pos[0];
+            pos[1] = s->pos[1];
+            pos[2] = s->pos[2];
+        } else {
+            pos[0] = s->pos[0] - audiostate.campos[0];
+            pos[1] = s->pos[1] - audiostate.campos[1];
+            pos[2] = s->pos[2] - audiostate.campos[2];
+        }
+        float range = s->range;
+        if (isnormal(range)) {
+            float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+            if (isnormal(dist)) {
+                if (vol[0] * range >= dist && vol[1] * range >= dist) {
+                    float loudness = 1.0 - (dist / range);
+                    loudness *= loudness;
+                    loudness *= loudness;
+                    pos[0] /= dist;
+                    pos[1] /= dist;
+                    pos[2] /= dist;
+                    vol[0] *= loudness;
+                    vol[1] *= loudness;
+                    if (s->flags & SOUNDFLAG_NODOPPLER) {
+                        s->fx[1].posoff = 0;
+                    } else {
+                        s->fx[1].posoff = roundf(dist * -0.00175 * (float)s->rc->freq);
+                    }
+                    if (!(s->flags & SOUNDFLAG_RELPOS)) {
+                        float tmpsin[3];
+                        tmpsin[0] = sin(audiostate.camrot[0] / 180.0 * M_PI);
+                        tmpsin[1] = sin(-audiostate.camrot[1] / 180.0 * M_PI);
+                        tmpsin[2] = sin(audiostate.camrot[2] / 180.0 * M_PI);
+                        float tmpcos[3];
+                        tmpcos[0] = cos(audiostate.camrot[0] / 180.0 * M_PI);
+                        tmpcos[1] = cos(-audiostate.camrot[1] / 180.0 * M_PI);
+                        tmpcos[2] = cos(audiostate.camrot[2] / 180.0 * M_PI);
+                        float tmp[3][3];
+                        tmp[0][0] = tmpcos[2] * tmpcos[1];
+                        tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
+                        tmp[0][2] = tmpcos[2] * tmpsin[1] * tmpcos[0] + tmpsin[2] * tmpsin[0];
+                        tmp[1][0] = tmpsin[2] * tmpcos[1];
+                        tmp[1][1] = tmpsin[2] * tmpsin[1] * tmpsin[0] + tmpcos[2] * tmpcos[0];
+                        tmp[1][2] = tmpsin[2] * tmpsin[1] * tmpcos[0] - tmpcos[2] * tmpsin[0];
+                        tmp[2][0] = -tmpsin[1];
+                        tmp[2][1] = tmpcos[1] * tmpsin[0];
+                        tmp[2][2] = tmpcos[1] * tmpcos[0];
+                        float out[3];
+                        out[0] = tmp[0][0] * pos[0] + tmp[0][1] * pos[1] + tmp[0][2] * pos[2];
+                        out[1] = tmp[1][0] * pos[0] + tmp[1][1] * pos[1] + tmp[1][2] * pos[2];
+                        out[2] = tmp[2][0] * pos[0] + tmp[2][1] * pos[1] + tmp[2][2] * pos[2];
+                        pos[0] = out[0];
+                        pos[1] = out[1];
+                        pos[2] = out[2];
+                    }
+                    if (pos[2] > 0.0) {
+                        pos[0] *= 1.0 - 0.2 * pos[2];
+                        vol[0] *= 0.8 + 0.2 * pos[2] * loudness;
+                        vol[1] *= 0.8 + 0.2 * pos[2] * loudness;
+                    } else if (pos[2] < 0.0) {
+                        pos[0] *= 1.0 - 0.25 * pos[2];
+                        vol[0] *= 0.75 + 0.25 * pos[2] * (1.0 - loudness);
+                        vol[1] *= 0.75 + 0.25 * pos[2] * (1.0 - loudness);
+                    }
+                    if (pos[1] > 0.0) {
+                        vol[0] *= 1.0 - 0.1 * pos[1];
+                        vol[1] *= 1.0 - 0.1 * pos[1];
+                        pos[0] *= 1.0 - 0.2 * pos[1];
+                    } else if (pos[1] < 0.0) {
+                        pos[0] *= 0.9 - 0.1 * pos[1];
+                    }
+                    if (pos[0] > 0.0) {
+                        vol[0] *= 0.75 - pos[0] * 0.75;
+                        vol[1] *= 0.75 + pos[0] * 0.25;
+                    } else if (pos[0] < 0.0) {
+                        vol[0] *= 0.75 - pos[0] * 0.25;
+                        vol[1] *= 0.75 + pos[0] * 0.75;
+                    }
+                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
+                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+                } else {
+                    s->fx[1].volmul[0] = 0;
+                    s->fx[1].volmul[1] = 0;
+                }
+            } else {
+                s->fx[1].posoff = 0;
+                s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
+                s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+            }
+        } else {
+            s->fx[1].posoff = 0;
+            s->fx[1].volmul[0] = 0;
+            s->fx[1].volmul[1] = 0;
+        }
+    } else {
+        s->fx[1].posoff = 0;
+        s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
+        s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
+    }
+}
+
 #define mixsounds_pre() {\
     if (chfx) interpfx(sfx, &fx, i, ii, samples);\
     pos = calcpos(&fx, offset, i, freq, outfreq);\
 }
-
 #define mixsounds_post(l, r) {\
     audbuf[0][i] += l * fx.volmul[0] / 65536;\
     audbuf[1][i] += r * fx.volmul[1] / 65536;\
 }
-
 void mixsounds(int samples, int** audbuf) {
     int outfreq = audiostate.freq;
     int tmpbuf[2];
@@ -147,19 +250,28 @@ void mixsounds(int samples, int** audbuf) {
         struct audiosound* s = &audiostate.voices[si];
         if (s->id < 0 || s->state.paused) continue;
         struct rc_sound* rc = s->rc;
+        uint8_t flags = s->flags;
+        bool chfx;
         struct audiosound_fx sfx[2];
         struct audiosound_fx fx;
-        bool chfx = s->state.fxchanged;
-        if (chfx) {
+        if (s->state.fxchanged) {
+            chfx = true;
             sfx[0] = s->fx[0];
             sfx[1] = s->fx[1];
         } else {
-            fx = s->fx[1];
+            if (((s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS))) {
+                chfx = true;
+                sfx[0] = s->fx[1];
+                calcSoundFX(s);
+                sfx[1] = s->fx[1];
+            } else {
+                chfx = false;
+                fx = s->fx[1];
+            }
         }
         int64_t offset = s->offset;
         int freq = rc->freq;
         int len = rc->len;
-        uint8_t flags = s->flags;
         int64_t pos;
         bool stereo = rc->stereo;
         switch (rc->format) {
@@ -566,113 +678,6 @@ void stopSound(int64_t id) {
     }
 }
 
-static inline void calcSoundFX(struct audiosound* s) {
-    s->fx[1].speedmul = roundf(s->speed * 1000.0);
-    if (s->flags & SOUNDFLAG_POSEFFECT) {
-        float vol[2] = {s->vol[0], s->vol[1]};
-        float pos[3];
-        if (s->flags & SOUNDFLAG_RELPOS) {
-            pos[0] = s->pos[0];
-            pos[1] = s->pos[1];
-            pos[2] = s->pos[2];
-        } else {
-            pos[0] = s->pos[0] - audiostate.campos[0];
-            pos[1] = s->pos[1] - audiostate.campos[1];
-            pos[2] = s->pos[2] - audiostate.campos[2];
-        }
-        float range = s->range;
-        if (isnormal(range)) {
-            float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-            if (isnormal(dist)) {
-                if (vol[0] * range >= dist && vol[1] * range >= dist) {
-                    float loudness = 1.0 - (dist / range);
-                    loudness *= loudness;
-                    loudness *= loudness;
-                    pos[0] /= dist;
-                    pos[1] /= dist;
-                    pos[2] /= dist;
-                    vol[0] *= loudness;
-                    vol[1] *= loudness;
-                    if (s->flags & SOUNDFLAG_NODOPPLER) {
-                        s->fx[1].posoff = 0;
-                    } else {
-                        s->fx[1].posoff = roundf(dist * -0.002898 * (float)s->rc->freq);
-                    }
-                    if (!(s->flags & SOUNDFLAG_RELPOS)) {
-                        float tmpsin[3];
-                        tmpsin[0] = sin(audiostate.camrot[0] / 180.0 * M_PI);
-                        tmpsin[1] = sin(-audiostate.camrot[1] / 180.0 * M_PI);
-                        tmpsin[2] = sin(audiostate.camrot[2] / 180.0 * M_PI);
-                        float tmpcos[3];
-                        tmpcos[0] = cos(audiostate.camrot[0] / 180.0 * M_PI);
-                        tmpcos[1] = cos(-audiostate.camrot[1] / 180.0 * M_PI);
-                        tmpcos[2] = cos(audiostate.camrot[2] / 180.0 * M_PI);
-                        float tmp[3][3];
-                        tmp[0][0] = tmpcos[2] * tmpcos[1];
-                        tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
-                        tmp[0][2] = tmpcos[2] * tmpsin[1] * tmpcos[0] + tmpsin[2] * tmpsin[0];
-                        tmp[1][0] = tmpsin[2] * tmpcos[1];
-                        tmp[1][1] = tmpsin[2] * tmpsin[1] * tmpsin[0] + tmpcos[2] * tmpcos[0];
-                        tmp[1][2] = tmpsin[2] * tmpsin[1] * tmpcos[0] - tmpcos[2] * tmpsin[0];
-                        tmp[2][0] = -tmpsin[1];
-                        tmp[2][1] = tmpcos[1] * tmpsin[0];
-                        tmp[2][2] = tmpcos[1] * tmpcos[0];
-                        float out[3];
-                        out[0] = tmp[0][0] * pos[0] + tmp[0][1] * pos[1] + tmp[0][2] * pos[2];
-                        out[1] = tmp[1][0] * pos[0] + tmp[1][1] * pos[1] + tmp[1][2] * pos[2];
-                        out[2] = tmp[2][0] * pos[0] + tmp[2][1] * pos[1] + tmp[2][2] * pos[2];
-                        pos[0] = out[0];
-                        pos[1] = out[1];
-                        pos[2] = out[2];
-                    }
-                    if (pos[2] > 0.0) {
-                        pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 1.0 + 0.5 * pos[2] * loudness;
-                        vol[1] *= 1.0 + 0.5 * pos[2] * loudness;
-                    } else if (pos[2] < 0.0) {
-                        float a = pos[2] * 2.33;
-                        if (a < -1.0) a = -1.0;
-                        pos[0] *= 1.0 - 0.25 * pos[2];
-                        vol[0] *= 1.0 + 0.33 * a * loudness;
-                        vol[1] *= 1.0 + 0.33 * a * loudness;
-                    }
-                    if (pos[1] > 0.0) {
-                        vol[0] *= 1.0 - 0.1 * pos[1];
-                        vol[1] *= 1.0 - 0.1 * pos[1];
-                        pos[0] *= 1.0 - 0.2 * pos[1];
-                    } else if (pos[1] > 0.0) {
-                        pos[0] *= 1.0 - 0.2 * pos[1];
-                    }
-                    if (pos[0] > 0.0) {
-                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0];
-                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0] * 0.5;
-                    } else if (pos[0] < 0.0) {
-                        vol[0] *= 1.0 - (loudness * 0.33 + 0.67) * pos[0] * 0.5;
-                        vol[1] *= 1.0 + (loudness * 0.33 + 0.67) * pos[0];
-                    }
-                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
-                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
-                } else {
-                    s->fx[1].volmul[0] = 0;
-                    s->fx[1].volmul[1] = 0;
-                }
-            } else {
-                s->fx[1].posoff = 0;
-                s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
-                s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
-            }
-        } else {
-            s->fx[1].posoff = 0;
-            s->fx[1].volmul[0] = 0;
-            s->fx[1].volmul[1] = 0;
-        }
-    } else {
-        s->fx[1].posoff = 0;
-        s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
-        s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
-    }
-}
-
 void changeSoundFX(int64_t id, int immediate, ...) {
     acquireReadAccess(&audiostate.lock);
     if (!audiostate.valid) {
@@ -709,10 +714,13 @@ void changeSoundFX(int64_t id, int immediate, ...) {
             }
             va_end(args);
             calcSoundFX(v);
+            //v->state.updatefx = true;
             releaseWriteAccess(&audiostate.lock);
         } else {
             releaseReadAccess(&audiostate.lock);
         }
+    } else {
+        releaseReadAccess(&audiostate.lock);
     }
 }
 
@@ -729,6 +737,7 @@ void changeSoundFlags(int64_t id, unsigned disable, unsigned enable) {
             readToWriteAccess(&audiostate.lock);
             v->flags &= ~(uint8_t)disable;
             v->flags |= (uint8_t)enable;
+            //v->state.updatefx = true;
             releaseWriteAccess(&audiostate.lock);
         } else {
             releaseReadAccess(&audiostate.lock);
