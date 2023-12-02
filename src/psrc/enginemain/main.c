@@ -240,10 +240,10 @@ static int run(int argc, char** argv) {
                 case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_UP: looky += (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_DOWN: looky -= (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_LEFT: lookx -= (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_RIGHT: lookx += (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_UP: lookx += (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_DOWN: lookx -= (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_LEFT: looky -= (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_RIGHT: looky += (float)a.amount / 32767.0; break;
                 case ACTION_WALK: walk = true; break;
                 case ACTION_JUMP: movey += (float)a.amount / 32767.0; break;
                 case ACTION_CROUCH: movey -= (float)a.amount / 32767.0; break;
@@ -259,7 +259,7 @@ static int run(int argc, char** argv) {
             mul = fabs(1 / (cos(mul) + sin(mul)));
             movex *= mul;
             movez *= mul;
-            float yrotrad = (rendstate.camrot[1] / 180 * M_PI);
+            float yrotrad = rendstate.camrot[1] * M_PI / 180.0;
             float tmp[4] = {
                 movez * sinf(yrotrad),
                 movex * cosf(yrotrad),
@@ -272,10 +272,9 @@ static int run(int argc, char** argv) {
         audiostate.campos[0] = (rendstate.campos[0] += movex * speed * framemult);
         audiostate.campos[2] = (rendstate.campos[2] += movez * speed * framemult);
         audiostate.campos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);
-        
 
-        rendstate.camrot[0] += looky;
-        rendstate.camrot[1] += lookx;
+        rendstate.camrot[0] += lookx;
+        rendstate.camrot[1] += looky;
         if (rendstate.camrot[0] > 90.0) rendstate.camrot[0] = 90.0;
         else if (rendstate.camrot[0] < -90.0) rendstate.camrot[0] = -90.0;
         rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0);

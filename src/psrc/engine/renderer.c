@@ -62,7 +62,7 @@ static inline void swapBuffers(void) {
 
 static void gl_calcProjMat(void) {
     glm_perspective(
-        rendstate.fov * M_PI / 180.0, rendstate.aspect,
+        rendstate.fov * M_PI / 180.0, -rendstate.aspect,
         #if PLATFORM != PLAT_NXDK
         rendstate.gl.nearplane, rendstate.gl.farplane,
         #else
@@ -78,9 +78,9 @@ static void gl_calcViewMat(void) {
     static float up[3];
     campos[0] = rendstate.campos[0];
     campos[1] = rendstate.campos[1];
-    campos[2] = -rendstate.campos[2];
+    campos[2] = rendstate.campos[2];
     float rotradx = rendstate.camrot[0] * M_PI / 180.0;
-    float rotrady = (rendstate.camrot[1] - 180.0) * M_PI / 180.0;
+    float rotrady = rendstate.camrot[1] * -M_PI / 180.0;
     float rotradz = rendstate.camrot[2] * M_PI / 180.0;
     front[0] = (-sin(rotrady)) * cos(rotradx);
     front[1] = sin(rotradx);
@@ -135,7 +135,7 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             uint8_t c[3] = {ci >> 16, ci >> 8, ci};
             #endif
             glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
-            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, verts[*inds].z - 1.75 + tcos);
+            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, -verts[*inds].z + 1.75 + tcos);
             ++inds;
         }
         glEnd();
@@ -205,7 +205,7 @@ void render_gl_legacy(void) {
     glScalef(rendstate.gl.scale, rendstate.gl.scale, rendstate.gl.scale);
     #endif
 
-    float z = -2.0;
+    float z = 2.0;
 
     glBegin(GL_QUADS);
         #if 1
@@ -238,8 +238,8 @@ void render_gl_legacy(void) {
         glVertex3f(0.025 + tsin, 1.0, z);
         glColor3f(0.0, 0.5, 0.0);
         glVertex3f(-0.5, -1.0, z);
-        glVertex3f(-0.5, -1.0, z + 1.0);
-        glVertex3f(0.5, -1.0, z + 1.0);
+        glVertex3f(-0.5, -1.0, z - 1.0);
+        glVertex3f(0.5, -1.0, z - 1.0);
         glVertex3f(0.5, -1.0, z);
     glEnd();
 
@@ -579,6 +579,7 @@ static bool createWindow(void) {
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
             glEnable(GL_CULL_FACE);
+            //glFrontFace(GL_CW);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LEQUAL);
         } break;

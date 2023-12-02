@@ -164,13 +164,13 @@ static inline void calcSoundFX(struct audiosound* s) {
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         float tmpsin[3];
-                        tmpsin[0] = sin(audiostate.camrot[0] / 180.0 * M_PI);
-                        tmpsin[1] = sin(-audiostate.camrot[1] / 180.0 * M_PI);
-                        tmpsin[2] = sin(audiostate.camrot[2] / 180.0 * M_PI);
+                        tmpsin[0] = sin(audiostate.camrot[0] * M_PI / 180.0);
+                        tmpsin[1] = sin(audiostate.camrot[1] * -M_PI / 180.0);
+                        tmpsin[2] = sin(audiostate.camrot[2] * M_PI / 180.0);
                         float tmpcos[3];
-                        tmpcos[0] = cos(audiostate.camrot[0] / 180.0 * M_PI);
-                        tmpcos[1] = cos(-audiostate.camrot[1] / 180.0 * M_PI);
-                        tmpcos[2] = cos(audiostate.camrot[2] / 180.0 * M_PI);
+                        tmpcos[0] = cos(audiostate.camrot[0] * M_PI / 180.0);
+                        tmpcos[1] = cos(audiostate.camrot[1] * -M_PI / 180.0);
+                        tmpcos[2] = cos(audiostate.camrot[2] * M_PI / 180.0);
                         float tmp[3][3];
                         tmp[0][0] = tmpcos[2] * tmpcos[1];
                         tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
