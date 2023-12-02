@@ -73,6 +73,12 @@ static void sigh(int sig) {
 
 #endif
 
+static float fwrap(float n, float d) {
+    float tmp = n - (int)(n / d) * d;
+    if (tmp < 0.0) tmp += d;
+    return tmp;
+}
+
 static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -147,22 +153,139 @@ static int run(int argc, char** argv) {
     );
     freeResource(test);
 
+    enum __attribute__((packed)) action {
+        ACTION_NONE,
+        ACTION_MOVE_FORWARDS,
+        ACTION_MOVE_BACKWARDS,
+        ACTION_MOVE_LEFT,
+        ACTION_MOVE_RIGHT,
+        ACTION_LOOK_UP,
+        ACTION_LOOK_DOWN,
+        ACTION_LOOK_LEFT,
+        ACTION_LOOK_RIGHT,
+        ACTION_WALK,
+        ACTION_JUMP,
+        ACTION_CROUCH,
+    };
+    setInputMode(INPUTMODE_INGAME);
+    {
+        struct inputkey* k = inputKeysFromStr("k,W");
+        newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
+        free(k);
+        k = inputKeysFromStr("k,A");
+        newInputAction(INPUTACTIONTYPE_MULTI, "move_left", k, (void*)ACTION_MOVE_LEFT);
+        free(k);
+        k = inputKeysFromStr("k,S");
+        newInputAction(INPUTACTIONTYPE_MULTI, "move_backwards", k, (void*)ACTION_MOVE_BACKWARDS);
+        free(k);
+        k = inputKeysFromStr("k,D");
+        newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
+        free(k);
+        k = inputKeysFromStr("m,m,+y");
+        newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
+        free(k);
+        k = inputKeysFromStr("m,m,-x");
+        newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
+        free(k);
+        k = inputKeysFromStr("m,m,-y");
+        newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
+        free(k);
+        k = inputKeysFromStr("m,m,+x");
+        newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
+        free(k);
+        k = inputKeysFromStr("k,left ctrl");
+        newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
+        free(k);
+        k = inputKeysFromStr("k,space");
+        newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
+        free(k);
+        k = inputKeysFromStr("k,left shift");
+        newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
+        free(k);
+    }
+
     #if PLATFORM == PLAT_NXDK
     uint64_t ticks = SDL_GetTicks() + 30000;
     plog__nodraw = true;
     #endif
     uint64_t toff = SDL_GetTicks();
+
+    float runspeed = 3.75;
+    float walkspeed = 1.75;
+
     plog(LL_INFO, "All systems go!");
+    uint64_t framestamp = altutime();
+    uint64_t frametime = 0;
+    double framemult = 0.0;
     while (!quitreq) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
         changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 2.0, 0.0, cos(t * 2.5) * 2.0, SOUNDFX_END);
+
         pollInput();
+
+        bool walk = false;
+        float movex = 0.0, movez = 0.0, movey = 0.0;
+        float lookx = 0.0, looky = 0.0;
+        struct inputaction a;
+        while (getNextInputAction(&a)) {
+            //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0);
+            switch ((enum action)a.userdata) {
+                case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0; break;
+                case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
+                case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
+                case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_UP: looky += (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_DOWN: looky -= (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_LEFT: lookx -= (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_RIGHT: lookx += (float)a.amount / 32767.0; break;
+                case ACTION_WALK: walk = true; break;
+                case ACTION_JUMP: movey += (float)a.amount / 32767.0; break;
+                case ACTION_CROUCH: movey -= (float)a.amount / 32767.0; break;
+                default: break;
+            }
+        }
+        float speed = (walk) ? walkspeed : runspeed;
+        float jumpspeed = (walk) ? 1.0 : 2.5;
+
+        {
+            // this can probably be optimized
+            float mul = atan2(fabs(movex), fabs(movez));
+            mul = fabs(1 / (cos(mul) + sin(mul)));
+            movex *= mul;
+            movez *= mul;
+            float yrotrad = (rendstate.camrot[1] / 180 * M_PI);
+            float tmp[4] = {
+                movez * sinf(yrotrad),
+                movex * cosf(yrotrad),
+                movez * cosf(yrotrad),
+                movex * -sinf(yrotrad),
+            };
+            movex = tmp[0] + tmp[1];
+            movez = tmp[2] + tmp[3];
+        }
+        audiostate.campos[0] = (rendstate.campos[0] += movex * speed * framemult);
+        audiostate.campos[2] = (rendstate.campos[2] += movez * speed * framemult);
+        audiostate.campos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);
+        
+
+        rendstate.camrot[0] += looky;
+        rendstate.camrot[1] += lookx;
+        if (rendstate.camrot[0] > 90.0) rendstate.camrot[0] = 90.0;
+        else if (rendstate.camrot[0] < -90.0) rendstate.camrot[0] = -90.0;
+        rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0);
+        audiostate.camrot[0] = rendstate.camrot[0];
+        audiostate.camrot[1] = rendstate.camrot[1];
+
         render();
         #if PLATFORM == PLAT_NXDK
         if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) ++quitreq;
         #endif
+        uint64_t tmp = altutime();
+        frametime = tmp - framestamp;
+        framestamp = tmp;
+        framemult = frametime / 1000000.0;
     }
     plog(LL_INFO, "Quit requested");
     #if PLATFORM == PLAT_NXDK

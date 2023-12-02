@@ -64,8 +64,9 @@ struct inputkey {
 
 struct inputaction {
     int id;
-    int value;
+    int amount;
     struct inputactiondata* data;
+    void* userdata;
 };
 
 enum __attribute__((packed)) inputactiontype {
@@ -78,6 +79,7 @@ struct __attribute__((packed)) inputactiondata {
     enum inputactiontype type;
     char* name;
     struct inputkey* keys;
+    void* userdata;
 };
 
 enum __attribute__((packed)) inputmode {
@@ -107,16 +109,15 @@ extern struct inputstate inputstate;
 bool initInput(void);
 void setInputMode(enum inputmode);
 void pollInput(void);
-int newInputAction(enum inputactiontype, const char*, struct inputkey*);
+int newInputAction(enum inputactiontype, const char* name, struct inputkey*, void* userdata);
 void clearInputActionKeys(int);
 void setInputActionKeys(int, struct inputkey*);
 void addInputActionKey(int, struct inputkey*);
 void clearInputActions(void);
-struct inputkey* inputKeysFromStr(char*);
+struct inputkey* inputKeysFromStr(const char*);
 char* strFromInputKeys(struct inputkey*);
 void deleteInputKeys(struct inputkey*);
-bool getNextAction(struct inputaction*);
+bool getNextInputAction(struct inputaction*);
 void termInput(void);
-struct inputkey* strToInputKeys(const char*);
 
 #endif

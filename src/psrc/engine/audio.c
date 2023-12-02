@@ -587,6 +587,7 @@ static inline void calcSoundFX(struct audiosound* s) {
                 if (vol[0] * range >= dist && vol[1] * range >= dist) {
                     float loudness = 1.0 - (dist / range);
                     loudness *= loudness;
+                    loudness *= loudness;
                     pos[0] /= dist;
                     pos[1] /= dist;
                     pos[2] /= dist;
@@ -802,7 +803,7 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         v->pos[0] = 0.0;
         v->pos[1] = 0.0;
         v->pos[2] = 0.0;
-        v->range = 15.0;
+        v->range = 20.0;
         v->fx[0].posoff = 0;
         v->fx[1].posoff = 0;
         va_list args;
@@ -896,7 +897,7 @@ bool startAudio(void) {
         audiostate.audbuf.data[1][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][0]));
         audiostate.audbuf.data[1][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][1]));
         int voicecount;
-        tmp = cfg_getvar(config, "Sound", "voicecount");
+        tmp = cfg_getvar(config, "Sound", "voices");
         if (tmp) {
             voicecount = atoi(tmp);
             free(tmp);

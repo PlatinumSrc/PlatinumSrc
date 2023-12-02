@@ -20,11 +20,12 @@ defaultgame = h74
 [ Sound ]
   freq = 44100
   buffer = 1024
-  voices = 256
+  voices = 64
   decodewhole = false
 
 [ Input ]
   nocontroller = false
+  rawmouse = true
 
 [ Actions ]
 # action = device,[section,]key;...

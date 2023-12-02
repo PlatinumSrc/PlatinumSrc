@@ -32,6 +32,13 @@ bool initInput(void) {
         SDL_GameControllerEventState(SDL_ENABLE);
     }
     free(tmp);
+    tmp = cfg_getvar(config, "Input", "rawmouse");
+    if (strbool(tmp, true)) {
+        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
+    } else {
+        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
+    }
+    free(tmp);
     inputstate.keystates = SDL_GetKeyboardState(&inputstate.keystatecount);
     setInputMode(INPUTMODE_UI);
     clearInputActions();
@@ -44,26 +51,26 @@ static int getKeys(struct inputkey* keys) {
         struct inputkey k = *keys;
         switch (k.dev) {
             case INPUTDEV_KEYBOARD: {
-                if (k.keyboard.key >= 0 && k.keyboard.key < inputstate.keystatecount) {
-                    if (inputstate.keystates[k.keyboard.key]) if (ret < 32767) ret = 32767;
-                }
+                if (inputstate.keystates[k.keyboard.key]) if (ret < 32767) ret = 32767;
             } break;
             case INPUTDEV_MOUSE: {
                 switch (k.mouse.part) {
                     case INPUTDEVPART_MOUSE_MOVEMENT: {
                         switch (k.mouse.movement) {
                             case INPUTDEVKEY_MOUSE_MOVEMENT_PX: {
-                                if (ret < inputstate.mousechx) ret = inputstate.mousechx;
+                                int tmp = inputstate.mousechx * 4500;
+                                if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_PY: {
-                                if (ret < inputstate.mousechy) ret = inputstate.mousechy;
+                                int tmp = inputstate.mousechy * -4500;
+                                if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_NX: {
-                                int tmp = -inputstate.mousechx + 1;
+                                int tmp = inputstate.mousechx * -4500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_NY: {
-                                int tmp = -inputstate.mousechy + 1;
+                                int tmp = inputstate.mousechy * 4500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                         }
@@ -73,12 +80,16 @@ static int getKeys(struct inputkey* keys) {
             } break;
             default: break;
         }
+        ++keys;
     }
     return ret;
 }
 
 void pollInput(void) {
     inputstate.curaction = 0;
+    if (inputstate.activeaction >= 0 && getKeys(inputstate.actions.data[inputstate.activeaction].keys) <= 0) {
+        inputstate.activeaction = -1;
+    }
     inputstate.mousechx = 0;
     inputstate.mousechy = 0;
     SDL_Event e;
@@ -117,7 +128,7 @@ void pollInput(void) {
     }
 }
 
-bool getNextAction(struct inputaction* a) {
+bool getNextInputAction(struct inputaction* a) {
     if (inputstate.mode != INPUTMODE_INGAME) return false;
     struct inputactiondata* actdata;
     trynext:;
@@ -126,14 +137,17 @@ bool getNextAction(struct inputaction* a) {
     actdata = &inputstate.actions.data[index];
     if (actdata->type == INPUTACTIONTYPE_INVALID) goto trynext;
     if (inputstate.activeaction >= 0 && actdata->type == INPUTACTIONTYPE_SINGLE) goto trynext;
-    
-    goto trynext;
-    wract:;
+    int tmp = getKeys(actdata->keys);
+    if (tmp <= 0) goto trynext;
     if (actdata->type == INPUTACTIONTYPE_SINGLE) inputstate.activeaction = index;
+    a->id = index;
+    a->amount = tmp;
+    a->data = actdata;
+    a->userdata = actdata->userdata;
     return true;
 }
 
-int newInputAction(enum inputactiontype type, const char* name, struct inputkey* keys) {
+int newInputAction(enum inputactiontype type, const char* name, struct inputkey* keys, void* userdata) {
     int index = -1;
     for (int i = 0; i < inputstate.actions.len; ++i) {
         if (inputstate.actions.data[i].type == INPUTACTIONTYPE_INVALID) {
@@ -162,12 +176,13 @@ int newInputAction(enum inputactiontype type, const char* name, struct inputkey*
     inputstate.actions.data[index] = (struct inputactiondata){
         .type = type,
         .name = strdup(name),
-        .keys = dupkeys
+        .keys = dupkeys,
+        .userdata = userdata
     };
     return index;
 }
 
-struct inputkey* inputKeysFromStr(char* s) {
+struct inputkey* inputKeysFromStr(const char* s) {
     if (!s || !*s) return NULL;
     int count;
     char** ks = splitstrlist(s, ';', false, &count);
@@ -240,6 +255,11 @@ struct inputkey* inputKeysFromStr(char* s) {
 }
 
 void clearInputActions(void) {
+    inputstate.activeaction = -1;
+    for (int i = 0; i < inputstate.actions.len; ++i) {
+        free(inputstate.actions.data[i].name);
+        free(inputstate.actions.data[i].keys);
+    }
     free(inputstate.actions.data);
     inputstate.actions.len = 0;
     inputstate.actions.size = 16;
@@ -247,4 +267,5 @@ void clearInputActions(void) {
 }
 
 void termInput(void) {
+    clearInputActions();
 }
