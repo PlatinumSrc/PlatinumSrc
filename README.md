@@ -4,10 +4,10 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
 ---
 **Dependencies**<br>
 - Building
-    - Linux, Windows, FreeBSD
+    - All platforms
         - SDL2
         - zlib
-    - Linux, FreeBSD
+    - Unix-like platforms
         - A C compiler
         - GNU Make
     - Windows
@@ -137,6 +137,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
         - NetBSD
         - OpenBSD
     - Wanted
+        - Android
         - Emscripten
         - Xbox (XDK)?
             - No OpenGL

@@ -85,9 +85,9 @@ static void gl_calcViewMat(void) {
     front[0] = (-sin(rotrady)) * cos(rotradx);
     front[1] = sin(rotradx);
     front[2] = cos(rotrady) * cos(rotradx);
-    up[0] = sin(rotrady) * sin(rotradx) * cos(rotradz) + cos(rotrady) * (-sin(rotradz));
+    up[0] = sin(rotrady) * sin(rotradx) * cos(rotradz) + sin(rotradz) * cos(rotrady);
     up[1] = cos(rotradx) * cos(rotradz);
-    up[2] = (-cos(rotrady)) * sin(rotradx) * cos(rotradz) + sin(rotrady) * (-sin(rotradz));
+    up[2] = (-cos(rotrady)) * sin(rotradx) * cos(rotradz) + sin(rotradz) * sin(rotrady);
     glm_vec3_add(campos, front, front);
     glm_lookat(campos, front, up, rendstate.gl.viewmat);
 }
@@ -364,21 +364,29 @@ static void destroyWindow(void) {
 
 static void updateWindowMode(void) {
     switch (rendstate.mode) {
-        case RENDMODE_WINDOWED:
+        case RENDMODE_WINDOWED: {
             rendstate.res.current = rendstate.res.windowed;
             SDL_SetWindowFullscreen(rendstate.window, 0);
             SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
-            break;
-        case RENDMODE_BORDERLESS:
+        } break;
+        case RENDMODE_BORDERLESS: {
             rendstate.res.current = rendstate.res.fullscr;
-            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-            break;
-        case RENDMODE_FULLSCREEN:
+            SDL_DisplayMode mode;
+            SDL_GetCurrentDisplayMode(0, &mode);
+            mode.w = rendstate.res.fullscr.width;
+            mode.h = rendstate.res.fullscr.height;
+            SDL_SetWindowDisplayMode(rendstate.window, &mode);
+        } break;
+        case RENDMODE_FULLSCREEN: {
             rendstate.res.current = rendstate.res.fullscr;
-            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
-            break;
+            SDL_DisplayMode mode;
+            SDL_GetCurrentDisplayMode(0, &mode);
+            mode.w = rendstate.res.fullscr.width;
+            mode.h = rendstate.res.fullscr.height;
+            SDL_SetWindowDisplayMode(rendstate.window, &mode);
+        } break;
     }
     rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
 }
@@ -457,10 +465,31 @@ static bool createWindow(void) {
     flags |= SDL_WINDOW_RESIZABLE;
     if (rendstate.apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
     #endif
+    {
+        SDL_DisplayMode dtmode;
+        SDL_GetDesktopDisplayMode(0, &dtmode);
+        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = dtmode.w;
+        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = dtmode.h;
+        if (rendstate.fps < 0) rendstate.fps = dtmode.refresh_rate;
+    }
+    switch (rendstate.mode) {
+        case RENDMODE_WINDOWED:
+            rendstate.res.current = rendstate.res.windowed;
+            break;
+        case RENDMODE_BORDERLESS:
+            rendstate.res.current = rendstate.res.fullscr;
+            flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+            break;
+        case RENDMODE_FULLSCREEN:
+            rendstate.res.current = rendstate.res.fullscr;
+            flags |= SDL_WINDOW_FULLSCREEN;
+            break;
+    }
+    rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
     rendstate.window = SDL_CreateWindow(
         titlestr,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        rendstate.res.windowed.width, rendstate.res.windowed.height,
+        rendstate.res.current.width, rendstate.res.current.height,
         SDL_WINDOW_SHOWN | flags
     );
     if (!rendstate.window) {
@@ -471,14 +500,6 @@ static bool createWindow(void) {
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
-    {
-        SDL_DisplayMode dtmode;
-        SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(rendstate.window), &dtmode);
-        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = dtmode.w;
-        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = dtmode.h;
-        if (rendstate.fps < 0) rendstate.fps = dtmode.refresh_rate;
-    }
-    updateWindowMode();
     switch (rendstate.apigroup) {
         case RENDAPIGROUP_GL: {
             #if PLATFORM != PLAT_NXDK

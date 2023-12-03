@@ -141,7 +141,7 @@ static int run(int argc, char** argv) {
     test = loadResource(RC_SOUND, "common:sounds/ambient/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "common:sounds/siren", &audiostate.soundrcopt);
     if (test) playSound(
         false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
@@ -153,7 +153,7 @@ static int run(int argc, char** argv) {
     if (test) testsound = playSound(
         false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 5.0, SOUNDFX_END
+        SOUNDFX_POS, 0.0, 0.0, 4.0, SOUNDFX_END
     );
     freeResource(test);
 
@@ -185,16 +185,16 @@ static int run(int argc, char** argv) {
         k = inputKeysFromStr("k,D");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
         free(k);
-        k = inputKeysFromStr("m,m,+y");
+        k = inputKeysFromStr("m,m,+y;k,up");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
         free(k);
-        k = inputKeysFromStr("m,m,-x");
+        k = inputKeysFromStr("m,m,-x;k,left");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
         free(k);
-        k = inputKeysFromStr("m,m,-y");
+        k = inputKeysFromStr("m,m,-y;k,down");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
         free(k);
-        k = inputKeysFromStr("m,m,+x");
+        k = inputKeysFromStr("m,m,+x;k,right");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
         free(k);
         k = inputKeysFromStr("k,left ctrl");
@@ -216,6 +216,17 @@ static int run(int argc, char** argv) {
 
     float runspeed = 3.75;
     float walkspeed = 1.75;
+    float lookspeed[2];
+    {
+        char* tmp = cfg_getvar(config, "Input", "lookspeed");
+        if (tmp) {
+            sscanf(tmp, "%f,%f", &lookspeed[0], &lookspeed[1]);
+            free(tmp);
+        } else {
+            lookspeed[0] = 2.0;
+            lookspeed[1] = 2.0;
+        }
+    }
 
     plog(LL_INFO, "All systems go!");
     uint64_t framestamp = altutime();
@@ -225,7 +236,7 @@ static int run(int argc, char** argv) {
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 2.0, 0.0, cos(t * 2.5) * 2.0, SOUNDFX_END);
+        changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
 
         pollInput();
 
@@ -273,14 +284,16 @@ static int run(int argc, char** argv) {
         audiostate.campos[2] = (rendstate.campos[2] += movez * speed * framemult);
         audiostate.campos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);
 
-        rendstate.camrot[0] += lookx;
-        rendstate.camrot[1] += looky;
+        rendstate.camrot[0] += lookx * lookspeed[1];
+        rendstate.camrot[1] += looky * lookspeed[0];
         if (rendstate.camrot[0] > 90.0) rendstate.camrot[0] = 90.0;
         else if (rendstate.camrot[0] < -90.0) rendstate.camrot[0] = -90.0;
         rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0);
         audiostate.camrot[0] = rendstate.camrot[0];
         audiostate.camrot[1] = rendstate.camrot[1];
+        audiostate.camrot[2] = rendstate.camrot[2];
 
+        updateSounds();
         render();
         #if PLATFORM == PLAT_NXDK
         if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) ++quitreq;

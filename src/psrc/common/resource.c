@@ -218,6 +218,7 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
                 } else if (!strcmp(srcstr, "engine")) {
                     prefix = RCPREFIX_ENGINE;
                 } else {
+                    cb_dump(&tmpcb);
                     free(srcstr);
                     return NULL;
                 }

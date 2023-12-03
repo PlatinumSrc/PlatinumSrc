@@ -58,19 +58,19 @@ static int getKeys(struct inputkey* keys) {
                     case INPUTDEVPART_MOUSE_MOVEMENT: {
                         switch (k.mouse.movement) {
                             case INPUTDEVKEY_MOUSE_MOVEMENT_PX: {
-                                int tmp = inputstate.mousechx * 4500;
+                                int tmp = inputstate.mousechx * 2500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_PY: {
-                                int tmp = inputstate.mousechy * -4500;
+                                int tmp = inputstate.mousechy * -2500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_NX: {
-                                int tmp = inputstate.mousechx * -4500;
+                                int tmp = inputstate.mousechx * -2500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                             case INPUTDEVKEY_MOUSE_MOVEMENT_NY: {
-                                int tmp = inputstate.mousechy * 4500;
+                                int tmp = inputstate.mousechy * 2500;
                                 if (ret < tmp) ret = tmp;
                             } break;
                         }

@@ -645,23 +645,6 @@ struct cfg* cfg_open(const char* p) {
         #endif
         struct cfg* cfg = cfg_open_new();
         cfg_read(cfg, f, true);
-        #if DEBUG(2)
-        {
-            putchar('\n');
-            int sectcount = cfg->sectcount;
-            for (int secti = 0; secti < sectcount; ++secti) {
-                struct cfg_sect* sect = &cfg->sectdata[secti];
-                if (*sect->name) printf("[ %s ]\n", sect->name);
-                int varcount = sect->varcount;
-                for (int vari = 0; vari < varcount; ++ vari) {
-                    struct cfg_var* var = &sect->vardata[vari];
-                    if (*sect->name) fputs("  ", stdout);
-                    printf("%s = %s\n", var->name, var->data);
-                }
-                putchar('\n');
-            }
-        }
-        #endif
         fclose(f);
         return cfg;
     }
@@ -692,23 +675,6 @@ bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) %s...", p);
     #endif
     cfg_read(cfg, f, overwrite);
-    #if DEBUG(2)
-    {
-        putchar('\n');
-        int sectcount = cfg->sectcount;
-        for (int secti = 0; secti < sectcount; ++secti) {
-            struct cfg_sect* sect = &cfg->sectdata[secti];
-            if (*sect->name) printf("[ %s ]\n", sect->name);
-            int varcount = sect->varcount;
-            for (int vari = 0; vari < varcount; ++ vari) {
-                struct cfg_var* var = &sect->vardata[vari];
-                if (*sect->name) fputs("  ", stdout);
-                printf("%s = %s\n", var->name, var->data);
-            }
-            putchar('\n');
-        }
-    }
-    #endif
     fclose(f);
     return true;
 }

@@ -47,6 +47,7 @@ struct audiosound {
         struct {
             uint8_t paused : 1;
             uint8_t fxchanged : 1;
+            //uint8_t updatefx : 1;
         } state;
         float vol[2];
         float speed;
@@ -59,19 +60,23 @@ struct audiosound {
 struct audiostate {
     struct accesslock lock;
     volatile bool valid;
+    bool multithreaded;
     thread_t mixthread;
     cond_t mixcond;
     SDL_AudioDeviceID output;
     int freq;
     int channels;
-    volatile int audbufindex;
-    volatile int mixaudbufindex;
+    volatile int8_t audbufindex;
+    volatile int8_t mixaudbufindex;
     uint64_t buftime;
     int audbuflen;
+    unsigned outbufcount;
     struct rcopt_sound soundrcopt;
     struct {
-        int len;
+        int16_t* out;
+        unsigned outsize;
         int* data[2][2];
+        int len;
     } audbuf;
     int voicecount;
     struct audiosound* voices;
@@ -118,5 +123,6 @@ void changeSoundFX(int64_t, int /*(bool)*/ immediate, ...);
 void changeSoundFlags(int64_t, unsigned disable, unsigned enable);
 void stopSound(int64_t);
 void pauseSound(int64_t, bool);
+void updateSounds(void);
 
 #endif

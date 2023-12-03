@@ -8,6 +8,8 @@
 
 #include "../debug.h"
 
+#include "../../cglm/cglm.h"
+
 #include <inttypes.h>
 #include <stdarg.h>
 #include <math.h>
@@ -160,57 +162,35 @@ static inline void calcSoundFX(struct audiosound* s) {
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = roundf(dist * -0.00175 * (float)s->rc->freq);
+                        s->fx[1].posoff = roundf(dist * -0.002 * (float)s->rc->freq);
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
-                        float tmpsin[3];
-                        tmpsin[0] = sin(audiostate.camrot[0] * M_PI / 180.0);
-                        tmpsin[1] = sin(audiostate.camrot[1] * -M_PI / 180.0);
-                        tmpsin[2] = sin(audiostate.camrot[2] * M_PI / 180.0);
-                        float tmpcos[3];
-                        tmpcos[0] = cos(audiostate.camrot[0] * M_PI / 180.0);
-                        tmpcos[1] = cos(audiostate.camrot[1] * -M_PI / 180.0);
-                        tmpcos[2] = cos(audiostate.camrot[2] * M_PI / 180.0);
-                        float tmp[3][3];
-                        tmp[0][0] = tmpcos[2] * tmpcos[1];
-                        tmp[0][1] = tmpcos[2] * tmpsin[1] * tmpsin[0] - tmpsin[2] * tmpcos[0];
-                        tmp[0][2] = tmpcos[2] * tmpsin[1] * tmpcos[0] + tmpsin[2] * tmpsin[0];
-                        tmp[1][0] = tmpsin[2] * tmpcos[1];
-                        tmp[1][1] = tmpsin[2] * tmpsin[1] * tmpsin[0] + tmpcos[2] * tmpcos[0];
-                        tmp[1][2] = tmpsin[2] * tmpsin[1] * tmpcos[0] - tmpcos[2] * tmpsin[0];
-                        tmp[2][0] = -tmpsin[1];
-                        tmp[2][1] = tmpcos[1] * tmpsin[0];
-                        tmp[2][2] = tmpcos[1] * tmpcos[0];
-                        float out[3];
-                        out[0] = tmp[0][0] * pos[0] + tmp[0][1] * pos[1] + tmp[0][2] * pos[2];
-                        out[1] = tmp[1][0] * pos[0] + tmp[1][1] * pos[1] + tmp[1][2] * pos[2];
-                        out[2] = tmp[2][0] * pos[0] + tmp[2][1] * pos[1] + tmp[2][2] * pos[2];
-                        pos[0] = out[0];
-                        pos[1] = out[1];
-                        pos[2] = out[2];
+                        // TODO: optimize?
+                        float rotradx = audiostate.camrot[0] * M_PI / 180.0;
+                        float rotrady = audiostate.camrot[1] * -M_PI / 180.0;
+                        float rotradz = audiostate.camrot[2] * M_PI / 180.0;
+                        glm_vec3_rotate(pos, rotrady, (vec3){0.0, 1.0, 0.0});
+                        glm_vec3_rotate(pos, rotradx, (vec3){1.0, 0.0, 0.0});
+                        glm_vec3_rotate(pos, rotradz, (vec3){0.0, 0.0, 1.0});
                     }
                     if (pos[2] > 0.0) {
                         pos[0] *= 1.0 - 0.2 * pos[2];
-                        vol[0] *= 0.8 + 0.2 * pos[2] * loudness;
-                        vol[1] *= 0.8 + 0.2 * pos[2] * loudness;
                     } else if (pos[2] < 0.0) {
                         pos[0] *= 1.0 - 0.25 * pos[2];
-                        vol[0] *= 0.75 + 0.25 * pos[2] * (1.0 - loudness);
-                        vol[1] *= 0.75 + 0.25 * pos[2] * (1.0 - loudness);
+                        vol[0] *= 1.0 + 0.25 * pos[2];
+                        vol[1] *= 1.0 + 0.25 * pos[2];
                     }
                     if (pos[1] > 0.0) {
+                        pos[0] *= 1.0 - 0.2 * pos[1];
                         vol[0] *= 1.0 - 0.1 * pos[1];
                         vol[1] *= 1.0 - 0.1 * pos[1];
-                        pos[0] *= 1.0 - 0.2 * pos[1];
                     } else if (pos[1] < 0.0) {
-                        pos[0] *= 0.9 - 0.1 * pos[1];
+                        pos[0] *= 1.0 - 0.2 * pos[1];
                     }
                     if (pos[0] > 0.0) {
-                        vol[0] *= 0.75 - pos[0] * 0.75;
-                        vol[1] *= 0.75 + pos[0] * 0.25;
+                        vol[0] *= 1.0 - pos[0] * 0.75;
                     } else if (pos[0] < 0.0) {
-                        vol[0] *= 0.75 - pos[0] * 0.25;
-                        vol[1] *= 0.75 + pos[0] * 0.75;
+                        vol[1] *= 1.0 + pos[0] * 0.75;
                     }
                     s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
                     s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
@@ -236,38 +216,34 @@ static inline void calcSoundFX(struct audiosound* s) {
 }
 
 #define mixsounds_pre() {\
-    if (chfx) interpfx(sfx, &fx, i, ii, samples);\
+    if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
     pos = calcpos(&fx, offset, i, freq, outfreq);\
 }
 #define mixsounds_post(l, r) {\
     audbuf[0][i] += l * fx.volmul[0] / 65536;\
     audbuf[1][i] += r * fx.volmul[1] / 65536;\
 }
-void mixsounds(int samples, int** audbuf) {
+void mixsounds(int buf) {
+    int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
+    memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
+    memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
     int outfreq = audiostate.freq;
     int tmpbuf[2];
+    acquireReadAccess(&audiostate.lock);
     for (int si = 0; si < audiostate.voicecount; ++si) {
         struct audiosound* s = &audiostate.voices[si];
         if (s->id < 0 || s->state.paused) continue;
         struct rc_sound* rc = s->rc;
         uint8_t flags = s->flags;
-        bool chfx;
+        bool chfx = s->state.fxchanged;
         struct audiosound_fx sfx[2];
         struct audiosound_fx fx;
-        if (s->state.fxchanged) {
-            chfx = true;
+        if (chfx) {
+            //puts("fxchanged");
             sfx[0] = s->fx[0];
             sfx[1] = s->fx[1];
         } else {
-            if (((s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS))) {
-                chfx = true;
-                sfx[0] = s->fx[1];
-                calcSoundFX(s);
-                sfx[1] = s->fx[1];
-            } else {
-                chfx = false;
-                fx = s->fx[1];
-            }
+            fx = s->fx[1];
         }
         int64_t offset = s->offset;
         int freq = rc->freq;
@@ -280,14 +256,14 @@ void mixsounds(int samples, int** audbuf) {
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
                                 getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                                 mixsounds_post(tmpbuf[0], tmpbuf[1]);
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
                                 getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -296,14 +272,14 @@ void mixsounds(int samples, int** audbuf) {
                         }
                     } else {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
                                 getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                                 mixsounds_post(tmpbuf[0], tmpbuf[1]);
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
                                 getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -313,13 +289,13 @@ void mixsounds(int samples, int** audbuf) {
                     }
                 } else {
                     if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                             mixsounds_pre();
                             getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             mixsounds_post(tmpbuf[0], tmpbuf[1]);
                         }
                     } else {
-                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                             mixsounds_pre();
                             getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             mixsounds_post(tmpbuf[0], tmpbuf[1]);
@@ -332,14 +308,14 @@ void mixsounds(int samples, int** audbuf) {
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
                                 getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                                 mixsounds_post(tmpbuf[0], tmpbuf[1]);
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 pos = ((pos % len) + len) % len;
                                 getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -348,14 +324,14 @@ void mixsounds(int samples, int** audbuf) {
                         }
                     } else {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
                                 getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                                 mixsounds_post(tmpbuf[0], tmpbuf[1]);
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0) pos %= len;
                                 getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
@@ -365,13 +341,13 @@ void mixsounds(int samples, int** audbuf) {
                     }
                 } else {
                     if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                             mixsounds_pre();
                             getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             mixsounds_post(tmpbuf[0], tmpbuf[1]);
                         }
                     } else {
-                        for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                             mixsounds_pre();
                             getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
                             mixsounds_post(tmpbuf[0], tmpbuf[1]);
@@ -392,7 +368,7 @@ void mixsounds(int samples, int** audbuf) {
                     if (flags & SOUNDFLAG_WRAP) {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             if (is8bit) {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     pos = ((pos % len) + len) % len;
                                     tmpbuf[0] = data.i8[pos * channels] - 128;
@@ -403,7 +379,7 @@ void mixsounds(int samples, int** audbuf) {
                                     mixsounds_post(tmp, tmp);
                                 }
                             } else {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     pos = ((pos % len) + len) % len;
                                     tmpbuf[0] = data.i16[pos * channels];
@@ -414,7 +390,7 @@ void mixsounds(int samples, int** audbuf) {
                             }
                         } else {
                             if (is8bit) {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     pos = ((pos % len) + len) % len;
                                     tmpbuf[0] = data.i8[pos * channels] - 128;
@@ -424,7 +400,7 @@ void mixsounds(int samples, int** audbuf) {
                                     mixsounds_post(tmpbuf[0], tmpbuf[1]);
                                 }
                             } else {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     pos = ((pos % len) + len) % len;
                                     tmpbuf[0] = data.i16[pos * channels];
@@ -436,7 +412,7 @@ void mixsounds(int samples, int** audbuf) {
                     } else {
                         if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                             if (is8bit) {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     if (pos >= 0) {
                                         pos %= len;
@@ -449,7 +425,7 @@ void mixsounds(int samples, int** audbuf) {
                                     }
                                 }
                             } else {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     if (pos >= 0) {
                                         pos %= len;
@@ -462,7 +438,7 @@ void mixsounds(int samples, int** audbuf) {
                             }
                         } else {
                             if (is8bit) {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     if (pos >= 0) {
                                         pos %= len;
@@ -474,7 +450,7 @@ void mixsounds(int samples, int** audbuf) {
                                     }
                                 }
                             } else {
-                                for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                     mixsounds_pre();
                                     if (pos >= 0) {
                                         pos %= len;
@@ -489,7 +465,7 @@ void mixsounds(int samples, int** audbuf) {
                 } else {
                     if (flags & SOUNDFLAG_FORCEMONO && stereo) {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0 && pos < len) {
                                     tmpbuf[0] = data.i8[pos * channels] - 128;
@@ -501,7 +477,7 @@ void mixsounds(int samples, int** audbuf) {
                                 }
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0 && pos < len) {
                                     tmpbuf[0] = data.i16[pos * channels];
@@ -513,7 +489,7 @@ void mixsounds(int samples, int** audbuf) {
                         }
                     } else {
                         if (is8bit) {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0 && pos < len) {
                                     tmpbuf[0] = data.i8[pos * channels] - 128;
@@ -524,7 +500,7 @@ void mixsounds(int samples, int** audbuf) {
                                 }
                             }
                         } else {
-                            for (int i = 0, ii = samples; i < samples; ++i, --ii) {
+                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
                                 mixsounds_pre();
                                 if (pos >= 0 && pos < len) {
                                     tmpbuf[0] = data.i16[pos * channels];
@@ -537,71 +513,59 @@ void mixsounds(int samples, int** audbuf) {
                 }
             } break;
         }
+        readToWriteAccess(&audiostate.lock);
         if (chfx) {
-            s->state.fxchanged = 0;
-            s->offset += samples * sfx[1].speedmul / 1000;
+            s->state.fxchanged = false;
+            s->offset += audiostate.audbuf.len * sfx[1].speedmul / 1000;
         } else {
-            s->offset += samples * fx.speedmul / 1000;
+            s->offset += audiostate.audbuf.len * fx.speedmul / 1000;
+        }
+        writeToReadAccess(&audiostate.lock);
+    }
+    releaseReadAccess(&audiostate.lock);
+    if (audiostate.channels < 2) {
+        for (int i = 0; i < audiostate.audbuf.len; ++i) {
+            int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
+            if (sample > 32767) sample = 32767;
+            else if (sample < -32768) sample = -32768;
+            audiostate.audbuf.out[i] = sample;
+        }
+    } else {
+        for (int c = 0; c < 2; ++c) {
+            for (int i = 0; i < audiostate.audbuf.len; ++i) {
+                int sample = audbuf[c][i];
+                if (sample > 32767) sample = 32767;
+                else if (sample < -32768) sample = -32768;
+                audiostate.audbuf.out[i * audiostate.channels + c] = sample;
+            }
         }
     }
 }
 
-static void wrsamples(int16_t* stream, int len) {
-    int bufi = audiostate.audbufindex;
-    #if DEBUG(3)
-    plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
-    #endif
-    //uint64_t d = audiostate.buftime;
-    //d = (d > 10000) ? d - 10000 : 0;
-    //uint64_t t;
-    //if (d) t = altutime();
-    //recheck:;
-    int mixbufi = audiostate.mixaudbufindex;
-    if (mixbufi == bufi || mixbufi < 0) {
-        //if (d) if (altutime() - t < d) goto recheck;
-        signalCond(&audiostate.mixcond);
-        #if DEBUG(2)
-        plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
+static void callback(void* data, uint16_t* stream, int len) {
+    (void)data;
+    if (audiostate.valid) {
+        int bufi = audiostate.audbufindex;
+        #if DEBUG(3)
+        plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
         #endif
-        memset(stream, 0, len * sizeof(*stream));
-    } else {
-        signalCond(&audiostate.mixcond);
-        int channels = audiostate.channels;
-        int samples = len / channels;
-        #if DEBUG(1)
-        if (audiostate.audbuf.len != samples) {
-            plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", audiostate.audbuf.len, samples);
-        }
-        #endif
-        int* audbuf[2] = {audiostate.audbuf.data[bufi][0], audiostate.audbuf.data[bufi][1]}; // prevent an extra dereference on each write
-        if (channels < 2) {
-            for (int i = 0; i < samples; ++i) {
-                int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
-                if (sample > 32767) sample = 32767;
-                else if (sample < -32768) sample = -32768;
-                stream[i] = sample;
-            }
+        int samples = len / sizeof(*stream) / audiostate.channels;
+        if (audiostate.audbuf.len == samples) {
+            memcpy(stream, audiostate.audbuf.out, len);
         } else {
-            for (int c = 0; c < 2; ++c) {
-                for (int i = 0; i < samples; ++i) {
-                    int sample = audbuf[c][i];
-                    if (sample > 32767) sample = 32767;
-                    else if (sample < -32768) sample = -32768;
-                    stream[i * channels + c] = sample;
-                }
-            }
+            plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", audiostate.audbuf.len, samples);
         }
         #if DEBUG(3)
         plog(LL_INFO | LF_DEBUG, "Finished playing %d", bufi);
         #endif
-        audiostate.audbufindex = (bufi + 1) % 2;
-    }
-}
-
-static void callback(void* data, uint8_t* stream, int len) {
-    (void)data;
-    if (audiostate.valid) {
-        wrsamples((int16_t*)stream, len / sizeof(int16_t));
+        audiostate.audbufindex = (bufi + 1) % 4;
+        if ((audiostate.mixaudbufindex + 1) % 4 == bufi || audiostate.mixaudbufindex < 0) {
+            #if DEBUG(2)
+            plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
+            #endif
+        } else {
+            signalCond(&audiostate.mixcond);
+        }
     } else {
         memset(stream, 0, len);
     }
@@ -615,18 +579,12 @@ static void* mixthread(struct thread_data* td) {
         int mixbufi = audiostate.mixaudbufindex;
         int bufi = audiostate.audbufindex;
         bool mixbufilt0 = (mixbufi < 0);
-        if (bufi == mixbufi || mixbufilt0) {
-            mixbufi = (mixbufi + 1) % 2;
+        if (bufi == mixbufi || bufi == (mixbufi + 1) % 4 || mixbufilt0) {
+            mixbufi = (mixbufi + 1) % 4;
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Mixing %d...", mixbufi);
             #endif
-            acquireWriteAccess(&audiostate.lock);
-            int* audbuf[2] = {audiostate.audbuf.data[bufi][0], audiostate.audbuf.data[bufi][1]};
-            int samples = audiostate.audbuf.len;
-            memset(audbuf[0], 0, samples * sizeof(*audbuf[0]));
-            memset(audbuf[1], 0, samples * sizeof(*audbuf[1]));
-            mixsounds(samples, audbuf);
-            releaseWriteAccess(&audiostate.lock);
+            mixsounds(bufi % 2);
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Finished mixing %d", mixbufi);
             #endif
@@ -691,7 +649,7 @@ void changeSoundFX(int64_t id, int immediate, ...) {
             readToWriteAccess(&audiostate.lock);
             if (!immediate && !v->state.fxchanged) {
                 v->fx[0] = v->fx[1];
-                v->state.fxchanged = 1;
+                v->state.fxchanged = true;
             }
             va_list args;
             va_start(args, immediate);
@@ -805,7 +763,8 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         v->offset = 0;
         v->flags = f;
         v->state.paused = paused;
-        v->state.fxchanged = 0;
+        v->state.fxchanged = false;
+        //v->state.updatefx = false;
         v->vol[0] = 1.0;
         v->vol[1] = 1.0;
         v->speed = 1.0;
@@ -856,6 +815,32 @@ bool initAudio(void) {
     return true;
 }
 
+void updateSounds(void) {
+    acquireWriteAccess(&audiostate.lock);
+    for (int si = 0; si < audiostate.voicecount; ++si) {
+        struct audiosound* s = &audiostate.voices[si];
+        if (s->id < 0) continue;
+        if (!s->state.fxchanged && (s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS)) {
+            s->fx[0] = s->fx[1];
+            s->state.fxchanged = true;
+            calcSoundFX(s);
+            //s->state.updatefx = true;
+        }
+    }
+    releaseWriteAccess(&audiostate.lock);
+    if (!audiostate.multithreaded) {
+        uint32_t qs = SDL_GetQueuedAudioSize(audiostate.output);
+        //printf("samples: %u\n", (unsigned)(qs / sizeof(int16_t) / audiostate.channels));
+        if (qs < audiostate.audbuf.outsize * audiostate.outbufcount) {
+            int count = (audiostate.audbuf.outsize * audiostate.outbufcount - qs) / audiostate.audbuf.outsize;
+            for (int i = 0; i < count; ++i) {
+                mixsounds(0);
+                SDL_QueueAudio(audiostate.output, audiostate.audbuf.out, audiostate.audbuf.outsize);
+            }
+        }
+    }
+}
+
 bool startAudio(void) {
     acquireWriteAccess(&audiostate.lock);
     SDL_AudioSpec inspec;
@@ -867,10 +852,10 @@ bool startAudio(void) {
         inspec.freq = atoi(tmp);
         free(tmp);
     } else {
-        #if PLATFORM == PLAT_NXDK
-        inspec.freq = 22050;
-        #else
+        #if PLATFORM != PLAT_NXDK
         inspec.freq = 44100;
+        #else
+        inspec.freq = 22050;
         #endif
     }
     tmp = cfg_getvar(config, "Sound", "buffer");
@@ -878,9 +863,16 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
-        inspec.samples = 512;
+        inspec.samples = 1024;
     }
-    inspec.callback = callback;
+    tmp = cfg_getvar(config, "Sound", "multithreaded");
+    if (tmp) {
+        audiostate.multithreaded = strbool(tmp, false);
+        free(tmp);
+    } else {
+        audiostate.multithreaded = false;
+    }
+    inspec.callback = (audiostate.multithreaded) ? (SDL_AudioCallback)callback : NULL;
     inspec.userdata = NULL;
     #if PLATFORM != PLAT_NXDK
     int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
@@ -903,15 +895,19 @@ bool startAudio(void) {
         audiostate.audbuf.len = outspec.samples;
         audiostate.audbuf.data[0][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][0]));
         audiostate.audbuf.data[0][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][1]));
-        audiostate.audbuf.data[1][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][0]));
-        audiostate.audbuf.data[1][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][1]));
+        if (audiostate.multithreaded) {
+            audiostate.audbuf.data[1][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][0]));
+            audiostate.audbuf.data[1][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][1]));
+        }
+        audiostate.audbuf.outsize = outspec.samples * sizeof(*audiostate.audbuf.out) * outspec.channels;
+        audiostate.audbuf.out = malloc(audiostate.audbuf.outsize);
         int voicecount;
         tmp = cfg_getvar(config, "Sound", "voices");
         if (tmp) {
             voicecount = atoi(tmp);
             free(tmp);
         } else {
-            voicecount = 64;
+            voicecount = 32;
         }
         if (audiostate.voicecount != voicecount) {
             audiostate.voicecount = voicecount;
@@ -919,6 +915,13 @@ bool startAudio(void) {
         }
         for (int i = 0; i < voicecount; ++i) {
             audiostate.voices[i].id = -1;
+        }
+        tmp = cfg_getvar(config, "Sound", "outbufcount");
+        if (tmp) {
+            audiostate.outbufcount = atoi(tmp);
+            free(tmp);
+        } else {
+            audiostate.outbufcount = 2;
         }
         tmp = cfg_getvar(config, "Sound", "decodebuf");
         if (tmp) {
@@ -942,7 +945,7 @@ bool startAudio(void) {
         audiostate.audbufindex = 0;
         audiostate.mixaudbufindex = -1;
         audiostate.buftime = outspec.samples * 1000000 / outspec.freq;
-        createThread(&audiostate.mixthread, "mix", mixthread, NULL);
+        if (audiostate.multithreaded) createThread(&audiostate.mixthread, "mix", mixthread, NULL);
         audiostate.valid = true;
         SDL_PauseAudioDevice(output, 0);
     } else {
@@ -955,9 +958,11 @@ bool startAudio(void) {
 
 void stopAudio(void) {
     if (audiostate.valid) {
-        quitThread(&audiostate.mixthread);
-        broadcastCond(&audiostate.mixcond);
-        destroyThread(&audiostate.mixthread, NULL);
+        if (audiostate.multithreaded) {
+            quitThread(&audiostate.mixthread);
+            broadcastCond(&audiostate.mixcond);
+            destroyThread(&audiostate.mixthread, NULL);
+        }
         acquireWriteAccess(&audiostate.lock);
         audiostate.valid = false;
         //SDL_PauseAudioDevice(audiostate.output, 1);
@@ -971,8 +976,11 @@ void stopAudio(void) {
         free(audiostate.voices);
         free(audiostate.audbuf.data[0][0]);
         free(audiostate.audbuf.data[0][1]);
-        free(audiostate.audbuf.data[1][0]);
-        free(audiostate.audbuf.data[1][1]);
+        if (audiostate.multithreaded) {
+            free(audiostate.audbuf.data[1][0]);
+            free(audiostate.audbuf.data[1][1]);
+        }
+        free(audiostate.audbuf.out);
         releaseWriteAccess(&audiostate.lock);
     }
 }
