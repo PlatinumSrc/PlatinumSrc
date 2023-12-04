@@ -66,7 +66,8 @@ static void gl_calcProjMat(void) {
         #if PLATFORM != PLAT_NXDK
         rendstate.gl.nearplane, rendstate.gl.farplane,
         #else
-        rendstate.gl.nearplane * rendstate.gl.scale, rendstate.gl.farplane * rendstate.gl.scale,
+        rendstate.gl.nearplane * rendstate.gl.scale * rendstate.gl.scale,
+        rendstate.gl.farplane * rendstate.gl.scale * rendstate.gl.scale,
         #endif
         rendstate.gl.projmat
     );
@@ -76,9 +77,15 @@ static void gl_calcViewMat(void) {
     static float campos[3];
     static float front[3];
     static float up[3];
+    #if PLATFORM != PLAT_NXDK
     campos[0] = rendstate.campos[0];
     campos[1] = rendstate.campos[1];
     campos[2] = rendstate.campos[2];
+    #else
+    campos[0] = rendstate.campos[0] * rendstate.gl.scale;
+    campos[1] = rendstate.campos[1] * rendstate.gl.scale;
+    campos[2] = rendstate.campos[2] * rendstate.gl.scale;
+    #endif
     float rotradx = rendstate.camrot[0] * M_PI / 180.0;
     float rotrady = rendstate.camrot[1] * -M_PI / 180.0;
     float rotradz = rendstate.camrot[2] * M_PI / 180.0;

@@ -127,6 +127,9 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     }
     vfprintf(f, s, v);
     fputc('\n', f);
+    #if PLATFORM == PLAT_NXDK
+    fflush(f);
+    #endif
 }
 
 void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, va_list ov) {

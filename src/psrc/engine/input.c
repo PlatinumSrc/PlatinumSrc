@@ -3,7 +3,12 @@
 #include "../utils/logging.h"
 #include "../utils/string.h"
 #include "../common/common.h"
+#include "../platform.h"
 #include "../debug.h"
+
+#include <string.h>
+
+#include "../glue.h"
 
 struct inputstate inputstate;
 
@@ -11,16 +16,24 @@ void setInputMode(enum inputmode m) {
     inputstate.mode = m;
     switch (m) {
         case INPUTMODE_UI: {
+            #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(false);
+            #endif
         } break;
         case INPUTMODE_INGAME: {
+            #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(true);
+            #endif
         } break;
         case INPUTMODE_TEXTINPUT: {
+            #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(false);
+            #endif
         } break;
         case INPUTMODE_GETKEY: {
+            #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(true);
+            #endif
         } break;
     }
 }
@@ -45,51 +58,8 @@ bool initInput(void) {
     return true;
 }
 
-static int getKeys(struct inputkey* keys) {
-    int ret = 0;
-    while (keys->dev != INPUTDEV__NULL) {
-        struct inputkey k = *keys;
-        switch (k.dev) {
-            case INPUTDEV_KEYBOARD: {
-                if (inputstate.keystates[k.keyboard.key]) if (ret < 32767) ret = 32767;
-            } break;
-            case INPUTDEV_MOUSE: {
-                switch (k.mouse.part) {
-                    case INPUTDEVPART_MOUSE_MOVEMENT: {
-                        switch (k.mouse.movement) {
-                            case INPUTDEVKEY_MOUSE_MOVEMENT_PX: {
-                                int tmp = inputstate.mousechx * 2500;
-                                if (ret < tmp) ret = tmp;
-                            } break;
-                            case INPUTDEVKEY_MOUSE_MOVEMENT_PY: {
-                                int tmp = inputstate.mousechy * -2500;
-                                if (ret < tmp) ret = tmp;
-                            } break;
-                            case INPUTDEVKEY_MOUSE_MOVEMENT_NX: {
-                                int tmp = inputstate.mousechx * -2500;
-                                if (ret < tmp) ret = tmp;
-                            } break;
-                            case INPUTDEVKEY_MOUSE_MOVEMENT_NY: {
-                                int tmp = inputstate.mousechy * 2500;
-                                if (ret < tmp) ret = tmp;
-                            } break;
-                        }
-                    } break;
-                    default: break;
-                }
-            } break;
-            default: break;
-        }
-        ++keys;
-    }
-    return ret;
-}
-
 void pollInput(void) {
     inputstate.curaction = 0;
-    if (inputstate.activeaction >= 0 && getKeys(inputstate.actions.data[inputstate.activeaction].keys) <= 0) {
-        inputstate.activeaction = -1;
-    }
     inputstate.mousechx = 0;
     inputstate.mousechy = 0;
     SDL_Event e;
@@ -108,6 +78,28 @@ void pollInput(void) {
                         updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
                     } break;
                 }
+            } break;
+            case SDL_CONTROLLERDEVICEADDED: {
+                if (!inputstate.gamepad) {
+                    inputstate.gamepad = SDL_GameControllerOpen(e.cdevice.which);
+                }
+            } break;
+            case SDL_CONTROLLERDEVICEREMOVED: {
+                if (inputstate.gamepad) {
+                    if (e.cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(inputstate.gamepad))) {
+                        SDL_GameControllerClose(inputstate.gamepad);
+                        inputstate.gamepad = NULL;
+                    }
+                }
+            } break;
+            case SDL_CONTROLLERAXISMOTION: {
+                inputstate.gamepadaxes[e.caxis.axis] = e.caxis.value + (e.caxis.value < 0);
+            } break;
+            case SDL_CONTROLLERBUTTONDOWN: {
+                inputstate.gamepadbuttons[e.cbutton.button / 8] |= 0x01 << (e.cbutton.button % 8);
+            } break;
+            case SDL_CONTROLLERBUTTONUP: {
+                inputstate.gamepadbuttons[e.cbutton.button / 8] &= ~(0x01 << (e.cbutton.button % 8));
             } break;
             default: {
                 switch (inputstate.mode) {
@@ -136,12 +128,81 @@ bool getNextInputAction(struct inputaction* a) {
     int index = inputstate.curaction++;
     actdata = &inputstate.actions.data[index];
     if (actdata->type == INPUTACTIONTYPE_INVALID) goto trynext;
-    if (inputstate.activeaction >= 0 && actdata->type == INPUTACTIONTYPE_SINGLE) goto trynext;
-    int tmp = getKeys(actdata->keys);
-    if (tmp <= 0) goto trynext;
-    if (actdata->type == INPUTACTIONTYPE_SINGLE) inputstate.activeaction = index;
+    if (inputstate.activeaction >= 0 &&
+        (actdata->type == INPUTACTIONTYPE_ONCE || actdata->type == INPUTACTIONTYPE_SINGLE) &&
+        index != inputstate.activeaction) goto trynext;
+    bool constant;
+    int value = 0;
+    {
+        struct inputkey* keys = actdata->keys;
+        while (keys->dev != INPUTDEV__NULL) {
+            struct inputkey k = *keys;
+            switch (k.dev) {
+                case INPUTDEV_KEYBOARD: {
+                    if (inputstate.keystates[k.keyboard.key] && value < 32767) {
+                        constant = true;
+                        value = 32767;
+                    }
+                } break;
+                case INPUTDEV_MOUSE: {
+                    switch (k.mouse.part) {
+                        case INPUTDEVPART_MOUSE_MOVEMENT: {
+                            switch (k.mouse.movement) {
+                                case INPUTDEVKEY_MOUSE_MOVEMENT_PX: {
+                                    int tmp = inputstate.mousechx * 2500;
+                                    if (tmp > value) {constant = false; value = tmp;}
+                                } break;
+                                case INPUTDEVKEY_MOUSE_MOVEMENT_PY: {
+                                    int tmp = inputstate.mousechy * -2500;
+                                    if (tmp > value) {constant = false; value = tmp;}
+                                } break;
+                                case INPUTDEVKEY_MOUSE_MOVEMENT_NX: {
+                                    int tmp = inputstate.mousechx * -2500;
+                                    if (tmp > value) {constant = false; value = tmp;}
+                                } break;
+                                case INPUTDEVKEY_MOUSE_MOVEMENT_NY: {
+                                    int tmp = inputstate.mousechy * 2500;
+                                    if (tmp > value) {constant = false; value = tmp;}
+                                } break;
+                            }
+                        } break;
+                        default: break;
+                    }
+                } break;
+                case INPUTDEV_GAMEPAD: {
+                    switch (k.gamepad.part) {
+                        case INPUTDEVPART_GAMEPAD_AXIS: {
+                            int tmp = inputstate.gamepadaxes[k.gamepad.axis.id];
+                            if (k.gamepad.axis.negative) tmp *= -1;
+                            if (tmp >= 7634 && tmp > value) {constant = true; value = tmp;}
+                        } break;
+                        case INPUTDEVPART_GAMEPAD_BUTTON: {
+                            if (inputstate.gamepadbuttons[k.gamepad.button / 8] & (1 << k.gamepad.button % 8) && value < 32767) {
+                                constant = true;
+                                value = 32767;
+                            }
+                        } break;
+                    }
+                } break;
+                default: break;
+            }
+            ++keys;
+        }
+    }
+    if (value <= 0) {
+        if ((actdata->type == INPUTACTIONTYPE_ONCE || actdata->type == INPUTACTIONTYPE_SINGLE) &&
+            index == inputstate.activeaction) inputstate.activeaction = -1;
+        goto trynext;
+    }
+    if (actdata->type == INPUTACTIONTYPE_ONCE) {
+        if (index == inputstate.activeaction) goto trynext;
+        inputstate.activeaction = index;
+    } else if (actdata->type == INPUTACTIONTYPE_SINGLE) {
+        inputstate.activeaction = index;
+    }
     a->id = index;
-    a->amount = tmp;
+    a->amount = value;
+    a->constant = constant;
     a->data = actdata;
     a->userdata = actdata->userdata;
     return true;
@@ -194,8 +255,11 @@ struct inputkey* inputKeysFromStr(const char* s) {
         k[i].dev = INPUTDEV__INVALID;
         if (dcount == 2) {
             if (!strcasecmp(kds[0], "k") || !strcasecmp(kds[0], "keyboard")) {
-                k[i].dev = INPUTDEV_KEYBOARD;
-                k[i].keyboard.key = SDL_GetScancodeFromName(kds[1]);
+                SDL_Scancode tmp = SDL_GetScancodeFromName(kds[1]);
+                if (tmp >= 0) {
+                    k[i].dev = INPUTDEV_KEYBOARD;
+                    k[i].keyboard.key = tmp;
+                }
             }
         } else if (dcount == 3) {
             if (!strcasecmp(kds[0], "m") || !strcasecmp(kds[0], "mouse")) {
@@ -240,6 +304,25 @@ struct inputkey* inputKeysFromStr(const char* s) {
                         k[i].dev = INPUTDEV_MOUSE;
                         k[i].mouse.part = INPUTDEVPART_MOUSE_SCROLL;
                         k[i].mouse.scroll = 0;
+                    }
+                }
+            } else if (!strcasecmp(kds[0], "g") || !strcasecmp(kds[0], "gamepad")) {
+                if (!strcasecmp(kds[1], "a") || !strcasecmp(kds[1], "axis")) {
+                    if (*kds[2] == '+' || *kds[2] == '-') {
+                        SDL_GameControllerAxis tmp = SDL_GameControllerGetAxisFromString(&kds[2][1]);
+                        if (tmp >= 0) {
+                            k[i].dev = INPUTDEV_GAMEPAD;
+                            k[i].gamepad.part = INPUTDEVPART_GAMEPAD_AXIS;
+                            k[i].gamepad.axis.id = tmp;
+                            k[i].gamepad.axis.negative = (*kds[2] == '-');
+                        }
+                    }
+                } else if (!strcasecmp(kds[1], "b") || !strcasecmp(kds[1], "button")) {
+                    SDL_GameControllerButton tmp = SDL_GameControllerGetButtonFromString(kds[2]);
+                    if (tmp >= 0) {
+                        k[i].dev = INPUTDEV_GAMEPAD;
+                        k[i].gamepad.part = INPUTDEVPART_GAMEPAD_BUTTON;
+                        k[i].gamepad.button = tmp;
                     }
                 }
             }

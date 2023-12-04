@@ -1,7 +1,14 @@
 #ifndef PSRC_ENGINE_INPUT_H
 #define PSRC_ENGINE_INPUT_H
 
+#include "../platform.h"
 #include "../utils/threading.h"
+
+#if PLATFORM != PLAT_NXDK
+    #include <SDL2/SDL.h>
+#else
+    #include <SDL.h>
+#endif
 
 #include <stdbool.h>
 
@@ -53,8 +60,9 @@ struct inputkey {
             enum inputdevpart_gamepad part;
             union {
                 struct {
-                    uint8_t positive : 1;
-                    uint8_t id : 7;
+                    uint8_t whole : 1;
+                    uint8_t negative : 1;
+                    uint8_t id : 6;
                 } axis;
                 uint8_t button;
             };
@@ -65,12 +73,14 @@ struct inputkey {
 struct inputaction {
     int id;
     int amount;
+    bool constant;
     struct inputactiondata* data;
     void* userdata;
 };
 
 enum __attribute__((packed)) inputactiontype {
     INPUTACTIONTYPE_INVALID = -1,
+    INPUTACTIONTYPE_ONCE,
     INPUTACTIONTYPE_SINGLE,
     INPUTACTIONTYPE_MULTI,
 };
@@ -95,6 +105,9 @@ struct inputstate {
     const uint8_t* keystates;
     int mousechx;
     int mousechy;
+    SDL_GameController* gamepad;
+    int16_t gamepadaxes[SDL_CONTROLLER_AXIS_MAX];
+    uint8_t gamepadbuttons[(SDL_CONTROLLER_BUTTON_MAX + 7) / 8];
     struct {
         struct inputactiondata* data;
         int len;

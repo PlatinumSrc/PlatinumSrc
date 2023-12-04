@@ -79,6 +79,32 @@ static float fwrap(float n, float d) {
     return tmp;
 }
 
+#if PLATFORM == PLAT_NXDK
+thread_t watchdogthread;
+volatile bool killwatchdog;
+static void* watchdog(struct thread_data* td) {
+    plog(LL_INFO, "Watchdog armed for %u seconds", (unsigned)td->args);
+    uint64_t t = altutime() + (uint64_t)(td->args) * 1000000;
+    while (t > altutime()) {
+        if (killwatchdog) {
+            killwatchdog = false;
+            plog(LL_INFO, "Watchdog cancelled");
+            return NULL;
+        }
+        yield();
+    }
+    HalReturnToFirmware(HalRebootRoutine);
+    return NULL;
+}
+static void armWatchdog(unsigned sec) {
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
+static void cancelWatchdog(void) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+}
+#endif
+
 static int run(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -170,48 +196,48 @@ static int run(int argc, char** argv) {
         ACTION_WALK,
         ACTION_JUMP,
         ACTION_CROUCH,
+        ACTION_MENU,
     };
     setInputMode(INPUTMODE_INGAME);
     {
-        struct inputkey* k = inputKeysFromStr("k,W");
+        struct inputkey* k = inputKeysFromStr("k,escape;g,b,start");
+        newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
+        free(k);
+        k = inputKeysFromStr("k,w;g,a,-lefty");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
         free(k);
-        k = inputKeysFromStr("k,A");
+        k = inputKeysFromStr("k,a;g,a,-leftx");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_left", k, (void*)ACTION_MOVE_LEFT);
         free(k);
-        k = inputKeysFromStr("k,S");
+        k = inputKeysFromStr("k,s;g,a,+lefty");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_backwards", k, (void*)ACTION_MOVE_BACKWARDS);
         free(k);
-        k = inputKeysFromStr("k,D");
+        k = inputKeysFromStr("k,d;g,a,+leftx");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
         free(k);
-        k = inputKeysFromStr("m,m,+y;k,up");
+        k = inputKeysFromStr("m,m,+y;k,up;g,a,-righty");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
         free(k);
-        k = inputKeysFromStr("m,m,-x;k,left");
+        k = inputKeysFromStr("m,m,-x;k,left;g,a,-rightx");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
         free(k);
-        k = inputKeysFromStr("m,m,-y;k,down");
+        k = inputKeysFromStr("m,m,-y;k,down;g,a,+righty");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
         free(k);
-        k = inputKeysFromStr("m,m,+x;k,right");
+        k = inputKeysFromStr("m,m,+x;k,right;g,a,+rightx");
         newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
         free(k);
-        k = inputKeysFromStr("k,left ctrl");
+        k = inputKeysFromStr("k,left ctrl;g,b,leftstick");
         newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
         free(k);
-        k = inputKeysFromStr("k,space");
+        k = inputKeysFromStr("k,space;g,b,a");
         newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
         free(k);
-        k = inputKeysFromStr("k,left shift");
+        k = inputKeysFromStr("k,left shift;g,a,+lefttrigger");
         newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
         free(k);
     }
 
-    #if PLATFORM == PLAT_NXDK
-    uint64_t ticks = SDL_GetTicks() + 30000;
-    plog__nodraw = true;
-    #endif
     uint64_t toff = SDL_GetTicks();
 
     float runspeed = 3.75;
@@ -247,14 +273,15 @@ static int run(int argc, char** argv) {
         while (getNextInputAction(&a)) {
             //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0);
             switch ((enum action)a.userdata) {
+                case ACTION_MENU: ++quitreq; break;
                 case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_UP: lookx += (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_DOWN: lookx -= (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_LEFT: looky -= (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_RIGHT: looky += (float)a.amount / 32767.0; break;
+                case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
+                case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
+                case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
+                case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
                 case ACTION_WALK: walk = true; break;
                 case ACTION_JUMP: movey += (float)a.amount / 32767.0; break;
                 case ACTION_CROUCH: movey -= (float)a.amount / 32767.0; break;
@@ -295,9 +322,6 @@ static int run(int argc, char** argv) {
 
         updateSounds();
         render();
-        #if PLATFORM == PLAT_NXDK
-        if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks)) ++quitreq;
-        #endif
         uint64_t tmp = altutime();
         frametime = tmp - framestamp;
         framestamp = tmp;
@@ -308,10 +332,16 @@ static int run(int argc, char** argv) {
     plog__nodraw = false;
     #endif
 
+    #if PLATFORM == PLAT_NXDK
+    armWatchdog(5);
+    #endif
     plog(LL_INFO, "Stopping audio manager...");
     stopAudio();
     plog(LL_INFO, "Stopping renderer...");
     stopRenderer();
+    #if PLATFORM == PLAT_NXDK
+    cancelWatchdog();
+    #endif
 
     plog(LL_INFO, "Terminating audio manager...");
     termAudio();
@@ -448,7 +478,13 @@ static int bootstrap(int argc, char** argv) {
     free(tmp);
     cfg_close(config);
 
+    #if PLATFORM == PLAT_NXDK
+    armWatchdog(5);
+    #endif
     SDL_Quit();
+    #if PLATFORM == PLAT_NXDK
+    cancelWatchdog();
+    #endif
 
     return ret;
 }
@@ -484,6 +520,7 @@ int main(int argc, char** argv) {
     timeBeginPeriod(tmrres);
     QueryPerformanceFrequency(&perfctfreq);
     #elif PLATFORM == PLAT_NXDK
+    perfctfreq.QuadPart = KeQueryPerformanceFrequency();
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_set_swap_interval(0);
     //pbgl_set_swap_interval(1);

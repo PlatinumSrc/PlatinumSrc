@@ -7,15 +7,20 @@
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_NXDK
+#if PLATFORM == PLAT_WINDOWS
 LARGE_INTEGER perfctfreq = {.QuadPart = 100};
+#elif PLATFORM == PLAT_NXDK
+LARGE_INTEGER perfctfreq = {.QuadPart = 1000000};
 #endif
 
 uint64_t altutime(void) {
-    #if PLATFORM == PLAT_WINDOWS || PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_WINDOWS
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     return time.QuadPart * 1000000 / perfctfreq.QuadPart;
+    #elif PLATFORM == PLAT_NXDK
+    uint64_t time = KeQueryPerformanceCounter();
+    return time * 1000000 / perfctfreq.QuadPart;
     #else
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);

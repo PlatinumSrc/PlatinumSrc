@@ -843,11 +843,18 @@ void updateSounds(void) {
 
 bool startAudio(void) {
     acquireWriteAccess(&audiostate.lock);
+    char* tmp = cfg_getvar(config, "Sound", "disable");
+    if (tmp && strbool(tmp, false)) {
+        audiostate.valid = false;
+        releaseWriteAccess(&audiostate.lock);
+        plog(LL_INFO, "Audio disabled");
+        return true;
+    }
     SDL_AudioSpec inspec;
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
-    char* tmp = cfg_getvar(config, "Sound", "freq");
+    tmp = cfg_getvar(config, "Sound", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
         free(tmp);
@@ -949,8 +956,8 @@ bool startAudio(void) {
         audiostate.valid = true;
         SDL_PauseAudioDevice(output, 0);
     } else {
-        plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
         audiostate.valid = false;
+        plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
     }
     releaseWriteAccess(&audiostate.lock);
     return true;
@@ -965,7 +972,7 @@ void stopAudio(void) {
         }
         acquireWriteAccess(&audiostate.lock);
         audiostate.valid = false;
-        //SDL_PauseAudioDevice(audiostate.output, 1);
+        SDL_PauseAudioDevice(audiostate.output, 1);
         SDL_CloseAudioDevice(audiostate.output);
         for (int i = 0; i < audiostate.voicecount; ++i) {
             struct audiosound* v = &audiostate.voices[i];
