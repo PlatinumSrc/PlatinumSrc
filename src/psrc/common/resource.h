@@ -128,7 +128,7 @@ struct __attribute__((packed)) rcopt_map {
 };
 
 struct __attribute__((packed)) rcatt {
-    int16_t key;
+    int8_t key;
     void* data;
     void (*cb)(void*);
 };
@@ -141,8 +141,8 @@ struct __attribute__((packed)) rcheader {
     int index;
     struct {
         struct rcatt* data;
-        int16_t len;
-        int16_t size;
+        int8_t len;
+        int8_t size;
     } att;
 };
 
@@ -152,12 +152,12 @@ void* loadResource(enum rctype type, const char* path, void* opt);
 void freeResource(void*);
 void grabResource(void*);
 char* getRcPath(const char* uri, enum rctype type, char** ext);
-int16_t genRcAttKey(void);
-void setRcAtt(void*, int16_t key, void* data, void (*cb)(void*));
-void setRcAttData(void*, int16_t key, void*);
-void setRcAttCallback(void*, int16_t key, void (*)(void*));
-bool getRcAtt(void*, int16_t key, void** out);
-void delRcAtt(void*, int16_t key);
+int8_t genRcAttKey(void);
+void setRcAtt(void*, int8_t key, void* data, void (*cb)(void*));
+void setRcAttData(void*, int8_t key, void*);
+void setRcAttCallback(void*, int8_t key, void (*)(void*));
+bool getRcAtt(void*, int8_t key, void** out);
+void delRcAtt(void*, int8_t key);
 
 #define releaseResource freeResource
 

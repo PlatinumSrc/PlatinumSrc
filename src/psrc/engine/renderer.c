@@ -378,21 +378,21 @@ static void updateWindowMode(void) {
         } break;
         case RENDMODE_BORDERLESS: {
             rendstate.res.current = rendstate.res.fullscr;
-            SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
             mode.w = rendstate.res.fullscr.width;
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
+            SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
         } break;
         case RENDMODE_FULLSCREEN: {
             rendstate.res.current = rendstate.res.fullscr;
-            SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
             mode.w = rendstate.res.fullscr.width;
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
+            SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
         } break;
     }
     rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
@@ -499,6 +499,10 @@ static bool createWindow(void) {
         rendstate.res.current.width, rendstate.res.current.height,
         SDL_WINDOW_SHOWN | flags
     );
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
+    plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+    #endif
     if (!rendstate.window) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
@@ -676,9 +680,16 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 }
             } break;
             case RENDOPT_FULLSCREEN: {
-                rendstate.mode = (va_arg(args, int)) ?
-                    ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
-                    RENDMODE_WINDOWED;
+                int tmp = va_arg(args, int);
+                if (tmp < 0) {
+                    rendstate.mode = (rendstate.mode == RENDMODE_WINDOWED) ?
+                        ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
+                        RENDMODE_WINDOWED;
+                } else if (tmp) {
+                    rendstate.mode = (rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN;
+                } else {
+                    rendstate.mode = RENDMODE_WINDOWED;
+                }
                 updateWindowMode();
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
             } break;

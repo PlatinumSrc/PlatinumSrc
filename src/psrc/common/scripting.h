@@ -1,0 +1,6 @@
+#ifndef PSRC_COMMON_SCRIPTING
+#define PSRC_COMMON_SCRIPTING
+
+
+
+#endif

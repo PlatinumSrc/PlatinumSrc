@@ -37,6 +37,7 @@
 #undef delRcAtt
 
 static mutex_t rclock; // TODO: turn into an access lock
+static mutex_t rcattidlock;
 
 union __attribute__((packed)) resource {
     void* ptr;
@@ -377,6 +378,7 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     ptr->header.path = strdup(p);
     ptr->header.pathcrc = pcrc;
     ptr->header.refs = 1;
+    ptr->header.att.data = NULL;
     return ptr;
 }
 
@@ -764,6 +766,88 @@ void grabResource(void* _r) {
     }
 }
 
+int8_t genRcAttKey(void) {
+    lockMutex(&rcattidlock);
+    static int8_t key = 0;
+    return key++;
+    unlockMutex(&rcattidlock);
+}
+
+static inline struct rcatt* setRcAtt_getptr(struct rcheader* rh, int8_t key) {
+    struct rcatt* d;
+    if (!rh->att.data) {
+        rh->att.len = 1;
+        rh->att.size = 1;
+        d = malloc(rh->att.size * sizeof(*rh->att.data));
+        rh->att.data = d;
+        d->key = key;
+        return d;
+    }
+    int index = -1;
+    for (int i = 0; i < rh->att.len; ++i) {
+        d = &rh->att.data[i];
+        if (d->key < 0 || d->key == key) {
+            index = i;
+            break;
+        }
+    }
+    if (index == -1) {
+        if (rh->att.len == rh->att.size) {
+            rh->att.size *= 2;
+            rh->att.data = realloc(rh->att.data, rh->att.size * sizeof(*rh->att.data));
+        }
+        d = &rh->att.data[rh->att.len++];
+        d->key = key;
+    }
+    return d;
+}
+
+void setRcAtt(void* r, int8_t key, void* data, void (*cb)(void*)) {
+    struct rcheader* rh = r - sizeof(struct rcheader);
+    struct rcatt* d = setRcAtt_getptr(rh, key);
+    d->data = data;
+    d->cb = cb;
+}
+
+void setRcAttData(void* r, int8_t key, void* data) {
+    struct rcheader* rh = r - sizeof(struct rcheader);
+    struct rcatt* d = setRcAtt_getptr(rh, key);
+    d->data = data;
+}
+
+void setRcAttCallback(void* r, int8_t key, void (*cb)(void*)) {
+    struct rcheader* rh = r - sizeof(struct rcheader);
+    struct rcatt* d = setRcAtt_getptr(rh, key);
+    d->cb = cb;
+}
+
+bool getRcAtt(void* r, int8_t key, void** out) {
+    struct rcheader* rh = r - sizeof(struct rcheader);
+    if (rh->att.data) {
+        for (int i = 0; i < rh->att.len; ++i) {
+            struct rcatt* d = &rh->att.data[i];
+            if (d->key == key) {
+                *out = d->data;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void delRcAtt(void* r, int8_t key) {
+    struct rcheader* rh = r - sizeof(struct rcheader);
+    if (rh->att.data) {
+        for (int i = 0; i < rh->att.len; ++i) {
+            struct rcatt* d = &rh->att.data[i];
+            if (d->key == key) {
+                if (d->cb) d->cb(d->data);
+                d->key = -1;
+            }
+        }
+    }
+}
+
 static inline void loadMods_addpath(char* p) {
     ++modinfo.len;
     if (modinfo.len == modinfo.size) {
@@ -896,6 +980,7 @@ char** queryModInfo(int* len) {
 
 bool initResource(void) {
     if (!createMutex(&rclock)) return false;
+    if (!createMutex(&rcattidlock)) return false;
     if (!createMutex(&modinfo.lock)) return false;
 
     for (int i = 0; i < RC__COUNT; ++i) {
@@ -935,5 +1020,6 @@ void termResource(void) {
     }
 
     destroyMutex(&rclock);
+    destroyMutex(&rcattidlock);
     destroyMutex(&modinfo.lock);
 }

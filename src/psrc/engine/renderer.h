@@ -99,7 +99,7 @@ enum rendopt {
     RENDOPT_END,
     RENDOPT_ICON, // char*
     RENDOPT_API, // enum rendapi
-    RENDOPT_FULLSCREEN, // bool
+    RENDOPT_FULLSCREEN, // int
     RENDOPT_BORDERLESS, // bool
     RENDOPT_VSYNC, // bool
     RENDOPT_FOV, // float

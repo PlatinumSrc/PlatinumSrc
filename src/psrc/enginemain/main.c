@@ -185,6 +185,8 @@ static int run(int argc, char** argv) {
 
     enum __attribute__((packed)) action {
         ACTION_NONE,
+        ACTION_MENU,
+        ACTION_FULLSCREEN,
         ACTION_MOVE_FORWARDS,
         ACTION_MOVE_BACKWARDS,
         ACTION_MOVE_LEFT,
@@ -196,12 +198,14 @@ static int run(int argc, char** argv) {
         ACTION_WALK,
         ACTION_JUMP,
         ACTION_CROUCH,
-        ACTION_MENU,
     };
     setInputMode(INPUTMODE_INGAME);
     {
         struct inputkey* k = inputKeysFromStr("k,escape;g,b,start");
         newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
+        free(k);
+        k = inputKeysFromStr("k,f11");
+        newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
         free(k);
         k = inputKeysFromStr("k,w;g,a,-lefty");
         newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
@@ -258,13 +262,14 @@ static int run(int argc, char** argv) {
     uint64_t framestamp = altutime();
     uint64_t frametime = 0;
     double framemult = 0.0;
-    while (!quitreq) {
+    while (1) {
+        pollInput();
+        if (quitreq) break;
+
         long lt = SDL_GetTicks() - toff;
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
         changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
-
-        pollInput();
 
         bool walk = false;
         float movex = 0.0, movez = 0.0, movey = 0.0;
@@ -274,6 +279,7 @@ static int run(int argc, char** argv) {
             //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0);
             switch ((enum action)a.userdata) {
                 case ACTION_MENU: ++quitreq; break;
+                case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
                 case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
                 case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
@@ -540,6 +546,7 @@ int main(int argc, char** argv) {
     #if PLATFORM == PLAT_WINDOWS
     timeEndPeriod(tmrres);
     #elif PLATFORM == PLAT_NXDK
+    if (ret) Sleep(5);
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif
