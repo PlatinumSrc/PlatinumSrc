@@ -476,7 +476,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 if (tmp) {
                     sscanf(tmp, "%f", &d->material.color[3]);
                 }
-            } 
+            }
         } break;
         case RC_MODEL: {
             if (!o.model) o.model = &modelopt_default;
@@ -1002,7 +1002,6 @@ bool initResource(void) {
     } else {
         loadMods(NULL, 0);
     }
-    free(tmp);
 
     return true;
 }

@@ -872,12 +872,15 @@ bool startAudio(void) {
     } else {
         inspec.samples = 1024;
     }
-    tmp = cfg_getvar(config, "Sound", "multithreaded");
-    if (tmp) {
-        audiostate.multithreaded = strbool(tmp, false);
-        free(tmp);
-    } else {
-        audiostate.multithreaded = false;
+    {
+        bool mutlithread = SDL_GetCPUCount() > 2;
+        tmp = cfg_getvar(config, "Sound", "multithreaded");
+        if (tmp) {
+            audiostate.multithreaded = strbool(tmp, mutlithread);
+            free(tmp);
+        } else {
+            audiostate.multithreaded = mutlithread;
+        }
     }
     inspec.callback = (audiostate.multithreaded) ? (SDL_AudioCallback)callback : NULL;
     inspec.userdata = NULL;

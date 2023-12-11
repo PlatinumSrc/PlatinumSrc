@@ -13,7 +13,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
     - Windows
         - Git bash with MinGW and Make for Windows in the `PATH`, or MSYS2 with a C compiler and GNU Make
     - Xbox
-        - NXDK 
+        - [NXDK](https://github.com/XboxDev/nxdk)
             - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
             - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
         - [pbGL](https://github.com/fgsfdsfgs/pbgl)
