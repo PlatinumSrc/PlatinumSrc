@@ -9,7 +9,7 @@
 #define PLAT_NETBSD  5
 #define PLAT_OPENBSD 6
 #define PLAT_UNIX    7
-#define PLAT_WINDOWS 8
+#define PLAT_WIN32   8
 #define PLAT_NXDK    9
 
 #define ARCH_UNKNOWN 0
@@ -50,7 +50,7 @@
     #define PLATSTR "Unix"
     #define PLATDIR "unix"
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
-    #define PLATFORM PLAT_WINDOWS
+    #define PLATFORM PLAT_WIN32
     #define PLATSTR "Windows"
     #define PLATDIR "windows"
 #elif defined(NXDK)

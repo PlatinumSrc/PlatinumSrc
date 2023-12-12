@@ -123,8 +123,10 @@ enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_UNTIL,
     SCRIPTWAIT_INF,
 };
+struct scripteventtable;
 struct scriptstate {
     struct script* script;
+    struct scripteventtable* events;
     struct {
         struct scriptstatedata* data;
         int index;
@@ -168,7 +170,7 @@ struct scripteventtable {
 char* compileScript(char* path, scriptfunc_t (*findcmd)(char*), struct script* out);
 void cleanUpScript(struct script*);
 
-bool createScriptEventTable(struct scripteventtable*);
+bool createScriptEventTable(struct scripteventtable*, int);
 void fireScriptEvent(struct scripteventtable*, char* name, int argc, struct charbuf* argv);
 void destroyScriptEventTable(struct scripteventtable*);
 

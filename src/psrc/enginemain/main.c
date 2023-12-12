@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#if PLATFORM == PLAT_WINDOWS
+#if PLATFORM == PLAT_WIN32
     #include <windows.h>
 #elif PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
@@ -513,7 +513,7 @@ int main(int argc, char** argv) {
     #endif
     #endif
 
-    #if PLATFORM == PLAT_WINDOWS
+    #if PLATFORM == PLAT_WIN32
     TIMECAPS tc;
     UINT tmrres = 1;
     if (timeGetDevCaps(&tc, sizeof(tc)) != TIMERR_NOERROR) {
@@ -525,8 +525,12 @@ int main(int argc, char** argv) {
     }
     timeBeginPeriod(tmrres);
     QueryPerformanceFrequency(&perfctfreq);
+    while (!(perfctfreq.QuadPart % 10) && !(perfctmul % 10)) {
+        perfctfreq.QuadPart /= 10;
+        perfctmul /= 10;
+    }
     #elif PLATFORM == PLAT_NXDK
-    perfctfreq.QuadPart = KeQueryPerformanceFrequency();
+    perfctfreq = KeQueryPerformanceFrequency();
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_set_swap_interval(0);
     //pbgl_set_swap_interval(1);
@@ -543,7 +547,7 @@ int main(int argc, char** argv) {
 
     int ret = bootstrap(argc, argv);
 
-    #if PLATFORM == PLAT_WINDOWS
+    #if PLATFORM == PLAT_WIN32
     timeEndPeriod(tmrres);
     #elif PLATFORM == PLAT_NXDK
     if (ret) Sleep(5);

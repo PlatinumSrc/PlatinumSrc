@@ -16,7 +16,7 @@
     #include <pbkit/nv_regs.h>
     #include <pbgl.h>
     #include <GL/gl.h>
-#elif PLATFORM == PLAT_WINDOWS
+#elif PLATFORM == PLAT_WIN32
     #include <windows.h>
 #else
     #include <SDL2/SDL.h>
@@ -156,7 +156,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         char* tmpstr = malloc(4096);
         va_copy(v, ov);
         vsnprintf(tmpstr, 4096, s, v);
-        #if PLATFORM != PLAT_WINDOWS
+        #if PLATFORM != PLAT_WIN32
         int flags;
         switch (lvl & 0xFF) {
             default:;

@@ -162,7 +162,7 @@ static inline void calcSoundFX(struct audiosound* s) {
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = roundf(dist * -0.002 * (float)s->rc->freq);
+                        s->fx[1].posoff = roundf(dist * -0.0025 * (float)s->rc->freq);
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         // TODO: optimize?

@@ -41,7 +41,7 @@ long getFileSize(FILE* f, bool c) {
 }
 
 static inline bool isSepChar(char c) {
-    #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_NXDK
+    #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
     return (c == '/');
     #else
     return (c == '/' || c == '\\');
@@ -49,7 +49,7 @@ static inline bool isSepChar(char c) {
 }
 static void replsep(struct charbuf* b, const char* s, bool first) {
     if (first) {
-        #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_NXDK
+        #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
         if (*s == '/') {
             cb_add(b, '/');
             ++s;
@@ -66,7 +66,7 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
             sep = true;
         } else {
             if (sep) {
-                #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_NXDK
+                #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
                 cb_add(b, '/');
                 #else
                 cb_add(b, '\\');
@@ -93,7 +93,7 @@ char* mkpath(const char* s, ...) {
         }
     }
     while ((s = va_arg(v, char*))) {
-        #if PLATFORM != PLAT_WINDOWS && PLATFORM != PLAT_NXDK
+        #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
         cb_add(&b, '/');
         #else
         cb_add(&b, '\\');
