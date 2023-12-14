@@ -52,7 +52,7 @@ const char* rendapi_names[] = {
     #endif
 };
 
-static inline void swapBuffers(void) {
+void swapBuffers(void) {
     #if PLATFORM != PLAT_NXDK
     SDL_GL_SwapWindow(rendstate.window);
     #else
@@ -349,7 +349,6 @@ void render(void) {
     pb_end(p);
     glDepthMask(tmp);
     #endif
-    swapBuffers();
 }
 
 static void destroyWindow(void) {

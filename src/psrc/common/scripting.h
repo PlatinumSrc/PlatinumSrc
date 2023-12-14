@@ -2,6 +2,7 @@
 #define PSRC_COMMON_SCRIPTING
 
 #include "../utils/string.h"
+#include "../utils/threading.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -16,21 +17,20 @@ struct scriptstate;
 typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
 
 enum __attribute__((packed)) scriptopcode {
-    SCRIPTOPCODE_NOP, // no operation
     SCRIPTOPCODE_TRUE, // set exit status to 0
     SCRIPTOPCODE_FALSE, // set exit status to 1
     SCRIPTOPCODE_JMP, // jump
     SCRIPTOPCODE_JMPOK, // jump if return code == 0
     SCRIPTOPCODE_JMPFAIL, // jump if return code != 0
-    SCRIPTOPCODE_JMPSUB, // start a sub-sub-state
-    SCRIPTOPCODE_SET, // set/unset a variable
-    SCRIPTOPCODE_ON, // subscribe to/unsubscribe from an event
-    SCRIPTOPCODE_CMP, // compare
-    SCRIPTOPCODE_EVAL, // evaluate a string as a command
-    SCRIPTOPCODE_FUNC, // run a function
+    SCRIPTOPCODE_SUB, // start a sub-state
+    SCRIPTOPCODE_FUNC, // start a sub-state and pass arguments
     SCRIPTOPCODE_RET, // return from a sub-state
-    SCRIPTOPCODE_EXIT, // terminate execution
+    SCRIPTOPCODE_SET, // set/unset a variable
+    SCRIPTOPCODE_CMP, // compare
+    SCRIPTOPCODE_ON, // subscribe to/unsubscribe from an event
+    SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
+    SCRIPTOPCODE_EXIT, // terminate execution
 };
 
 struct __attribute__((packed)) scriptopdata_jmp {
@@ -42,35 +42,33 @@ struct __attribute__((packed)) scriptopdata_jmpok {
 struct __attribute__((packed)) scriptopdata_jmpfail {
     int offset;
 };
-struct __attribute__((packed)) scriptopdata_jmpsub {
+struct __attribute__((packed)) scriptopdata_sub {
     int offset;
 };
-struct __attribute__((packed)) scriptopdata_set {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_on {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_cmp {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_eval {
-    struct scriptstring eval;
-};
 struct __attribute__((packed)) scriptopdata_func {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_call {
+    int offset;
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_ret {
     struct scriptstring eval;
 };
-struct __attribute__((packed)) scriptopdata_exit {
+struct __attribute__((packed)) scriptopdata_set {
+    struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_cmp {
+    struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_on {
+    struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_sleep {
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_cmd {
     scriptfunc_t func;
+    struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_exit {
     struct scriptstring eval;
 };
 
@@ -80,15 +78,15 @@ struct __attribute__((packed)) scriptop {
         struct scriptopdata_jmp jmp;
         struct scriptopdata_jmpok jmpok;
         struct scriptopdata_jmpfail jmpfail;
-        struct scriptopdata_jmpsub jmpsub;
-        struct scriptopdata_set set;
-        struct scriptopdata_on on;
-        struct scriptopdata_cmp cmp;
-        struct scriptopdata_eval eval;
+        struct scriptopdata_sub sub;
         struct scriptopdata_func func;
         struct scriptopdata_ret ret;
-        struct scriptopdata_exit exit;
+        struct scriptopdata_set set;
+        struct scriptopdata_cmp cmp;
+        struct scriptopdata_on on;
+        struct scriptopdata_sleep sleep;
         struct scriptopdata_cmd cmd;
+        struct scriptopdata_exit exit;
     };
 };
 
@@ -125,6 +123,7 @@ enum __attribute__((packed)) scriptwait {
 };
 struct scripteventtable;
 struct scriptstate {
+    mutex_t lock;
     struct script* script;
     struct scripteventtable* events;
     struct {
@@ -175,6 +174,7 @@ void fireScriptEvent(struct scripteventtable*, char* name, int argc, struct char
 void destroyScriptEventTable(struct scripteventtable*);
 
 struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
+bool execScriptState(struct scriptstate*, int*);
 void resetScriptState(struct scriptstate*);
 void deleteScriptState(struct scriptstate*);
 

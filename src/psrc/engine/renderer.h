@@ -117,6 +117,7 @@ bool restartRenderer(void);
 void stopRenderer(void);
 void termRenderer(void);
 void render(void);
+void swapBuffers(void);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];

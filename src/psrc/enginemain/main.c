@@ -328,6 +328,10 @@ static int run(int argc, char** argv) {
 
         updateSounds();
         render();
+
+        // run scripts
+
+        swapBuffers();
         uint64_t tmp = altutime();
         frametime = tmp - framestamp;
         framestamp = tmp;
