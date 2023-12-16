@@ -5,7 +5,7 @@
     #define mkdir(x) mkdir(x, (S_IRWXU) | (S_IRGRP | S_IXGRP) | (S_IROTH | S_IXOTH))
 #else
     #define pause() Sleep(INFINITE)
-    #define strcasecmp stricmp
+    #define strcasecmp _stricmp
     #define realpath(x, y) _fullpath(y, x, 0)
 #endif
 

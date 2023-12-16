@@ -12,7 +12,6 @@
 
 #include "../../stb/stb_image.h"
 
-#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
 #if PLATFORM == PLAT_NXDK
@@ -24,6 +23,7 @@
     #define GL_KHR_debug 0
 #endif
 #if GL_KHR_debug
+void (APIENTRY *glDebugMessageCallback)(GLDEBUGPROC, const void*);
 static void APIENTRY gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
     (void)l; (void)u;
     int ll = -1;
@@ -576,13 +576,14 @@ static bool createWindow(void) {
                 destroyWindow();
                 return false;
             }
+            SDL_GL_MakeCurrent(rendstate.window, rendstate.gl.ctx);
             if (rendstate.vsync) {
                 if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
             } else {
                 SDL_GL_SetSwapInterval(0);
             }
             #if GL_KHR_debug
-            bool khr_debug = SDL_GL_ExtensionSupported("GL_KHR_debug");
+            if (!glDebugMessageCallback) glDebugMessageCallback = SDL_GL_GetProcAddress("glDebugMessageCallback");
             #endif
             #else
             //pbgl_set_swap_interval(rendstate.vsync);
@@ -631,7 +632,7 @@ static bool createWindow(void) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             }
             #if PLATFORM != PLAT_NXDK && GL_KHR_debug
-            if (khr_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
+            if (glDebugMessageCallback) plog(LL_INFO, "  glDebugMessageCallback is supported");
             #endif
             tmpstr[0] = cfg_getvar(config, "Renderer", "gl.nearplane");
             if (tmpstr[0]) {
@@ -665,7 +666,7 @@ static bool createWindow(void) {
             #endif
             free(tmpstr[0]);
             #if PLATFORM != PLAT_NXDK && GL_KHR_debug
-            if (khr_debug) glDebugMessageCallback(gl_dbgcb, NULL);
+            if (glDebugMessageCallback) glDebugMessageCallback(gl_dbgcb, NULL);
             #endif
             glClearColor(0.0, 0.0, 0.1, 1.0);
             gl_updateWindow();
