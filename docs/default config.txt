@@ -13,6 +13,9 @@ defaultgame = h74
   gl.near = 0.1
   gl.far = 1000.0
   gl.fastclear = true
+  gl.doublebuffer = true
+  gl.forwardcompat = false
+  gl.debug = true
 
 [ UI ]
   scale = 1

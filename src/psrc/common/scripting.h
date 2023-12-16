@@ -161,6 +161,7 @@ struct scriptevent {
     struct scripteventsub* subs;
 };
 struct scripteventtable {
+    struct accesslock lock;
     struct scriptevent* data;
     int len;
     int size;

@@ -12,22 +12,59 @@
 
 #include "../../stb/stb_image.h"
 
-#if PLATFORM != PLAT_NXDK
-    // stuff to make sure i don't accidentally use gl things newer than 1.1 (will remove later)
-    #if 0
-    #include "../../.glad11/gl.h"
-    #else
-    #include "../../glad/gl.h"
-    #endif
-#else
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <GL/glext.h>
+#if PLATFORM == PLAT_NXDK
     #include <pbkit/pbkit.h>
     #include <pbkit/nv_regs.h>
     #include <pbgl.h>
-    #include <GL/gl.h>
-    #include <GL/glext.h>
 #endif
 #ifndef GL_KHR_debug
     #define GL_KHR_debug 0
+#endif
+#if GL_KHR_debug
+static void APIENTRY gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
+    (void)l; (void)u;
+    int ll = -1;
+    char* sevstr;
+    switch (sev) {
+        case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
+        case GL_DEBUG_SEVERITY_MEDIUM: ll = LL_WARN; sevstr = "warning"; break;
+        #if DEBUG(1)
+        case GL_DEBUG_SEVERITY_LOW: ll = LL_WARN; sevstr = "warning"; break;
+        #if DEBUG(2)
+        case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "info"; break;
+        #endif
+        #endif
+        default: break;
+    }
+    if (ll == -1) return;
+    char* srcstr;
+    switch (src) {
+        case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcstr = "Windowing system"; break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: srcstr = "Shader compiler"; break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY: srcstr = "Third-party"; break;
+        case GL_DEBUG_SOURCE_APPLICATION: srcstr = "Application"; break;
+        case GL_DEBUG_SOURCE_OTHER: srcstr = "Other"; break;
+        default: srcstr = "Unknown"; break;
+    }
+    char* typestr;
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR: typestr = "error"; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "deprecation"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "undefined behavior"; break;
+        case GL_DEBUG_TYPE_PORTABILITY: typestr = "portability"; break;
+        case GL_DEBUG_TYPE_PERFORMANCE: typestr = "performance"; break;
+        case GL_DEBUG_TYPE_MARKER: typestr = "marker"; break;
+        case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "push group"; break;
+        case GL_DEBUG_TYPE_POP_GROUP: typestr = "pop group"; break;
+        case GL_DEBUG_TYPE_OTHER: typestr = "other"; break;
+        default: typestr = "unknown"; break;
+    }
+    plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
+}
 #endif
 
 #include <string.h>
@@ -320,6 +357,7 @@ void render(void) {
                 default:
                     break;
             }
+            glFinish();
         } break;
         default: {
         } break;
@@ -427,41 +465,38 @@ static bool createWindow(void) {
     plog(LL_INFO, "Creating window for %s...", rendapi_names[rendstate.api]);
     switch (rendstate.api) {
         #if 1
-        case RENDAPI_GL11:
+        case RENDAPI_GL11: {
             rendstate.apigroup = RENDAPIGROUP_GL;
             #if PLATFORM != PLAT_NXDK
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             #endif
-            break;
+        } break;
         #endif
-        #if PLATFORM != PLAT_NXDK
+        #if PLATFORM != PLAT_NXDK // TODO: make some HAS_ macros
         #if 0
-        case RENDAPI_GL33:
+        case RENDAPI_GL33: {
             rendstate.apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
-            break;
+        } break;
         #endif
         #if 0
-        case RENDAPI_GLES30:
+        case RENDAPI_GLES30: {
             rendstate.apigroup = RENDAPIGROUP_GL;
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-            break;
+        } break;
         #endif
         #endif
-        default:
+        default: {
             plog(LL_CRIT, "%s not implemented", rendapi_names[rendstate.api]);
             return false;
-            break;
+        } break;
     }
-    #if PLATFORM != PLAT_NXDK
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    #endif
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -512,6 +547,27 @@ static bool createWindow(void) {
     #endif
     switch (rendstate.apigroup) {
         case RENDAPIGROUP_GL: {
+            {
+                char* tmp;
+                tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
+                if (tmp) {
+                    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, strbool(tmp, 1));
+                    free(tmp);
+                } else {
+                    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+                }
+                {
+                    unsigned flags;
+                    tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
+                    if (strbool(tmp, 0)) flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+                    else flags = 0;
+                    free(tmp);
+                    tmp = cfg_getvar(config, "Renderer", "gl.debug");
+                    if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
+                    free(tmp);
+                    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
+                }
+            }
             #if PLATFORM != PLAT_NXDK
             rendstate.gl.ctx = SDL_GL_CreateContext(rendstate.window);
             if (!rendstate.gl.ctx) {
@@ -520,12 +576,14 @@ static bool createWindow(void) {
                 destroyWindow();
                 return false;
             }
-            if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-                plog(LL_CRIT | LF_FUNCLN, "Failed to load GLAD");
-                destroyWindow();
-                return false;
+            if (rendstate.vsync) {
+                if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
+            } else {
+                SDL_GL_SetSwapInterval(0);
             }
-            SDL_GL_SetSwapInterval(rendstate.vsync);
+            #if GL_KHR_debug
+            bool khr_debug = SDL_GL_ExtensionSupported("GL_KHR_debug");
+            #endif
             #else
             //pbgl_set_swap_interval(rendstate.vsync);
             #endif
@@ -572,7 +630,9 @@ static bool createWindow(void) {
             if (cond[0]) {
                 plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
             }
-            if (GL_KHR_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
+            #if PLATFORM != PLAT_NXDK && GL_KHR_debug
+            if (khr_debug) plog(LL_INFO, "  GL_KHR_debug is supported");
+            #endif
             tmpstr[0] = cfg_getvar(config, "Renderer", "gl.nearplane");
             if (tmpstr[0]) {
                 rendstate.gl.nearplane = atof(tmpstr[0]);
@@ -604,13 +664,15 @@ static bool createWindow(void) {
             rendstate.gl.fastclear = strbool(tmpstr[0], true);
             #endif
             free(tmpstr[0]);
+            #if PLATFORM != PLAT_NXDK && GL_KHR_debug
+            if (khr_debug) glDebugMessageCallback(gl_dbgcb, NULL);
+            #endif
             glClearColor(0.0, 0.0, 0.1, 1.0);
             gl_updateWindow();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
             glEnable(GL_CULL_FACE);
-            //glFrontFace(GL_CW);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LEQUAL);
         } break;
@@ -704,7 +766,11 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 rendstate.vsync = va_arg(args, int);
                 if (rendstate.apigroup == RENDAPIGROUP_GL) {
                     #if PLATFORM != PLAT_NXDK
-                    SDL_GL_SetSwapInterval(rendstate.vsync);
+                    if (rendstate.vsync) {
+                        if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
+                    } else {
+                        SDL_GL_SetSwapInterval(0);
+                    }
                     #else
                     //pbgl_set_swap_interval(rendstate.vsync);
                     #endif

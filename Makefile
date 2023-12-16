@@ -13,6 +13,7 @@ ifeq ($(CROSS),)
     LD := $(CC)
     AR ?= ar
     STRIP ?= strip
+    OBJCOPY ?= objcopy
     ifndef M32
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o)_$(shell uname -m)))
     else
@@ -28,6 +29,7 @@ else ifeq ($(CROSS),freebsd)
     LD := $(CC)
     AR ?= ar
     STRIP ?= strip
+    OBJCOPY ?= objcopy
     ifndef M32
         PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
     else
@@ -40,6 +42,7 @@ else ifeq ($(CROSS),win32)
         LD := $(CC)
         AR := x86_64-w64-mingw32-ar
         STRIP := x86_64-w64-mingw32-strip
+        OBJCOPY := x86_64-w64-mingw32-objcopy
         WINDRES := x86_64-w64-mingw32-windres
         PLATFORM := Windows_x86_64
     else
@@ -47,6 +50,7 @@ else ifeq ($(CROSS),win32)
         LD := $(CC)
         AR := i686-w64-mingw32-ar
         STRIP := i686-w64-mingw32-strip
+        OBJCOPY := i686-w64-mingw32-objcopy
         WINDRES := i686-w64-mingw32-windres
         PLATFORM := Windows_i686
     endif
@@ -64,6 +68,7 @@ else ifeq ($(CROSS),nxdk)
     LD := nxdk-link
     AR ?= ar
     STRIP ?= strip
+    OBJCOPY := objcopy
 
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
     EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
@@ -204,6 +209,13 @@ define so
 $(1)$(SOSUF)
 endef
 
+ifeq ($(CROSS),win32)
+    LDLIBS.dir.psrc_engine := -lopengl32
+else ifeq ($(CROSS),nxdk)
+else
+    LDLIBS.dir.psrc_engine := -lGL
+endif
+
 CPPFLAGS.dir.psrc_utils := 
 ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.psrc_utils += -DPSRC_UTILS_THREADING_STDC
@@ -268,7 +280,7 @@ ifeq ($(MODULE),engine)
     _WRFLAGS += -DMODULE_ENGINE
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS +=  $(LDLIBS.dir.psrc_utils)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
     _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
@@ -280,7 +292,7 @@ else ifeq ($(MODULE),editor)
     _WRFLAGS += -DMODULE_EDITOR
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS +=  $(LDLIBS.dir.psrc_utils)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
     _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
 else ifeq ($(MODULE),toolbox)
     _CPPFLAGS += -DMODULE_TOOLBOX
@@ -353,8 +365,6 @@ endif
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(_OBJDIR)/%.o,$(SOURCES))
 
-export SHCMD
-
 export MODULE
 export CROSS
 
@@ -426,9 +436,14 @@ $(OUTDIR):
 $(_OBJDIR):
 	@$(call mkdir,$@)
 
+ifndef SHENV
+SHENV := CROSS='$(CROSS)'; MODULE='$(MODULE)'; OBJCOPY='$(OBJCOPY)'
+endif
+export SHENV
 $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 	@echo Compiling $(notdir $<)...
 	@$(CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
+	@[ -f $<.post ] && (SRC=$<; OBJ=$@; $(SHENV); . ./$<.post) || :
 	@echo Compiled $(notdir $<)
 
 ifndef MKSUB
@@ -437,11 +452,7 @@ a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/co
 
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 
-a.dir.psrc_engine = $(call a,psrc/engine)
-ifneq ($(CROSS),nxdk)
-    a.dir.psrc_engine += $(call a,glad)
-endif
-a.dir.psrc_engine += $(call a,psrc/common) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
+a.dir.psrc_engine = $(call a,psrc/engine) $(call a,psrc/common) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
 
 a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 

@@ -60,7 +60,7 @@ enum uiattr {
     UIATTR_LIST_HIDECOLNAMES, // unsigned
 };
 
-enum __attribute__((packed)) uiborder {
+enum uiborder {
     UIBORDER_NONE,
     UIBORDER_RAISED,
     UIBORDER_SUNKEN,
@@ -99,7 +99,7 @@ struct uielem_text {
     char* font;
     uint8_t interpesc : 1;
     struct uidata_textfrmt frmt;
-    enum uiborder border;
+    enum __attribute__((packed)) uiborder border;
 };
 struct uielem_link {
     char* text;
@@ -107,7 +107,7 @@ struct uielem_link {
     struct uidata_textfrmt frmt;
     struct uidata_textfrmt frmt_hover;
     struct uidata_textfrmt frmt_use;
-    enum uiborder border;
+    enum __attribute__((packed)) uiborder border;
 };
 struct uielem_button {
     char* text;
