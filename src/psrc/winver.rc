@@ -11,9 +11,6 @@
 #elif defined(MODULE_EDITOR)
     #define PSRC_MD "PlatinumSrc map editor"
     #define PSRC_ICON "icons/editor.ico"
-#elif defined(MODULE_TOOLBOX)
-    #define PSRC_MD "PlatinumSrc cli toolbox"
-    #define PSRC_ICON "icons/toolbox.ico"
 #endif
 #ifdef DBGLVL
     #define PSRC_MODULEDESC PSRC_MD " (debug build)"

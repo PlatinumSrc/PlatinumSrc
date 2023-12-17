@@ -106,7 +106,6 @@ endif
 ifeq ($(MODULE),engine)
 else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
-else ifeq ($(MODULE),toolbox)
 else
     $(error Invalid module: $(MODULE))
 endif
@@ -294,10 +293,6 @@ else ifeq ($(MODULE),editor)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
     _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2) $(LDLIBS.lib.zlib)
-else ifeq ($(MODULE),toolbox)
-    _CPPFLAGS += -DMODULE_TOOLBOX
-    _WRFLAGS += -DMODULE_TOOLBOX
-    _LDLIBS += $(LDLIBS.dir.psrc_utils) $(LDLIBS.lib.zlib)
 endif
 
 ifeq ($(CROSS),nxdk)
@@ -322,8 +317,6 @@ ifeq ($(MODULE),server)
 BIN := psrc-server
 else ifeq ($(MODULE),editor)
 BIN := psrc-editor
-else ifeq ($(MODULE),toolbox)
-BIN := psrc-toolbox
 else
 BIN := psrc
 endif
@@ -420,7 +413,7 @@ define inc
 $$(patsubst $(null)\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT $(null)))))
 endef
 
-default: target
+default: build
 
 ifndef MKSUB
 define a_path
@@ -448,7 +441,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_toolbox) $(call a,psrc/common) $(call a,psrc/utils)
+a.dir.psrc_editor = $(call a,psrc/editor) $(call a,psrc/common) $(call a,psrc/utils)
 
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 
@@ -460,18 +453,12 @@ a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/common) $(call a,psrc/ut
 
 a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 
-a.dir.psrc_toolbox = $(call a,psrc/toolbox) $(call a,tinyobj) $(call a,psrc/utils)
-
-a.dir.psrc_toolboxmain = $(call a,psrc/toolboxmain) $(a.dir.psrc_toolbox) $(call a,psrc/utils) $(call a,psrc)
-
 ifeq ($(MODULE),engine)
 a.list = $(a.dir.psrc_enginemain)
 else ifeq ($(MODULE),server)
 a.list = $(a.dir.psrc_servermain)
 else ifeq ($(MODULE),editor)
 a.list = $(a.dir.psrc_editormain)
-else ifeq ($(MODULE),toolbox)
-a.list = $(a.dir.psrc_toolboxmain)
 endif
 
 $(BINPATH): $(OBJECTS) $(a.list)
@@ -509,10 +496,10 @@ $(BINPATH): $(OBJECTS) | $(OUTDIR)
 
 endif
 
-target: $(TARGET)
+build: $(TARGET)
 	@$(nop)
 
-run: $(TARGET)
+run: build
 	@echo Running $(notdir $(TARGET))...
 	@$(call exec,$(TARGET))
 
@@ -526,7 +513,7 @@ endif
 	@$(call rmdir,$(_OBJDIR))
 	@$(call rm,$(TARGET))
 
-.PHONY: clean target run
+.PHONY: clean build run
 
 ifeq ($(CROSS),nxdk)
 

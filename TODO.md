@@ -1,0 +1,48 @@
+- Need to do
+- Maybe?
+- In-progress...
+
+---
+### To-Do
+- Engine
+    - Rendering
+        - Libraries/APIs
+            - GL 1.1...
+            - GL 3.3/GLES 3.0/WebGL 2.0
+            - D3D 7?
+                - Not really needed
+            - PBKit (NXDK)?
+                - Low-level
+            - Software?
+                - Might go with a software GL library
+        - Maps
+        - Entities and props
+    - Audio
+        - Effects
+            - Filters
+            - Reverb
+    - UI...
+    - Input
+        - Touch UI
+    - File I/O
+        - Read P3M 3D models...
+        - Read PMF compiled maps
+- Server
+- Editor
+    - Read PMP map projects
+    - Write PMP map projects
+    - Write PMF compiled maps
+    - Decompile PMF to PMP?
+- Common
+    - Scripting...
+
+---
+### Done
+- Engine
+    - Audio
+        - Effects
+            - 3D
+    - Input
+        - Keyboard and mouse
+        - Controller
+

@@ -17,6 +17,7 @@
 !/LICENSE
 !/Makefile
 !/README.md
+!/TODO.md
 .**
 __pycache__/
 *.py[cod]

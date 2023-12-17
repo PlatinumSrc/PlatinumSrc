@@ -1,5 +1,6 @@
 # PlatinumSrc
-A WIP 3D game engine inspired by GoldSrc and Quake<br>
+#### A WIP 3D game engine inspired by GoldSrc and Quake<br>
+Progress can be found [here](TODO.md)
 
 ---
 **Dependencies**<br>
@@ -36,7 +37,7 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
 
 - Using the Makefile
     - Makefile rules
-        - `target` - Build an executable or ROM
+        - `build` - Build an executable or ROM
         - `run` - Build an executable or ROM and run it
         - `clean` - Clean up files from build
     - Makefile variables
@@ -44,7 +45,6 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
             - `engine`
             - `server`
             - `editor`
-            - `toolbox`
         - `CROSS` - Cross compile
             - `freebsd`
             - `win32`
@@ -89,72 +89,36 @@ A WIP 3D game engine inspired by GoldSrc and Quake<br>
     4. Run the executable
 
 ---
-**Progress \(checked = done, <- = being worked on, ? = maybe\):**<br>
-- Modules
-    - [ ] Engine
-        - [ ] Renderer
-            - [ ] OpenGL 1.1 <-
-                - [ ] Maps
-                - [ ] Entities
-            - [ ] OpenGL 3.3 and ES 3.0
-                - [ ] Maps
-                - [ ] Entities
-            - [ ] Direct3D 7?
-                - [ ] Maps
-                - [ ] Entities
-            - [ ] PBKit (NXDK)?
-                - [ ] Maps
-                - [ ] Entities
-        - [ ] Audio
-            - [ ] Effects
-                - [ ] Filters
-                - [X] 3D
-                - [ ] Reverb
-        - [ ] UI
-        - [ ] Input
-            - [ ] Keyboard and mouse <-
-            - [ ] Controller
-            - [ ] Touch UI
-        - [ ] File I/O
-            - [ ] Read P3M 3D models <-
-            - [ ] Read PMF compiled maps
-    - [ ] Server
-    - [ ] Editor
-        - [ ] Read PMP map projects
-        - [ ] Write PMP map projects
-        - [ ] Write PMF compiled maps
-        - [ ] Decompile PMF to PMP?
-    - [ ] Toolbox
-- Platforms
-    - Supported
-        - Linux
-        - Windows XP+
-        - Xbox (NXDK)
-    - Untested
-        - Windows 2000
-        - MacOS
-        - FreeBSD
-        - NetBSD
-        - OpenBSD
-    - Wanted
-        - Android
-        - Emscripten
-        - Xbox (XDK)?
-            - No OpenGL
-            - Uses MSVC
-        - Dreamcast?
-            - SDL 1.2 instead of 2.x
-            - RAM might be an issue
-        - PS2
-        - PSP
-        - PS Vita
-        - GameCube?
-            - SDL 1.2 instead of 2.x
-            - OpenGX is not OpenGL and gl2gx is unmaintained
-        - Wii?
-            - SDL 1.2 instead of 2.x
-            - OpenGX is not OpenGL and gl2gx is unmaintained
-        - Windows 95/98?
-            - No SDL
-        - MSDOS?
-            - Requires low-level tomfoolery
+**Platforms**<br>
+- Supported
+    - Linux
+    - Windows XP+
+    - Xbox (NXDK)
+- Untested
+    - Windows 2000
+    - MacOS
+    - FreeBSD
+    - NetBSD
+    - OpenBSD
+- Wanted
+    - Android
+    - Emscripten
+    - Xbox (XDK)?
+        - No OpenGL
+        - Uses MSVC
+    - Dreamcast?
+        - SDL 1.2 instead of 2.x
+        - RAM might be an issue
+    - PS2
+    - PSP
+    - PS Vita
+    - GameCube?
+        - SDL 1.2 instead of 2.x
+        - OpenGX is not OpenGL and gl2gx is unmaintained
+    - Wii?
+        - SDL 1.2 instead of 2.x
+        - OpenGX is not OpenGL and gl2gx is unmaintained
+    - Windows 95/98?
+        - No SDL
+    - MSDOS?
+        - Requires low-level tomfoolery
