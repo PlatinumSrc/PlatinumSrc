@@ -12,6 +12,7 @@
 
 #include "../../stb/stb_image.h"
 
+#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
 #if PLATFORM == PLAT_NXDK
@@ -23,7 +24,7 @@
     #define GL_KHR_debug 0
 #endif
 #if GL_KHR_debug
-void (APIENTRY *glDebugMessageCallback)(GLDEBUGPROC, const void*);
+#pragma weak glDebugMessageCallback
 static void APIENTRY gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
     (void)l; (void)u;
     int ll = -1;
@@ -547,6 +548,7 @@ static bool createWindow(void) {
     #endif
     switch (rendstate.apigroup) {
         case RENDAPIGROUP_GL: {
+            #if PLATFORM != PLAT_NXDK
             {
                 char* tmp;
                 tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
@@ -568,7 +570,6 @@ static bool createWindow(void) {
                     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
                 }
             }
-            #if PLATFORM != PLAT_NXDK
             rendstate.gl.ctx = SDL_GL_CreateContext(rendstate.window);
             if (!rendstate.gl.ctx) {
                 plog(LL_CRIT | LF_FUNCLN, "Failed to create OpenGL context: %s", SDL_GetError());
@@ -582,9 +583,6 @@ static bool createWindow(void) {
             } else {
                 SDL_GL_SetSwapInterval(0);
             }
-            #if GL_KHR_debug
-            if (!glDebugMessageCallback) glDebugMessageCallback = SDL_GL_GetProcAddress("glDebugMessageCallback");
-            #endif
             #else
             //pbgl_set_swap_interval(rendstate.vsync);
             #endif

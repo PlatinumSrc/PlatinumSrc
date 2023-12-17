@@ -1,4 +1,4 @@
-defaultgame = h74
+defaultgame = default
 
 [ Renderer ]
   resolution.windowed = 1024x768

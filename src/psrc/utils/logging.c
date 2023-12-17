@@ -48,19 +48,11 @@ static void plog_writedate(FILE* f) {
 
 bool plog_setfile(char* f) {
     lockMutex(&loglock);
-    if (logfile) {
-        fclose(logfile);
-    }
-    if (!f) {
-        logfile = NULL;
-        #if DEBUG(1)
-        plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_RECVNULL);
-        #endif
-        unlockMutex(&loglock);
-        return false;
-    } else {
-        logfile = fopen(f, "w");
-        if (logfile) {
+    if (f) {
+        FILE* tmp = fopen(f, "w");
+        if (tmp) {
+            if (logfile) fclose(logfile);
+            logfile = tmp;
             bool writelog;
             #if PLATFORM != PLAT_NXDK
             writelog = !isatty(fileno(logfile));
@@ -78,6 +70,9 @@ bool plog_setfile(char* f) {
             #endif
             return false;
         }
+    } else {
+        if (logfile) fclose(logfile);
+        logfile = NULL;
     }
     unlockMutex(&loglock);
     return true;
