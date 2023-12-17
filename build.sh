@@ -45,16 +45,4 @@ build() {
 }
 buildmod "editor"
 
-build() {
-    pkgrel() { _tar_u "PlatinumSrc_DevTools_${PLATPATH}" psrc-toolbox; }
-    buildrel "${1}" "${PLATDESC}" "${@:2}"
-    #pkgrel() { _tar_u "PlatinumSrc_DevTools_${PLATPATH32}" psrc-toolbox; }
-    #buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
-    #pkgrel() { _zip_u "PlatinumSrc_DevTools_Windows_x86_64" psrc-toolbox.exe; }
-    #buildrel "${1}" "Windows x86_64" "${@:2}" CROSS=win32
-    pkgrel() { _zip_u "PlatinumSrc_DevTools_Windows_i686" psrc-toolbox.exe; }
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y CC='wine i686-w64-mingw32-gcc' WINDRES='wine i686-w64-mingw32-windres' null=NUL
-}
-buildmod "toolbox"
-
 }
