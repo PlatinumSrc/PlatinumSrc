@@ -35,6 +35,9 @@
     - Decompile PMF to PMP?
 - Common
     - Scripting...
+- Tools
+    - Blender P3M plugin
+        - Importing
 
 ---
 ### Done
@@ -45,4 +48,6 @@
     - Input
         - Keyboard and mouse
         - Controller
-
+- Tools
+    - Blender P3M plugin
+        - Exporting

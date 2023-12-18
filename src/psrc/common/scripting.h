@@ -23,11 +23,15 @@ enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE_JMPOK, // jump if return code == 0
     SCRIPTOPCODE_JMPFAIL, // jump if return code != 0
     SCRIPTOPCODE_SUB, // start a sub-state
-    SCRIPTOPCODE_FUNC, // start a sub-state and pass arguments
+    SCRIPTOPCODE_FUNC, // call a funcion
     SCRIPTOPCODE_RET, // return from a sub-state
-    SCRIPTOPCODE_SET, // set/unset a variable
+    SCRIPTOPCODE_SET, // set a variable
+    SCRIPTOPCODE_UNSET, // unset a variable
+    SCRIPTOPCODE_SETFUNC, // set a function
+    SCRIPTOPCODE_UNSETFUNC, // unset a function
     SCRIPTOPCODE_CMP, // compare
-    SCRIPTOPCODE_ON, // subscribe to/unsubscribe from an event
+    SCRIPTOPCODE_ON, // subscribe to an event
+    SCRIPTOPCODE_UNON, // unsubscribe from an event
     SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
     SCRIPTOPCODE_EXIT, // terminate execution
@@ -46,19 +50,32 @@ struct __attribute__((packed)) scriptopdata_sub {
     int offset;
 };
 struct __attribute__((packed)) scriptopdata_func {
-    int offset;
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_ret {
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_set {
+    struct scriptstring name;
     struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_unset {
+    struct scriptstring name;
+};
+struct __attribute__((packed)) scriptopdata_setfunc {
+    struct scriptstring name;
+    int offset;
+};
+struct __attribute__((packed)) scriptopdata_unsetfunc {
+    struct scriptstring name;
 };
 struct __attribute__((packed)) scriptopdata_cmp {
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_on {
+    struct scriptstring eval;
+};
+struct __attribute__((packed)) scriptopdata_unon {
     struct scriptstring eval;
 };
 struct __attribute__((packed)) scriptopdata_sleep {
@@ -82,6 +99,9 @@ struct __attribute__((packed)) scriptop {
         struct scriptopdata_func func;
         struct scriptopdata_ret ret;
         struct scriptopdata_set set;
+        struct scriptopdata_unset unset;
+        struct scriptopdata_setfunc setfunc;
+        struct scriptopdata_unsetfunc unsetfunc;
         struct scriptopdata_cmp cmp;
         struct scriptopdata_on on;
         struct scriptopdata_sleep sleep;
@@ -104,6 +124,7 @@ struct __attribute__((packed)) scriptstatedata {
 };
 struct __attribute__((packed)) scriptstatevar {
     char* name;
+    uint32_t namecrc;
     int arraysize;
     union {
         struct {
@@ -116,6 +137,11 @@ struct __attribute__((packed)) scriptstatevar {
         } array;
     };
 };
+struct __attribute__((packed)) scriptstatefunc {
+    char* name;
+    uint32_t namecrc;
+    int location;
+};
 enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_NONE,
     SCRIPTWAIT_UNTIL,
@@ -125,7 +151,7 @@ struct scripteventtable;
 struct scriptstate {
     mutex_t lock;
     struct script* script;
-    struct scripteventtable* events;
+    struct scripteventtable* eventtable;
     struct {
         struct scriptstatedata* data;
         int index;
@@ -136,6 +162,11 @@ struct scriptstate {
         int len;
         int size;
     } vars;
+    struct {
+        struct scriptfuncdata* data;
+        int len;
+        int size;
+    } funcs;
     struct {
         struct {
             struct charbuf* data;
@@ -176,7 +207,8 @@ void destroyScriptEventTable(struct scripteventtable*);
 
 struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
 bool execScriptState(struct scriptstate*, int*);
-void resetScriptState(struct scriptstate*);
+void resetScriptState(struct scriptstate*, struct script*);
+void clearScriptState(struct scriptstate*, struct script*);
 void deleteScriptState(struct scriptstate*);
 
 #endif

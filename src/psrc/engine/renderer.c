@@ -376,17 +376,18 @@ void render(void) {
             pb_erase_text_screen();
             cleared = true;
         }
+    } else {
+        GLboolean tmp;
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
+        glDepthMask(false);
+        pb_draw_text_screen();
+        uint32_t* p = pb_begin();
+        pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
+        *(p++) = (rendstate.res.current.width - 1) << 16;
+        *(p++) = (rendstate.res.current.height - 1) << 16;
+        pb_end(p);
+        glDepthMask(tmp);
     }
-    GLboolean tmp;
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
-    glDepthMask(false);
-    pb_draw_text_screen();
-    uint32_t* p = pb_begin();
-    pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
-    *(p++) = (rendstate.res.current.width - 1) << 16;
-    *(p++) = (rendstate.res.current.height - 1) << 16;
-    pb_end(p);
-    glDepthMask(tmp);
     #endif
 }
 
