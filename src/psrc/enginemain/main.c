@@ -167,14 +167,14 @@ static int run(int argc, char** argv) {
     test = loadResource(RC_SOUND, "common:sounds/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/siren", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
     if (test) playSound(
         false, test,
         SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
         SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END
     );
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "sounds/health", &audiostate.soundrcopt);
     uint64_t testsound = -1;
     if (test) testsound = playSound(
         false, test,
