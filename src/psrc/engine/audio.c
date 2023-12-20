@@ -242,8 +242,10 @@ void mixsounds(int buf) {
             //puts("fxchanged");
             sfx[0] = s->fx[0];
             sfx[1] = s->fx[1];
+            if (!sfx[0].volmul[0] && !sfx[0].volmul[1] && !sfx[1].volmul[0] && !sfx[1].volmul[1]) goto skipmix;
         } else {
             fx = s->fx[1];
+            if (!fx.volmul[0] && !fx.volmul[1]) goto skipmix;
         }
         int64_t offset = s->offset;
         int freq = rc->freq;
@@ -513,6 +515,7 @@ void mixsounds(int buf) {
                 }
             } break;
         }
+        skipmix:;
         readToWriteAccess(&audiostate.lock);
         if (chfx) {
             s->state.fxchanged = false;

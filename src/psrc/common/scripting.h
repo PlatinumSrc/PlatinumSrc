@@ -198,7 +198,7 @@ struct scripteventtable {
     int size;
 };
 
-char* compileScript(char* path, scriptfunc_t (*findcmd)(char*), struct script* out);
+bool compileScript(char* path, scriptfunc_t (*findcmd)(struct charbuf*), struct script* out, char** e);
 void cleanUpScript(struct script*);
 
 bool createScriptEventTable(struct scripteventtable*, int);

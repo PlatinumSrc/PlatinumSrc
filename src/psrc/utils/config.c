@@ -269,7 +269,7 @@ static int fgetc_skip(FILE* f) {
     int c;
     do {
         c = fgetc(f);
-    } while ((c < ' ' || c >= 127) && (c != '\n' && c != '\t' && c != EOF));
+    } while (!c);
     return c;
 }
 
