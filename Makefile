@@ -139,7 +139,7 @@ else
     SOSUF := .so
 endif
 
-_CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized
+_CFLAGS := $(CFLAGS) -I$(INCDIR)/$(PLATFORM) -I$(INCDIR) -Wall -Wextra -Wuninitialized -Wundef
 _CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
 _LDFLAGS := $(LDFLAGS)
 _LDLIBS := $(LDLIBS)

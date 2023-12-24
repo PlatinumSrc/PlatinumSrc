@@ -5,25 +5,23 @@
 
 #include <stdio.h>
 
-struct parserfile {
+struct compilerfile {
     FILE* f;
-    int l, c;
+    int line;
+    int prevc;
 };
-static inline int parser_fgetc(struct parserfile* f) {
-    int c = fgetc(f->f);
-    if (c == '\n') {
-        ++f->l;
-        f->c = 0;
-    } else {
-        ++f->c;
-    }
+static inline int compiler_fgetc(struct compilerfile* f) {
+    int c = f->prevc;
+    if (c == '\n') ++f->line;
+    c = fgetc(f->f);
+    f->prevc = c;
     return c;
 }
-static inline bool parser_fopen(const char* p, struct parserfile* f) {
+static inline bool compiler_fopen(const char* p, struct compilerfile* f) {
     f->f = fopen(p, "r");
     if (!f->f) return false;
-    f->l = 1;
-    f->c = 0;
+    f->line = 1;
+    f->prevc = EOF;
     return true;
 }
 
@@ -34,7 +32,7 @@ static inline int gethex(int c) {
     if (c >= 'a' && c <= 'f') c -= 32;
     return (c >= '0' && c <= '9') ? c - 48 : ((c >= 'A' && c <= 'F') ? c - 55 : -1);
 }
-static inline int interpesc(FILE* f, int c, uint8_t flags, char* out, int* l) {
+static inline int interpesc(struct compilerfile* f, int c, uint8_t flags, char* out, int* l) {
     switch (c) {
         case EOF:
             return -1;
@@ -57,9 +55,9 @@ static inline int interpesc(FILE* f, int c, uint8_t flags, char* out, int* l) {
         case 'v':
             *out++ = '\v'; *l = 1; return 1;
         case 'x': {
-            int c1 = fgetc(f);
+            int c1 = compiler_fgetc(f);
             if (c1 == EOF) return -1;
-            int c2 = fgetc(f);
+            int c2 = compiler_fgetc(f);
             if (c2 == EOF) return -1;
             int h1, h2;
             if ((h1 = gethex(c1)) == -1 || (h2 = gethex(c2)) == -1) {
@@ -96,17 +94,19 @@ static inline int interpesc(FILE* f, int c, uint8_t flags, char* out, int* l) {
     *l = 1;
     return 0;
 }
-static inline int parse_getcmd(FILE* f, struct charbuf* out) {
+static inline bool compiler_getcmd(struct compilerfile* f, struct charbuf* out) {
     char inStr = 0;
     while (1) {
-        int c = fgetc(f);
+        int c = compiler_fgetc(f);
         if (c == '"') {
             inStr = '"';
         } else if (c == '\'') {
             inStr = '\'';
         } else {
             if (inStr == '"') {
-                if (c == EOF) return -1;
+                if (c == EOF) {
+                    return false;
+                }
                 if (c == '"') {
                     inStr = 0;
                 } else if (c == '\\') {
@@ -118,7 +118,9 @@ static inline int parse_getcmd(FILE* f, struct charbuf* out) {
                     cb_add(out, c);
                 }
             } else if (inStr == '\'') {
-                if (c == EOF) return -1;
+                if (c == EOF) {
+                    return false;
+                }
                 if (c == '\'') {
                     inStr = 0;
                 } else if (c == '\\') {
@@ -130,14 +132,24 @@ static inline int parse_getcmd(FILE* f, struct charbuf* out) {
                     cb_add(out, c);
                 }
             } else {
-                if (c == EOF) return 0;
-                if (c == ' ' || c == '\t' || !c) return 1;
+                if (c == EOF || c == ' ' || c == '\n' || c == '\t' || !c) {
+                    return true;
+                } else if (c == '\\') {
+                    if (c == '\\') {
+                        cb_add(out, '\\');
+                    } else if (c != '\n') {
+                        cb_add(out, '\\');
+                        cb_add(out, c);
+                    }
+                } else {
+                    cb_add(out, c);
+                }
             }
         }
     }
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct script* out, char** e) {
-    FILE* f;
+    struct compilerfile f;
     {
         int tmp = isFile(p);
         if (tmp < 1) {
@@ -150,20 +162,23 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct scr
             }
             return false;
         }
-        f = fopen(p, "r");
-        if (!f) {
+        if (!compiler_fopen(p, &f)) {
             plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
             if (e) *e = strdup("Failed to open script file");
             return false;
         }
     }
-    int line = 1;
-    int col = 1;
     struct charbuf cmd;
     struct charbuf args;
+    cb_init(&cmd, 32);
+    cb_init(&args, 256);
     while (1) {
-        int c;
+        cb_clear(&cmd);
+        //if (!compiler_getcmd(f, &cmd);
+        //if (tmp == -1)
     }
+    cb_dump(&cmd);
+    cb_dump(&args);
 }
 
 bool createScriptEventTable(struct scripteventtable* t, int s) {

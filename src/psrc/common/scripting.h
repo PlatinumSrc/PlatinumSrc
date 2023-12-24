@@ -25,68 +25,93 @@ enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE_SUB, // start a sub-state
     SCRIPTOPCODE_FUNC, // call a funcion
     SCRIPTOPCODE_RET, // return from a sub-state
-    SCRIPTOPCODE_SET, // set a variable
-    SCRIPTOPCODE_UNSET, // unset a variable
     SCRIPTOPCODE_SETFUNC, // set a function
     SCRIPTOPCODE_UNSETFUNC, // unset a function
-    SCRIPTOPCODE_CMP, // compare
+    SCRIPTOPCODE_ENDFUNC, // marks the end of a function (no op)
     SCRIPTOPCODE_ON, // subscribe to an event
     SCRIPTOPCODE_UNON, // unsubscribe from an event
+    SCRIPTOPCODE_ENDON, // marks the end of an event handler (no op)
+    SCRIPTOPCODE_ADD, // add data to the accumulator
+    SCRIPTOPCODE_PUSH, // flush the accumulator to a new out argument
+    SCRIPTOPCODE_PIPE, // set the command input to the output of the last command 
+    SCRIPTOPCODE_READVAR, // read a variable into the accumulator
+    SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
+    SCRIPTOPCODE_READARG, // read an argument into the accumulator
+    SCRIPTOPCODE_READARGSEP, // read an argument into the accumulator and push on separator characters
+    SCRIPTOPCODE_READRET, // read the exit status into the accumulator
+    SCRIPTOPCODE_READ, // returns data from and info about the provided input
+    SCRIPTOPCODE_SET, // set a variable
+    SCRIPTOPCODE_UNSET, // unset a variable
+    SCRIPTOPCODE_GET, // get a variable
+    SCRIPTOPCODE_CMP, // compare
     SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
     SCRIPTOPCODE_EXIT, // terminate execution
 };
 
 struct __attribute__((packed)) scriptopdata_jmp {
-    int offset;
+    void* offset;
 };
 struct __attribute__((packed)) scriptopdata_jmpok {
-    int offset;
+    void* offset;
 };
 struct __attribute__((packed)) scriptopdata_jmpfail {
-    int offset;
+    void* offset;
 };
 struct __attribute__((packed)) scriptopdata_sub {
-    int offset;
+    void* offset;
 };
 struct __attribute__((packed)) scriptopdata_func {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_ret {
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_set {
     struct scriptstring name;
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_unset {
-    struct scriptstring name;
+    uint32_t namecrc;
 };
 struct __attribute__((packed)) scriptopdata_setfunc {
     struct scriptstring name;
-    int offset;
+    uint32_t namecrc;
 };
 struct __attribute__((packed)) scriptopdata_unsetfunc {
     struct scriptstring name;
-};
-struct __attribute__((packed)) scriptopdata_cmp {
-    struct scriptstring eval;
+    uint32_t namecrc;
 };
 struct __attribute__((packed)) scriptopdata_on {
-    struct scriptstring eval;
+    struct scriptstring name;
+    uint32_t namecrc;
 };
 struct __attribute__((packed)) scriptopdata_unon {
-    struct scriptstring eval;
+    struct scriptstring name;
+    uint32_t namecrc;
 };
-struct __attribute__((packed)) scriptopdata_sleep {
-    struct scriptstring eval;
+struct __attribute__((packed)) scriptopdata_add {
+    struct scriptstring data;
+};
+struct __attribute__((packed)) scriptopdata_readvar {
+    struct scriptstring name;
+    uint32_t namecrc;
+};
+struct __attribute__((packed)) scriptopdata_readvarsep {
+    struct scriptstring name;
+    uint32_t namecrc;
+};
+struct __attribute__((packed)) scriptopdata_readarg {
+    int index;
+};
+struct __attribute__((packed)) scriptopdata_readargsep {
+    int index;
+};
+struct __attribute__((packed)) scriptopdata_set {
+    struct scriptstring name;
+    uint32_t namecrc;
+};
+struct __attribute__((packed)) scriptopdata_unset {
+    struct scriptstring name;
+    uint32_t namecrc;
+};
+struct __attribute__((packed)) scriptopdata_get {
+    struct scriptstring name;
+    uint32_t namecrc;
 };
 struct __attribute__((packed)) scriptopdata_cmd {
     scriptfunc_t func;
-    struct scriptstring eval;
-};
-struct __attribute__((packed)) scriptopdata_exit {
-    struct scriptstring eval;
 };
 
 struct __attribute__((packed)) scriptop {
@@ -97,16 +122,19 @@ struct __attribute__((packed)) scriptop {
         struct scriptopdata_jmpfail jmpfail;
         struct scriptopdata_sub sub;
         struct scriptopdata_func func;
-        struct scriptopdata_ret ret;
-        struct scriptopdata_set set;
-        struct scriptopdata_unset unset;
         struct scriptopdata_setfunc setfunc;
         struct scriptopdata_unsetfunc unsetfunc;
-        struct scriptopdata_cmp cmp;
         struct scriptopdata_on on;
-        struct scriptopdata_sleep sleep;
+        struct scriptopdata_unon unon;
+        struct scriptopdata_add add;
+        struct scriptopdata_readvar readvar;
+        struct scriptopdata_readvarsep readvarsep;
+        struct scriptopdata_readarg readarg;
+        struct scriptopdata_readargsep readargsep;
+        struct scriptopdata_set set;
+        struct scriptopdata_unset unset;
+        struct scriptopdata_get get;
         struct scriptopdata_cmd cmd;
-        struct scriptopdata_exit exit;
     };
 };
 
@@ -140,7 +168,12 @@ struct __attribute__((packed)) scriptstatevar {
 struct __attribute__((packed)) scriptstatefunc {
     char* name;
     uint32_t namecrc;
-    int location;
+    struct scriptop* data;
+};
+struct __attribute__((packed)) scriptstateeventsub {
+    char* name;
+    uint32_t namecrc;
+    struct scriptop* data;
 };
 enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_NONE,
@@ -158,31 +191,35 @@ struct scriptstate {
         int size;
     } state;
     struct {
-        struct scriptvardata* data;
+        struct scriptstatevar* data;
         int len;
         int size;
     } vars;
     struct {
-        struct scriptfuncdata* data;
+        struct scriptstatefunc* data;
         int len;
         int size;
     } funcs;
     struct {
-        struct {
-            struct charbuf* data;
-            int len;
-            int size;
-        } args;
-        struct charbuf in;
-        struct charbuf out;
-        enum scriptwait waitstate;
-        uint64_t waituntil;
-    } tmp;
+        struct scriptestateeventsub* data;
+        int len;
+        int size;
+    } eventsubs;
+    struct {
+        struct charbuf* data;
+        int len;
+        int size;
+    } args;
+    struct charbuf acc;
+    struct charbuf in;
+    struct charbuf out;
+    enum scriptwait waitstate;
+    uint64_t waituntil;
 };
 
 struct scripteventsub {
     struct scriptstate* script;
-    int jump;
+    int handler;
 };
 struct scriptevent {
     char* name;
