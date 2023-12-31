@@ -60,9 +60,7 @@ struct audiosound {
 struct audiostate {
     struct accesslock lock;
     volatile bool valid;
-    bool multithreaded;
-    thread_t mixthread;
-    cond_t mixcond;
+    bool usecallback;
     SDL_AudioDeviceID output;
     int freq;
     int channels;
@@ -73,7 +71,7 @@ struct audiostate {
     unsigned outbufcount;
     struct rcopt_sound soundrcopt;
     struct {
-        int16_t* out;
+        int16_t* out[2];
         unsigned outsize;
         int* data[2][2];
         int len;

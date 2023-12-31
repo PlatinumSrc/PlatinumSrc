@@ -1,4 +1,4 @@
-defaultgame = default
+defaultgame = default # read before loading user config
 
 [ Renderer ]
   resolution.windowed = 1024x768
@@ -18,15 +18,16 @@ defaultgame = default
   gl.debug = true
 
 [ UI ]
-  scale = 1
+  scale = 0 # 0 = auto
 
 [ Sound ]
+  disable = false
+  callback = false
   freq = 44100
   buffer = 1024
   voices = 32
-  multithreaded = false
   outbufcount = 2
-  decodewhole = false
+  decodewhole = true
   decodebuf = 4096
 
 [ Input ]
@@ -39,4 +40,4 @@ defaultgame = default
 
 [ Multiplayer ]
   username = Player
-  playermodel = # game sets default playermodel
+  playermodel = default

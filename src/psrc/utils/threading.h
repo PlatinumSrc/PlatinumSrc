@@ -7,7 +7,11 @@
 #include <stdint.h>
 
 #ifndef PSRC_UTILS_THREADING_STDC
-    #include <pthread.h>
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+        #include <windows.h>
+    #else
+        #include <pthread.h>
+    #endif
 #else
     #include <threads.h>
 #endif
@@ -21,20 +25,29 @@ struct thread_data {
 typedef void* (*threadfunc_t)(struct thread_data*);
 typedef struct thread_t {
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    HANDLE thread;
+    #else
     pthread_t thread;
+    #endif
     #else
     thrd_t thread;
     #endif
     char* name;
     threadfunc_t func;
     struct thread_data data;
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    void* ret;
+    #endif
 } thread_t;
 #ifndef PSRC_UTILS_THREADING_STDC
+#if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+typedef CRITICAL_SECTION mutex_t;
+#else
 typedef pthread_mutex_t mutex_t;
-typedef pthread_cond_t cond_t;
+#endif
 #else
 typedef mtx_t mutex_t;
-typedef cnd_t cond_t;
 #endif
 struct accesslock {
     int counter;
@@ -46,80 +59,64 @@ void quitThread(thread_t*);
 void destroyThread(thread_t*, void** ret);
 
 #ifndef PSRC_UTILS_THREADING_STDC
-    #define yield() sched_yield()
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+        #define yield() Sleep(0)
+    #else
+        #define yield() sched_yield()
+    #endif
 #else
     #define yield() thrd_yield()
 #endif
 
 static inline bool createMutex(mutex_t* m) {
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    InitializeCriticalSection(m);
+    return true;
+    #else
     return !pthread_mutex_init(m, NULL);
+    #endif
     #else
     return (mtx_init(m, mtx_plain) == thrd_success);
     #endif
 }
 static inline void lockMutex(mutex_t* m) {
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    EnterCriticalSection(m);
+    #else
     while (pthread_mutex_lock(m)) {}
+    #endif
     #else
     #if PLATFORM != PLAT_NXDK
     while (mtx_lock(m) != thrd_success) {}
     #else
-    // Ignore return value on Xbox. The NXDK doesn't check the return code of NtWaitForSingleObject correctly (mtx_lock
-    // checks for STATUS_WAIT_0 instead of using NT_SUCCESS()).
+    // Ignore return value on Xbox. The NXDK doesn't check the return code of NtWaitForSingleObject correctly.
+    // (mtx_lock checks for STATUS_WAIT_0 instead of using NT_SUCCESS())
     mtx_lock(m);
     #endif
     #endif
 }
 static inline void unlockMutex(mutex_t* m) {
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    LeaveCriticalSection(m);
+    #else
     while (pthread_mutex_unlock(m)) {}
+    #endif
     #else
     while (mtx_unlock(m) != thrd_success) {}
     #endif
 }
 static inline void destroyMutex(mutex_t* m) {
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    DeleteCriticalSection(m);
+    #else
     pthread_mutex_destroy(m);
+    #endif
     #else
     mtx_destroy(m);
-    #endif
-}
-
-static inline bool createCond(cond_t* c) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    return !pthread_cond_init(c, NULL);
-    #else
-    return (cnd_init(c) == thrd_success);
-    #endif
-}
-static inline void waitOnCond(cond_t* c, mutex_t* m, uint64_t t) {
-    if (t) return; // TODO: imeplement later
-    #ifndef PSRC_UTILS_THREADING_STDC
-    pthread_cond_wait(c, m);
-    #else
-    cnd_wait(c, m);
-    #endif
-}
-static inline void signalCond(cond_t* c) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    pthread_cond_signal(c);
-    #else
-    cnd_signal(c);
-    #endif
-}
-static inline void broadcastCond(cond_t* c) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    pthread_cond_broadcast(c);
-    #else
-    cnd_broadcast(c);
-    #endif
-}
-static inline void destroyCond(cond_t* c) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    pthread_cond_destroy(c);
-    #else
-    cnd_destroy(c);
     #endif
 }
 

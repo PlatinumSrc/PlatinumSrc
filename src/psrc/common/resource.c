@@ -493,7 +493,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_SOUND: {
-            FILE* f = fopen(p, "r");
+            FILE* f = fopen(p, "rb");
             if (f) {
                 if (!o.sound) o.sound = &soundopt_default;
                 if (!strcmp(ext, ".ogg")) {

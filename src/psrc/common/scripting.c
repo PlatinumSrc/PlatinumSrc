@@ -18,7 +18,7 @@ static inline int compiler_fgetc(struct compilerfile* f) {
     return c;
 }
 static inline bool compiler_fopen(const char* p, struct compilerfile* f) {
-    f->f = fopen(p, "r");
+    f->f = fopen(p, "rb");
     if (!f->f) return false;
     f->line = 1;
     f->prevc = EOF;

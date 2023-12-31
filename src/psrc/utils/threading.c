@@ -5,6 +5,13 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+DWORD WINAPI threadwrapper(LPVOID t) {
+    ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
+    ExitThread(0);
+    return 0;
+}
+#else
 static void* threadwrapper(void* t) {
     #ifndef UTILS_THREADING_NONAMES
         #ifndef PSRC_UTILS_THREADING_STDC
@@ -21,6 +28,7 @@ static void* threadwrapper(void* t) {
     #endif
     return ((thread_t*)t)->func(&((thread_t*)t)->data);
 }
+#endif
 
 bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     #if DEBUG(1)
@@ -33,7 +41,11 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.shouldclose = false;
     bool fail;
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
+    #else
     fail = pthread_create(&t->thread, NULL, threadwrapper, t);
+    #endif
     #else
     fail = (thrd_create(&t->thread, (thrd_start_t)threadwrapper, t) != thrd_success);
     #endif
@@ -60,7 +72,12 @@ void destroyThread(thread_t* t, void** r) {
     #endif
     t->data.shouldclose = true;
     #ifndef PSRC_UTILS_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    WaitForSingleObject(t->thread, INFINITE);
+    if (r) *r = t->ret;
+    #else
     pthread_join(t->thread, r);
+    #endif
     #else
     thrd_join(t->thread, (int*)r);
     #endif

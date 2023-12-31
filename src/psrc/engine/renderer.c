@@ -12,60 +12,59 @@
 
 #include "../../stb/stb_image.h"
 
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glext.h>
-#if PLATFORM == PLAT_NXDK
+#if PLATFORM != PLAT_NXDK
+    #include "../../glad/gl.h"
+    #ifndef GL_KHR_debug
+        #define GL_KHR_debug 0
+    #elif GL_KHR_debug
+        static void GLAD_API_PTR gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
+            (void)l; (void)u;
+            int ll = -1;
+            char* sevstr;
+            switch (sev) {
+                case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
+                case GL_DEBUG_SEVERITY_MEDIUM: ll = LL_WARN; sevstr = "warning"; break;
+                #if DEBUG(1)
+                case GL_DEBUG_SEVERITY_LOW: ll = LL_WARN; sevstr = "warning"; break;
+                #if DEBUG(2)
+                case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "info"; break;
+                #endif
+                #endif
+                default: break;
+            }
+            if (ll == -1) return;
+            char* srcstr;
+            switch (src) {
+                case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
+                case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcstr = "Windowing system"; break;
+                case GL_DEBUG_SOURCE_SHADER_COMPILER: srcstr = "Shader compiler"; break;
+                case GL_DEBUG_SOURCE_THIRD_PARTY: srcstr = "Third-party"; break;
+                case GL_DEBUG_SOURCE_APPLICATION: srcstr = "Application"; break;
+                case GL_DEBUG_SOURCE_OTHER: srcstr = "Other"; break;
+                default: srcstr = "Unknown"; break;
+            }
+            char* typestr;
+            switch (type) {
+                case GL_DEBUG_TYPE_ERROR: typestr = "error"; break;
+                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "deprecation"; break;
+                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "undefined behavior"; break;
+                case GL_DEBUG_TYPE_PORTABILITY: typestr = "portability"; break;
+                case GL_DEBUG_TYPE_PERFORMANCE: typestr = "performance"; break;
+                case GL_DEBUG_TYPE_MARKER: typestr = "marker"; break;
+                case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "push group"; break;
+                case GL_DEBUG_TYPE_POP_GROUP: typestr = "pop group"; break;
+                case GL_DEBUG_TYPE_OTHER: typestr = "other"; break;
+                default: typestr = "unknown"; break;
+            }
+            plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
+        }   
+    #endif
+#else
+    #include <GL/gl.h>
     #include <pbkit/pbkit.h>
     #include <pbkit/nv_regs.h>
     #include <pbgl.h>
-#endif
-#ifndef GL_KHR_debug
     #define GL_KHR_debug 0
-#endif
-#if GL_KHR_debug
-#pragma weak glDebugMessageCallback
-static void APIENTRY gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
-    (void)l; (void)u;
-    int ll = -1;
-    char* sevstr;
-    switch (sev) {
-        case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
-        case GL_DEBUG_SEVERITY_MEDIUM: ll = LL_WARN; sevstr = "warning"; break;
-        #if DEBUG(1)
-        case GL_DEBUG_SEVERITY_LOW: ll = LL_WARN; sevstr = "warning"; break;
-        #if DEBUG(2)
-        case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "info"; break;
-        #endif
-        #endif
-        default: break;
-    }
-    if (ll == -1) return;
-    char* srcstr;
-    switch (src) {
-        case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcstr = "Windowing system"; break;
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: srcstr = "Shader compiler"; break;
-        case GL_DEBUG_SOURCE_THIRD_PARTY: srcstr = "Third-party"; break;
-        case GL_DEBUG_SOURCE_APPLICATION: srcstr = "Application"; break;
-        case GL_DEBUG_SOURCE_OTHER: srcstr = "Other"; break;
-        default: srcstr = "Unknown"; break;
-    }
-    char* typestr;
-    switch (type) {
-        case GL_DEBUG_TYPE_ERROR: typestr = "error"; break;
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "deprecation"; break;
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "undefined behavior"; break;
-        case GL_DEBUG_TYPE_PORTABILITY: typestr = "portability"; break;
-        case GL_DEBUG_TYPE_PERFORMANCE: typestr = "performance"; break;
-        case GL_DEBUG_TYPE_MARKER: typestr = "marker"; break;
-        case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "push group"; break;
-        case GL_DEBUG_TYPE_POP_GROUP: typestr = "pop group"; break;
-        case GL_DEBUG_TYPE_OTHER: typestr = "other"; break;
-        default: typestr = "unknown"; break;
-    }
-    plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
-}
 #endif
 
 #include <string.h>
@@ -573,12 +572,18 @@ static bool createWindow(void) {
             }
             rendstate.gl.ctx = SDL_GL_CreateContext(rendstate.window);
             if (!rendstate.gl.ctx) {
-                plog(LL_CRIT | LF_FUNCLN, "Failed to create OpenGL context: %s", SDL_GetError());
+                plog(LL_CRIT | LF_FUNC, "Failed to create OpenGL context: %s", SDL_GetError());
                 rendstate.apigroup = RENDAPIGROUP__INVAL;
                 destroyWindow();
                 return false;
             }
             SDL_GL_MakeCurrent(rendstate.window, rendstate.gl.ctx);
+            if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
+                plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
+                rendstate.apigroup = RENDAPIGROUP__INVAL;
+                destroyWindow();
+                return false;
+            }
             if (rendstate.vsync) {
                 if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
             } else {

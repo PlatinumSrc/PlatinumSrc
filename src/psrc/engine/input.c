@@ -41,7 +41,7 @@ void setInputMode(enum inputmode m) {
 bool initInput(void) {
     char* tmp = cfg_getvar(config, "Input", "nocontroller");
     if (!strbool(tmp, false)) {
-        if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
+        //if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
         SDL_GameControllerEventState(SDL_ENABLE);
     }
     free(tmp);

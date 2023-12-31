@@ -250,6 +250,7 @@ void mixsounds(int buf) {
         int64_t offset = s->offset;
         int freq = rc->freq;
         int len = rc->len;
+        if (!len) goto skipmix;
         int64_t pos;
         bool stereo = rc->stereo;
         switch (rc->format) {
@@ -526,12 +527,13 @@ void mixsounds(int buf) {
         writeToReadAccess(&audiostate.lock);
     }
     releaseReadAccess(&audiostate.lock);
+    int16_t* out = audiostate.audbuf.out[buf];
     if (audiostate.channels < 2) {
         for (int i = 0; i < audiostate.audbuf.len; ++i) {
             int sample = (audbuf[0][i] + audbuf[1][i]) / 2;
             if (sample > 32767) sample = 32767;
             else if (sample < -32768) sample = -32768;
-            audiostate.audbuf.out[i] = sample;
+            out[i] = sample;
         }
     } else {
         for (int c = 0; c < 2; ++c) {
@@ -539,7 +541,7 @@ void mixsounds(int buf) {
                 int sample = audbuf[c][i];
                 if (sample > 32767) sample = 32767;
                 else if (sample < -32768) sample = -32768;
-                audiostate.audbuf.out[i * audiostate.channels + c] = sample;
+                out[i * audiostate.channels + c] = sample;
             }
         }
     }
@@ -547,60 +549,63 @@ void mixsounds(int buf) {
 
 static void callback(void* data, uint16_t* stream, int len) {
     (void)data;
-    if (audiostate.valid) {
-        int bufi = audiostate.audbufindex;
-        #if DEBUG(3)
-        plog(LL_INFO | LF_DEBUG, "Playing %d...", bufi);
+    #if DEBUG(3)
+    plog(LL_INFO | LF_DEBUG, "Playing %d...", audiostate.audbufindex);
+    #endif
+    if (audiostate.mixaudbufindex == (audiostate.audbufindex + 3) % 4 || audiostate.mixaudbufindex < 0) {
+        #if DEBUG(2)
+        plog(LL_INFO | LF_DEBUG, "Mixer is beind!");
         #endif
+        memset(stream, 0, len);
+    } else {
         int samples = len / sizeof(*stream) / audiostate.channels;
         if (audiostate.audbuf.len == samples) {
-            memcpy(stream, audiostate.audbuf.out, len);
+            memcpy(stream, audiostate.audbuf.out[audiostate.audbufindex % 2], len);
         } else {
             plog(LL_WARN | LF_DEBUG, "Mismatch between buffer length (%d) and requested samples (%d)", audiostate.audbuf.len, samples);
         }
         #if DEBUG(3)
-        plog(LL_INFO | LF_DEBUG, "Finished playing %d", bufi);
+        plog(LL_INFO | LF_DEBUG, "Finished playing %d", audiostate.audbufindex);
         #endif
-        audiostate.audbufindex = (bufi + 1) % 4;
-        if ((audiostate.mixaudbufindex + 1) % 4 == bufi || audiostate.mixaudbufindex < 0) {
-            #if DEBUG(2)
-            plog(LL_INFO | LF_DEBUG, "Mix thread is beind!");
-            #endif
-        } else {
-            signalCond(&audiostate.mixcond);
-        }
-    } else {
-        memset(stream, 0, len);
+        audiostate.audbufindex = (audiostate.audbufindex + 1) % 4;
     }
 }
 
-static void* mixthread(struct thread_data* td) {
-    mutex_t m;
-    createMutex(&m);
-    lockMutex(&m);
-    while (!td->shouldclose) {
-        int mixbufi = audiostate.mixaudbufindex;
-        int bufi = audiostate.audbufindex;
-        bool mixbufilt0 = (mixbufi < 0);
-        if (bufi == mixbufi || bufi == (mixbufi + 1) % 4 || mixbufilt0) {
-            mixbufi = (mixbufi + 1) % 4;
+void updateSounds(void) {
+    acquireWriteAccess(&audiostate.lock);
+    for (int si = 0; si < audiostate.voicecount; ++si) {
+        struct audiosound* s = &audiostate.voices[si];
+        if (s->id < 0) continue;
+        if (!s->state.fxchanged && (s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS)) {
+            s->fx[0] = s->fx[1];
+            s->state.fxchanged = true;
+            calcSoundFX(s);
+            //s->state.updatefx = true;
+        }
+    }
+    releaseWriteAccess(&audiostate.lock);
+    if (audiostate.usecallback) {
+        while (audiostate.mixaudbufindex != (audiostate.audbufindex + 1) % 4 || audiostate.mixaudbufindex < 0) {
+            int mixbufi = (audiostate.mixaudbufindex + 1) % 4;
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Mixing %d...", mixbufi);
             #endif
-            mixsounds(bufi % 2);
+            mixsounds(mixbufi % 2);
             #if DEBUG(3)
             plog(LL_INFO | LF_DEBUG, "Finished mixing %d", mixbufi);
             #endif
             audiostate.mixaudbufindex = mixbufi;
-            if (!mixbufilt0) {
-                if (td->shouldclose) break;
-                waitOnCond(&audiostate.mixcond, &m, 0);
+        }
+    } else {
+        uint32_t qs = SDL_GetQueuedAudioSize(audiostate.output);
+        if (qs < audiostate.audbuf.outsize * audiostate.outbufcount) {
+            int count = (audiostate.audbuf.outsize * audiostate.outbufcount - qs) / audiostate.audbuf.outsize;
+            for (int i = 0; i < count; ++i) {
+                mixsounds(0);
+                SDL_QueueAudio(audiostate.output, audiostate.audbuf.out[0], audiostate.audbuf.outsize);
             }
         }
     }
-    unlockMutex(&m);
-    destroyMutex(&m);
-    return NULL;
 }
 
 static inline void stopSound_inline(struct audiosound* v) {
@@ -810,7 +815,6 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
 
 bool initAudio(void) {
     if (!createAccessLock(&audiostate.lock)) return false;
-    if (!createCond(&audiostate.mixcond)) return false;
     if (SDL_Init(SDL_INIT_AUDIO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init audio: %s", SDL_GetError());
         return false;
@@ -818,45 +822,30 @@ bool initAudio(void) {
     return true;
 }
 
-void updateSounds(void) {
-    acquireWriteAccess(&audiostate.lock);
-    for (int si = 0; si < audiostate.voicecount; ++si) {
-        struct audiosound* s = &audiostate.voices[si];
-        if (s->id < 0) continue;
-        if (!s->state.fxchanged && (s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS)) {
-            s->fx[0] = s->fx[1];
-            s->state.fxchanged = true;
-            calcSoundFX(s);
-            //s->state.updatefx = true;
-        }
-    }
-    releaseWriteAccess(&audiostate.lock);
-    if (!audiostate.multithreaded) {
-        uint32_t qs = SDL_GetQueuedAudioSize(audiostate.output);
-        //printf("samples: %u\n", (unsigned)(qs / sizeof(int16_t) / audiostate.channels));
-        if (qs < audiostate.audbuf.outsize * audiostate.outbufcount) {
-            int count = (audiostate.audbuf.outsize * audiostate.outbufcount - qs) / audiostate.audbuf.outsize;
-            for (int i = 0; i < count; ++i) {
-                mixsounds(0);
-                SDL_QueueAudio(audiostate.output, audiostate.audbuf.out, audiostate.audbuf.outsize);
-            }
-        }
-    }
-}
-
 bool startAudio(void) {
     acquireWriteAccess(&audiostate.lock);
     char* tmp = cfg_getvar(config, "Sound", "disable");
-    if (tmp && strbool(tmp, false)) {
-        audiostate.valid = false;
-        releaseWriteAccess(&audiostate.lock);
-        plog(LL_INFO, "Audio disabled");
-        return true;
+    if (tmp) {
+        bool disable = strbool(tmp, false);
+        free(tmp);
+        if (disable) {
+            audiostate.valid = false;
+            releaseWriteAccess(&audiostate.lock);
+            plog(LL_INFO, "Audio disabled");
+            return true;
+        }
     }
     SDL_AudioSpec inspec;
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
+    tmp = cfg_getvar(config, "Sound", "callback");
+    if (tmp) {
+        audiostate.usecallback = strbool(tmp, false);
+        free(tmp);
+    } else {
+        audiostate.usecallback = false;
+    }
     tmp = cfg_getvar(config, "Sound", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
@@ -875,17 +864,7 @@ bool startAudio(void) {
     } else {
         inspec.samples = 1024;
     }
-    {
-        bool mutlithread = SDL_GetCPUCount() > 2;
-        tmp = cfg_getvar(config, "Sound", "multithreaded");
-        if (tmp) {
-            audiostate.multithreaded = strbool(tmp, mutlithread);
-            free(tmp);
-        } else {
-            audiostate.multithreaded = mutlithread;
-        }
-    }
-    inspec.callback = (audiostate.multithreaded) ? (SDL_AudioCallback)callback : NULL;
+    inspec.callback = (audiostate.usecallback) ? (SDL_AudioCallback)callback : NULL;
     inspec.userdata = NULL;
     #if PLATFORM != PLAT_NXDK
     int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
@@ -908,12 +887,15 @@ bool startAudio(void) {
         audiostate.audbuf.len = outspec.samples;
         audiostate.audbuf.data[0][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][0]));
         audiostate.audbuf.data[0][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[0][1]));
-        if (audiostate.multithreaded) {
+        if (audiostate.usecallback) {
             audiostate.audbuf.data[1][0] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][0]));
             audiostate.audbuf.data[1][1] = malloc(outspec.samples * sizeof(*audiostate.audbuf.data[1][1]));
         }
-        audiostate.audbuf.outsize = outspec.samples * sizeof(*audiostate.audbuf.out) * outspec.channels;
-        audiostate.audbuf.out = malloc(audiostate.audbuf.outsize);
+        audiostate.audbuf.outsize = outspec.samples * sizeof(**audiostate.audbuf.out) * outspec.channels;
+        audiostate.audbuf.out[0] = malloc(audiostate.audbuf.outsize);
+        if (audiostate.usecallback) {
+            audiostate.audbuf.out[1] = malloc(audiostate.audbuf.outsize);
+        }
         int voicecount;
         tmp = cfg_getvar(config, "Sound", "voices");
         if (tmp) {
@@ -945,7 +927,11 @@ bool startAudio(void) {
         }
         tmp = cfg_getvar(config, "Sound", "decodewhole");
         if (tmp) {
+            #if PLATFORM != PLAT_NXDK
             audiostate.soundrcopt.decodewhole = strbool(tmp, true);
+            #else
+            audiostate.soundrcopt.decodewhole = strbool(tmp, false);
+            #endif
             free(tmp);
         } else {
             #if PLATFORM != PLAT_NXDK
@@ -958,7 +944,6 @@ bool startAudio(void) {
         audiostate.audbufindex = 0;
         audiostate.mixaudbufindex = -1;
         audiostate.buftime = outspec.samples * 1000000 / outspec.freq;
-        if (audiostate.multithreaded) createThread(&audiostate.mixthread, "mix", mixthread, NULL);
         audiostate.valid = true;
         SDL_PauseAudioDevice(output, 0);
     } else {
@@ -971,11 +956,6 @@ bool startAudio(void) {
 
 void stopAudio(void) {
     if (audiostate.valid) {
-        if (audiostate.multithreaded) {
-            quitThread(&audiostate.mixthread);
-            broadcastCond(&audiostate.mixcond);
-            destroyThread(&audiostate.mixthread, NULL);
-        }
         acquireWriteAccess(&audiostate.lock);
         audiostate.valid = false;
         SDL_PauseAudioDevice(audiostate.output, 1);
@@ -989,16 +969,18 @@ void stopAudio(void) {
         free(audiostate.voices);
         free(audiostate.audbuf.data[0][0]);
         free(audiostate.audbuf.data[0][1]);
-        if (audiostate.multithreaded) {
+        if (audiostate.usecallback) {
             free(audiostate.audbuf.data[1][0]);
             free(audiostate.audbuf.data[1][1]);
         }
-        free(audiostate.audbuf.out);
+        free(audiostate.audbuf.out[0]);
+        if (audiostate.usecallback) {
+            free(audiostate.audbuf.out[1]);
+        }
         releaseWriteAccess(&audiostate.lock);
     }
 }
 
 void termAudio(void) {
     destroyAccessLock(&audiostate.lock);
-    destroyCond(&audiostate.mixcond);
 }
