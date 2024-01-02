@@ -3,58 +3,54 @@
 Progress can be found [here](TODO.md)
 
 ---
-**Dependencies**<br>
-- Compiling for Unix-like platforms
-    - Compiling on the same Unix-like platform
-        - GNU Make
-        - GCC with GNU Binutils or Clang with LLVM
-            - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
-        - SDL2
-    - Cross-compiling for FreeBSD
-        - GNU Make
-        - Clang
-        - FreeBSD's base.txz extracted to `external/FreeBSD_$(FREEBSD_VERSION)_$(ARCH)`
-            - The default version is `12.4`, and the architecture is `x86_64` without `M32=y` and `i686` with `M32=y`
-        - FreeBSD SDL2 installed into the extracted base.txz
-- Compiling for Windows
-    - Cross-compiling on Unix-like platforms
-        - GNU Make
-        - MinGW
-        - MinGW SDL2
-    - Compiling on Windows with MSYS2
-        - MSYS2
-        - GNU Make
-        - GCC with GNU Binutils or Clang with LLVM
-            - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
-        - MinGW SDL2
-    - Compiling on Windows without MSYS2
-        - Git bash
-        - Make for Windows
-        - MinGW
-        - MinGW SDL2
-- Compiling for Windows 2000 or Windows 98 with KernelEx
-    - Cross-compiling on Unix-like platforms
-        - Wine
-    - Cross-compiling on Unix-like platforms and compiling on Windows
-        - [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
-            - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
-        - [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip)
-- Compiling for the Xbox using the NXDK
-    - Compiling on any supported platform
-        - [NXDK](https://github.com/XboxDev/nxdk)
-            - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
-            - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
-            - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
-        - [pbGL](https://github.com/fgsfdsfgs/pbgl)
-            1. Go to the NXDK directory
-            2. Copy the pbgl folder into `lib/`
-            3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
-
-- Running on Unix-like platforms
-    - SDL2
-
----
 **Building**<br>
+- Dependencies
+    - Compiling for Unix-like platforms
+        - Compiling on the same Unix-like platform
+            - GNU Make
+            - GCC with GNU Binutils or Clang with LLVM
+                - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+            - SDL2
+        - Cross-compiling for FreeBSD
+            - GNU Make
+            - Clang
+            - FreeBSD's base.txz extracted to `external/FreeBSD_$(FREEBSD_VERSION)_$(ARCH)`
+                - The default version is `12.4`, and the architecture is `x86_64` without `M32=y` and `i686` with `M32=y`
+            - FreeBSD SDL2 installed into the extracted base.txz
+    - Compiling for Windows
+        - Cross-compiling on Unix-like platforms
+            - GNU Make
+            - MinGW
+            - MinGW SDL2
+        - Compiling on Windows with MSYS2
+            - MSYS2
+            - GNU Make
+            - GCC with GNU Binutils or Clang with LLVM
+                - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+            - MinGW SDL2
+        - Compiling on Windows without MSYS2
+            - Git bash
+            - Make for Windows
+            - MinGW
+            - MinGW SDL2
+    - Compiling for Windows 2000 or Windows 98 with KernelEx
+        - Cross-compiling on Unix-like platforms
+            - Wine
+        - Cross-compiling on Unix-like platforms and compiling on Windows
+            - [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
+                - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
+            - [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip)
+    - Compiling for the Xbox using the NXDK
+        - Compiling on any supported platform
+            - [NXDK](https://github.com/XboxDev/nxdk)
+                - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
+                - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
+                - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
+            - [pbGL](https://github.com/fgsfdsfgs/pbgl)
+                1. Go to the NXDK directory
+                2. Copy the pbgl folder into `lib/`
+                3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
+
 - Setup
     - Xbox
         1. Create a directory called `xiso`
@@ -75,7 +71,7 @@ Progress can be found [here](TODO.md)
         - `build` - Build an executable or ROM
         - `run` - Build an executable or ROM and run it
         - `clean` - Clean up intermediate files
-        - `distclean` - Clean up output files
+        - `distclean` - Clean up intermediate and output files
         - `externclean` - Clean up external tools
     - Makefile variables
         - `MODULE` - Which module to build \(default is `engine`\)
@@ -89,7 +85,10 @@ Progress can be found [here](TODO.md)
         - `FREEBSD_VERSION` - Version of FreeBSD to cross-compile to \(default is `12.4`\)
         - `EMULATOR` - Command used to run the executable or ROM
         - `USE_DISCORD_GAME_SDK` - Set to any value to use the Discord Game SDK
-        - `PTHREAD` - Use winpthread instead of win32 threads on Windows
+        - `WINPTHREAD` - Use winpthread instead of win32 threads on Windows
+        - `NOSIMD` - Do not use SIMD
+        - `NOMT` - Disable multithreading
+        - `O` - Set the optimization level \(defaults to 2\)
         - `M32` - Produce a 32-bit binary
         - `NATIVE` - Tune build for native system
         - `DEBUG` - Enable debug symbols and messages
@@ -124,12 +123,16 @@ Progress can be found [here](TODO.md)
 
 ---
 **Running**<br>
-- Engine
+- Dependencies
+    - Running the engine or editor on Unix-like platforms
+        - SDL2
+
+- Running the engine
     1. Download a game \(the engine will not run without a game\)
-        - The [H-74](https://github.com/PQCraft/H-74) repo contains a few games and mods
+        - [H-74](https://github.com/PQCraft/H-74)
     2. Drop the game into a directory called `games` and ensure the `defaultgame` variable in `engine/config/config.cfg` is set to the game's directory name
     3. Put any mods into a directory called `mods` and ensure they are listed in the `mods` variable in one of the configs
-        - You can use `config/config.cfg` in `engine/` or in the game's local data directory (usually located in `~/.local/share/` under Linux and other Unix-like systems, and `%AppData%\Roaming\` under Windows)
+        - You can use `config/config.cfg` in `engine/` or in the game's local data directory \(usually located in `~/.local/share/` under Linux and other Unix-like systems, and `%AppData%\Roaming\` under Windows\)
         - Mods are listed as comma-separated values without spaces between values
     4. Run the executable
 
@@ -138,7 +141,8 @@ Progress can be found [here](TODO.md)
 - Supported
     - Linux
     - Windows 2000+ and Windows 98 with KernelEx
-    - Xbox (NXDK)
+    - Emscripten
+    - Xbox \(NXDK\)
 - Untested
     - MacOS
     - FreeBSD
@@ -146,8 +150,7 @@ Progress can be found [here](TODO.md)
     - OpenBSD
 - Wanted
     - Android
-    - Emscripten
-    - Xbox (XDK)?
+    - Xbox \(XDK\)?
         - No OpenGL
         - Uses MSVC
     - Dreamcast?

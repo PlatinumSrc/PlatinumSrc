@@ -4,6 +4,7 @@
 #include "../platform.h"
 #include "threading.h"
 
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 
@@ -36,7 +37,9 @@ enum __attribute__((packed)) loglevel {
 #define LP_CRIT "{X}: "
 #define LP_DEBUG "<D>: "
 
+#ifndef PSRC_NOMT
 extern mutex_t loglock;
+#endif
 #if PLATFORM == PLAT_NXDK
     extern bool plog__nodraw;
     extern bool plog__wrote;

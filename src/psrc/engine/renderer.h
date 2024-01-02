@@ -17,17 +17,25 @@
 
 enum rendapi {
     RENDAPI__INVAL = -1,
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+    #ifndef PSRC_ENGINE_RENDERER_NOGL11
     RENDAPI_GL11,
-    #if PLATFORM != PLAT_NXDK
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGL33
     RENDAPI_GL33,
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGLES30
     RENDAPI_GLES30,
+    #endif
     #endif
     RENDAPI__COUNT,
 };
 
 enum rendapigroup {
     RENDAPIGROUP__INVAL = -1,
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
     RENDAPIGROUP_GL,
+    #endif
     RENDAPIGROUP__COUNT,
 };
 
@@ -67,6 +75,7 @@ struct rendstate {
     enum rcopt_texture_qlt texqlt;
     enum rendlighting lighting;
     union {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
         struct {
             #if PLATFORM != PLAT_NXDK
             SDL_GLContext ctx;
@@ -80,16 +89,21 @@ struct rendstate {
             float scale;
             #endif
             union {
+                #ifndef PSRC_ENGINE_RENDERER_NOGL11
                 struct {
                 } gl11;
-                #if PLATFORM != PLAT_NXDK
+                #endif
+                #ifndef PSRC_ENGINE_RENDERER_NOGL33
                 struct {
                 } gl33;
+                #endif
+                #ifndef PSRC_ENGINE_RENDERER_NOGLES30
                 struct {
                 } gles;
                 #endif
             };
         } gl;
+        #endif
     };
 };
 
@@ -117,7 +131,7 @@ bool restartRenderer(void);
 void stopRenderer(void);
 void termRenderer(void);
 void render(void);
-void swapBuffers(void);
+void display(void);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];

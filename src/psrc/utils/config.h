@@ -24,7 +24,9 @@ struct cfg {
     bool changed;
     int sectcount;
     struct cfg_sect* sectdata;
+    #ifndef PSRC_NOMT
     mutex_t lock;
+    #endif
 };
 
 struct cfg* cfg_open(const char* path);

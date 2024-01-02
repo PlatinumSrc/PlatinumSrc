@@ -58,7 +58,9 @@ struct audiosound {
 };
 
 struct audiostate {
+    #ifndef PSRC_NOMT
     struct accesslock lock;
+    #endif
     volatile bool valid;
     bool usecallback;
     SDL_AudioDeviceID output;

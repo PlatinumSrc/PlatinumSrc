@@ -3,20 +3,22 @@
 
 #define PLAT_UNKNOWN 0
 #define PLAT_ANDROID 1
-#define PLAT_FREEBSD 2
-#define PLAT_LINUX   3
-#define PLAT_MACOS   4
-#define PLAT_NETBSD  5
-#define PLAT_OPENBSD 6
-#define PLAT_UNIX    7
-#define PLAT_WIN32   8
-#define PLAT_NXDK    9
+#define PLAT_EMSCR   2
+#define PLAT_FREEBSD 3
+#define PLAT_LINUX   4
+#define PLAT_MACOS   5
+#define PLAT_NETBSD  6
+#define PLAT_OPENBSD 7
+#define PLAT_UNIX    8
+#define PLAT_WIN32   9
+#define PLAT_NXDK    10
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
 #define ARCH_ARM     2
 #define ARCH_ARM64   3
 #define ARCH_I386    4
+#define ARCH_WASM    5
 
 #define BO_LE 1234
 #define BO_BE 4321
@@ -25,10 +27,16 @@
     #define PLATFORM PLAT_ANDROID
     #define PLATSTR "Android"
     #define PLATDIR "android"
+#elif defined(__EMSCRIPTEN__)
+    #define PLATFORM PLAT_EMSCR
+    #define PLATSTR "Emscripten"
+    #define PLATDIR "emscripten"
+    #define ALTPLATDIR "emscr"
 #elif defined(__FreeBSD__)
     #define PLATFORM PLAT_FREEBSD
     #define PLATSTR "FreeBSD"
     #define PLATDIR "freebsd"
+    #define ALTPLATDIR "bsd"
 #elif defined(__linux__)
     #define PLATFORM PLAT_LINUX
     #define PLATSTR "Linux"
@@ -41,10 +49,12 @@
     #define PLATFORM PLAT_NETBSD
     #define PLATSTR "NetBSD"
     #define PLATDIR "netbsd"
+    #define ALTPLATDIR "bsd"
 #elif defined(__OpenBSD__)
     #define PLATFORM PLAT_OPENBSD
     #define PLATSTR "OpenBSD"
     #define PLATDIR "openbsd"
+    #define ALTPLATDIR "bsd"
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
     #define PLATSTR "Unix"
@@ -53,6 +63,7 @@
     #define PLATFORM PLAT_WIN32
     #define PLATSTR "Windows"
     #define PLATDIR "windows"
+    #define ALTPLATDIR "win32"
 #elif defined(NXDK)
     #define PLATFORM PLAT_NXDK
     #define PLATSTR "Xbox (NXDK)"
@@ -60,7 +71,7 @@
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATSTR "Unknown"
-    #warning Unknown platform. \
+    #warning Unknown or unsupported platform. \
     This will probably result in a broken build.
 #endif
 
@@ -96,11 +107,14 @@
     #ifndef BYTEORDER
         #define BYTEORDER BO_LE
     #endif
+#elif defined(__wasm) || defined(__wasm__) || defined(__WASM__)
+    #define ARCH ARCH_WASM
+    #define ARCHSTR "WebAssembly"
 #else
     #define ARCH ARCH_UNKNOWN
     #define ARCHSTR "Unknown"
-    #warning Unknown OS. \
-    This will probably result in a broken build.
+    #warning Unknown or unsupported architecture. \
+    This may result in a broken build.
 #endif
 
 #ifndef BYTEORDER
@@ -127,7 +141,7 @@
         #endif
     #endif
     #ifndef BYTEORDER
-        #warning Unknown byte order. \
+        #warning Unknown or unsupported byte order. \
         This will probably result in a broken build.
     #endif
 #endif

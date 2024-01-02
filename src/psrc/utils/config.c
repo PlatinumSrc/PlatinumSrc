@@ -14,7 +14,9 @@
 #include "../glue.h"
 
 char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
+    #ifndef PSRC_NOMT
     lockMutex(&cfg->lock);
+    #endif
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
     if (sect) {
@@ -36,23 +38,31 @@ char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
         }
     }
     if (!sectptr) {
+        #ifndef PSRC_NOMT
         unlockMutex(&cfg->lock);
+        #endif
         return NULL;
     }
     crc = strcasecrc32(var);
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            #ifndef PSRC_NOMT
             unlockMutex(&cfg->lock);
+            #endif
             return strdup(ptr->data);
         }
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&cfg->lock);
+    #endif
     return NULL;
 }
 
 bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data, size_t size) {
+    #ifndef PSRC_NOMT
     lockMutex(&cfg->lock);
+    #endif
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
     if (sect) {
@@ -74,14 +84,18 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
         }
     }
     if (!sectptr) {
+        #ifndef PSRC_NOMT
         unlockMutex(&cfg->lock);
+        #endif
         return false;
     }
     crc = strcasecrc32(var);
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            #ifndef PSRC_NOMT
             unlockMutex(&cfg->lock);
+            #endif
             char* from = ptr->data;
             for (size_t j = 0; j < size; ++j) {
                 if (!(*data = *from)) break;
@@ -91,12 +105,16 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
             return true;
         }
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&cfg->lock);
+    #endif
     return false;
 }
 
 void cfg_setvar(struct cfg* cfg, const char* sect, const char* var, const char* data, bool overwrite) {
+    #ifndef PSRC_NOMT
     lockMutex(&cfg->lock);
+    #endif
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
     if (sect) {
@@ -184,11 +202,15 @@ void cfg_setvar(struct cfg* cfg, const char* sect, const char* var, const char* 
         varptr->namecrc = crc;
         varptr->data = strdup(data);
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&cfg->lock);
+    #endif
 }
 
 void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
+    #ifndef PSRC_NOMT
     lockMutex(&cfg->lock);
+    #endif
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
     if (sect) {
@@ -210,7 +232,9 @@ void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
         }
     }
     if (!sectptr) {
+        #ifndef PSRC_NOMT
         unlockMutex(&cfg->lock);
+        #endif
         return;
     }
     crc = strcasecrc32(var);
@@ -223,11 +247,15 @@ void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
             break;
         }
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&cfg->lock);
+    #endif
 }
 
 void cfg_delsect(struct cfg* cfg, const char* sect) {
+    #ifndef PSRC_NOMT
     lockMutex(&cfg->lock);
+    #endif
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
     if (sect) {
@@ -249,7 +277,9 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
         }
     }
     if (!sectptr) {
+        #ifndef PSRC_NOMT
         unlockMutex(&cfg->lock);
+        #endif
         return;
     }
     for (int i = 0; i < sectptr->varcount; ++i) {
@@ -262,7 +292,9 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
     free(sectptr->name);
     sectptr->name = NULL;
     free(sectptr->vardata);
+    #ifndef PSRC_NOMT
     unlockMutex(&cfg->lock);
+    #endif
 }
 
 static int fgetc_skip(FILE* f) {
@@ -615,7 +647,9 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
 static inline struct cfg* cfg_open_new(void) {
     struct cfg* cfg = malloc(sizeof(*cfg));
     memset(cfg, 0, sizeof(*cfg));
+    #ifndef PSRC_NOMT
     createMutex(&cfg->lock);
+    #endif
     return cfg;
 }
 
@@ -697,5 +731,7 @@ void cfg_close(struct cfg* cfg) {
         }
     }
     free(cfg->sectdata);
+    #ifndef PSRC_NOMT
     destroyMutex(&cfg->lock);
+    #endif
 }

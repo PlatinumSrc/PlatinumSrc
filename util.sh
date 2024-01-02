@@ -17,11 +17,11 @@ tsk() { printf "${T} ${TB}${1}${TR}\n"; }
 PLATNAME="$(uname -s)"
 PLATARCH="$(uname -m)"
 PLATDESC="${PLATNAME} ${PLATARCH}"
-PLATPATH="$(echo "${PLATDESC}" | sed 's/\//_/g;s/ /_/g')"
+PLATPATH="$(echo "${PLATDESC}" | sed 's/\//_/g')"
 PLATNAME32="$(i386 uname -s)"
 PLATARCH32="$(i386 uname -m)"
 PLATDESC32="${PLATNAME32} ${PLATARCH32}"
-PLATPATH32="$(echo "${PLATDESC32}" | sed 's/\//_/g;s/ /_/g')"
+PLATPATH32="$(echo "${PLATDESC32}" | sed 's/\//_/g')"
 
 ask() {
     RESPONSE=""
@@ -73,7 +73,7 @@ buildrel() {
     local PLATFORM="${2}"
     if [ ! -z "${PLATFORM}" ]; then PLATFORM=" for ${PLATFORM}"; fi
     inf "Building ${TYPE}${PLATFORM}..."
-    make "${@:3}" clean 1> /dev/null || _exit
+    make "${@:3}" distclean 1> /dev/null || _exit
     RESPONSE=""
     while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do
         while [[ -z "${RESPONSE}" ]]; do
@@ -83,7 +83,7 @@ buildrel() {
                     break
                     ;;
                 c | clean)
-                    make "${@:3}" clean 1> /dev/null || _exit
+                    make "${@:3}" distclean 1> /dev/null || _exit
                     ;;
                 *)
                     RESPONSE=""
@@ -105,7 +105,7 @@ buildrel() {
         esac
     done
     [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
-    make "${@:3}" clean 1> /dev/null || _exit
+    make "${@:3}" distclean 1> /dev/null || _exit
     [[ ! "${RESPONSE}" == "n" ]] || _exit 1
 }
 buildmod() {

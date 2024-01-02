@@ -8,7 +8,7 @@ tsk "Getting info..."
 VER="$(grep '#define PSRC_BUILD ' src/psrc/version.h | sed 's/#define .* //')"
 printf "${I} ${TB}Version:${TR} [%s]\n" "${VER}"
 getchanges() {
-    sed -n '/^### DONE:$/,$p' TODO.md | tail -n +2
+    sed -n '/^### Done$/,$p' TODO.md | tail -n +2
 }
 CNGTEXT="$(getchanges)"
 getreltext() {
@@ -20,7 +20,7 @@ printf "${I} ${TB}Release text:${TR}\n%s\n${TB}EOF${TR}\n" "${RELTEXT}"
 pause
 
 tsk "Building..."
-./build.sh || _exit
+./buildmoudles.sh || _exit
 inf "Making PlatinumSrc_Assets.zip..."
 _zip_r "PlatinumSrc_Assets.zip" common/ engine/ icons/
 inf "Making PlatinumSrc_Extras.zip..."
@@ -42,7 +42,5 @@ rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
 
 tsk "Done"
 exit
-
-fi
 
 }

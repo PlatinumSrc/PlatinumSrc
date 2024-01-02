@@ -12,7 +12,7 @@
     #define PSRC_MD "PlatinumSrc map editor"
     #define PSRC_ICON "icons/editor.ico"
 #endif
-#ifdef DBGLVL
+#ifdef PSRC_DBGLVL
     #define PSRC_MODULEDESC PSRC_MD " (debug build)"
 #else
     #define PSRC_MODULEDESC PSRC_MD

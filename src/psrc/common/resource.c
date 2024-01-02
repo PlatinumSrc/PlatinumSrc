@@ -36,8 +36,10 @@
 #undef getRcAtt
 #undef delRcAtt
 
+#ifndef PSRC_NOMT
 static mutex_t rclock; // TODO: turn into an access lock
 static mutex_t rcattidlock;
+#endif
 
 union __attribute__((packed)) resource {
     void* ptr;
@@ -150,7 +152,9 @@ static struct {
     int len;
     int size;
     char** paths;
+    #ifndef PSRC_NOMT
     mutex_t lock;
+    #endif
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
@@ -702,9 +706,13 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
 }
 
 void* loadResource(enum rctype t, const char* uri, void* o) {
+    #ifndef PSRC_NOMT
     lockMutex(&rclock);
+    #endif
     void* r = loadResource_wrapper(t, uri, o);
+    #ifndef PSRC_NOMT
     unlockMutex(&rclock);
+    #endif
     return r;
 }
 
@@ -751,26 +759,38 @@ static void freeResource_internal(struct rcdata* _r) {
 
 void freeResource(void* r) {
     if (r) {
+        #ifndef PSRC_NOMT
         lockMutex(&rclock);
+        #endif
         freeResource_internal(r - sizeof(struct rcheader));
+        #ifndef PSRC_NOMT
         unlockMutex(&rclock);
+        #endif
     }
 }
 
 void grabResource(void* _r) {
     if (_r) {
+        #ifndef PSRC_NOMT
         lockMutex(&rclock);
+        #endif
         struct rcdata* r = _r - sizeof(struct rcheader);
         ++r->header.refs;
+        #ifndef PSRC_NOMT
         unlockMutex(&rclock);
+        #endif
     }
 }
 
 int8_t genRcAttKey(void) {
+    #ifndef PSRC_NOMT
     lockMutex(&rcattidlock);
+    #endif
     static int8_t key = 0;
     return key++;
+    #ifndef PSRC_NOMT
     unlockMutex(&rcattidlock);
+    #endif
 }
 
 static inline struct rcatt* setRcAtt_getptr(struct rcheader* rh, int8_t key) {
@@ -858,7 +878,9 @@ static inline void loadMods_addpath(char* p) {
 }
 
 void loadMods(const char* const* modnames, int modcount) {
+    #ifndef PSRC_NOMT
     lockMutex(&modinfo.lock);
+    #endif
     for (int i = 0; i < modinfo.len; ++i) {
         free(modinfo.paths[i]);
     }
@@ -959,11 +981,15 @@ void loadMods(const char* const* modnames, int modcount) {
         free(modinfo.paths);
         modinfo.paths = NULL;
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&modinfo.lock);
+    #endif
 }
 
 char** queryModInfo(int* len) {
+    #ifndef PSRC_NOMT
     lockMutex(&modinfo.lock);
+    #endif
     if (modinfo.len > 0) {
         if (len) *len = modinfo.len;
         char** data = malloc((modinfo.len + 1) * sizeof(*data));
@@ -971,17 +997,23 @@ char** queryModInfo(int* len) {
             data[i] = strdup(modinfo.paths[i]);
         }
         data[modinfo.len] = NULL;
+        #ifndef PSRC_NOMT
         unlockMutex(&modinfo.lock);
+        #endif
         return data;
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&modinfo.lock);
+    #endif
     return NULL;
 }
 
 bool initResource(void) {
+    #ifndef PSRC_NOMT
     if (!createMutex(&rclock)) return false;
     if (!createMutex(&rcattidlock)) return false;
     if (!createMutex(&modinfo.lock)) return false;
+    #endif
 
     for (int i = 0; i < RC__COUNT; ++i) {
         groups[i].len = 0;
@@ -1018,7 +1050,9 @@ void termResource(void) {
         }
     }
 
+    #ifndef PSRC_NOMT
     destroyMutex(&rclock);
     destroyMutex(&rcattidlock);
     destroyMutex(&modinfo.lock);
+    #endif
 }

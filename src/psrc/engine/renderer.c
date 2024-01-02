@@ -12,59 +12,72 @@
 
 #include "../../stb/stb_image.h"
 
-#if PLATFORM != PLAT_NXDK
-    #include "../../glad/gl.h"
-    #ifndef GL_KHR_debug
+#if PLATFORM == PLAT_EMSCR
+    #include <emscripten/html5.h>
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+        #include <GL/gl.h>
+        #ifdef GL_KHR_debug
+            #undef GL_KHR_debug
+        #endif
         #define GL_KHR_debug 0
-    #elif GL_KHR_debug
-        static void GLAD_API_PTR gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
-            (void)l; (void)u;
-            int ll = -1;
-            char* sevstr;
-            switch (sev) {
-                case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
-                case GL_DEBUG_SEVERITY_MEDIUM: ll = LL_WARN; sevstr = "warning"; break;
-                #if DEBUG(1)
-                case GL_DEBUG_SEVERITY_LOW: ll = LL_WARN; sevstr = "warning"; break;
-                #if DEBUG(2)
-                case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "info"; break;
-                #endif
-                #endif
-                default: break;
-            }
-            if (ll == -1) return;
-            char* srcstr;
-            switch (src) {
-                case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
-                case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcstr = "Windowing system"; break;
-                case GL_DEBUG_SOURCE_SHADER_COMPILER: srcstr = "Shader compiler"; break;
-                case GL_DEBUG_SOURCE_THIRD_PARTY: srcstr = "Third-party"; break;
-                case GL_DEBUG_SOURCE_APPLICATION: srcstr = "Application"; break;
-                case GL_DEBUG_SOURCE_OTHER: srcstr = "Other"; break;
-                default: srcstr = "Unknown"; break;
-            }
-            char* typestr;
-            switch (type) {
-                case GL_DEBUG_TYPE_ERROR: typestr = "error"; break;
-                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "deprecation"; break;
-                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "undefined behavior"; break;
-                case GL_DEBUG_TYPE_PORTABILITY: typestr = "portability"; break;
-                case GL_DEBUG_TYPE_PERFORMANCE: typestr = "performance"; break;
-                case GL_DEBUG_TYPE_MARKER: typestr = "marker"; break;
-                case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "push group"; break;
-                case GL_DEBUG_TYPE_POP_GROUP: typestr = "pop group"; break;
-                case GL_DEBUG_TYPE_OTHER: typestr = "other"; break;
-                default: typestr = "unknown"; break;
-            }
-            plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
-        }   
     #endif
-#else
-    #include <GL/gl.h>
+#elif PLATFORM == PLAT_NXDK
     #include <pbkit/pbkit.h>
     #include <pbkit/nv_regs.h>
-    #include <pbgl.h>
-    #define GL_KHR_debug 0
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+        #include <GL/gl.h>
+        #include <pbgl.h>
+        #define GL_KHR_debug 0
+    #endif
+#else
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+        #include "../../glad/gl.h"
+        #ifndef GL_KHR_debug
+            #define GL_KHR_debug 0
+        #elif GL_KHR_debug
+            static void GLAD_API_PTR gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
+                (void)l; (void)u;
+                int ll = -1;
+                char* sevstr;
+                switch (sev) {
+                    case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
+                    case GL_DEBUG_SEVERITY_MEDIUM: ll = LL_WARN; sevstr = "warning"; break;
+                    #if DEBUG(1)
+                    case GL_DEBUG_SEVERITY_LOW: ll = LL_WARN; sevstr = "warning"; break;
+                    #if DEBUG(2)
+                    case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "debug message"; break;
+                    #endif
+                    #endif
+                    default: break;
+                }
+                if (ll == -1) return;
+                char* srcstr;
+                switch (src) {
+                    case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
+                    case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcstr = "Windowing system"; break;
+                    case GL_DEBUG_SOURCE_SHADER_COMPILER: srcstr = "Shader compiler"; break;
+                    case GL_DEBUG_SOURCE_THIRD_PARTY: srcstr = "Third-party"; break;
+                    case GL_DEBUG_SOURCE_APPLICATION: srcstr = "Application"; break;
+                    case GL_DEBUG_SOURCE_OTHER: srcstr = "Other"; break;
+                    default: srcstr = "Unknown"; break;
+                }
+                char* typestr;
+                switch (type) {
+                    case GL_DEBUG_TYPE_ERROR: typestr = "error"; break;
+                    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typestr = "deprecation"; break;
+                    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typestr = "undefined behavior"; break;
+                    case GL_DEBUG_TYPE_PORTABILITY: typestr = "portability"; break;
+                    case GL_DEBUG_TYPE_PERFORMANCE: typestr = "performance"; break;
+                    case GL_DEBUG_TYPE_MARKER: typestr = "marker"; break;
+                    case GL_DEBUG_TYPE_PUSH_GROUP: typestr = "push group"; break;
+                    case GL_DEBUG_TYPE_POP_GROUP: typestr = "pop group"; break;
+                    case GL_DEBUG_TYPE_OTHER: typestr = "other"; break;
+                    default: typestr = "unknown"; break;
+                }
+                plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
+            }   
+        #endif
+    #endif
 #endif
 
 #include <string.h>
@@ -75,28 +88,45 @@
 struct rendstate rendstate;
 
 const char* rendapi_ids[] = {
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+    #ifndef PSRC_ENGINE_RENDERER_NOGL11
     "gl11",
-    #if PLATFORM != PLAT_NXDK
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGL33
     "gl33",
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGLES30
     "gles30"
+    #endif
     #endif
 };
 const char* rendapi_names[] = {
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
+    #ifndef PSRC_ENGINE_RENDERER_NOGL11
     "OpenGL 1.1",
-    #if PLATFORM != PLAT_NXDK
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGL33
     "OpenGL 3.3",
+    #endif
+    #ifndef PSRC_ENGINE_RENDERER_NOGLES30
     "OpenGL ES 3.0"
+    #endif
     #endif
 };
 
-void swapBuffers(void) {
+void display(void) {
     #if PLATFORM != PLAT_NXDK
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
     SDL_GL_SwapWindow(rendstate.window);
+    #endif
     #else
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
     pbgl_swap_buffers();
+    #endif
     #endif
 }
 
+#ifndef PSRC_ENGINE_RENDERER_NOGL
 static void gl_calcProjMat(void) {
     glm_perspective(
         rendstate.fov * M_PI / 180.0, -rendstate.aspect,
@@ -148,16 +178,20 @@ static inline __attribute__((always_inline)) void gl_clearScreen(void) {
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
 }
+#endif
 
 struct rc_model* testmodel;
 
+#ifndef PSRC_ENGINE_RENDERER_NOGL
+
+#ifndef PSRC_ENGINE_RENDERER_NOGL11
 void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
     if (!verts) verts = m->vertices;
     for (int ig = 0; ig < m->indexgroupcount; ++ig) {
         uint16_t indcount = m->indexgroups[ig].indexcount;
         uint16_t* inds = m->indexgroups[ig].indices;
         glBegin(GL_TRIANGLES);
-        glColor3f(1.0, 1.0, 1.0);
+        //glColor3f(1.0, 1.0, 1.0);
         long lt = SDL_GetTicks();
         double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
@@ -169,7 +203,7 @@ void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             #if 1
             int ci = (*inds * 0x10492851) ^ *inds;
             uint8_t c[3] = {ci >> 16, ci >> 8, ci};
-            glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
+            //glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
             #else
             //glColor3f(tmp1, tmp1, tmp1);
             int tmpi = i - (i % 3);
@@ -251,7 +285,7 @@ void render_gl_legacy(void) {
 
     float z = 2.0;
 
-    glBegin(GL_QUADS);
+    glBegin(GL_TRIANGLES);
         #if 1
         glColor3f(tsini, tcosn, tsinn);
         glVertex3f(-1.0, 1.0, z);
@@ -259,8 +293,12 @@ void render_gl_legacy(void) {
         glVertex3f(-1.0, -1.0, z);
         glColor3f(tsinn, tcosi, tsini);
         glVertex3f(1.0, -1.0, z);
+        glColor3f(tsinn, tcosi, tsini);
+        glVertex3f(1.0, -1.0, z);
         glColor3f(tcosn, tsinn, tcosi);
         glVertex3f(1.0, 1.0, z);
+        glColor3f(tsini, tcosn, tsinn);
+        glVertex3f(-1.0, 1.0, z);
         #endif
         glColor3f(1.0, 0.0, 0.0);
         glVertex3f(-0.5, 0.5, z);
@@ -268,23 +306,48 @@ void render_gl_legacy(void) {
         glVertex3f(-0.5, -0.5, z);
         glColor3f(0.0, 1.0, 1.0);
         glVertex3f(0.5, -0.5, z);
+        glColor3f(0.0, 1.0, 1.0);
+        glVertex3f(0.5, -0.5, z);
         glColor3f(0.5, 0.0, 1.0);
         glVertex3f(0.5, 0.5, z);
+        glColor3f(1.0, 0.0, 0.0);
+        glVertex3f(-0.5, 0.5, z);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(-1.0, 0.025 + tsin2, z);
+        glColor3f(0.0, 0.0, 0.0);
         glVertex3f(-1.0, -0.025 + tsin2, z);
+        glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, -0.025 + tsin2, z);
+        glColor3f(0.0, 0.0, 0.0);
+        glVertex3f(1.0, -0.025 + tsin2, z);
+        glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, 0.025 + tsin2, z);
+        glColor3f(0.0, 0.0, 0.0);
+        glVertex3f(-1.0, 0.025 + tsin2, z);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-0.025 + tsin, 1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-0.025 + tsin, -1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
         glVertex3f(0.025 + tsin, -1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
+        glVertex3f(0.025 + tsin, -1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
         glVertex3f(0.025 + tsin, 1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
+        glVertex3f(-0.025 + tsin, 1.0, z);
         glColor3f(0.0, 0.5, 0.0);
         glVertex3f(-0.5, -1.0, z);
+        glColor3f(0.0, 0.5, 0.0);
         glVertex3f(-0.5, -1.0, z - 1.0);
+        glColor3f(0.0, 0.5, 0.0);
         glVertex3f(0.5, -1.0, z - 1.0);
+        glColor3f(0.0, 0.5, 0.0);
+        glVertex3f(0.5, -1.0, z - 1.0);
+        glColor3f(0.0, 0.5, 0.0);
         glVertex3f(0.5, -1.0, z);
+        glColor3f(0.0, 0.5, 0.0);
+        glVertex3f(-0.5, -1.0, z);
     glEnd();
 
     if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
@@ -294,15 +357,19 @@ void render_gl_legacy(void) {
 
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 
-    glBegin(GL_QUADS);
+    glBegin(GL_TRIANGLES);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-1.0, 1.0, z);
         glColor3f(0.5, 0.5, 0.5);
         glVertex3f(-1.0, -1.0, z);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, -1.0, z);
+        glColor3f(0.0, 0.0, 0.0);
+        glVertex3f(1.0, -1.0, z);
         glColor3f(0.5, 0.5, 0.5);
         glVertex3f(1.0, 1.0, z);
+        glColor3f(1.0, 1.0, 1.0);
+        glVertex3f(-1.0, 1.0, z);
     glEnd();
 
     glDepthMask(GL_TRUE);
@@ -314,8 +381,9 @@ void render_gl_legacy(void) {
     glLoadIdentity();
 }
 #endif
+#endif
 
-#if PLATFORM != PLAT_NXDK
+#if !defined(PSRC_ENGINE_RENDERER_NOGL33) || !defined(PSRC_ENGINE_RENDERER_NOGLES30)
 void render_gl_advanced(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -341,16 +409,25 @@ void render_gl_advanced(void) {
 }
 #endif
 
+#endif
+
 void render(void) {
     switch (rendstate.apigroup) {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
         case RENDAPIGROUP_GL: {
             switch (rendstate.api) {
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 case RENDAPI_GL11:
                     render_gl_legacy();
                     break;
-                #if PLATFORM != PLAT_NXDK
+                #endif
+                #if !defined(PSRC_ENGINE_RENDERER_NOGL33) || !defined(PSRC_ENGINE_RENDERER_NOGLES30)
+                #ifndef PSRC_ENGINE_RENDERER_NOGL33
                 case RENDAPI_GL33:
+                #endif
+                #ifndef PSRC_ENGINE_RENDERER_NOGLES30
                 case RENDAPI_GLES30:
+                #endif
                     render_gl_advanced();
                     break;
                 #endif
@@ -359,6 +436,7 @@ void render(void) {
             }
             glFinish();
         } break;
+        #endif
         default: {
         } break;
     }
@@ -376,16 +454,20 @@ void render(void) {
             cleared = true;
         }
     } else {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
         GLboolean tmp;
         glGetBooleanv(GL_DEPTH_WRITEMASK, &tmp);
         glDepthMask(false);
+        #endif
         pb_draw_text_screen();
         uint32_t* p = pb_begin();
         pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
         *(p++) = (rendstate.res.current.width - 1) << 16;
         *(p++) = (rendstate.res.current.height - 1) << 16;
         pb_end(p);
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
         glDepthMask(tmp);
+        #endif
     }
     #endif
 }
@@ -393,11 +475,13 @@ void render(void) {
 static void destroyWindow(void) {
     if (rendstate.window != NULL) {
         switch (rendstate.apigroup) {
+            #ifndef PSRC_ENGINE_RENDERER_NOGL
             case RENDAPIGROUP_GL:
                 #if PLATFORM != PLAT_NXDK
                 SDL_GL_DeleteContext(rendstate.gl.ctx);
                 #endif
                 break;
+            #endif
             default:
                 break;
         }
@@ -422,6 +506,7 @@ static void updateWindowMode(void) {
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
         } break;
         case RENDMODE_FULLSCREEN: {
             rendstate.res.current = rendstate.res.fullscr;
@@ -431,6 +516,7 @@ static void updateWindowMode(void) {
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
+            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
         } break;
     }
     rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
@@ -465,32 +551,38 @@ static bool createWindow(void) {
     }
     plog(LL_INFO, "Creating window for %s...", rendapi_names[rendstate.api]);
     switch (rendstate.api) {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
+        #ifndef PSRC_ENGINE_RENDERER_NOGL11
         #if 1
         case RENDAPI_GL11: {
             rendstate.apigroup = RENDAPIGROUP_GL;
-            #if PLATFORM != PLAT_NXDK
+            #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             #endif
         } break;
         #endif
-        #if PLATFORM != PLAT_NXDK // TODO: make some HAS_ macros
+        #endif
+        #ifndef PSRC_ENGINE_RENDERER_NOGL33
         #if 0
         case RENDAPI_GL33: {
             rendstate.apigroup = RENDAPIGROUP_GL;
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
         } break;
         #endif
+        #endif
+        #ifndef PSRC_ENGINE_RENDERER_NOGLES30
         #if 0
         case RENDAPI_GLES30: {
             rendstate.apigroup = RENDAPIGROUP_GL;
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
         } break;
+        #endif
         #endif
         #endif
         default: {
@@ -505,7 +597,9 @@ static bool createWindow(void) {
     uint32_t flags = 0;
     #if PLATFORM != PLAT_NXDK
     flags |= SDL_WINDOW_RESIZABLE;
+    #ifndef PSRC_ENGINE_RENDERER_NOGL
     if (rendstate.apigroup == RENDAPIGROUP_GL) flags |= SDL_WINDOW_OPENGL;
+    #endif
     #endif
     {
         SDL_DisplayMode dtmode;
@@ -527,6 +621,10 @@ static bool createWindow(void) {
             flags |= SDL_WINDOW_FULLSCREEN;
             break;
     }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
+    plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+    #endif
     rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
     rendstate.window = SDL_CreateWindow(
         titlestr,
@@ -534,10 +632,6 @@ static bool createWindow(void) {
         rendstate.res.current.width, rendstate.res.current.height,
         SDL_WINDOW_SHOWN | flags
     );
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
-    plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
-    #endif
     if (!rendstate.window) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
@@ -547,6 +641,7 @@ static bool createWindow(void) {
     updateWindowIcon();
     #endif
     switch (rendstate.apigroup) {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
         case RENDAPIGROUP_GL: {
             #if PLATFORM != PLAT_NXDK
             {
@@ -558,6 +653,7 @@ static bool createWindow(void) {
                 } else {
                     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
                 }
+                #if PLATFORM != PLAT_EMSCR
                 {
                     unsigned flags;
                     tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
@@ -569,6 +665,7 @@ static bool createWindow(void) {
                     free(tmp);
                     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
                 }
+                #endif
             }
             rendstate.gl.ctx = SDL_GL_CreateContext(rendstate.window);
             if (!rendstate.gl.ctx) {
@@ -578,6 +675,7 @@ static bool createWindow(void) {
                 return false;
             }
             SDL_GL_MakeCurrent(rendstate.window, rendstate.gl.ctx);
+            #if PLATFORM != PLAT_EMSCR
             if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
                 plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
                 rendstate.apigroup = RENDAPIGROUP__INVAL;
@@ -589,6 +687,7 @@ static bool createWindow(void) {
             } else {
                 SDL_GL_SetSwapInterval(0);
             }
+            #endif
             #else
             //pbgl_set_swap_interval(rendstate.vsync);
             #endif
@@ -681,6 +780,7 @@ static bool createWindow(void) {
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LEQUAL);
         } break;
+        #endif
         default: {
         } break;
     }
@@ -757,7 +857,9 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     rendstate.mode = RENDMODE_WINDOWED;
                 }
                 updateWindowMode();
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
+                #endif
             } break;
             case RENDOPT_BORDERLESS: {
                 rendstate.borderless = va_arg(args, int);
@@ -765,12 +867,15 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
                     RENDMODE_WINDOWED;
                 updateWindowMode();
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
+                #endif
             } break;
             case RENDOPT_VSYNC: {
                 rendstate.vsync = va_arg(args, int);
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 if (rendstate.apigroup == RENDAPIGROUP_GL) {
-                    #if PLATFORM != PLAT_NXDK
+                    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
                     if (rendstate.vsync) {
                         if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
                     } else {
@@ -780,10 +885,13 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     //pbgl_set_swap_interval(rendstate.vsync);
                     #endif
                 }
+                #endif
             } break;
             case RENDOPT_FOV: {
                 rendstate.fov = va_arg(args, double);
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_calcProjMat();
+                #endif
             } break;
             case RENDOPT_RES: {
                 struct rendres* res = va_arg(args, struct rendres*);
@@ -804,7 +912,9 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 }
                 SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
                 rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+                #ifndef PSRC_ENGINE_RENDERER_NOGL
                 if (rendstate.apigroup == RENDAPIGROUP_GL) gl_updateWindow();
+                #endif
             } break;
             case RENDOPT_LIGHTING: {
                 rendstate.lighting = va_arg(args, enum rendlighting);
@@ -828,12 +938,24 @@ bool initRenderer(void) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
     }
+    #if !defined(PSRC_ENGINE_RENDERER_NOGL)
+    #if !defined(PSRC_ENGINE_RENDERER_NOGL11)
     rendstate.api = RENDAPI_GL11;
-    char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
-    #if PLATFORM != PLAT_NXDK
-    rendstate.res.windowed = (struct rendres){800, 600};
+    #elif !defined(PSRC_ENGINE_RENDERER_NOGLES30)
+    rendstate.api = RENDAPI_GLES30;
     #else
+    rendstate.api = RENDAPI_GL33;
+    #endif
+    #else
+    rendstate.api = RENDAPI__INVAL;
+    #endif
+    char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
+    #if PLATFORM == PLAT_EMSCR
+    rendstate.res.windowed = (struct rendres){1024, 768};
+    #elif PLATFORM == PLAT_NXDK
     rendstate.res.windowed = (struct rendres){640, 480};
+    #else
+    rendstate.res.windowed = (struct rendres){800, 600};
     #endif
     if (tmp) {
         sscanf(

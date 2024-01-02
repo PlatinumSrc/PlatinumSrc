@@ -149,6 +149,7 @@ static inline bool compiler_getcmd(struct compilerfile* f, struct charbuf* out) 
     }
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct script* out, char** e) {
+    (void)findcmd; (void)out;
     struct compilerfile f;
     {
         int tmp = isFile(p);
@@ -193,6 +194,6 @@ void destroyScriptEventTable(struct scripteventtable* t) {
 }
 
 void fireScriptEvent(struct scripteventtable* t, char* name, int argc, struct charbuf* argv) {
-    uint32_t namecrc = strcrc32(name);
-    
+    (void)t; (void)name; (void)argc; (void)argv;
+    //uint32_t namecrc = strcrc32(name);
 }

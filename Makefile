@@ -11,7 +11,6 @@ ifeq ($(CROSS),)
     LD := $(CC)
     AR ?= $(PREFIX)ar
     STRIP ?= $(PREFIX)strip
-    OBJCOPY ?= $(PREFIX)objcopy
     ifndef M32
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o)_$(shell uname -m)))
     else
@@ -27,7 +26,6 @@ else ifeq ($(CROSS),freebsd)
     LD := $(CC)
     AR ?= $(PREFIX)ar
     STRIP ?= $(PREFIX)strip
-    OBJCOPY ?= $(PREFIX)objcopy
     ifndef M32
         PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
     else
@@ -46,8 +44,20 @@ else ifeq ($(CROSS),win32)
     LD := $(CC)
     AR := $(PREFIX)ar
     STRIP := $(PREFIX)strip
-    OBJCOPY := $(PREFIX)objcopy
     WINDRES := $(PREFIX)windres
+else ifeq ($(CROSS),emscr)
+    ifeq ($(MODULE),engine)
+    else ifneq ($(MODULE),editor)
+        $(error Invalid module: $(MODULE))
+    endif
+    PLATFORM := Emscripten
+    CC := emcc
+    LD := $(CC)
+    AR := emar
+    NOSTRIP := y
+    NOMT := y
+    NOGL33 := y
+    NOGLES30 := y
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
@@ -55,27 +65,26 @@ else ifeq ($(CROSS),nxdk)
     ifneq ($(MODULE),engine)
         $(error Invalid module: $(MODULE))
     endif
-
     _CC := $(PREFIX)$(CC)
     _LD := $(PREFIX)$(LD)
     CC := nxdk-cc
     LD := nxdk-link
     AR ?= $(PREFIX)ar
     OBJCOPY := $(PREFIX)objcopy
-
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
     EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
-
     PLATFORM := NXDK
-
     XBE_TITLE := PlatinumSrc
     XBE_TITLEID := PQ-001
     XBE_VERSION := $(shell grep '#define PSRC_BUILD ' $(SRCDIR)/psrc/version.h | sed 's/#define .* //')
     XBE_XTIMAGE := icons/engine.xpr
-
-    XISO ?= $(XBE_TITLE).xiso.iso
+    NOLTO := y
+    NOSIMD := y
+    NOGL33 := y
+    NOGLES30 := y
+    EMULATOR ?= xemu -dvd_path
+    XISO ?= $(OUTDIR)/$(XBE_TITLE).xiso.iso
     XISODIR ?= $(OUTDIR)/xiso
-
     MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
     MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
     MKENV.NXDK := $(MKENV.NXDK) FREETYPE_SRCS="" FREETYPE_OBJS=""
@@ -84,12 +93,7 @@ else ifeq ($(CROSS),nxdk)
     MKENV.NXDK := $(MKENV.NXDK) LIBCXX_SRCS="" LIBCXX_OBJS=""
     MKENV.NXDK := $(MKENV.NXDK) LIBPNG_SRCS="" LIBPNG_OBJS=""
     MKENV.NXDK := $(MKENV.NXDK) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
-
-    NOSTRIP := y
-    NOLTO := y
-
-    EMULATOR ?= xemu -dvd_path
-
+    MKENV.NXDK := $(MKENV.NXDK) ZLIB_OBJS="" ZLIB_SRCS=""
     _default: default
 	    @:
 else
@@ -127,26 +131,30 @@ endif
 
 ifeq ($(CROSS),win32)
     SOSUF := .dll
-else ifeq ($(CROSS),nxdk)
-else
+else ifneq ($(CROSS),nxdk)
     SOSUF := .so
 endif
 
-_CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -Wall -Wextra -Wuninitialized -Wundef
-_CPPFLAGS := $(CPPFLAGS) -D_DEFAULT_SOURCE -D_GNU_SOURCE -DMODULE=$(MODULE)
-_LDFLAGS := $(LDFLAGS)
+_CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -fno-exceptions -Wall -Wextra -Wuninitialized
+_CPPFLAGS := $(CPPFLAGS) -DMODULE=$(MODULE)
+_LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
 ifneq ($(CROSS),nxdk)
-    _LDFLAGS += -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
-    _CFLAGS += -ffast-math -fvisibility=hidden
-    ifneq ($(CROSS),win32)
-        _CFLAGS += -pthread
-    else
-        ifdef PTHREAD
-            _CFLAGS += -pthread
-            _CPPFLAGS += -DPSRC_UTILS_THREADING_WINPTHREAD
+    _CFLAGS += -Wundef -ffast-math -fvisibility=hidden
+    _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
+    _LDLIBS += -lm
+    ifeq ($(CROSS),win32)
+        _LDFLAGS += -static -static-libgcc
+    else ifeq ($(CROSS),emscr)
+        _LDFLAGS += -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall
+        _LDFLAGS += --shell-file $(SRCDIR)/psrc/emscr_shell.html
+        _LDLIBS += -lidbfs.js
+        ifndef NOGL
+            _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
+            _LDLIBS += -lGL
         endif
+        _LDFLAGS += --embed-file common/ --embed-file engine/ --embed-file games/ --embed-file mods/
     endif
     ifdef M32
         _CPPFLAGS += -DM32
@@ -154,30 +162,57 @@ ifneq ($(CROSS),nxdk)
             _WRFLAGS += -DM32
         endif
     endif
-    _LDLIBS += -lm
-    ifdef DEBUG
-        _LDFLAGS += -Wl,-R$(EXTDIR)/$(PLATFORM)/lib -Wl,-R$(EXTDIR)/lib
+    ifndef NOMT
+        ifneq ($(CROSS),win32)
+            _CFLAGS += -pthread
+            _LDLIBS += -lpthread
+        else
+            ifdef WINPTHREAD
+                _CFLAGS += -pthread
+                _CPPFLAGS += -DPSRC_UTILS_THREADING_WINPTHREAD
+                _LDLIBS += -l:libwinpthread.a
+            endif
+        endif
+    endif
+    ifneq ($(CROSS),emscr)
+        ifdef DEBUG
+            _LDFLAGS += -Wl,-R$(EXTDIR)/$(PLATFORM)/lib -Wl,-R$(EXTDIR)/lib
+        endif
     endif
     ifdef NATIVE
         _CFLAGS += -march=native -mtune=native
     endif
-endif
-ifeq ($(CROSS),win32)
-    _LDFLAGS += -static -static-libgcc
-    ifdef PTHREAD
-        _LDLIBS += -l:libwinpthread.a
-    endif
-else ifeq ($(CROSS),nxdk)
-    _CPPFLAGS += -DPB_HAL_FONT
 else
-    _LDLIBS += -lpthread
+    _CPPFLAGS += -DPB_HAL_FONT
+endif
+ifdef NOSIMD
+    _CPPFLAGS += -DPSRC_NOSIMD
+endif
+ifdef NOMT
+    _CPPFLAGS += -DPSRC_NOMT
+endif
+ifdef NOGL
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_NOGL
+else
+    ifdef NOGL11
+        _CPPFLAGS += -DPSRC_ENGINE_RENDERER_NOGL11
+    endif
+    ifdef NOGL33
+        _CPPFLAGS += -DPSRC_ENGINE_RENDERER_NOGL33
+    endif
+    ifdef NOGLES30
+        _CPPFLAGS += -DPSRC_ENGINE_RENDERER_NOGLES30
+    endif
 endif
 ifndef DEBUG
     _CPPFLAGS += -DNDEBUG
     ifndef O
         O := 2
     endif
-    _CFLAGS += -O$(O) -fno-exceptions
+    _CFLAGS += -O$(O)
+    ifeq ($(CROSS),emscr)
+        _LDFLAGS += -O$(O)
+    endif
     ifndef NOLTO
         _CFLAGS += -flto=auto
         ifneq ($(CROSS),nxdk)
@@ -187,7 +222,7 @@ ifndef DEBUG
         endif
     endif
 else
-    _CPPFLAGS += -DDBGLVL=$(DEBUG)
+    _CPPFLAGS += -DPSRC_DBGLVL=$(DEBUG)
     ifneq ($(CROSS),nxdk)
         _CFLAGS += -Og -g
     else
@@ -196,7 +231,7 @@ else
         MKENV.NXDK := $(MKENV.NXDK) DEBUG=y
     endif
     ifeq ($(CROSS),win32)
-        _WRFLAGS += -DDBGLVL=$(DEBUG)
+        _WRFLAGS += -DPSRC_DBGLVL=$(DEBUG)
     endif
     NOSTRIP := y
     ifdef ASAN
@@ -224,12 +259,12 @@ ifeq ($(CROSS),win32)
 endif
 
 CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
-ifeq ($(CROSS),nxdk)
+ifdef NOSIMD
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif
 
 CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
-ifeq ($(CROSS),nxdk)
+ifdef NOSIMD
     CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
 endif
 
@@ -239,7 +274,7 @@ ifeq ($(CROSS),nxdk)
 endif
 
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
-ifeq ($(CROSS),nxdk)
+ifdef NOSIMD
     CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
 endif
 
@@ -250,19 +285,23 @@ ifdef USE_DISCORD_GAME_SDK
     LDLIBS.lib.discord_game_sdk += -l:$(call so,discord_game_sdk)
 endif
 
+CFLAGS.lib.SDL2 := 
 CPPFLAGS.lib.SDL2 := 
 LDLIBS.lib.SDL2 := 
 ifeq ($(CROSS),win32)
     CPPFLAGS.lib.SDL2 += -DSDL_MAIN_HANDLED
     LDLIBS.lib.SDL2 += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
-else ifeq ($(CROSS),nxdk)
-else
+else ifeq ($(CROSS),emscr)
+    CFLAGS.lib.SDL2 += -sUSE_SDL=2
+    LDLIBS.lib.SDL2 += -sUSE_SDL=2
+else ifneq ($(CROSS),nxdk)
     LDLIBS.lib.SDL2 += -lSDL2
 endif
 
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
+    _CFLAGS += $(CFLAGS.lib.SDL2)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
@@ -275,6 +314,7 @@ else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
+    _CFLAGS += $(CFLAGS.lib.SDL2)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
@@ -306,17 +346,18 @@ BIN := psrc-editor
 else
 BIN := psrc
 endif
-BINPATH := $(BIN)
 ifdef DEBUG
-    BINPATH := $(BINPATH).debug
+    BIN := $(BIN).debug
     ifdef ASAN
-        BINPATH := $(BINPATH).asan
+        BIN := $(BIN).asan
     endif
 endif
+BINPATH := $(BIN)
 ifeq ($(CROSS),win32)
     BINPATH := $(BINPATH).exe
-endif
-ifeq ($(CROSS),nxdk)
+else ifeq ($(CROSS),emscr)
+    BINPATH := $(BINPATH).html
+else ifeq ($(CROSS),nxdk)
     BINPATH := $(BINPATH).exe
 endif
 BINPATH := $(OUTDIR)/$(BINPATH)
@@ -331,6 +372,8 @@ endif
 
 ifeq ($(CROSS),nxdk)
 TARGET = $(XISO)
+else ifeq ($(CROSS),emscr)
+TARGET := index.html
 else
 TARGET = $(BINPATH)
 endif
@@ -391,7 +434,7 @@ inc.null = $(null)
 .SECONDEXPANSION:
 
 define a
-$(_OBJDIR)/$(1).a
+$(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)')" ] || echo '$(_OBJDIR)/$(1).a')
 endef
 define inc
 $$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
@@ -413,10 +456,6 @@ $(OUTDIR):
 $(_OBJDIR):
 	@$(call mkdir,$@)
 
-ifndef SHENV
-SHENV := CROSS='$(CROSS)'; MODULE='$(MODULE)'; OBJCOPY='$(OBJCOPY)'
-endif
-export SHENV
 $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 	@echo Compiling $(notdir $<)...
 	@$(CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
@@ -428,7 +467,12 @@ a.dir.psrc_editor = $(call a,psrc/editor) $(call a,psrc/common) $(call a,psrc/ut
 
 a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 
-a.dir.psrc_engine = $(call a,psrc/engine) $(call a,psrc/common) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,glad) $(call a,psrc/utils)
+a.dir.psrc_engine = $(call a,psrc/engine) $(call a,psrc/common) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
+ifeq ($(CROSS),emscr)
+else ifeq ($(CROSS),nxdk)
+else ifndef NOGL
+a.dir.psrc_engine += $(call a,glad)
+endif
 
 a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
 
@@ -464,9 +508,9 @@ endif
 else
 	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
-	@objcopy --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
+	@$(OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
-	@objcopy --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
+	@$(OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 endif
 	@echo Linked $(notdir $@)
 
@@ -493,6 +537,9 @@ distclean: clean
 ifeq ($(CROSS),nxdk)
 	@$(call rm,$(XISODIR)/default.xbe)
 	@$(call rm,$(BINPATH))
+else ifeq ($(CROSS),emscr)
+	@$(call rm,$(basename $(BINPATH)).js)
+	@$(call rm,$(basename $(BINPATH)).wasm)
 endif
 	@$(call rm,$(TARGET))
 
@@ -526,5 +573,10 @@ $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 $(XISO): $(XISODIR)/default.xbe $(EXTRACT_XISO) | $(XISODIR)
 	@echo Creating $@...
 	@'$(EXTRACT_XISO)' -c $(XISODIR) "$@" > $(null)
+
+else ifeq ($(CROSS),emscr)
+
+index.html: $(BINPATH)
+	@mv -f $(BINPATH) index.html
 
 endif

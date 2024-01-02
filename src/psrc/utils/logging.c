@@ -25,10 +25,14 @@
 #define _STR(x) #x
 #define STR(x) _STR(x)
 
+#ifndef PSRC_NOMT
 mutex_t loglock;
+#endif
 
 bool initLogging(void) {
+    #ifndef PSRC_NOMT
     if (!createMutex(&loglock)) return false;
+    #endif
     return true;
 }
 
@@ -47,7 +51,9 @@ static void plog_writedate(FILE* f) {
 }
 
 bool plog_setfile(char* f) {
+    #ifndef PSRC_NOMT
     lockMutex(&loglock);
+    #endif
     if (f) {
         FILE* tmp = fopen(f, "w");
         if (tmp) {
@@ -64,7 +70,9 @@ bool plog_setfile(char* f) {
             if (writelog) plog_writedate(logfile);
             fprintf(logfile, "%s\n", platstr);
         } else {
+            #ifndef PSRC_NOMT
             unlockMutex(&loglock);
+            #endif
             #if DEBUG(1)
             plog(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, errno));
             #endif
@@ -74,7 +82,9 @@ bool plog_setfile(char* f) {
         if (logfile) fclose(logfile);
         logfile = NULL;
     }
+    #ifndef PSRC_NOMT
     unlockMutex(&loglock);
+    #endif
     return true;
 }
 
@@ -130,6 +140,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
 void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, va_list ov) {
     va_list v;
     FILE* f;
+    #if PLATFORM != PLAT_EMSCR
     switch (lvl & 0xFF) {
         default:
             f = stdout;
@@ -140,6 +151,9 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
             f = stderr;
             break;
     }
+    #else
+    f = stdout;
+    #endif
     va_copy(v, ov);
     writelog(lvl, f, func, file, line, s, v);
     if (logfile != NULL) {
@@ -263,7 +277,9 @@ static void plog__draw(void) {
 
 #undef plog
 void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+    #ifndef PSRC_NOMT
     lockMutex(&loglock);
+    #endif
     va_list v;
     va_start(v, s);
     plog__info(lvl, func, file, line);
@@ -279,19 +295,25 @@ void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, 
     plog__write(lvl, func, file, line, s, v);
     va_end(v);
     plog__draw();
+    #ifndef PSRC_NOMT
     unlockMutex(&loglock);
+    #endif
 }
 
 #else
 
 #undef plog
 void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+    #ifndef PSRC_NOMT
     lockMutex(&loglock);
+    #endif
     va_list v;
     va_start(v, s);
     plog__write(lvl, func, file, line, s, v);
     va_end(v);
+    #ifndef PSRC_NOMT
     unlockMutex(&loglock);
+    #endif
 }
 
 #endif

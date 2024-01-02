@@ -223,7 +223,9 @@ struct uielem {
 };
 
 struct uistate {
+    #ifndef PSRC_NOMT
     struct accesslock lock;
+    #endif
     struct {
         unsigned len;
         unsigned size;

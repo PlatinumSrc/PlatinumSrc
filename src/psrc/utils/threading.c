@@ -1,3 +1,5 @@
+#ifndef PSRC_NOMT
+
 #include "threading.h"
 #include "logging.h"
 #include "../debug.h"
@@ -86,3 +88,5 @@ void destroyThread(thread_t* t, void** r) {
     #endif
     free(t->name);
 }
+
+#endif

@@ -229,7 +229,9 @@ void mixsounds(int buf) {
     memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
     int outfreq = audiostate.freq;
     int tmpbuf[2];
+    #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
+    #endif
     for (int si = 0; si < audiostate.voicecount; ++si) {
         struct audiosound* s = &audiostate.voices[si];
         if (s->id < 0 || s->state.paused) continue;
@@ -517,16 +519,22 @@ void mixsounds(int buf) {
             } break;
         }
         skipmix:;
+        #ifndef PSRC_NOMT
         readToWriteAccess(&audiostate.lock);
+        #endif
         if (chfx) {
             s->state.fxchanged = false;
             s->offset += audiostate.audbuf.len * sfx[1].speedmul / 1000;
         } else {
             s->offset += audiostate.audbuf.len * fx.speedmul / 1000;
         }
+        #ifndef PSRC_NOMT
         writeToReadAccess(&audiostate.lock);
+        #endif
     }
+    #ifndef PSRC_NOMT
     releaseReadAccess(&audiostate.lock);
+    #endif
     int16_t* out = audiostate.audbuf.out[buf];
     if (audiostate.channels < 2) {
         for (int i = 0; i < audiostate.audbuf.len; ++i) {
@@ -572,7 +580,9 @@ static void callback(void* data, uint16_t* stream, int len) {
 }
 
 void updateSounds(void) {
+    #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
+    #endif
     for (int si = 0; si < audiostate.voicecount; ++si) {
         struct audiosound* s = &audiostate.voices[si];
         if (s->id < 0) continue;
@@ -583,7 +593,9 @@ void updateSounds(void) {
             //s->state.updatefx = true;
         }
     }
+    #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
+    #endif
     if (audiostate.usecallback) {
         while (audiostate.mixaudbufindex != (audiostate.audbufindex + 1) % 4 || audiostate.mixaudbufindex < 0) {
             int mixbufi = (audiostate.mixaudbufindex + 1) % 4;
@@ -626,35 +638,51 @@ static inline void stopSound_inline(struct audiosound* v) {
 }
 
 void stopSound(int64_t id) {
+    #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
+    #endif
     if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
         return;
     }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voicecount);
         struct audiosound* v = &audiostate.voices[i];
         if (v->id >= 0 && id == v->id) {
+            #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
+            #endif
             stopSound_inline(v);
+            #ifndef PSRC_NOMT
             releaseWriteAccess(&audiostate.lock);
+            #endif
         } else {
+            #ifndef PSRC_NOMT
             releaseReadAccess(&audiostate.lock);
+            #endif
         }
     }
 }
 
 void changeSoundFX(int64_t id, int immediate, ...) {
+    #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
+    #endif
     if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
         return;
     }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voicecount);
         struct audiosound* v = &audiostate.voices[i];
         if (v->id >= 0 && id == v->id) {
+            #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
+            #endif
             if (!immediate && !v->state.fxchanged) {
                 v->fx[0] = v->fx[1];
                 v->state.fxchanged = true;
@@ -681,40 +709,60 @@ void changeSoundFX(int64_t id, int immediate, ...) {
             va_end(args);
             calcSoundFX(v);
             //v->state.updatefx = true;
+            #ifndef PSRC_NOMT
             releaseWriteAccess(&audiostate.lock);
+            #endif
         } else {
+            #ifndef PSRC_NOMT
             releaseReadAccess(&audiostate.lock);
+            #endif
         }
     } else {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
     }
 }
 
 void changeSoundFlags(int64_t id, unsigned disable, unsigned enable) {
+    #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
+    #endif
     if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
         return;
     }
     if (id >= 0) {
         int i = (int64_t)(id % (int64_t)audiostate.voicecount);
         struct audiosound* v = &audiostate.voices[i];
         if (v->id >= 0 && id == v->id) {
+            #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
+            #endif
             v->flags &= ~(uint8_t)disable;
             v->flags |= (uint8_t)enable;
             //v->state.updatefx = true;
+            #ifndef PSRC_NOMT
             releaseWriteAccess(&audiostate.lock);
+            #endif
         } else {
+            #ifndef PSRC_NOMT
             releaseReadAccess(&audiostate.lock);
+            #endif
         }
     }
 }
 
 int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
+    #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
+    #endif
     if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
         return -1;
     }
     int64_t nextid = audiostate.nextid;
@@ -732,13 +780,17 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         }
     }
     if (v) {
+        #ifndef PSRC_NOMT
         readToWriteAccess(&audiostate.lock);
+        #endif
     } else {
         for (int64_t vi = nextid; vi < stopid; ++vi) {
             int i = (int64_t)(vi % (int64_t)voicecount);
             struct audiosound* tmpv = &audiostate.voices[i];
             if (!(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
+                #ifndef PSRC_NOMT
                 readToWriteAccess(&audiostate.lock);
+                #endif
                 stopSound_inline(tmpv);
                 id = vi;
                 v = tmpv;
@@ -806,15 +858,21 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         }
         va_end(args);
         calcSoundFX(v);
+        #ifndef PSRC_NOMT
         releaseWriteAccess(&audiostate.lock);
+        #endif
     } else {
+        #ifndef PSRC_NOMT
         releaseReadAccess(&audiostate.lock);
+        #endif
     }
     return id;
 }
 
 bool initAudio(void) {
+    #ifndef PSRC_NOMT
     if (!createAccessLock(&audiostate.lock)) return false;
+    #endif
     if (SDL_Init(SDL_INIT_AUDIO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init audio: %s", SDL_GetError());
         return false;
@@ -823,14 +881,18 @@ bool initAudio(void) {
 }
 
 bool startAudio(void) {
+    #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
+    #endif
     char* tmp = cfg_getvar(config, "Sound", "disable");
     if (tmp) {
         bool disable = strbool(tmp, false);
         free(tmp);
         if (disable) {
             audiostate.valid = false;
+            #ifndef PSRC_NOMT
             releaseWriteAccess(&audiostate.lock);
+            #endif
             plog(LL_INFO, "Audio disabled");
             return true;
         }
@@ -846,6 +908,7 @@ bool startAudio(void) {
     } else {
         audiostate.usecallback = false;
     }
+    int flags = 0;
     tmp = cfg_getvar(config, "Sound", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
@@ -853,6 +916,7 @@ bool startAudio(void) {
     } else {
         #if PLATFORM != PLAT_NXDK
         inspec.freq = 44100;
+        flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE;
         #else
         inspec.freq = 22050;
         #endif
@@ -863,14 +927,12 @@ bool startAudio(void) {
         free(tmp);
     } else {
         inspec.samples = 1024;
+        #if PLATFORM != PLAT_NXDK
+        flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
+        #endif
     }
     inspec.callback = (audiostate.usecallback) ? (SDL_AudioCallback)callback : NULL;
     inspec.userdata = NULL;
-    #if PLATFORM != PLAT_NXDK
-    int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
-    #else
-    int flags = 0;
-    #endif
     SDL_AudioDeviceID output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
     if (output <= 0) {
         inspec.channels = 1;
@@ -950,13 +1012,17 @@ bool startAudio(void) {
         audiostate.valid = false;
         plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
     }
+    #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
+    #endif
     return true;
 }
 
 void stopAudio(void) {
     if (audiostate.valid) {
+        #ifndef PSRC_NOMT
         acquireWriteAccess(&audiostate.lock);
+        #endif
         audiostate.valid = false;
         SDL_PauseAudioDevice(audiostate.output, 1);
         SDL_CloseAudioDevice(audiostate.output);
@@ -977,10 +1043,14 @@ void stopAudio(void) {
         if (audiostate.usecallback) {
             free(audiostate.audbuf.out[1]);
         }
+        #ifndef PSRC_NOMT
         releaseWriteAccess(&audiostate.lock);
+        #endif
     }
 }
 
 void termAudio(void) {
+    #ifndef PSRC_NOMT
     destroyAccessLock(&audiostate.lock);
+    #endif
 }

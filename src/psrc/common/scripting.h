@@ -136,7 +136,9 @@ enum __attribute__((packed)) scriptwait {
 };
 struct scripteventtable;
 struct scriptstate {
+    #ifndef PSRC_NOMT
     mutex_t lock;
+    #endif
     struct script* script;
     struct scripteventtable* eventtable;
     struct {
@@ -183,7 +185,9 @@ struct scriptevent {
     struct scripteventsub* subs;
 };
 struct scripteventtable {
+    #ifndef PSRC_NOMT
     struct accesslock lock;
+    #endif
     struct scriptevent* data;
     int len;
     int size;

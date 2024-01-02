@@ -1,7 +1,6 @@
-#include "../engine/renderer.h"
-#include "../engine/input.h"
-#include "../engine/ui.h"
-#include "../engine/audio.h"
+#include "main.h"
+#include "loop.h"
+
 #include "../utils/logging.h"
 #include "../utils/string.h"
 #include "../utils/filesystem.h"
@@ -14,12 +13,20 @@
 #include "../platform.h"
 #include "../debug.h"
 
+#if PLATFORM != PLAT_NXDK
+    #include <SDL2/SDL.h>
+#else
+    #include <SDL.h>
+#endif
+
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #if PLATFORM == PLAT_WIN32
     #include <windows.h>
+#elif PLATFORM == PLAT_EMSCR
+    #include <emscripten.h>
 #elif PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
@@ -31,8 +38,7 @@
 
 #include "../glue.h"
 
-#if PLATFORM != PLAT_NXDK
-
+#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
         plog(l, "Received signal: %s; %s", name, msg);
@@ -70,16 +76,9 @@ static void sigh(int sig) {
             break;
     }
 }
-
 #endif
 
-static float fwrap(float n, float d) {
-    float tmp = n - (int)(n / d) * d;
-    if (tmp < 0.0) tmp += d;
-    return tmp;
-}
-
-#if PLATFORM == PLAT_NXDK
+#if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
 thread_t watchdogthread;
 volatile bool killwatchdog;
 static void* watchdog(struct thread_data* td) {
@@ -96,282 +95,21 @@ static void* watchdog(struct thread_data* td) {
     HalReturnToFirmware(HalRebootRoutine);
     return NULL;
 }
-static void armWatchdog(unsigned sec) {
+void armWatchdog(unsigned sec) {
     createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
 }
-static void cancelWatchdog(void) {
+void cancelWatchdog(void) {
     killwatchdog = true;
     destroyThread(&watchdogthread, NULL);
 }
+void rearmWatchdog(unsigned sec) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
 #endif
 
-static int run(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-
-    plog(LL_INFO, "Main directory (absolute): %s", maindir);
-    plog(LL_INFO, "Game directory (relative): %s", gamedir);
-    plog(LL_INFO, "User directory (absolute): %s", userdir);
-    plog(LL_INFO, "Save directory (absolute): %s", savedir);
-
-    plog(LL_INFO, "Initializing resource manager...");
-    if (!initResource()) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
-        return 1;
-    }
-
-    plog(LL_INFO, "Initializing renderer...");
-    if (!initRenderer()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
-        return 1;
-    }
-    plog(LL_INFO, "Initializing input manager...");
-    if (!initInput()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
-        return 1;
-    }
-    plog(LL_INFO, "Initializing UI manager...");
-    if (!initUI()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init UI manager");
-        return 1;
-    }
-    plog(LL_INFO, "Initializing audio manager...");
-    if (!initAudio()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
-        return 1;
-    }
-
-    {
-        char* tmp = cfg_getvar(gameconfig, NULL, "icon");
-        if (tmp) {
-            rendstate.icon = getRcPath(tmp, RC_TEXTURE, NULL);
-            free(tmp);
-        } else {
-            rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
-        }
-    }
-    plog(LL_INFO, "Starting renderer...");
-    if (!startRenderer()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
-        return 1;
-    }
-    plog(LL_INFO, "Starting audio manager...");
-    if (!startAudio()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
-        return 1;
-    }
-
-    plog(LL_INFO, "Almost there...");
-
-    struct rc_sound* test;
-    test = loadResource(RC_SOUND, "common:sounds/wind1", &audiostate.soundrcopt);
-    if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
-    freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
-    if (test) playSound(
-        false, test,
-        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END
-    );
-    freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/health", &audiostate.soundrcopt);
-    uint64_t testsound = -1;
-    if (test) testsound = playSound(
-        false, test,
-        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 4.0, SOUNDFX_END
-    );
-    freeResource(test);
-
-    enum __attribute__((packed)) action {
-        ACTION_NONE,
-        ACTION_MENU,
-        ACTION_FULLSCREEN,
-        ACTION_MOVE_FORWARDS,
-        ACTION_MOVE_BACKWARDS,
-        ACTION_MOVE_LEFT,
-        ACTION_MOVE_RIGHT,
-        ACTION_LOOK_UP,
-        ACTION_LOOK_DOWN,
-        ACTION_LOOK_LEFT,
-        ACTION_LOOK_RIGHT,
-        ACTION_WALK,
-        ACTION_JUMP,
-        ACTION_CROUCH,
-    };
-    setInputMode(INPUTMODE_INGAME);
-    {
-        struct inputkey* k = inputKeysFromStr("k,escape;g,b,start");
-        newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
-        free(k);
-        k = inputKeysFromStr("k,f11");
-        newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
-        free(k);
-        k = inputKeysFromStr("k,w;g,a,-lefty");
-        newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
-        free(k);
-        k = inputKeysFromStr("k,a;g,a,-leftx");
-        newInputAction(INPUTACTIONTYPE_MULTI, "move_left", k, (void*)ACTION_MOVE_LEFT);
-        free(k);
-        k = inputKeysFromStr("k,s;g,a,+lefty");
-        newInputAction(INPUTACTIONTYPE_MULTI, "move_backwards", k, (void*)ACTION_MOVE_BACKWARDS);
-        free(k);
-        k = inputKeysFromStr("k,d;g,a,+leftx");
-        newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
-        free(k);
-        k = inputKeysFromStr("m,m,+y;k,up;g,a,-righty");
-        newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
-        free(k);
-        k = inputKeysFromStr("m,m,-x;k,left;g,a,-rightx");
-        newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
-        free(k);
-        k = inputKeysFromStr("m,m,-y;k,down;g,a,+righty");
-        newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
-        free(k);
-        k = inputKeysFromStr("m,m,+x;k,right;g,a,+rightx");
-        newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
-        free(k);
-        k = inputKeysFromStr("k,left ctrl;g,b,leftstick");
-        newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
-        free(k);
-        k = inputKeysFromStr("k,space;g,b,a");
-        newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
-        free(k);
-        k = inputKeysFromStr("k,left shift;g,a,+lefttrigger");
-        newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
-        free(k);
-    }
-
-    uint64_t toff = SDL_GetTicks();
-
-    float runspeed = 3.75;
-    float walkspeed = 1.75;
-    float lookspeed[2];
-    {
-        char* tmp = cfg_getvar(config, "Input", "lookspeed");
-        if (tmp) {
-            sscanf(tmp, "%f,%f", &lookspeed[0], &lookspeed[1]);
-            free(tmp);
-        } else {
-            lookspeed[0] = 2.0;
-            lookspeed[1] = 2.0;
-        }
-    }
-
-    plog(LL_INFO, "All systems go!");
-    uint64_t framestamp = altutime();
-    uint64_t frametime = 0;
-    double framemult = 0.0;
-    while (1) {
-        pollInput();
-        if (quitreq) break;
-
-        long lt = SDL_GetTicks() - toff;
-        double dt = (double)(lt % 1000) / 1000.0;
-        double t = (double)(lt / 1000) + dt;
-        changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
-
-        bool walk = false;
-        float movex = 0.0, movez = 0.0, movey = 0.0;
-        float lookx = 0.0, looky = 0.0;
-        struct inputaction a;
-        while (getNextInputAction(&a)) {
-            //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0);
-            switch ((enum action)a.userdata) {
-                case ACTION_MENU: ++quitreq; break;
-                case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
-                case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0; break;
-                case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
-                case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
-                case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0; break;
-                case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
-                case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
-                case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
-                case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? framemult * 50.0 : 1.0) / 32767.0; break;
-                case ACTION_WALK: walk = true; break;
-                case ACTION_JUMP: movey += (float)a.amount / 32767.0; break;
-                case ACTION_CROUCH: movey -= (float)a.amount / 32767.0; break;
-                default: break;
-            }
-        }
-        float speed = (walk) ? walkspeed : runspeed;
-        float jumpspeed = (walk) ? 1.0 : 2.5;
-
-        {
-            // this can probably be optimized
-            float mul = atan2(fabs(movex), fabs(movez));
-            mul = fabs(1 / (cos(mul) + sin(mul)));
-            movex *= mul;
-            movez *= mul;
-            float yrotrad = rendstate.camrot[1] * M_PI / 180.0;
-            float tmp[4] = {
-                movez * sinf(yrotrad),
-                movex * cosf(yrotrad),
-                movez * cosf(yrotrad),
-                movex * -sinf(yrotrad),
-            };
-            movex = tmp[0] + tmp[1];
-            movez = tmp[2] + tmp[3];
-        }
-        audiostate.campos[0] = (rendstate.campos[0] += movex * speed * framemult);
-        audiostate.campos[2] = (rendstate.campos[2] += movez * speed * framemult);
-        audiostate.campos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);
-
-        rendstate.camrot[0] += lookx * lookspeed[1];
-        rendstate.camrot[1] += looky * lookspeed[0];
-        if (rendstate.camrot[0] > 90.0) rendstate.camrot[0] = 90.0;
-        else if (rendstate.camrot[0] < -90.0) rendstate.camrot[0] = -90.0;
-        rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0);
-        audiostate.camrot[0] = rendstate.camrot[0];
-        audiostate.camrot[1] = rendstate.camrot[1];
-        audiostate.camrot[2] = rendstate.camrot[2];
-
-        updateSounds();
-        render();
-
-        // run scripts
-
-        swapBuffers();
-        uint64_t tmp = altutime();
-        frametime = tmp - framestamp;
-        framestamp = tmp;
-        framemult = frametime / 1000000.0;
-    }
-    plog(LL_INFO, "Quit requested");
-    #if PLATFORM == PLAT_NXDK
-    plog__nodraw = false;
-    #endif
-
-    #if PLATFORM == PLAT_NXDK
-    armWatchdog(5);
-    #endif
-    plog(LL_INFO, "Stopping audio manager...");
-    stopAudio();
-    plog(LL_INFO, "Stopping renderer...");
-    stopRenderer();
-    #if PLATFORM == PLAT_NXDK
-    cancelWatchdog();
-    #endif
-
-    plog(LL_INFO, "Terminating audio manager...");
-    termAudio();
-    plog(LL_INFO, "Terminating UI manager...");
-    termUI();
-    plog(LL_INFO, "Terminating input manager...");
-    termInput();
-    plog(LL_INFO, "Terminating renderer...");
-    termRenderer();
-
-    plog(LL_INFO, "Terminating resource manager...");
-    termResource();
-
-    plog(LL_INFO, "Done");
-    return 0;
-}
-
-static int bootstrap(int argc, char** argv) {
-    makeVerStrs();
-
+static int bootstrap(void) {
     #if PLATFORM != PLAT_NXDK
     puts(verstr);
     puts(platstr);
@@ -385,10 +123,6 @@ static int bootstrap(int argc, char** argv) {
         fputs(LP_ERROR "Failed to init logging\n", stderr);
         return 1;
     }
-    #if PLATFORM == PLAT_NXDK
-    plog_setfile("D:\\log.txt");
-    #endif
-
     #if PLATFORM != PLAT_NXDK
     maindir = SDL_GetBasePath();
     if (!maindir) {
@@ -400,6 +134,7 @@ static int bootstrap(int argc, char** argv) {
         SDL_free(tmp);
     }
     #else
+    plog_setfile("D:\\log.txt");
     maindir = mkpath("D:\\", NULL);
     #endif
 
@@ -479,11 +214,25 @@ static int bootstrap(int argc, char** argv) {
     }
     free(tmp);
 
-    int ret = run(argc, argv);
+    plog(LL_INFO, "Main directory (absolute): %s", maindir);
+    plog(LL_INFO, "Game directory (relative): %s", gamedir);
+    plog(LL_INFO, "User directory (absolute): %s", userdir);
+    plog(LL_INFO, "Save directory (absolute): %s", savedir);
+
+    plog(LL_INFO, "Initializing resource manager...");
+    if (!initResource()) {
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
+        return 1;
+    }
+
+    return 0;
+}
+static void unstrap(void) {
+    plog(LL_INFO, "Terminating resource manager...");
+    termResource();
 
     cfg_close(gameconfig);
-
-    tmp = mkpath(userdir, "config", "config.cfg", NULL);
+    char* tmp = mkpath(userdir, "config", "config.cfg", NULL);
     //cfg_write(config, tmp);
     free(tmp);
     cfg_close(config);
@@ -496,10 +245,71 @@ static int bootstrap(int argc, char** argv) {
     cancelWatchdog();
     #endif
 
-    return ret;
+    plog(LL_INFO, "Done");
 }
 
+#if PLATFORM == PLAT_EMSCR
+volatile bool issyncfsok = false;
+void __attribute__((used)) syncfsok(void) {issyncfsok = true;}
+static void emscrexit(void* arg) {
+    (void)arg;
+    exit(0);
+}
+static void emscrmain(void) {
+    static bool doloop = false;
+    static bool syncmsg = false;
+    if (doloop) {
+        doLoop();
+        if (quitreq) {
+            static bool doexit = false;
+            if (doexit) {
+                if (!syncmsg) {
+                    puts("Waiting on RAM to disk FS.syncfs...");
+                    syncmsg = true;
+                }
+                if (issyncfsok) {
+                    emscripten_cancel_main_loop();
+                    emscripten_async_call(emscrexit, NULL, -1);
+                    puts("Done");
+                }
+                return;
+            }
+            termLoop();
+            unstrap();
+            EM_ASM(
+                FS.syncfs(false, function (e) {
+                    if (e) console.error("FS.syncfs:", e);
+                    ccall("syncfsok");
+                });
+            );
+            doexit = true;
+        }
+    } else {
+        if (!syncmsg) {
+            puts("Waiting on disk to RAM FS.syncfs...");
+            syncmsg = true;
+        }
+        if (!issyncfsok) return;
+        issyncfsok = false;
+        syncmsg = false;
+        static int ret;
+        ret = bootstrap();
+        if (!ret) {
+            ret = initLoop();
+            if (!ret) {
+                doloop = true;
+                return;
+            }
+            unstrap();
+        }
+    }
+}
+#endif
 int main(int argc, char** argv) {
+    (void)argc; (void)argv;
+    static int ret;
+    makeVerStrs();
+    #if PLATFORM != PLAT_EMSCR
     #if PLATFORM != PLAT_NXDK
     signal(SIGINT, sigh);
     signal(SIGTERM, sigh);
@@ -516,7 +326,6 @@ int main(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
     #endif
     #endif
-
     #if PLATFORM == PLAT_WIN32
     TIMECAPS tc;
     UINT tmrres = 1;
@@ -548,9 +357,18 @@ int main(int argc, char** argv) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     pbgl_swap_buffers();
     #endif
-
-    int ret = bootstrap(argc, argv);
-
+    ret = bootstrap();
+    if (!ret) {
+        ret = initLoop();
+        if (!ret) {
+            while (1) {
+                doLoop();
+                if (quitreq) break;
+            }
+            termLoop();
+        }
+        unstrap();
+    }
     #if PLATFORM == PLAT_WIN32
     timeEndPeriod(tmrres);
     #elif PLATFORM == PLAT_NXDK
@@ -558,6 +376,17 @@ int main(int argc, char** argv) {
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif
-
+    #else
+    EM_ASM(
+        FS.mkdir('/libsdl');
+        FS.mount(IDBFS, {}, '/libsdl');
+        FS.syncfs(true, function (e) {
+            if (e) console.error("FS.syncfs:", e);
+            ccall("syncfsok");
+        });
+    );
+    emscripten_set_main_loop(emscrmain, -1, true);
+    ret = 0;
+    #endif
     return ret;
 }

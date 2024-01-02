@@ -119,6 +119,8 @@ struct p3m* p3m_loadfile(const char* p, uint8_t loadflags) {
     if (flags & P3M_FILEFLAG_HASANIMATIONS) {
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "File has animations");
     }
+    #else
+    (void)flags;
     #endif
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading data...");

@@ -1,6 +1,8 @@
 #ifndef PSRC_UTILS_THREADING_H
 #define PSRC_UTILS_THREADING_H
 
+#ifndef PSRC_NOMT
+
 #include "../platform.h"
 
 #include <stdbool.h>
@@ -177,5 +179,7 @@ static inline void yieldReadAccess(struct accesslock* a) {
     ++a->counter;
     unlockMutex(&a->lock);
 }
+
+#endif
 
 #endif
