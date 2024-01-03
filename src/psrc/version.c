@@ -9,7 +9,7 @@
 
 char* titlestr;
 char verstr[64];
-char platstr[64] = "Platform: " PLATSTR " (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR;
+char platstr[64];
 
 void makeVerStrs(void) {
     titlestr = strdup("PlatinumSrc " STR(PSRC_BUILD));
@@ -26,5 +26,10 @@ void makeVerStrs(void) {
         ((unsigned)PSRC_BUILD / 100) % 100,
         (unsigned)PSRC_BUILD / 1000000,
         ((unsigned)PSRC_BUILD % 100) + 1
+    );
+    snprintf(
+        platstr, sizeof(platstr),
+        "Platform: %s (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR,
+        platname[PLATFORM]
     );
 }

@@ -218,9 +218,9 @@ ifndef DEBUG
         _LDFLAGS += -O$(O)
     endif
     ifndef NOLTO
-        _CFLAGS += -flto=auto
+        _CFLAGS += -flto
         ifneq ($(CROSS),nxdk)
-            _LDFLAGS += -flto=auto
+            _LDFLAGS += -flto
         else
             MKENV.NXDK := $(MKENV.NXDK) LTO=y
         endif

@@ -10,6 +10,7 @@ Progress can be found [here](TODO.md)
             - GNU Make
             - GCC with GNU Binutils or Clang with LLVM
                 - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+                - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
             - SDL2
         - Cross-compiling for FreeBSD
             - GNU Make
@@ -142,6 +143,7 @@ Progress can be found [here](TODO.md)
 - Supported
     - Linux
     - Windows 2000+ and Windows 98 with KernelEx
+    - HaikuOS
     - Emscripten
     - Xbox \(NXDK\)
 - Untested
