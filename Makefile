@@ -584,6 +584,6 @@ $(XISO): $(XISODIR)/default.xbe $(EXTRACT_XISO) | $(XISODIR)
 else ifeq ($(CROSS),emscr)
 
 index.html: $(BINPATH)
-	@mv -f $(BINPATH) index.html
+	@cp -f $(BINPATH) index.html
 
 endif

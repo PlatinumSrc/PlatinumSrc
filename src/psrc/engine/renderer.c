@@ -285,7 +285,7 @@ void render_gl_legacy(void) {
 
     float z = 2.0;
 
-    glBegin(GL_TRIANGLES);
+    glBegin(GL_QUADS);
         #if 1
         glColor3f(tsini, tcosn, tsinn);
         glVertex3f(-1.0, 1.0, z);
@@ -293,12 +293,8 @@ void render_gl_legacy(void) {
         glVertex3f(-1.0, -1.0, z);
         glColor3f(tsinn, tcosi, tsini);
         glVertex3f(1.0, -1.0, z);
-        glColor3f(tsinn, tcosi, tsini);
-        glVertex3f(1.0, -1.0, z);
         glColor3f(tcosn, tsinn, tcosi);
         glVertex3f(1.0, 1.0, z);
-        glColor3f(tsini, tcosn, tsinn);
-        glVertex3f(-1.0, 1.0, z);
         #endif
         glColor3f(1.0, 0.0, 0.0);
         glVertex3f(-0.5, 0.5, z);
@@ -306,12 +302,8 @@ void render_gl_legacy(void) {
         glVertex3f(-0.5, -0.5, z);
         glColor3f(0.0, 1.0, 1.0);
         glVertex3f(0.5, -0.5, z);
-        glColor3f(0.0, 1.0, 1.0);
-        glVertex3f(0.5, -0.5, z);
         glColor3f(0.5, 0.0, 1.0);
         glVertex3f(0.5, 0.5, z);
-        glColor3f(1.0, 0.0, 0.0);
-        glVertex3f(-0.5, 0.5, z);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(-1.0, 0.025 + tsin2, z);
         glColor3f(0.0, 0.0, 0.0);
@@ -319,11 +311,7 @@ void render_gl_legacy(void) {
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, -0.025 + tsin2, z);
         glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(1.0, -0.025 + tsin2, z);
-        glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, 0.025 + tsin2, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(-1.0, 0.025 + tsin2, z);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-0.025 + tsin, 1.0, z);
         glColor3f(1.0, 1.0, 1.0);
@@ -331,11 +319,7 @@ void render_gl_legacy(void) {
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(0.025 + tsin, -1.0, z);
         glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(0.025 + tsin, -1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
         glVertex3f(0.025 + tsin, 1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.025 + tsin, 1.0, z);
         glColor3f(0.0, 0.5, 0.0);
         glVertex3f(-0.5, -1.0, z);
         glColor3f(0.0, 0.5, 0.0);
@@ -343,11 +327,7 @@ void render_gl_legacy(void) {
         glColor3f(0.0, 0.5, 0.0);
         glVertex3f(0.5, -1.0, z - 1.0);
         glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(0.5, -1.0, z - 1.0);
-        glColor3f(0.0, 0.5, 0.0);
         glVertex3f(0.5, -1.0, z);
-        glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(-0.5, -1.0, z);
     glEnd();
 
     if (testmodel) rendermodel_gl_legacy(testmodel->model, NULL);
@@ -357,19 +337,15 @@ void render_gl_legacy(void) {
 
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 
-    glBegin(GL_TRIANGLES);
+    glBegin(GL_QUADS);
         glColor3f(1.0, 1.0, 1.0);
         glVertex3f(-1.0, 1.0, z);
         glColor3f(0.5, 0.5, 0.5);
         glVertex3f(-1.0, -1.0, z);
         glColor3f(0.0, 0.0, 0.0);
         glVertex3f(1.0, -1.0, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(1.0, -1.0, z);
         glColor3f(0.5, 0.5, 0.5);
         glVertex3f(1.0, 1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-1.0, 1.0, z);
     glEnd();
 
     glDepthMask(GL_TRUE);
