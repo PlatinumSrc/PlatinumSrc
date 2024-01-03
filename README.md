@@ -88,6 +88,7 @@ Progress can be found [here](TODO.md)
         - `WINPTHREAD` - Use winpthread instead of win32 threads on Windows
         - `NOSIMD` - Do not use SIMD
         - `NOMT` - Disable multithreading
+        - `NOFASTMATH` - Disable `-ffast-math`
         - `O` - Set the optimization level \(defaults to 2\)
         - `M32` - Produce a 32-bit binary
         - `NATIVE` - Tune build for native system
@@ -159,6 +160,7 @@ Progress can be found [here](TODO.md)
     - PS2
     - PSP
     - PS Vita
+    - 3DS
     - GameCube?
         - SDL 1.2 instead of 2.x
         - OpenGX is not OpenGL and gl2gx is unmaintained

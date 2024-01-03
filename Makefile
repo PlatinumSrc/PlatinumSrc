@@ -58,6 +58,7 @@ else ifeq ($(CROSS),emscr)
     NOMT := y
     NOGL33 := y
     NOGLES30 := y
+    EMULATOR ?= emrun --
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
@@ -141,7 +142,10 @@ _LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
 ifneq ($(CROSS),nxdk)
-    _CFLAGS += -Wundef -ffast-math -fvisibility=hidden
+    _CFLAGS += -Wundef -fvisibility=hidden
+    ifndef NOFASTMATH
+        _CFLAGS += -ffast-math
+    endif
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
     _LDLIBS += -lm
     ifeq ($(CROSS),win32)
@@ -276,6 +280,9 @@ endif
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
 ifdef NOSIMD
     CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
+endif
+ifdef NOMT
+    CPPFLAGS.dir.stb += -DSTBI_NO_THREAD_LOCALS
 endif
 
 CPPFLAGS.lib.discord_game_sdk := 
@@ -434,7 +441,7 @@ inc.null = $(null)
 .SECONDEXPANSION:
 
 define a
-$(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)')" ] || echo '$(_OBJDIR)/$(1).a')
+$(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).a')
 endef
 define inc
 $$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))

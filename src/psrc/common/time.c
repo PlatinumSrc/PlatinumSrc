@@ -31,7 +31,11 @@ uint64_t altutime(void) {
 
 void microwait(uint64_t d) {
     #if PLATFORM == PLAT_WIN32
+    #ifndef PSRC_NOMT
     static __thread HANDLE timer = NULL;
+    #else
+    static HANDLE timer = NULL;
+    #endif
     if (!timer) timer = CreateWaitableTimer(NULL, true, NULL);
     LARGE_INTEGER _d = {.QuadPart = d * -10};
     SetWaitableTimer(timer, &_d, 0, NULL, NULL, false);

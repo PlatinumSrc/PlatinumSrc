@@ -6,6 +6,10 @@
 #include "../platform.h"
 #include "../debug.h"
 
+#if PLATFORM == PLAT_EMSCR
+    #include <emscripten/html5.h>
+#endif
+
 #include <string.h>
 
 #include "../glue.h"
@@ -38,7 +42,20 @@ void setInputMode(enum inputmode m) {
     }
 }
 
+#if PLATFORM == PLAT_EMSCR
+static bool emscrfullscr = false;
+static EM_BOOL emscrfullscrcb(int e, const EmscriptenFullscreenChangeEvent* ed, void *d) {
+    (void)e; (void)d;
+    emscrfullscr = ed->isFullscreen;
+    return EM_TRUE;
+}
+#endif
+
 bool initInput(void) {
+    #if PLATFORM == PLAT_EMSCR
+    emscripten_set_fullscreenchange_callback("#canvas", NULL, false, emscrfullscrcb);
+    emscrfullscr = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN);
+    #endif
     char* tmp = cfg_getvar(config, "Input", "nocontroller");
     if (!strbool(tmp, false)) {
         //if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
@@ -62,6 +79,11 @@ void pollInput(void) {
     inputstate.curaction = 0;
     inputstate.mousechx = 0;
     inputstate.mousechy = 0;
+    #if PLATFORM == PLAT_EMSCR
+    if (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) {
+        if (!emscrfullscr) updateRendererConfig(RENDOPT_FULLSCREEN, 0, RENDOPT_END);
+    }
+    #endif
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -351,4 +373,7 @@ void clearInputActions(void) {
 
 void termInput(void) {
     clearInputActions();
+    #if PLATFORM == PLAT_EMSCR
+    emscripten_set_fullscreenchange_callback("#canvas", NULL, false, NULL);
+    #endif
 }

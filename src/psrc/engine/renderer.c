@@ -495,10 +495,15 @@ static void updateWindowMode(void) {
     switch (rendstate.mode) {
         case RENDMODE_WINDOWED: {
             rendstate.res.current = rendstate.res.windowed;
+            #if PLATFORM != PLAT_EMSCR
             SDL_SetWindowFullscreen(rendstate.window, 0);
+            #else
+            emscripten_exit_fullscreen();
+            #endif
             SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
         } break;
         case RENDMODE_BORDERLESS: {
+            #if PLATFORM != PLAT_EMSCR
             rendstate.res.current = rendstate.res.fullscr;
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
@@ -506,9 +511,18 @@ static void updateWindowMode(void) {
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+            #else
+            if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
+                rendstate.res.current = rendstate.res.fullscr;
+                SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+            } else {
+                plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
+                rendstate.mode = RENDMODE_WINDOWED;
+            }
+            #endif
         } break;
         case RENDMODE_FULLSCREEN: {
+            #if PLATFORM != PLAT_EMSCR
             rendstate.res.current = rendstate.res.fullscr;
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
@@ -516,7 +530,15 @@ static void updateWindowMode(void) {
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
-            SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+            #else
+            if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
+                rendstate.res.current = rendstate.res.fullscr;
+                SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+            } else {
+                plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
+                rendstate.mode = RENDMODE_WINDOWED;
+            }
+            #endif
         } break;
     }
     rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;

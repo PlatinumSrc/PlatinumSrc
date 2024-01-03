@@ -95,10 +95,15 @@ int initLoop(void) {
     freeResource(test);
 
     setInputMode(INPUTMODE_INGAME);
-    struct inputkey* k = inputKeysFromStr("k,escape;g,b,start");
+    struct inputkey* k;
+    #if PLATFORM != PLAT_EMSCR
+    k = inputKeysFromStr("k,escape;g,b,start");
+    #else
+    k = inputKeysFromStr("k,backspace;g,b,start");
+    #endif
     newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
     free(k);
-    k = inputKeysFromStr("k,f9");
+    k = inputKeysFromStr("k,f11");
     newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
     free(k);
     k = inputKeysFromStr("k,w;g,a,-lefty");
@@ -125,7 +130,11 @@ int initLoop(void) {
     k = inputKeysFromStr("m,m,+x;k,right;g,a,+rightx");
     newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
     free(k);
+    #if PLATFORM != PLAT_EMSCR
     k = inputKeysFromStr("k,left ctrl;g,b,leftstick");
+    #else
+    k = inputKeysFromStr("k,c;g,b,leftstick");
+    #endif
     newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
     free(k);
     k = inputKeysFromStr("k,space;g,b,a");

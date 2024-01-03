@@ -28,15 +28,7 @@
 
         </style>
     </head>
-    <body style="margin: 0px; background-color: #111; color: #ddd;">
-        <div class="emscripten" style="margin-top: 4px;">
-            <input type="button" value="Fullscreen" style="background-color: #333; color: #ddd;"
-            onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, document.getElementById('resize').checked)">
-            &nbsp;
-            <input type="checkbox" id="resize">Resize canvas
-            &nbsp;
-            <input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer
-        </div>
+    <body style="margin: 0px; background-color: #111; color: #ddd; position: absolute; top: 50%; right: 50%; transform: translate(50%,-50%); min-width: 50%;">
         <div class="emscripten" id="status" hidden=1 style="margin-top: 4px;"></div>
         <div class="emscripten">
             <progress value="0" max="100" id="progress" hidden=0></progress>
@@ -70,7 +62,7 @@
                     new ResizeObserver(function() {
                         var c = document.getElementById('canvas');
                         var o = document.getElementById('output');
-                        o.style = 'background-color: #333; color: #ddd; width: ' + (c.width - 6) + 'px'
+                        o.style = 'background-color: #333; color: #ddd; min-width: 320px; width: ' + (c.width - 6) + 'px'
                     }).observe(canvas);
                     return canvas;
                 })(),
