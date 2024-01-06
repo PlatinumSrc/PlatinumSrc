@@ -40,7 +40,7 @@ Format:
     Bone:
         <<String>: Name>
         <float[3]: Head position> <float[3]: Tail position>
-        <u16: Vertex count> [ <u16: Index> <float: Weight> ]...
+        <u16: Vertex count> [ <u16: Index> <u16: Weight> ]...
         <u8: Child count>
 
     Action:

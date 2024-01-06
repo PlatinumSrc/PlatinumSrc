@@ -1,9 +1,14 @@
 # PlatinumSrc
-#### A WIP 3D game engine inspired by GoldSrc and Quake<br>
+**A WIP 3D game engine inspired by GoldSrc and Quake**<br>
 Progress can be found [here](TODO.md)
 
 ---
-**Building**<br>
+- [Building](#Building)
+- [Running](#Running)
+- [Platforms](#Platforms)
+
+---
+#### Building
 - Dependencies
     - Compiling for Unix-like platforms
         - Compiling on the same Unix-like platform
@@ -15,7 +20,7 @@ Progress can be found [here](TODO.md)
         - Cross-compiling for FreeBSD
             - GNU Make
             - Clang
-            - FreeBSD's base.txz extracted to `external/FreeBSD_$(FREEBSD_VERSION)_$(ARCH)`
+            - FreeBSD's base.txz extracted to <code>external/FreeBSD_<i>\<version\></i>_<i>\<arch\></i></code>
                 - The default version is `12.4`, and the architecture is `x86_64` without `M32=y` and `i686` with `M32=y`
             - FreeBSD SDL2 installed into the extracted base.txz
     - Compiling for Windows
@@ -41,6 +46,10 @@ Progress can be found [here](TODO.md)
             - [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
                 - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
             - [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip)
+    - Compiling for web browsers
+        - Compiling to JS and WebAssembly using Emscripten
+            - GNU Make
+            - Emscripten
     - Compiling for the Xbox using the NXDK
         - Compiling on any supported platform
             - [NXDK](https://github.com/XboxDev/nxdk)
@@ -82,6 +91,7 @@ Progress can be found [here](TODO.md)
         - `CROSS` - Cross compile
             - `freebsd` - FreeBSD
             - `win32` - Windows 2000+ or Windows 98 with KernelEx
+            - `emscr` - Emscripten
             - `nxdk` - Xbox using NXDK
         - `FREEBSD_VERSION` - Version of FreeBSD to cross-compile to \(default is `12.4`\)
         - `EMULATOR` - Command used to run the executable or ROM
@@ -124,7 +134,7 @@ Progress can be found [here](TODO.md)
     ```
 
 ---
-**Running**<br>
+#### Running
 - Dependencies
     - Running the engine or editor on Unix-like platforms
         - SDL2
@@ -139,15 +149,15 @@ Progress can be found [here](TODO.md)
     4. Run the executable
 
 ---
-**Platforms**<br>
+#### Platforms
 - Supported
     - Linux
     - Windows 2000+ and Windows 98 with KernelEx
+    - MacOS
     - HaikuOS
     - Emscripten
     - Xbox \(NXDK\)
 - Untested
-    - MacOS
     - FreeBSD
     - NetBSD
     - OpenBSD

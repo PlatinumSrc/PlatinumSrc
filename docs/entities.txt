@@ -69,8 +69,6 @@ Entity data:
     Entity script:
         { <u8: ENTSCRIPT_EMBEDDED> <u32: Byte index in [Embedded script]...>
         | <u8: ENTSCRIPT_FROMFILE> <Server resource> }
-    Entity event:
-        <<Server string>: Name>
     Entity signal:
         <<Server string>: Name>
     Entity filter:

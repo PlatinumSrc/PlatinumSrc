@@ -1,10 +1,12 @@
-int quitreq;
+#include <stddef.h>
 
-char* maindir;
-char* userdir;
+int quitreq = 0;
 
-char* gamedir;
-char* savedir;
+char* maindir = NULL;
+char* userdir = NULL;
 
-struct cfg* config;
-struct cfg* gameconfig;
+char* gamedir = NULL;
+char* savedir = NULL;
+
+struct cfg* config = NULL;
+struct cfg* gameconfig = NULL;

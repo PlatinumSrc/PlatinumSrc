@@ -30,7 +30,7 @@ def save(operator, context, filepath,
 
     if bpy.ops.object.mode_set.poll(): bpy.ops.object.mode_set(mode = 'OBJECT')
 
-    objects = bpy.data.objects if use_selected else context.selected_objects
+    objects = context.selected_objects if use_selected else bpy.data.objects
 
     armature = None
 
@@ -87,8 +87,6 @@ def save(operator, context, filepath,
     if export_bones or export_anims:
         print("Finding an armature...")
         for obj in objects:
-            print(obj)
-            print("")
             if not obj.hide_get() and obj.type == 'ARMATURE':
                 print("Found an armature: " + obj.name)
                 armature = obj
@@ -237,7 +235,7 @@ def save(operator, context, filepath,
                 f.write(struct.pack("<fff", b[3][0], b[3][1], b[3][2]))
                 f.write(struct.pack("<H", len(b[4])))
                 for w in b[4]:
-                    f.write(struct.pack("<Hf", w[0], w[1]))
+                    f.write(struct.pack("<HH", w[0], int(round(w[1] * 65535))))
                 f.write(struct.pack("<B", b[5]))
         else:
             f.write(struct.pack("<B", 0))

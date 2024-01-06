@@ -1,3 +1,13 @@
+ifndef OS
+define null
+/dev/null
+endef
+else
+define null
+NUL
+endef
+endif
+
 ifndef MKSUB
 
 MODULE ?= engine
@@ -12,9 +22,9 @@ ifeq ($(CROSS),)
     AR ?= $(PREFIX)ar
     STRIP ?= $(PREFIX)strip
     ifndef M32
-        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o)_$(shell uname -m)))
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o 2> $(null) || uname -s; uname -m)))
     else
-        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o)_$(shell i386 uname -m)))
+        PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o 2> $(null) || i386 uname -s; i386 uname -m)))
     endif
 else ifeq ($(CROSS),freebsd)
     FREEBSD_VERSION := 12.4
@@ -427,22 +437,12 @@ $(EMULATOR) '$(1)'
 endef
 endif
 
-ifndef OS
-define null
-/dev/null
-endef
-else
-define null
-NUL
-endef
-endif
-inc.null = $(null)
-
 .SECONDEXPANSION:
 
 define a
 $(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).a')
 endef
+inc.null = $(null)
 define inc
 $$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
 endef
