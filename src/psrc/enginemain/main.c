@@ -153,15 +153,23 @@ static int bootstrap(void) {
         free(tmp);
     } else {
         const char* fallback = "default";
-        plog(LL_WARN, "No default game specified, falling back to %s", fallback);
+        plog(LL_WARN, "No default game specified, falling back to '%s'", fallback);
         gamedir = mkpath(NULL, fallback, NULL);
     }
+
+    tmp = mkpath(maindir, "games", gamedir, NULL);
+    if (isFile(tmp)) {
+        plog(LL_CRIT | LF_MSGBOX, "Could not find game directory for '%s'", gamedir);
+        free(tmp);
+        return 1;
+    }
+    free(tmp);
 
     tmp = mkpath(maindir, "games", gamedir, "game.cfg", NULL);
     gameconfig = cfg_open(tmp);
     free(tmp);
     if (!gameconfig) {
-        plog(LL_CRIT | LF_MSGBOX, "Could not read game config for %s", gamedir);
+        plog(LL_CRIT | LF_MSGBOX, "Could not read game.cfg for '%s'", gamedir);
         return 1;
     }
 

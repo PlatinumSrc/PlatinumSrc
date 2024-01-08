@@ -8,20 +8,28 @@
 struct compilerfile {
     FILE* f;
     int line;
-    int prevc;
+    int prev;
+    bool undo;
 };
 static inline int compiler_fgetc(struct compilerfile* f) {
-    int c = f->prevc;
+    int c = f->prev;
+    if (f->undo) {
+        f->undo = false;
+        return c;
+    }
     if (c == '\n') ++f->line;
     c = fgetc(f->f);
-    f->prevc = c;
+    f->prev = c;
     return c;
 }
+static inline void compiler_fungetc(struct compilerfile* f) {
+    f->undo = true;
+}
 static inline bool compiler_fopen(const char* p, struct compilerfile* f) {
-    f->f = fopen(p, "rb");
+    f->f = fopen(p, "r");
     if (!f->f) return false;
     f->line = 1;
-    f->prevc = EOF;
+    f->prev = EOF;
     return true;
 }
 
@@ -169,17 +177,24 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct scr
             return false;
         }
     }
+    bool ret = true;
     struct charbuf cmd;
     struct charbuf args;
     cb_init(&cmd, 32);
     cb_init(&args, 256);
     while (1) {
-        cb_clear(&cmd);
-        //if (!compiler_getcmd(f, &cmd);
+        if (!compiler_getcmd(&f, &cmd)) {
+            if (e) *e = strdup("Syntax error");
+            goto ret;
+        }
+        compiler_fungetc(&f);
         //if (tmp == -1)
+        cb_clear(&cmd);
     }
+    ret:;
     cb_dump(&cmd);
     cb_dump(&args);
+    return ret;
 }
 
 bool createScriptEventTable(struct scripteventtable* t, int s) {

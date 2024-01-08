@@ -1,11 +1,17 @@
 # PlatinumSrc
-**A WIP 3D game engine inspired by GoldSrc and Quake**<br>
+**A WIP retro 3D game engine inspired by GoldSrc and Quake**<br>
 Progress can be found [here](TODO.md)
 
 ---
 - [Building](#Building)
 - [Running](#Running)
 - [Platforms](#Platforms)
+
+---
+#### Demo video
+Using [H-74](https://github.com/PQCraft/H-74), and [test_model](https://github.com/PQCraft/PQCraft/raw/master/test_model.p3m) in `games/test/`
+
+https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5044fe3e
 
 ---
 #### Building
