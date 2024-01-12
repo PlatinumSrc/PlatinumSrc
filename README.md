@@ -1,4 +1,4 @@
-# PlatinumSrc
+# PlatinumSrc<img src="https://raw.githubusercontent.com/PQCraft/PlatinumSrc/master/icons/engine.png" align="right" height="120"/>
 **A WIP retro 3D game engine inspired by GoldSrc and Quake**<br>
 Progress can be found [here](TODO.md)
 
@@ -9,31 +9,26 @@ Progress can be found [here](TODO.md)
 
 ---
 #### Demo video
-Using [H-74](https://github.com/PQCraft/H-74), and [test_model](https://github.com/PQCraft/PQCraft/raw/master/test_model.p3m) in `games/test/`
+Using [H-74](https://github.com/PQCraft/H-74), and [test_model.p3m](https://github.com/PQCraft/PQCraft/raw/master/test_model.p3m) in `games/test/`
 
 https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5044fe3e
 
 ---
 #### Building
 - Dependencies
-    - Compiling for Unix-like platforms
-        - Compiling on the same Unix-like platform
-            - GNU Make
-            - GCC with GNU Binutils or Clang with LLVM
-                - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
-                - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
-            - SDL2
-        - Cross-compiling for FreeBSD
-            - GNU Make
-            - Clang
-            - FreeBSD's base.txz extracted to <code>external/FreeBSD_<i>\<version\></i>_<i>\<arch\></i></code>
-                - The default version is `12.4`, and the architecture is `x86_64` without `M32=y` and `i686` with `M32=y`
-            - FreeBSD SDL2 installed into the extracted base.txz
+    - Compiling natively on Unix-like systems
+        - GNU Make
+        - GCC with GNU Binutils or Clang with LLVM
+            - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+            - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
+        - SDL2
+    - Cross-compiling for FreeBSD
+        - GNU Make
+        - Clang
+        - FreeBSD's base.txz extracted to <code>external/FreeBSD_<i>\<version\></i>_<i>\<arch\></i></code>
+            - The default version is `12.4`, and the architecture is `x86_64` without `M32=y` and `i686` with `M32=y`
+        - FreeBSD SDL2 installed into the extracted base.txz
     - Compiling for Windows
-        - Cross-compiling on Unix-like platforms
-            - GNU Make
-            - MinGW
-            - MinGW SDL2
         - Compiling on Windows with MSYS2
             - MSYS2
             - GNU Make
@@ -45,6 +40,10 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - Make for Windows
             - MinGW
             - MinGW SDL2
+        - Cross-compiling on Unix-like platforms
+            - GNU Make
+            - MinGW
+            - MinGW SDL2
     - Compiling for Windows 2000 or Windows 98 with KernelEx
         - Cross-compiling on Unix-like platforms
             - Wine
@@ -52,20 +51,18 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
                 - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
             - [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip)
-    - Compiling for web browsers
-        - Compiling to JS and WebAssembly using Emscripten
-            - GNU Make
-            - Emscripten
+    - Compiling for web browsers using Emscripten
+        - GNU Make
+        - Emscripten
     - Compiling for the Xbox using the NXDK
-        - Compiling on any supported platform
-            - [NXDK](https://github.com/XboxDev/nxdk)
-                - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
-                - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
-                - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
-            - [pbGL](https://github.com/fgsfdsfgs/pbgl)
-                1. Go to the NXDK directory
-                2. Copy the pbgl folder into `lib/`
-                3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
+        - [NXDK](https://github.com/XboxDev/nxdk)
+            - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
+            - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
+            - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
+        - [pbGL](https://github.com/fgsfdsfgs/pbgl)
+            1. Go to the NXDK directory
+            2. Copy the pbgl folder into `lib/`
+            3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
 
 - Setup
     - Xbox

@@ -102,60 +102,6 @@ static inline int interpesc(struct compilerfile* f, int c, uint8_t flags, char* 
     *l = 1;
     return 0;
 }
-static inline bool compiler_getcmd(struct compilerfile* f, struct charbuf* out) {
-    char inStr = 0;
-    while (1) {
-        int c = compiler_fgetc(f);
-        if (c == '"') {
-            inStr = '"';
-        } else if (c == '\'') {
-            inStr = '\'';
-        } else {
-            if (inStr == '"') {
-                if (c == EOF) {
-                    return false;
-                }
-                if (c == '"') {
-                    inStr = 0;
-                } else if (c == '\\') {
-                    char tmp[3];
-                    int len;
-                    c = interpesc(f, c, IESC_QUO, tmp, &len);
-                    cb_addpartstr(out, tmp, len);
-                } else {
-                    cb_add(out, c);
-                }
-            } else if (inStr == '\'') {
-                if (c == EOF) {
-                    return false;
-                }
-                if (c == '\'') {
-                    inStr = 0;
-                } else if (c == '\\') {
-                    char tmp[3];
-                    int len;
-                    c = interpesc(f, c, IESC_APO, tmp, &len);
-                    cb_addpartstr(out, tmp, len);
-                } else {
-                    cb_add(out, c);
-                }
-            } else {
-                if (c == EOF || c == ' ' || c == '\n' || c == '\t' || !c) {
-                    return true;
-                } else if (c == '\\') {
-                    if (c == '\\') {
-                        cb_add(out, '\\');
-                    } else if (c != '\n') {
-                        cb_add(out, '\\');
-                        cb_add(out, c);
-                    }
-                } else {
-                    cb_add(out, c);
-                }
-            }
-        }
-    }
-}
 bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct script* out, char** e) {
     (void)findcmd; (void)out;
     struct compilerfile f;
@@ -178,22 +124,148 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct scr
         }
     }
     bool ret = true;
-    struct charbuf cmd;
-    struct charbuf args;
-    cb_init(&cmd, 32);
-    cb_init(&args, 256);
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    int scope = 0;
+    char instr;
     while (1) {
-        if (!compiler_getcmd(&f, &cmd)) {
-            if (e) *e = strdup("Syntax error");
-            goto ret;
+        int tmp;
+        do {
+            tmp = compiler_fgetc(&f);
+        } while (tmp == ' ' || tmp == '\t' || tmp == '\n');
+        compiler_fungetc(&f);
+        instr = 0;
+        while (1) {
+            tmp = compiler_fgetc(&f);
+            if (tmp == '"') {
+                instr = '"';
+            } else if (tmp == '\'') {
+                instr = '\'';
+            } else {
+                if (instr == '"') {
+                    if (tmp == EOF) {
+                        ret = false;
+                        if (e) *e = strdup("Unexpected EOF");
+                        goto ret;
+                    }
+                    if (tmp == '"') {
+                        instr = 0;
+                    } else if (tmp == '\\') {
+                        char tmp2[3];
+                        int len;
+                        tmp = interpesc(&f, tmp, IESC_QUO, tmp2, &len);
+                        cb_addpartstr(&cb, tmp2, len);
+                    } else {
+                        cb_add(&cb, tmp);
+                    }
+                } else if (instr == '\'') {
+                    if (tmp == EOF) {
+                        ret = false;
+                        if (e) *e = strdup("Unexpected EOF");
+                        goto ret;
+                    }
+                    if (tmp == '\'') {
+                        instr = 0;
+                    } else if (tmp == '\\') {
+                        char tmp2[3];
+                        int len;
+                        tmp = interpesc(&f, tmp, IESC_APO, tmp2, &len);
+                        cb_addpartstr(&cb, tmp2, len);
+                    } else {
+                        cb_add(&cb, tmp);
+                    }
+                } else {
+                    if (tmp == EOF || tmp == ' ' || tmp == '\n' || tmp == '\t' || !tmp) {
+                        break;
+                    } else if (tmp == '\\') {
+                        if (tmp == '\\') {
+                            cb_add(&cb, '\\');
+                        } else if (tmp != '\n') {
+                            cb_add(&cb, '\\');
+                            cb_add(&cb, tmp);
+                        }
+                    } else {
+                        cb_add(&cb, tmp);
+                    }
+                }
+            }
         }
         compiler_fungetc(&f);
-        //if (tmp == -1)
-        cb_clear(&cmd);
+        do {
+            tmp = compiler_fgetc(&f);
+        } while (tmp == ' ' || tmp == '\t');
+        if (tmp == '\n' || !tmp) goto nextcmd;
+        if (tmp == EOF) goto ret;
+        compiler_fungetc(&f);
+        while (1) {
+            instr = 0;
+            while (1) {
+                tmp = compiler_fgetc(&f);
+                if (tmp == '"') {
+                    instr = '"';
+                } else if (tmp == '\'') {
+                    instr = '\'';
+                } else {
+                    if (instr == '"') {
+                        if (tmp == EOF) {
+                            ret = false;
+                            if (e) *e = strdup("Unexpected EOF");
+                            goto ret;
+                        }
+                        if (tmp == '"') {
+                            instr = 0;
+                        } else if (tmp == '\\') {
+                            char tmp2[3];
+                            int len;
+                            tmp = interpesc(&f, tmp, IESC_QUO, tmp2, &len);
+                            cb_addpartstr(&cb, tmp2, len);
+                        } else {
+                            cb_add(&cb, tmp);
+                        }
+                    } else if (instr == '\'') {
+                        if (tmp == EOF) {
+                            ret = false;
+                            if (e) *e = strdup("Unexpected EOF");
+                            goto ret;
+                        }
+                        if (tmp == '\'') {
+                            instr = 0;
+                        } else if (tmp == '\\') {
+                            char tmp2[3];
+                            int len;
+                            tmp = interpesc(&f, tmp, IESC_APO, tmp2, &len);
+                            cb_addpartstr(&cb, tmp2, len);
+                        } else {
+                            cb_add(&cb, tmp);
+                        }
+                    } else {
+                        if (tmp == EOF || tmp == ' ' || tmp == '\n' || tmp == '\t' || !tmp) {
+                            break;
+                        } else if (tmp == '\\') {
+                            if (tmp == '\\') {
+                                cb_add(&cb, '\\');
+                            } else if (tmp != '\n') {
+                                cb_add(&cb, '\\');
+                                cb_add(&cb, tmp);
+                            }
+                        } else {
+                            cb_add(&cb, tmp);
+                        }
+                    }
+                }
+            }
+            nextarg:;
+            do {
+                tmp = compiler_fgetc(&f);
+            } while (tmp == ' ' || tmp == '\t');
+            if (tmp == '\n' || !tmp) goto nextcmd;
+            if (tmp == EOF) goto ret;
+        }
+        nextcmd:;
+        cb_clear(&cb);
     }
     ret:;
-    cb_dump(&cmd);
-    cb_dump(&args);
+    cb_dump(&cb);
     return ret;
 }
 
