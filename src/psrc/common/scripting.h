@@ -1,8 +1,8 @@
 #ifndef PSRC_COMMON_SCRIPTING
 #define PSRC_COMMON_SCRIPTING
 
-#include "../utils/string.h"
-#include "../utils/threading.h"
+#include "string.h"
+#include "threading.h"
 
 #include <stdint.h>
 #include <stdbool.h>

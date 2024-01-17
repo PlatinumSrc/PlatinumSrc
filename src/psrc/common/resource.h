@@ -1,11 +1,12 @@
 #ifndef PSRC_COMMON_RESOURCE_H
 #define PSRC_COMMON_RESOURCE_H
 
-#include "../utils/config.h"
+#include "config.h"
+#include "p3m.h"
 
-#include "../common/p3m.h"
-
-#include "../../schrift/schrift.h"
+#ifndef MODULE_SERVER
+    #include "../../schrift/schrift.h"
+#endif
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -46,7 +47,9 @@ struct __attribute__((packed)) rc_values {
 
 // RC_FONT
 struct __attribute__((packed)) rc_font {
+    #ifndef MODULE_SERVER
     SFT_Font* font;
+    #endif
 };
 
 // RC_TEXTURE

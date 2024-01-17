@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "../utils/threading.h"
+#include "../common/threading.h"
 
 enum __attribute__((packed)) uielemtype {
     UIELEMTYPE_CONTAINER,

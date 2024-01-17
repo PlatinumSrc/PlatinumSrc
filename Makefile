@@ -183,7 +183,7 @@ ifneq ($(CROSS),nxdk)
         else
             ifdef WINPTHREAD
                 _CFLAGS += -pthread
-                _CPPFLAGS += -DPSRC_UTILS_THREADING_WINPTHREAD
+                _CPPFLAGS += -DPSRC_COMMON_THREADING_WINPTHREAD
                 _LDLIBS += -l:libwinpthread.a
             endif
         endif
@@ -258,13 +258,13 @@ define so
 $(1)$(SOSUF)
 endef
 
-CPPFLAGS.dir.psrc_utils := 
+CPPFLAGS.dir.psrc_common := 
 ifeq ($(CROSS),nxdk)
-    CPPFLAGS.dir.psrc_utils += -DPSRC_UTILS_THREADING_STDC
+    CPPFLAGS.dir.psrc_common += -DPSRC_COMMON_THREADING_STDC
 endif
-LDLIBS.dir.psrc_utils := 
+LDLIBS.dir.psrc_common := 
 ifeq ($(CROSS),win32)
-    LDLIBS.dir.psrc_utils += -lwinmm
+    LDLIBS.dir.psrc_common += -lwinmm
 endif
 
 LDLIBS.dir.psrc_server := 
@@ -319,22 +319,22 @@ ifeq ($(MODULE),engine)
     _CPPFLAGS += -DMODULE_ENGINE
     _WRFLAGS += -DMODULE_ENGINE
     _CFLAGS += $(CFLAGS.lib.SDL2)
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
+    _LDLIBS +=  $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
     _LDLIBS +=  $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DMODULE_SERVER
     _WRFLAGS += -DMODULE_SERVER
     _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_utils) $(LDLIBS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc_common) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DMODULE_EDITOR
     _WRFLAGS += -DMODULE_EDITOR
     _CFLAGS += $(CFLAGS.lib.SDL2)
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_utils)
+    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_utils)
+    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2)
 endif
 
@@ -470,30 +470,31 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifndef MKSUB
 
-a.dir.psrc_editor = $(call a,psrc/editor) $(call a,psrc/common) $(call a,psrc/utils)
+a.dir.psrc_common = $(call a,psrc/common)
+ifneq ($(MODULE),server)
+a.dir.psrc_common += $(call a,stb) $(call a,minimp3) $(call a,schrift)
+endif
 
-a.dir.psrc_editormain = $(call a,psrc/editormain) $(a.dir.psrc_editor) $(a.dir.psrc_engine) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
+a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_engine)
 
-a.dir.psrc_engine = $(call a,psrc/engine) $(call a,psrc/common) $(call a,stb) $(call a,minimp3) $(call a,schrift) $(call a,psrc/utils)
+a.dir.psrc_engine = $(call a,psrc/engine) $(a.dir.psrc_server)
 ifeq ($(CROSS),emscr)
 else ifeq ($(CROSS),nxdk)
 else ifndef NOGL
 a.dir.psrc_engine += $(call a,glad)
 endif
 
-a.dir.psrc_enginemain = $(call a,psrc/enginemain) $(a.dir.psrc_engine) $(a.dir.psrc_server) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
+a.dir.psrc_server = $(call a,psrc/server)
 
-a.dir.psrc_server = $(call a,psrc/server) $(call a,psrc/common) $(call a,psrc/utils)
-
-a.dir.psrc_servermain = $(call a,psrc/servermain) $(a.dir.psrc_server) $(call a,psrc/common) $(call a,psrc/utils) $(call a,psrc)
-
+a.list = $(call a,psrc)
 ifeq ($(MODULE),engine)
-a.list = $(a.dir.psrc_enginemain)
+a.list += $(a.dir.psrc_engine)
 else ifeq ($(MODULE),server)
-a.list = $(a.dir.psrc_servermain)
+a.list += $(a.dir.psrc_server)
 else ifeq ($(MODULE),editor)
-a.list = $(a.dir.psrc_editormain)
+a.list += $(a.dir.psrc_editor)
 endif
+a.list += $(a.dir.psrc_common) $(call a,psrc)
 
 $(BINPATH): $(OBJECTS) $(a.list)
 ifeq ($(CROSS),nxdk)

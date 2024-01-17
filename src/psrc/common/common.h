@@ -1,7 +1,7 @@
 #ifndef PSRC_COMMON_COMMON_H
 #define PSRC_COMMON_COMMON_H
 
-#include "../utils/config.h"
+#include "config.h"
 
 extern int quitreq;
 

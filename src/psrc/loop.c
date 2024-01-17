@@ -1,15 +1,12 @@
-#include "loop.h"
-#include "main.h"
-
-#include "../engine/renderer.h"
-#include "../engine/input.h"
-#include "../engine/ui.h"
-#include "../engine/audio.h"
-#include "../utils/logging.h"
-#include "../utils/config.h"
-#include "../utils/filesystem.h"
-#include "../common/common.h"
-#include "../common/time.h"
+#include "engine/renderer.h"
+#include "engine/input.h"
+#include "engine/ui.h"
+#include "engine/audio.h"
+#include "common/logging.h"
+#include "common/config.h"
+#include "common/filesystem.h"
+#include "common/common.h"
+#include "common/time.h"
 
 static struct rc_sound* test;
 static uint64_t testsound = -1;
@@ -21,6 +18,7 @@ enum __attribute__((packed)) action {
     ACTION_NONE,
     ACTION_MENU,
     ACTION_FULLSCREEN,
+    ACTION_SCREENSHOT,
     ACTION_MOVE_FORWARDS,
     ACTION_MOVE_BACKWARDS,
     ACTION_MOVE_LEFT,
@@ -106,6 +104,9 @@ int initLoop(void) {
     k = inputKeysFromStr("k,f11");
     newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
     free(k);
+    k = inputKeysFromStr("k,f2");
+    newInputAction(INPUTACTIONTYPE_ONCE, "screenshot", k, (void*)ACTION_SCREENSHOT);
+    free(k);
     k = inputKeysFromStr("k,w;g,a,-lefty");
     newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
     free(k);
@@ -180,6 +181,8 @@ void doLoop(void) {
     double t = (double)(lt / 1000) + dt;
     changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
 
+    static bool screenshot = false;
+
     bool walk = false;
     float movex = 0.0, movez = 0.0, movey = 0.0;
     float lookx = 0.0, looky = 0.0;
@@ -189,6 +192,7 @@ void doLoop(void) {
         switch ((enum action)a.userdata) {
             case ACTION_MENU: ++quitreq; break;
             case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
+            case ACTION_SCREENSHOT: screenshot = true; break;
             case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0; break;
             case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0; break;
             case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0; break;
@@ -238,11 +242,52 @@ void doLoop(void) {
     render();
     display();
 
+    if (screenshot) {
+        int sz;
+        void* d = takeScreenshot(NULL, NULL, &sz);
+        FILE* f = fopen("screenshot.data", "wb");
+        fwrite(d, 1, sz, f);
+        fclose(f);
+        free(d);
+        screenshot = false;
+    }
+
     uint64_t tmp = altutime();
     uint64_t frametime = tmp - framestamp;
     framestamp = tmp;
     framemult = frametime / 1000000.0;
 }
+
+#if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+static thread_t watchdogthread;
+static volatile bool killwatchdog;
+static void* watchdog(struct thread_data* td) {
+    plog(LL_INFO, "Watchdog armed for %u seconds", (unsigned)td->args);
+    uint64_t t = altutime() + (uint64_t)(td->args) * 1000000;
+    while (t > altutime()) {
+        if (killwatchdog) {
+            killwatchdog = false;
+            plog(LL_INFO, "Watchdog cancelled");
+            return NULL;
+        }
+        yield();
+    }
+    HalReturnToFirmware(HalRebootRoutine);
+    return NULL;
+}
+static void armWatchdog(unsigned sec) {
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
+static void cancelWatchdog(void) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+}
+static void rearmWatchdog(unsigned sec) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
+#endif
 
 void termLoop(void) {
     plog(LL_INFO, "Quit requested");

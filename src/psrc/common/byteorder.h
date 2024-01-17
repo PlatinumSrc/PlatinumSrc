@@ -1,5 +1,5 @@
-#ifndef PSRC_UTILS_BYTEORDER
-#define PSRC_UTILS_BYTEORDER
+#ifndef PSRC_COMMON_BYTEORDER
+#define PSRC_COMMON_BYTEORDER
 
 #include "../platform.h"
 

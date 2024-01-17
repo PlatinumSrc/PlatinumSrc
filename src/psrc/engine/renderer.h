@@ -132,6 +132,7 @@ void stopRenderer(void);
 void termRenderer(void);
 void render(void);
 void display(void);
+void* takeScreenshot(int*, int*, int*);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];

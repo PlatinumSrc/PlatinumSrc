@@ -16,6 +16,7 @@ Format:
         <u8: Major version> <u8: Minor version>
         <char[... 0]: Name> <char[... 0]: Authors> <char[... 0]: Description>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
+        <<u8: 0..16>: Gamemode count> [char[... 0]: Gamemode]...
 
     Data:
         <u32: Cube count (must be at least 1)> <Cube (First should be the root cube)>... <Cube data>...

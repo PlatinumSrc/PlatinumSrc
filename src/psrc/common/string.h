@@ -1,5 +1,5 @@
-#ifndef PSRC_UTILS_STRING_H
-#define PSRC_UTILS_STRING_H
+#ifndef PSRC_COMMON_STRING_H
+#define PSRC_COMMON_STRING_H
 
 #include <stdlib.h>
 #include <stdbool.h>

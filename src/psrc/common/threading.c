@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+#if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
 DWORD WINAPI threadwrapper(LPVOID t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     ExitThread(0);
@@ -15,8 +15,8 @@ DWORD WINAPI threadwrapper(LPVOID t) {
 }
 #else
 static void* threadwrapper(void* t) {
-    #ifndef UTILS_THREADING_NONAMES
-        #ifndef PSRC_UTILS_THREADING_STDC
+    #ifndef COMMON_THREADING_NONAMES
+        #ifndef PSRC_COMMON_THREADING_STDC
             #if defined(__GLIBC__)
                 pthread_setname_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_NETBSD
@@ -42,8 +42,8 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.args = a;
     t->data.shouldclose = false;
     bool fail;
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
     #else
     fail = pthread_create(&t->thread, NULL, threadwrapper, t);
@@ -73,8 +73,8 @@ void destroyThread(thread_t* t, void** r) {
     plog(LL_INFO | LF_DEBUG, "Stopping thread %s...", (t->name) ? t->name : "(null)");
     #endif
     t->data.shouldclose = true;
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     WaitForSingleObject(t->thread, INFINITE);
     if (r) *r = t->ret;
     #else

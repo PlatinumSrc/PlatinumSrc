@@ -2,7 +2,7 @@
 #define PSRC_ENGINE_INPUT_H
 
 #include "../platform.h"
-#include "../utils/threading.h"
+#include "../common/threading.h"
 
 #if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>

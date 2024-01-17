@@ -3,16 +3,18 @@
 
 #include "../debug.h"
 
-#include "../utils/logging.h"
-#include "../utils/string.h"
-#include "../utils/filesystem.h"
-#include "../utils/threading.h"
-#include "../utils/crc.h"
+#include "logging.h"
+#include "string.h"
+#include "filesystem.h"
+#include "threading.h"
+#include "crc.h"
 
-#include "../../stb/stb_image.h"
-#include "../../stb/stb_image_resize.h"
-#include "../../stb/stb_vorbis.h"
-#include "../../minimp3/minimp3_ex.h"
+#ifndef MODULE_SERVER
+    #include "../../stb/stb_image.h"
+    #include "../../stb/stb_image_resize.h"
+    #include "../../stb/stb_vorbis.h"
+    #include "../../minimp3/minimp3_ex.h"
+#endif
 
 #if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
@@ -439,6 +441,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->config.config = config;
             }
         } break;
+        #ifndef MODULE_SERVER
         case RC_FONT: {
             SFT_Font* font = sft_loadfile(p);
             if (font) {
@@ -446,6 +449,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->font.font = font;
             }
         } break;
+        #endif
         case RC_MATERIAL: {
             struct cfg* mat = cfg_open(p);
             if (mat) {
@@ -496,6 +500,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 }
             }
         } break;
+        #ifndef MODULE_SERVER
         case RC_SOUND: {
             FILE* f = fopen(p, "rb");
             if (f) {
@@ -691,6 +696,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 }
             }
         } break;
+        #endif
         case RC_VALUES: {
             struct cfg* values = cfg_open(p);
             if (values) {

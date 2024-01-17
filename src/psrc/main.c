@@ -1,17 +1,17 @@
-#include "main.h"
+#ifndef MODULE_SERVER
+
+#include "common/logging.h"
+#include "common/string.h"
+#include "common/filesystem.h"
+#include "common/config.h"
+#include "common/resource.h"
+#include "common/common.h"
+#include "common/time.h"
+
+#include "version.h"
+#include "platform.h"
+#include "debug.h"
 #include "loop.h"
-
-#include "../utils/logging.h"
-#include "../utils/string.h"
-#include "../utils/filesystem.h"
-#include "../utils/config.h"
-#include "../common/resource.h"
-#include "../common/common.h"
-#include "../common/time.h"
-
-#include "../version.h"
-#include "../platform.h"
-#include "../debug.h"
 
 #if PLATFORM != PLAT_NXDK
     #include <SDL2/SDL.h>
@@ -36,7 +36,7 @@
     #include <GL/gl.h>
 #endif
 
-#include "../glue.h"
+#include "glue.h"
 
 #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
 static void sigh_log(int l, char* name, char* msg) {
@@ -79,8 +79,8 @@ static void sigh(int sig) {
 #endif
 
 #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
-thread_t watchdogthread;
-volatile bool killwatchdog;
+static thread_t watchdogthread;
+static volatile bool killwatchdog;
 static void* watchdog(struct thread_data* td) {
     plog(LL_INFO, "Watchdog armed for %u seconds", (unsigned)td->args);
     uint64_t t = altutime() + (uint64_t)(td->args) * 1000000;
@@ -95,14 +95,14 @@ static void* watchdog(struct thread_data* td) {
     HalReturnToFirmware(HalRebootRoutine);
     return NULL;
 }
-void armWatchdog(unsigned sec) {
+static void armWatchdog(unsigned sec) {
     createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
 }
-void cancelWatchdog(void) {
+static void cancelWatchdog(void) {
     killwatchdog = true;
     destroyThread(&watchdogthread, NULL);
 }
-void rearmWatchdog(unsigned sec) {
+static void rearmWatchdog(unsigned sec) {
     killwatchdog = true;
     destroyThread(&watchdogthread, NULL);
     createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
@@ -398,3 +398,5 @@ int main(int argc, char** argv) {
     #endif
     return ret;
 }
+
+#endif

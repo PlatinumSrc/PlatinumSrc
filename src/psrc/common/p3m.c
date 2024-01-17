@@ -2,9 +2,9 @@
 
 #include "../debug.h"
 
-#include "../utils/filesystem.h"
-#include "../utils/logging.h"
-#include "../utils/byteorder.h"
+#include "filesystem.h"
+#include "logging.h"
+#include "byteorder.h"
 
 #include <stdio.h>
 #include <stdlib.h>

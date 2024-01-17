@@ -1020,8 +1020,8 @@ static void glad_gl_load_GL_VERSION_1_0( GLADuserptrloadfunc load, void* userptr
 //    glad_glRasterPos4iv = (PFNGLRASTERPOS4IVPROC) load(userptr, "glRasterPos4iv");
 //    glad_glRasterPos4s = (PFNGLRASTERPOS4SPROC) load(userptr, "glRasterPos4s");
 //    glad_glRasterPos4sv = (PFNGLRASTERPOS4SVPROC) load(userptr, "glRasterPos4sv");
-//    glad_glReadBuffer = (PFNGLREADBUFFERPROC) load(userptr, "glReadBuffer");
-//    glad_glReadPixels = (PFNGLREADPIXELSPROC) load(userptr, "glReadPixels");
+    glad_glReadBuffer = (PFNGLREADBUFFERPROC) load(userptr, "glReadBuffer");
+    glad_glReadPixels = (PFNGLREADPIXELSPROC) load(userptr, "glReadPixels");
 //    glad_glRectd = (PFNGLRECTDPROC) load(userptr, "glRectd");
 //    glad_glRectdv = (PFNGLRECTDVPROC) load(userptr, "glRectdv");
 //    glad_glRectf = (PFNGLRECTFPROC) load(userptr, "glRectf");
@@ -1677,7 +1677,7 @@ static void glad_gl_load_GL_ES_VERSION_2_0( GLADuserptrloadfunc load, void* user
 //    glad_glLinkProgram = (PFNGLLINKPROGRAMPROC) load(userptr, "glLinkProgram");
 //    glad_glPixelStorei = (PFNGLPIXELSTOREIPROC) load(userptr, "glPixelStorei");
 //    glad_glPolygonOffset = (PFNGLPOLYGONOFFSETPROC) load(userptr, "glPolygonOffset");
-//    glad_glReadPixels = (PFNGLREADPIXELSPROC) load(userptr, "glReadPixels");
+    glad_glReadPixels = (PFNGLREADPIXELSPROC) load(userptr, "glReadPixels");
 //    glad_glReleaseShaderCompiler = (PFNGLRELEASESHADERCOMPILERPROC) load(userptr, "glReleaseShaderCompiler");
 //    glad_glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) load(userptr, "glRenderbufferStorage");
 //    glad_glSampleCoverage = (PFNGLSAMPLECOVERAGEPROC) load(userptr, "glSampleCoverage");
@@ -1800,7 +1800,7 @@ static void glad_gl_load_GL_ES_VERSION_3_0( GLADuserptrloadfunc load, void* user
 //    glad_glPauseTransformFeedback = (PFNGLPAUSETRANSFORMFEEDBACKPROC) load(userptr, "glPauseTransformFeedback");
 //    glad_glProgramBinary = (PFNGLPROGRAMBINARYPROC) load(userptr, "glProgramBinary");
 //    glad_glProgramParameteri = (PFNGLPROGRAMPARAMETERIPROC) load(userptr, "glProgramParameteri");
-//    glad_glReadBuffer = (PFNGLREADBUFFERPROC) load(userptr, "glReadBuffer");
+    glad_glReadBuffer = (PFNGLREADBUFFERPROC) load(userptr, "glReadBuffer");
 //    glad_glRenderbufferStorageMultisample = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC) load(userptr, "glRenderbufferStorageMultisample");
 //    glad_glResumeTransformFeedback = (PFNGLRESUMETRANSFORMFEEDBACKPROC) load(userptr, "glResumeTransformFeedback");
 //    glad_glSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) load(userptr, "glSamplerParameterf");

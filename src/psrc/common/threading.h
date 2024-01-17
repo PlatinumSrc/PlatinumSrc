@@ -1,5 +1,5 @@
-#ifndef PSRC_UTILS_THREADING_H
-#define PSRC_UTILS_THREADING_H
+#ifndef PSRC_COMMON_THREADING_H
+#define PSRC_COMMON_THREADING_H
 
 #ifndef PSRC_NOMT
 
@@ -8,8 +8,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+#ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
         #include <windows.h>
     #else
         #include <pthread.h>
@@ -26,8 +26,8 @@ struct thread_data {
 };
 typedef void* (*threadfunc_t)(struct thread_data*);
 typedef struct thread_t {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     HANDLE thread;
     #else
     pthread_t thread;
@@ -38,12 +38,12 @@ typedef struct thread_t {
     char* name;
     threadfunc_t func;
     struct thread_data data;
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     void* ret;
     #endif
 } thread_t;
-#ifndef PSRC_UTILS_THREADING_STDC
-#if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+#ifndef PSRC_COMMON_THREADING_STDC
+#if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
 typedef CRITICAL_SECTION mutex_t;
 #else
 typedef pthread_mutex_t mutex_t;
@@ -60,8 +60,8 @@ bool createThread(thread_t*, const char* name, threadfunc_t func, void* args);
 void quitThread(thread_t*);
 void destroyThread(thread_t*, void** ret);
 
-#ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+#ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
         #define yield() Sleep(0)
     #else
         #define yield() sched_yield()
@@ -71,8 +71,8 @@ void destroyThread(thread_t*, void** ret);
 #endif
 
 static inline bool createMutex(mutex_t* m) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     InitializeCriticalSection(m);
     return true;
     #else
@@ -83,8 +83,8 @@ static inline bool createMutex(mutex_t* m) {
     #endif
 }
 static inline void lockMutex(mutex_t* m) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     EnterCriticalSection(m);
     #else
     while (pthread_mutex_lock(m)) {}
@@ -100,8 +100,8 @@ static inline void lockMutex(mutex_t* m) {
     #endif
 }
 static inline void unlockMutex(mutex_t* m) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     LeaveCriticalSection(m);
     #else
     while (pthread_mutex_unlock(m)) {}
@@ -111,8 +111,8 @@ static inline void unlockMutex(mutex_t* m) {
     #endif
 }
 static inline void destroyMutex(mutex_t* m) {
-    #ifndef PSRC_UTILS_THREADING_STDC
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_UTILS_THREADING_WINPTHREAD)
+    #ifndef PSRC_COMMON_THREADING_STDC
+    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_COMMON_THREADING_WINPTHREAD)
     DeleteCriticalSection(m);
     #else
     pthread_mutex_destroy(m);

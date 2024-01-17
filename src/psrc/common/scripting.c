@@ -1,7 +1,7 @@
 #include "scripting.h"
-#include "../utils/crc.h"
-#include "../utils/filesystem.h"
-#include "../utils/logging.h"
+#include "crc.h"
+#include "filesystem.h"
+#include "logging.h"
 
 #include <stdio.h>
 
@@ -126,7 +126,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct scr
     bool ret = true;
     struct charbuf cb;
     cb_init(&cb, 256);
-    int scope = 0;
+    //int scope = 0;
     char instr;
     while (1) {
         int tmp;
@@ -254,7 +254,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(struct charbuf*), struct scr
                     }
                 }
             }
-            nextarg:;
+            //nextarg:;
             do {
                 tmp = compiler_fgetc(&f);
             } while (tmp == ' ' || tmp == '\t');

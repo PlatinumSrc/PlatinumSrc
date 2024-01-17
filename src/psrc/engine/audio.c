@@ -1,8 +1,7 @@
 #include "audio.h"
 
-#include "../utils/logging.h"
-#include "../utils/string.h"
-
+#include "../common/logging.h"
+#include "../common/string.h"
 #include "../common/common.h"
 #include "../common/time.h"
 

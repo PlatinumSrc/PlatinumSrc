@@ -8,6 +8,7 @@ Entity data:
     <u32: Entity selector count> [Entity selector data]...
 
     Entity: <<Server string>: Name> <u8: <Entity type>> <Entity data>
+
     Entity type:
         { ENT_HEADLESS | ENT_GENERIC | ENT_BOX | ENT_TRIGGERBOX | ENT_TRIGGERRADIUS
         | ENT_USE | ENT_HOLDUSE | ENT_MULTIPLEXER | ENT_PARTICLES | ENT_TEXPARTICLES
@@ -15,14 +16,16 @@ Entity data:
         | ENT_DYNLIGHT | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO
         | ENT_HEALTHSTATION | ENT_SHIELDSTATION | ENT_COLLIDE }
     Entity data:
+        <u8: Min difficulty level>
+        <u16: Gamemodes>
         { <Headless entity data> | <Generic entity data> | <Box entity data>
         | <Trigger box entity data> | <Trigger radius entity data> | <Press to use entity data>
         | <Hold to use entity data> | <Multiplexer entity data> | <Particles entity data>
         | <Textured particles entity data> | <Beam entity data> | <Giblets entity data>
-        | <Door entity data> | <Spawn entity data> | <Spawner entity data>
-        | <Dynamic light entity data> | <Health entity data> | <Shield entity data>
-        | <Weapon entity data> | <Ammo entity data> | <Health station entity data>
-        | <Shield station entity data> | <Collide entity data> }
+        | <Door entity data> | <Spawn entity data> | <Dynamic light entity data>
+        | <Health entity data> | <Shield entity data> | <Weapon entity data>
+        | <Ammo entity data> | <Health station entity data> | <Shield station entity data>
+        | <Collide entity data> }
 
     Entity filter data:
         { <u8: ENTFILT_ANY>
@@ -31,6 +34,9 @@ Entity data:
         | <u8: ENTFILT_ANYTEAM> <Team>
         | <u8: ENTFILT_PLAYERTEAM> <Team>
         | <u8: ENTFILT_ENTITYTEAM> <Team>
+        | <u8: ENTFILT_ANYNOTTEAM> <Team>
+        | <u8: ENTFILT_PLAYERNOTTEAM> <Team>
+        | <u8: ENTFILT_ENTITYNOTTEAM> <Team> }
     Entity selector data:
         { <u8: ENTSEL_SELF>
         | <u8: ENTSEL_TARGET>
@@ -50,25 +56,21 @@ Entity data:
         | <u8: ENTSEL_ENTITYTEAM> <Team>
     Entity action data:
         { <u8: ENTACT_BROADCAST> <Entity signal>
-        | <u8: ENTACT_HEAL> <Entity selector> <float: Duration> <float: Rate>
-        | <u8: ENTACT_HURT> <Entity selector> <float: Duration> <float: Rate>
+        | <u8: ENTACT_HEALTH> <Entity selector> <float: Duration> <float: Amount>
         | <u8: ENTACT_KILL> <Entity selector>
+        | <u8: ENTACT_EXPLODE> <Entity selector>
         | <u8: ENTACT_SHOW> <Entity selector>
         | <u8: ENTACT_HIDE> <Entity selector>
         | <u8: ENTACT_TELEPORT> <Entity selector> <float[3]: Position>
         | <u8: ENTACT_PUSH> <Entity selector> <float[3]: Amount>
         | <u8: ENTACT_SAVE>
-        | <u8: ENTACT_CHANGEMAP> <Server resource>
-        | <u8: ENTACT_ENDMAP>
+        | <u8: ENTACT_CHANGEMAP> <Server resource> <u8: <7 bits: 0> <1 bit: Keep player state>>
         | <u8: ENTACT_PLAYSOUND> <Entity selector> <u8: { ENTSNDORIG_SELF | ENTSNDORIG_TARGET | ENTSNDORIG_FROMTARGET |
           ENTSNDORIG_TOTARGET | ENTSNDORIG_WORLD }> <float[3]: Offset> <Server resource>
         | <u8: ENTACT_CHANGEMUSIC> <Entity selector> <Server resource>
         | <u8: ENTACT_CHANGEAMBIENCE> <Entity selector> <Server resource>
         | <u8: ENTACT_CHANGETEAM> <Entity selector> <Team> }
 
-    Entity script:
-        { <u8: ENTSCRIPT_EMBEDDED> <u32: Byte index in [Embedded script]...>
-        | <u8: ENTSCRIPT_FROMFILE> <Server resource> }
     Entity signal:
         <<Server string>: Name>
     Entity filter:
@@ -79,7 +81,7 @@ Entity data:
         <u16: # of actions> <u32: Byte index in [Action]...>...
 
     Headless entity data:
-        <Entity script>
+        <<Server resource>: Script>
     Generic entity data:
         <u8:
             <4 bits: 0>
@@ -87,7 +89,7 @@ Entity data:
             <1 bit: Interactable>
             <1 bit: Selectable>
         >
-        <Entity script>
+        <<Server resource>: Script>
         <<Server resource>: Model>
         <float[3]: Position>
         <float[3]: Rotation (X and Z are ignored for now)>
@@ -223,18 +225,10 @@ Entity data:
     Spawn entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
-        <float[3]: Origin>
-        <float[2]: Radius>
-        <i8[2]: Grid size (-1 = random)>
         <Entity filter>
-    Spawner entity data:
-        <<Entity signal>: Enable>
-        <<Entity signal>: Disable>
         <float[3]: Origin>
         <float[2]: Radius>
         <i8[2]: Grid size (-1 = random)>
-        <float: Rate>
-        <Entity>
     Dynamic light entity data:
         <u8:
             <7 bits: 0>
@@ -260,6 +254,7 @@ Entity data:
         <float: Respawn delay>
         <i32: Amount>
     Collide entity data:
+        <Entity filter>
         <float[3]: Origin>
         <float[2]: Radius>
 

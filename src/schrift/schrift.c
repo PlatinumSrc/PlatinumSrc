@@ -461,7 +461,7 @@ map_file(SFT_Font *font, const char *filename)
 		return -1;
 	}
 
-	font->size = (size_t)high << (8 * sizeof(DWORD)) | low;
+	font->size = (uint64_t)high << (8 * sizeof(DWORD)) | low;
 
 	font->mapping = CreateFileMapping(file, NULL, PAGE_READONLY, high, low, NULL);
 	if (!font->mapping) {

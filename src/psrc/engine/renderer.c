@@ -3,10 +3,9 @@
 #include "../version.h"
 #include "../debug.h"
 
-#include "../utils/logging.h"
-#include "../utils/string.h"
-//#include "../utils/threads.h"
-
+#include "../common/logging.h"
+#include "../common/string.h"
+//#include "../common/threads.h"
 #include "../common/common.h"
 #include "../common/p3m.h"
 
@@ -446,6 +445,36 @@ void render(void) {
         #endif
     }
     #endif
+}
+
+void* takeScreenshot(int* w, int* h, int* s) {
+    switch (rendstate.apigroup) {
+        #ifndef PSRC_ENGINE_RENDERER_NOGL
+        case RENDAPIGROUP_GL: {
+            if (w) *w = rendstate.res.current.width;
+            if (h) *h = rendstate.res.current.height;
+            int linesz = rendstate.res.current.width * 3;
+            int framesz = linesz * rendstate.res.current.height;
+            if (s) *s = framesz;
+            uint8_t* line = malloc(linesz);
+            uint8_t* frame = malloc(framesz);
+            uint8_t* top = frame;
+            uint8_t* bottom = &frame[linesz * (rendstate.res.current.height - 1)];
+            glReadPixels(0, 0, rendstate.res.current.width, rendstate.res.current.height, GL_RGB, GL_UNSIGNED_BYTE, frame);
+            for (int i = 0; i < rendstate.res.current.height / 2; ++i) {
+                memcpy(line, top, linesz);
+                memcpy(top, bottom, linesz);
+                memcpy(bottom, line, linesz);
+                top += linesz;
+                bottom -= linesz;
+            }
+            free(line);
+            return frame;
+        } break;
+        #endif
+        default: break;
+    }
+    return NULL;
 }
 
 static void destroyWindow(void) {
