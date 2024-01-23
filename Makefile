@@ -17,10 +17,13 @@ EXTDIR ?= external
 OUTDIR ?= .
 
 ifeq ($(CROSS),)
-    CC ?= $(PREFIX)gcc
+    CC ?= gcc
+    CC := $(PREFIX)$(CC)
     LD := $(CC)
-    AR ?= $(PREFIX)ar
-    STRIP ?= $(PREFIX)strip
+    AR ?= ar
+    AR := $(PREFIX)$(AR)
+    STRIP ?= strip
+    STRIP := $(PREFIX)$(STRIP)
     ifndef M32
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o 2> $(null) || uname -s; uname -m)))
     else
@@ -29,12 +32,14 @@ ifeq ($(CROSS),)
 else ifeq ($(CROSS),freebsd)
     FREEBSD_VERSION := 12.4
     ifndef M32
-        CC := $(PREFIX)clang -target x86_64-unknown-freebsd$(FREEBSD_VERSION)
+        CC := clang -target x86_64-unknown-freebsd$(FREEBSD_VERSION)
     else
-        CC := $(PREFIX)clang -target i686-unknown-freebsd$(FREEBSD_VERSION)
+        CC := clang -target i686-unknown-freebsd$(FREEBSD_VERSION)
     endif
+    CC := $(PREFIX)$(CC)
     LD := $(CC)
-    AR ?= $(PREFIX)ar
+    AR ?= ar
+    AR := $(PREFIX)$(AR)
     STRIP ?= $(PREFIX)strip
     ifndef M32
         PLATFORM := FreeBSD_$(FREEBSD_VERSION)_x86_64
@@ -44,17 +49,21 @@ else ifeq ($(CROSS),freebsd)
     CC += --sysroot=$(EXTDIR)/$(PLATFORM)
 else ifeq ($(CROSS),win32)
     ifndef M32
-        PREFIX ?= x86_64-w64-mingw32-
+        PREFIX := x86_64-w64-mingw32-
         PLATFORM := Windows_x86_64
     else
-        PREFIX ?= i686-w64-mingw32-
+        PREFIX := i686-w64-mingw32-
         PLATFORM := Windows_i686
     endif
-    CC := $(PREFIX)gcc
+    CC ?= gcc
+    CC := $(PREFIX)$(CC)
     LD := $(CC)
-    AR := $(PREFIX)ar
-    STRIP := $(PREFIX)strip
-    WINDRES := $(PREFIX)windres
+    AR ?= ar
+    AR := $(PREFIX)$(AR)
+    STRIP ?= strip
+    STRIP := $(PREFIX)$(STRIP)
+    WINDRES ?= windres
+    WINDRES := $(PREFIX)$(WINDRES)
 else ifeq ($(CROSS),emscr)
     ifeq ($(MODULE),engine)
     else ifneq ($(MODULE),editor)
@@ -68,7 +77,8 @@ else ifeq ($(CROSS),emscr)
     NOMT := y
     NOGL33 := y
     NOGLES30 := y
-    EMULATOR ?= emrun --
+    EMULATOR := emrun
+    EMUPATHFLAG := --
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
@@ -76,12 +86,24 @@ else ifeq ($(CROSS),nxdk)
     ifneq ($(MODULE),engine)
         $(error Invalid module: $(MODULE))
     endif
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
+    ifdef CC
+        _CC := $(CC)
+    else
+        _CC := gcc
+    endif
+    _CC := $(PREFIX)$(_CC)
+    ifdef LD
+        _LD := $(LD)
+    else
+        _LD := ld
+    endif
+    _LD := $(PREFIX)$(_LD)
     CC := nxdk-cc
     LD := nxdk-link
-    AR ?= $(PREFIX)ar
-    OBJCOPY := $(PREFIX)objcopy
+    AR ?= ar
+    AR := $(PREFIX)$(AR)
+    OBJCOPY ?= objcopy
+    OBJCOPY := $(PREFIX)$(OBJCOPY)
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
     EXTRACT_XISO := $(NXDK_DIR)/tools/extract-xiso/build/extract-xiso
     PLATFORM := NXDK
@@ -93,9 +115,10 @@ else ifeq ($(CROSS),nxdk)
     NOSIMD := y
     NOGL33 := y
     NOGLES30 := y
-    EMULATOR ?= xemu -dvd_path
-    XISO ?= $(OUTDIR)/$(XBE_TITLE).xiso.iso
-    XISODIR ?= $(OUTDIR)/xiso
+    EMULATOR := xemu
+    EMUPATHFLAG := -dvd_path
+    XISO := $(OUTDIR)/$(XBE_TITLE).xiso.iso
+    XISODIR := $(OUTDIR)/xiso
     MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
     MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
     MKENV.NXDK := $(MKENV.NXDK) FREETYPE_SRCS="" FREETYPE_OBJS=""
@@ -429,11 +452,11 @@ if [ -d '$(1)' ]; then echo 'Removing $(1)...'; rm -rf '$(1)'; fi; true
 endef
 ifndef EMULATOR
 define exec
-'$(dir $(1))$(notdir $(1))'
+'$(dir $(1))$(notdir $(1))' $(RUNFLAGS)
 endef
 else
 define exec
-$(EMULATOR) '$(1)'
+$(EMULATOR) $(EMUFLAGS) $(EMUPATHFLAG) '$(1)' $(RUNFLAGS)
 endef
 endif
 

@@ -120,6 +120,7 @@ void display(void) {
     #endif
     #else
     #ifndef PSRC_ENGINE_RENDERER_NOGL
+    pb_wait_for_vbl();
     pbgl_swap_buffers();
     #endif
     #endif

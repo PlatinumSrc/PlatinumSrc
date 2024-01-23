@@ -295,17 +295,17 @@ void termLoop(void) {
     plog__nodraw = false;
     #endif
 
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     armWatchdog(5);
     #endif
     plog(LL_INFO, "Stopping audio manager...");
     stopAudio();
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     rearmWatchdog(5);
     #endif
     plog(LL_INFO, "Stopping renderer...");
     stopRenderer();
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     cancelWatchdog();
     #endif
 

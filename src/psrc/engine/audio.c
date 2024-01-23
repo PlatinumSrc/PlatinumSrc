@@ -900,6 +900,7 @@ bool startAudio(void) {
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
+    #ifndef PSRC_NOMT
     tmp = cfg_getvar(config, "Sound", "callback");
     if (tmp) {
         audiostate.usecallback = strbool(tmp, false);
@@ -907,6 +908,9 @@ bool startAudio(void) {
     } else {
         audiostate.usecallback = false;
     }
+    #else
+    audiostate.usecallback = false;
+    #endif
     int flags = 0;
     tmp = cfg_getvar(config, "Sound", "freq");
     if (tmp) {

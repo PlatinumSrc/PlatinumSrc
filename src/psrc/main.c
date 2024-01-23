@@ -7,6 +7,7 @@
 #include "common/resource.h"
 #include "common/common.h"
 #include "common/time.h"
+#include "common/arg.h"
 
 #include "version.h"
 #include "platform.h"
@@ -110,10 +111,9 @@ static void rearmWatchdog(unsigned sec) {
 #endif
 
 static int bootstrap(void) {
-    #if PLATFORM != PLAT_NXDK
     puts(verstr);
     puts(platstr);
-    #else
+    #if PLATFORM == PLAT_NXDK
     pb_print("%s\n", verstr);
     pb_print("%s\n", platstr);
     pbgl_swap_buffers();
@@ -245,11 +245,11 @@ static void unstrap(void) {
     free(tmp);
     cfg_close(config);
 
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     armWatchdog(5);
     #endif
     SDL_Quit();
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     cancelWatchdog();
     #endif
 
@@ -319,6 +319,8 @@ int main(int argc, char** argv) {
     makeVerStrs();
     #if PLATFORM != PLAT_EMSCR
     #if PLATFORM != PLAT_NXDK
+    printf("USAGE: %s [OPTION]...\n", argv[0]);
+    puts("OPTIONS:");
     signal(SIGINT, sigh);
     signal(SIGTERM, sigh);
     #ifdef SIGQUIT

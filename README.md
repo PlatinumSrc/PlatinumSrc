@@ -96,13 +96,10 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - `win32` - Windows 2000+ or Windows 98 with KernelEx
             - `emscr` - Emscripten
             - `nxdk` - Xbox using NXDK
-        - `FREEBSD_VERSION` - Version of FreeBSD to cross-compile to \(default is `12.4`\)
+        - `RUNFLAGS` - Flags to pass to the executable
         - `EMULATOR` - Command used to run the executable or ROM
-        - `USE_DISCORD_GAME_SDK` - Set to any value to use the Discord Game SDK
-        - `WINPTHREAD` - Use winpthread instead of win32 threads on Windows
-        - `NOSIMD` - Do not use SIMD
-        - `NOMT` - Disable multithreading
-        - `NOFASTMATH` - Disable `-ffast-math`
+        - `EMUFLAGS` - Flags to pass to the emulator
+        - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
         - `O` - Set the optimization level \(defaults to 2\)
         - `M32` - Produce a 32-bit binary
         - `NATIVE` - Tune build for native system
@@ -114,13 +111,32 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `ASAN` - Set to any value to enable the address sanitizer \(requires `DEBUG` to be set\)
         - `NOSTRIP` - Do not strip symbols
         - `NOLTO` - Disable link-time optimization
+        - `NOFASTMATH` - Disable `-ffast-math`
         - `CC` - C compiler
         - `LD` - Linker \(defaults to `CC`'s value\)
         - `AR` - Archiver
         - `STRIP` - Symbol remover
-        - `OBJCOPY` - Binary file copyer and transformer
+        - `OBJCOPY` - Executable editor
         - `WINDRES` - Windows resource compiler
         - `PREFIX` - Text to prepend to tool names
+        - `CFLAGS` - Extra C compiler flags
+        - `CPPFLAGS` - Extra C preprocessor flags
+        - `LDFLAGS` - Extra linker flags
+        - `USE_DISCORD_GAME_SDK` - Use the Discord Game SDK
+        - `WINPTHREAD` - Use winpthread instead of win32 threads on Windows
+        - `NOSIMD` - Do not use SIMD
+        - `NOMT` - Disable multithreading
+        - `NOGL` - Disable all OpenGL
+        - `NOGL11` - Disable OpenGL 1.1
+        - `NOGL33` - Disable OpenGL 3.3
+        - `NOGLES30` - Disable OpenGL ES 3.0
+        - `FREEBSD_VERSION` - \(FreeBSD\) Version to cross-compile to \(default is `12.4`\)
+        - `CXBE` - \(NXDK\) Path to cxbe
+        - `EXTRACT_XISO` - \(NXDK\) Path to extract-xiso
+        - `XBE_TITLE` - \(NXDK\) XBE and XISO name \(default is `PlatinumSrc`\)
+        - `XBE_TITLEID` - \(NXDK\) XBE title ID \(default is `PQ-001`\)
+        - `XBE_VERSION` - \(NXDK\) XBE version \(default is taken from `version.h`\)
+        - `XBE_XTIMAGE` - \(NXDK\) Path to XPR image \(default is `icons/engine.xpr`\)
 
     Examples:
     ```
