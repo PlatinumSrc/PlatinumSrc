@@ -54,12 +54,17 @@ int initLoop(void) {
         return 1;
     }
 
-    char* tmp = cfg_getvar(gameconfig, NULL, "icon");
-    if (tmp) {
-        rendstate.icon = getRcPath(tmp, RC_TEXTURE, NULL);
-        free(tmp);
+    char* tmp;
+    if (options.icon) {
+        rendstate.icon = mkpath(NULL, options.icon, NULL);
     } else {
-        rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
+        tmp = cfg_getvar(gameconfig, NULL, "icon");
+        if (tmp) {
+            rendstate.icon = getRcPath(tmp, RC_TEXTURE, NULL);
+            free(tmp);
+        } else {
+            rendstate.icon = mkpath(maindir, "icons", "engine.png", NULL);
+        }
     }
     plog(LL_INFO, "Starting renderer...");
     if (!startRenderer()) {

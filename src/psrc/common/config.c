@@ -713,6 +713,20 @@ bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     return true;
 }
 
+void cfg_mergemem(struct cfg* cfg, struct cfg* from, bool overwrite) {
+    int sectcount = from->sectcount;
+    for (int secti = 0; secti < sectcount; ++secti) {
+        struct cfg_sect* sect = &from->sectdata[secti];
+        if (sect->name) {
+            int varcount = sect->varcount;
+            for (int vari = 0; vari < varcount; ++ vari) {
+                struct cfg_var* var = &sect->vardata[vari];
+                if (var->name) cfg_setvar(cfg, sect->name, var->name, var->data, overwrite);
+            }
+        }
+    }
+}
+
 void cfg_close(struct cfg* cfg) {
     int sectcount = cfg->sectcount;
     for (int secti = 0; secti < sectcount; ++secti) {

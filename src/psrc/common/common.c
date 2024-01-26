@@ -1,3 +1,5 @@
+#include "common.h"
+
 #include <stddef.h>
 
 int quitreq = 0;
@@ -10,3 +12,5 @@ char* savedir = NULL;
 
 struct cfg* config = NULL;
 struct cfg* gameconfig = NULL;
+
+struct options options = {0};
