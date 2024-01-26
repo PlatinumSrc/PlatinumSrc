@@ -103,7 +103,7 @@ glm_vec4_eq_eps(vec4 v, float val) {
 }
 
 /*!
- * @brief check if vectors members are equal (without epsilon)
+ * @brief check if vector members are equal (without epsilon)
  *
  * @param v   vector
  */
@@ -223,7 +223,7 @@ glm_vec4_isvalid(vec4 v) {
 CGLM_INLINE
 void
 glm_vec4_sign(vec4 v, vec4 dest) {
-#if defined( __SSE2__ ) || defined( __SSE2__ )
+#if defined( __SSE__ ) || defined( __SSE2__ )
   __m128 x0, x1, x2, x3, x4;
 
   x0 = glmm_load(v);

@@ -1,7 +1,7 @@
 #ifndef PSRC_VERSION_H
 #define PSRC_VERSION_H
 
-#define PSRC_BUILD 2024012300
+#define PSRC_BUILD 2024012500
 
 extern char* titlestr;
 extern char verstr[64];
