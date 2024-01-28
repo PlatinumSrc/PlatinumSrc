@@ -124,8 +124,8 @@
     #endif
 #endif
 
-extern char* platname[PLAT__COUNT];
-extern char* platdir[PLAT__COUNT];
-extern char* altplatdir[PLAT__COUNT];
+extern const char* platname[PLAT__COUNT];
+extern const char* platdir[PLAT__COUNT];
+extern const char* altplatdir[PLAT__COUNT];
 
 #endif

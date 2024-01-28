@@ -3,6 +3,6 @@
 
 int initLoop(void);
 void doLoop(void);
-void termLoop(void);
+void quitLoop(void);
 
 #endif

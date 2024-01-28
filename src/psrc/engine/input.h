@@ -131,6 +131,6 @@ struct inputkey* inputKeysFromStr(const char*);
 char* strFromInputKeys(struct inputkey*);
 void deleteInputKeys(struct inputkey*);
 bool getNextInputAction(struct inputaction*);
-void termInput(void);
+void quitInput(void);
 
 #endif

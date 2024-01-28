@@ -129,7 +129,7 @@ void lockRendererConfig(void);
 void unlockRendererConfig(void);
 bool restartRenderer(void);
 void stopRenderer(void);
-void termRenderer(void);
+void quitRenderer(void);
 void render(void);
 void display(void);
 void* takeScreenshot(int*, int*, int*);

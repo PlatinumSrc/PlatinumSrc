@@ -100,7 +100,7 @@ bool startAudio(void);
 void updateAudioConfig(void);
 void stopAudio(void);
 bool restartAudio(void);
-void termAudio(void);
+void quitAudio(void);
 
 #define SOUNDFLAG_UNINTERRUPTIBLE (1 << 0)
 #define SOUNDFLAG_LOOP (1 << 1)

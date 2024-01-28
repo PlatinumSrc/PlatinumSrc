@@ -46,8 +46,8 @@ extern mutex_t loglock;
 #endif
 
 bool initLogging(void);
-void plog(enum loglevel lvl, const char* fn, const char* f, unsigned l, char* s, ...);
+void plog(enum loglevel lvl, const char* fn, const char* f, unsigned l, const char* s, ...);
 #define plog(lvl, ...) plog(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
-bool plog_setfile(char*);
+bool plog_setfile(const char*);
 
 #endif

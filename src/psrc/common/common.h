@@ -5,13 +5,14 @@
 
 struct options {
     char* game;
-    char* maindir;
-    char* userdir;
-    struct cfg* set;
-    char* config;
-    bool nouserconfig;
     char* mods;
     char* icon;
+    struct cfg* set;
+    char* maindir;
+    char* userdir;
+    char* config;
+    bool nouserconfig;
+    bool nocontroller;
 };
 
 extern int quitreq;

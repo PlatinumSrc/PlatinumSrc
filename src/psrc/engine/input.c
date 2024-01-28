@@ -56,12 +56,15 @@ bool initInput(void) {
     emscripten_set_fullscreenchange_callback("#canvas", NULL, false, emscrfullscrcb);
     emscrfullscr = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN);
     #endif
-    char* tmp = cfg_getvar(config, "Input", "nocontroller");
-    if (!strbool(tmp, false)) {
-        if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
-        SDL_GameControllerEventState(SDL_ENABLE);
+    char* tmp;
+    if (!options.nocontroller) {
+        tmp = cfg_getvar(config, "Input", "nocontroller");
+        if (!strbool(tmp, false)) {
+            if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
+            SDL_GameControllerEventState(SDL_ENABLE);
+        }
+        free(tmp);
     }
-    free(tmp);
     tmp = cfg_getvar(config, "Input", "rawmouse");
     if (strbool(tmp, true)) {
         SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
@@ -371,7 +374,7 @@ void clearInputActions(void) {
     inputstate.actions.data = malloc(inputstate.actions.size * sizeof(*inputstate.actions.data));
 }
 
-void termInput(void) {
+void quitInput(void) {
     clearInputActions();
     #if PLATFORM == PLAT_EMSCR
     emscripten_set_fullscreenchange_callback("#canvas", NULL, false, NULL);

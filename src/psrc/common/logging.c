@@ -50,7 +50,7 @@ static void plog_writedate(FILE* f) {
     }
 }
 
-bool plog_setfile(char* f) {
+bool plog_setfile(const char* f) {
     #ifndef PSRC_NOMT
     lockMutex(&loglock);
     #endif
@@ -88,7 +88,7 @@ bool plog_setfile(char* f) {
     return true;
 }
 
-static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, char* s, va_list v) {
+static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, const char* s, va_list v) {
     #if PLATFORM != PLAT_NXDK
     if (!isatty(fileno(f))) plog_writedate(f);
     #else
@@ -137,7 +137,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     #endif
 }
 
-void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, va_list ov) {
+void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, va_list ov) {
     va_list v;
     FILE* f;
     #if PLATFORM != PLAT_EMSCR
@@ -276,7 +276,7 @@ static void plog__draw(void) {
 }
 
 #undef plog
-void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
     #ifndef PSRC_NOMT
     lockMutex(&loglock);
     #endif
@@ -303,7 +303,7 @@ void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, 
 #else
 
 #undef plog
-void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, char* s, ...) {
+void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
     #ifndef PSRC_NOMT
     lockMutex(&loglock);
     #endif

@@ -254,8 +254,8 @@ static int bootstrap(void) {
     return 0;
 }
 static void unstrap(void) {
-    plog(LL_INFO, "Terminating resource manager...");
-    termResource();
+    plog(LL_INFO, "Quitting resource manager...");
+    quitResource();
 
     cfg_close(gameconfig);
     char* tmp = mkpath(userdir, "config", "config.cfg", NULL);
@@ -300,7 +300,7 @@ static void emscrmain(void) {
                 }
                 return;
             }
-            termLoop();
+            quitLoop();
             unstrap();
             EM_ASM(
                 FS.syncfs(false, function (e) {
@@ -410,24 +410,24 @@ int main(int argc, char** argv) {
                 }
                 free(options.game);
                 options.game = cb_reinit(&val, 256);
-            } else if (!strcmp(opt.data, "maindir")) {
+            } else if (!strcmp(opt.data, "mods")) {
                 e = args_getoptval(&a, 1, -1, &val, &err);
                 if (e == -1) {
                     fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
                     ret = 1;
                     break;
                 }
-                free(options.maindir);
-                options.maindir = cb_reinit(&val, 256);
-            } else if (!strcmp(opt.data, "userdir")) {
+                free(options.mods);
+                options.mods = cb_reinit(&val, 256);
+            } else if (!strcmp(opt.data, "icon")) {
                 e = args_getoptval(&a, 1, -1, &val, &err);
                 if (e == -1) {
                     fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
                     ret = 1;
                     break;
                 }
-                free(options.userdir);
-                options.userdir = cb_reinit(&val, 256);
+                free(options.icon);
+                options.icon = cb_reinit(&val, 256);
             } else if (!strcmp(opt.data, "set") || !strcmp(opt.data, "s")) {
                 e = args_getoptval(&a, 0, -1, &val, &err);
                 if (e == -1) {
@@ -463,6 +463,24 @@ int main(int argc, char** argv) {
                     cb_clear(&var);
                 }
                 free(sect);
+            } else if (!strcmp(opt.data, "maindir")) {
+                e = args_getoptval(&a, 1, -1, &val, &err);
+                if (e == -1) {
+                    fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
+                    ret = 1;
+                    break;
+                }
+                free(options.maindir);
+                options.maindir = cb_reinit(&val, 256);
+            } else if (!strcmp(opt.data, "userdir")) {
+                e = args_getoptval(&a, 1, -1, &val, &err);
+                if (e == -1) {
+                    fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
+                    ret = 1;
+                    break;
+                }
+                free(options.userdir);
+                options.userdir = cb_reinit(&val, 256);
             } else if (!strcmp(opt.data, "config") || !strcmp(opt.data, "cfg") || !strcmp(opt.data, "c")) {
                 e = args_getoptval(&a, 1, -1, &val, &err);
                 if (e == -1) {
@@ -480,24 +498,14 @@ int main(int argc, char** argv) {
                     break;
                 }
                 options.nouserconfig = true;
-            } else if (!strcmp(opt.data, "mods")) {
-                e = args_getoptval(&a, 1, -1, &val, &err);
+            } else if (!strcmp(opt.data, "nocontroller")) {
+                e = args_getoptval(&a, 0, -1, &val, &err);
                 if (e == -1) {
                     fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
                     ret = 1;
                     break;
                 }
-                free(options.mods);
-                options.mods = cb_reinit(&val, 256);
-            } else if (!strcmp(opt.data, "icon")) {
-                e = args_getoptval(&a, 1, -1, &val, &err);
-                if (e == -1) {
-                    fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
-                    ret = 1;
-                    break;
-                }
-                free(options.icon);
-                options.icon = cb_reinit(&val, 256);
+                options.nocontroller = true;
             } else {
                 fprintf(stderr, "Unknown option: -%s\n", opt.data);
                 ret = 1;
@@ -566,7 +574,7 @@ int main(int argc, char** argv) {
                 doLoop();
                 if (quitreq) break;
             }
-            termLoop();
+            quitLoop();
         }
         unstrap();
     }

@@ -1044,7 +1044,7 @@ bool initResource(void) {
     return true;
 }
 
-void termResource(void) {
+void quitResource(void) {
     for (int i = 0; i < RC__COUNT; ++i) {
         int grouplen = groups[i].len;
         for (int j = 0; j < grouplen; ++j) {

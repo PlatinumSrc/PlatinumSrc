@@ -40,7 +40,7 @@ bool initUI(void) {
     return true;
 }
 
-void termUI(void) {
+void quitUI(void) {
     #ifndef PSRC_NOMT
     destroyAccessLock(&uistate.lock);
     #endif

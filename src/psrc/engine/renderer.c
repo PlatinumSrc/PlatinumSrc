@@ -1034,7 +1034,7 @@ bool initRenderer(void) {
     return true;
 }
 
-void termRenderer(void) {
+void quitRenderer(void) {
     freeResource(testmodel);
     free(rendstate.icon);
 }

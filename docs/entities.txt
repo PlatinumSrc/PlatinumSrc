@@ -10,22 +10,53 @@ Entity data:
     Entity: <<Server string>: Name> <u8: <Entity type>> <Entity data>
 
     Entity type:
-        { ENT_HEADLESS | ENT_GENERIC | ENT_BOX | ENT_TRIGGERBOX | ENT_TRIGGERRADIUS
-        | ENT_USE | ENT_HOLDUSE | ENT_MULTIPLEXER | ENT_PARTICLES | ENT_TEXPARTICLES
-        | ENT_BEAM | ENT_GIBS | ENT_DOOR | ENT_SPAWN | ENT_SPAWNER
-        | ENT_DYNLIGHT | ENT_HEALTH | ENT_SHIELD | ENT_WEAPON | ENT_AMMO
-        | ENT_HEALTHSTATION | ENT_SHIELDSTATION | ENT_COLLIDE }
+        { ENT_HEADLESS
+        | ENT_GENERIC
+        | ENT_BOX
+        | ENT_TRIGGERBOX
+        | ENT_TRIGGERRADIUS
+        | ENT_USE
+        | ENT_HOLDUSE
+        | ENT_MULTIPLEXER
+        | ENT_PARTICLES
+        | ENT_TEXPARTICLES
+        | ENT_BEAM
+        | ENT_GIBS
+        | ENT_DOOR
+        | ENT_SPAWN
+        | ENT_DYNLIGHT
+        | ENT_HEALTH
+        | ENT_SHIELD
+        | ENT_WEAPON
+        | ENT_AMMO
+        | ENT_HEALTHSTATION
+        | ENT_SHIELDSTATION
+        | ENT_COLLIDE }
     Entity data:
         <u8: Min difficulty level>
         <u16: Gamemodes>
-        { <Headless entity data> | <Generic entity data> | <Box entity data>
-        | <Trigger box entity data> | <Trigger radius entity data> | <Press to use entity data>
-        | <Hold to use entity data> | <Multiplexer entity data> | <Particles entity data>
-        | <Textured particles entity data> | <Beam entity data> | <Giblets entity data>
-        | <Door entity data> | <Spawn entity data> | <Dynamic light entity data>
-        | <Health entity data> | <Shield entity data> | <Weapon entity data>
-        | <Ammo entity data> | <Health station entity data> | <Shield station entity data>
-        | <Collide entity data> }
+        { <Headless entity data>
+        | <Generic entity data>
+        | <Box entity data>
+        | <Trigger box entity data>
+        | <Trigger radius entity data>
+        | <Press to use entity data>
+        | <Hold to use entity data>
+        | <Multiplexer entity data>
+        | <Particles entity data>
+        | <Textured particles entity data>
+        | <Beam entity data>
+        | <Giblets entity data>
+        | <Door entity data>
+        | <Spawn entity data>
+        | <Dynamic light entity data>
+        | <Health entity data>
+        | <Shield entity data>
+        | <Weapon entity data>
+        | <Ammo entity data>
+        | <Health station entity data>
+        | <Shield station entity data>
+        | <Collider entity data> }
 
     Entity filter data:
         { <u8: ENTFILT_ANY>
@@ -95,54 +126,77 @@ Entity data:
         <float[3]: Rotation (X and Z are ignored for now)>
         <float[3]: Scale>
     Box entity data:
-        <<Entity signal>: Show>
-        <<Entity signal>: Hide>
-        <<Entity signal>: Move>
-        <<Entity signal>: Move back>
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start hidden>
+        >
         <Material>
         <float[3]: Origin>
         <float[3]: Radius>
         <float[3]: New origin>
         <float[3]: New radius>
+        <<Entity signal>: Show>
+        <<Entity signal>: Hide>
+        <<Entity signal>: Move>
+        <<Entity signal>: Move back>
     Trigger box entity data:
-        <<Entity signal>: Enable>
-        <<Entity signal>: Disable>
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
         <Entity filter>
         <float[3]: Origin>
         <float[3]: Radius>
-        <Entity actions>
-    Trigger radius entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
+        <Entity actions>
+    Trigger radius entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
         <Entity filter>
         <float[3]: Origin>
         <float: Radius>
+        <<Entity signal>: Enable>
+        <<Entity signal>: Disable>
         <Entity actions>
     Press to use entity data:
-        <<Entity signal>: Make usable>
-        <<Entity signal>: Make unusable>
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start usable>
+        >
         <float[3]: Origin>
         <float[3]: Radius>
         <<Server resource>: Model>
         <<Server string>: Animation>
         <float: In-use and animation duration>
-        <Entity actions>
-    Hold to use entity data:
         <<Entity signal>: Make usable>
         <<Entity signal>: Make unusable>
+        <Entity actions>
+    Hold to use entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start usable>
+        >
         <float[3]: Origin>
         <float[3]: Radius>
         <<Server resource>: Model>
         <<Server string>: Animation>
         <float: Animation speed>
-        <Entity actions>
+        <<Entity signal>: Make usable>
+        <<Entity signal>: Make unusable>
+        <<Entity actions>: Press>
+        <<Entity actions>: Release>
     Multiplexer entity data:
         <u16: # of AND signals> <Entity signal>...
         <u16: # of OR signals> <Entity signal>...
         <Entity actions>
     Particles entity data:
-        <<Entity signal>: Start>
-        <<Entity signal>: Stop>
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
         <float[3]: Position>
         <u32: Pattern>
         <float: Pattern speed>
@@ -164,9 +218,13 @@ Entity data:
         <float: Start speed>
         <float: End speed>
         <float[3]: Gravity>
-    Textured particles entity data:
         <<Entity signal>: Start>
         <<Entity signal>: Stop>
+    Textured particles entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
         <float[3]: Position>
         <u32: Pattern>
         <float: Pattern speed>
@@ -183,9 +241,13 @@ Entity data:
         <float: Start speed>
         <float: End speed>
         <float[3]: Gravity>
-    Beam entity data:
         <<Entity signal>: Start>
         <<Entity signal>: Stop>
+    Beam entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start enabled>
+        >
         <float[3]: Start position>
         <float[3]: End position>
         <u32: Pattern>
@@ -200,22 +262,29 @@ Entity data:
         <float: Segment noise>
         <float[3]: Direction>
         <float: Curve>
+        <<Entity signal>: Start>
+        <<Entity signal>: Stop>
     Giblets entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start immediately>
+        >
         <<Server resource>: Model>
         <<Server resource>: Overlay texture>
+        <<Entity signal>: Start>
     Door entity data:
-        <<Server resource>: Model>
-        <float[3]: Closed position>
-        <float[3]: Open position>
-        <float[3]: Closed rotation>
-        <float[3]: Open rotation>
-        <float[3]: Closed scale>
-        <float[3]: Open scale>
-        <float: Toggle duration>
         <u8:
             <5 bits: 0>
             <1 bit: Start unusable> <1 bit: Start open> <1 bit: Start locked>
         >
+        <<Server resource>: Model>
+        <float[3]: Closed position>
+        <float[3]: Closed rotation>
+        <float[3]: Closed scale>
+        <float[3]: Open position>
+        <float[3]: Open rotation>
+        <float[3]: Open scale>
+        <float: Toggle duration>
         <<Entity signal>: Open>
         <<Entity signal>: Close>
         <<Entity signal>: Lock>
@@ -223,12 +292,12 @@ Entity data:
         <<Entity signal>: Make usable>
         <<Entity signal>: Make unusable>
     Spawn entity data:
-        <<Entity signal>: Enable>
-        <<Entity signal>: Disable>
         <Entity filter>
         <float[3]: Origin>
         <float[2]: Radius>
         <i8[2]: Grid size (-1 = random)>
+        <<Entity signal>: Enable>
+        <<Entity signal>: Disable>
     Dynamic light entity data:
         <u8:
             <7 bits: 0>
@@ -248,12 +317,12 @@ Entity data:
     Weapon entity data:
         <<Server resource>: Weapon>
         <float: Respawn delay>
-        <i32: Ammo amount>
+        <i16: Ammo amount>
     Ammo entity data:
         <<Server resource>: Weapon>
         <float: Respawn delay>
-        <i32: Amount>
-    Collide entity data:
+        <i16: Amount>
+    Collider entity data:
         <Entity filter>
         <float[3]: Origin>
         <float[2]: Radius>

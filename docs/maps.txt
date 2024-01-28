@@ -19,7 +19,8 @@ Format:
         <<u8: 0..16>: Gamemode count> [char[... 0]: Gamemode]...
 
     Data:
-        <u32: Cube count (must be at least 1)> <Cube (First should be the root cube)>... <Cube data>...
+        <u8: Grid X size> <u8: Grid Z size> <u32: <Index in array of <Cube>>>...
+        <u32: Cube count (must be at least 1)> <Cube>... <Cube data>...
         <u32: Prop count> [Prop]...
         <u32: Prop reference count> [Prop reference]...
         <u32: String table size> <<char: 0> <char[... 0]>...: String table>
@@ -33,16 +34,16 @@ Format:
         <u32: Triangle count> [Triangle]...
 
     Cube: <u8: <Cube type>> <Cube data>
-    Cube type: { CUBE_EMPTY | CUBE_CHUNK | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLED }
-    Cube data: [ { <Chunk cube data> | <Parent cube data> | <Solid cube data> | <Angled cube data> } ]
+    Cube type: <u8:
+                   <2 bits: 0>
+                   <1 bit: Is chunk>
+                   <1 bit: Has lighting>
+                   <4 bits: { CUBE_EMPTY | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLED }>
+               >
+    Cube data: [ <Cube lighting data> ]
+               [ <Cube chunk data> ]
+               [ <Parent cube data> | <Solid cube data> | <Angled cube data> ]
 
-    Empty cube data:
-        <u8[3]: Base light>
-        <u32: Index in array of <Dynamic light reference>> <u8: # of dynamic lights>
-    Chunk cube data:
-        <u32: Index in array of <Prop reference>> <u16: # of props>
-        <u32: Index in visibility data> <u32: # of cubes>
-        <u32: Child index in array of <Cube>>
     Parent cube data:
         <u32: (+X, +Y, +Z) child index in array of <Cube>>
         <u32: (-X, +Y, +Z) child index in array of <Cube>>
@@ -73,6 +74,13 @@ Format:
         <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
         <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes counterclockwise)>
 
+    Cube lighting data:
+        <u8[3]: Base light>
+        <u16: Index in array of <Light reference>> <u8: # of dynamic lights>
+    Cube chunk data:
+        <u16: Index in array of <Prop reference>> <u16: # of props>
+        <u32: Index in visibility data> <u32: # of cubes>
+
     String: <u32: Byte index in the string table>
     Server string: <u32: Byte index in the server string table>
     Resource: <<String>: Byte index to a resource path in the string table>
@@ -85,7 +93,5 @@ Format:
 
     Team: <u32: Byte index in [Team data]...>
     Team data: <<Server string>: Name> <float[3]: Color>
-
-    Embedded script: <u32: Script length> <char[]: Script text>
 
 

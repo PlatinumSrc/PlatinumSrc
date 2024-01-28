@@ -150,7 +150,7 @@ struct __attribute__((packed)) rcheader {
 };
 
 bool initResource(void);
-void termResource(void);
+void quitResource(void);
 void* loadResource(enum rctype type, const char* path, void* opt);
 void freeResource(void*);
 void grabResource(void*);

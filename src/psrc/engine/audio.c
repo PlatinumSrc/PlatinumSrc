@@ -1052,7 +1052,7 @@ void stopAudio(void) {
     }
 }
 
-void termAudio(void) {
+void quitAudio(void) {
     #ifndef PSRC_NOMT
     destroyAccessLock(&audiostate.lock);
     #endif

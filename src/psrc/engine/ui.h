@@ -246,6 +246,6 @@ void editUIElem(struct uielemptr*, enum uiattr, ...);
 void deleteUIElem(struct uielemptr*);
 void clearUIElems(void);
 void doUIEvents(void);
-void termUI(void);
+void quitUI(void);
 
 #endif

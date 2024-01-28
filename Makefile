@@ -1,12 +1,4 @@
-ifndef OS
-define null
-/dev/null
-endef
-else
-define null
-NUL
-endef
-endif
+null := /dev/null
 
 ifndef MKSUB
 
@@ -465,7 +457,7 @@ endif
 define a
 $(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).a')
 endef
-inc.null = $(null)
+inc.null := $(null)
 define inc
 $$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
 endef

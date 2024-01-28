@@ -294,7 +294,7 @@ static void rearmWatchdog(unsigned sec) {
 }
 #endif
 
-void termLoop(void) {
+void quitLoop(void) {
     plog(LL_INFO, "Quit requested");
     #if PLATFORM == PLAT_NXDK
     plog__nodraw = false;
@@ -314,12 +314,12 @@ void termLoop(void) {
     cancelWatchdog();
     #endif
 
-    plog(LL_INFO, "Terminating audio manager...");
-    termAudio();
-    plog(LL_INFO, "Terminating UI manager...");
-    termUI();
-    plog(LL_INFO, "Terminating input manager...");
-    termInput();
-    plog(LL_INFO, "Terminating renderer...");
-    termRenderer();
+    plog(LL_INFO, "Quitting audio manager...");
+    quitAudio();
+    plog(LL_INFO, "Quitting UI manager...");
+    quitUI();
+    plog(LL_INFO, "Quitting input manager...");
+    quitInput();
+    plog(LL_INFO, "Quitting renderer...");
+    quitRenderer();
 }

@@ -1,7 +1,7 @@
 #include "platform.h"
 #include <stddef.h>
 
-char* platname[PLAT__COUNT] = {
+const char* platname[PLAT__COUNT] = {
     "Unknown",
     "Android",
     "Emscripten",
@@ -15,7 +15,7 @@ char* platname[PLAT__COUNT] = {
     "Windows",
     "Xbox (NXDK)"
 };
-char* platdir[PLAT__COUNT] = {
+const char* platdir[PLAT__COUNT] = {
     "unknown",
     "android",
     "emscripten",
@@ -29,7 +29,7 @@ char* platdir[PLAT__COUNT] = {
     "windows",
     "nxdk"
 };
-char* altplatdir[PLAT__COUNT] = {
+const char* altplatdir[PLAT__COUNT] = {
     NULL,
     NULL,
     "emscr",
