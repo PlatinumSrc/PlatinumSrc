@@ -16,7 +16,7 @@ struct scriptstate;
 
 typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
 
-enum __attribute__((packed)) scriptopcode {
+enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less nonsensical
     SCRIPTOPCODE_TRUE, // set exit status to 0
     SCRIPTOPCODE_FALSE, // set exit status to 1
     SCRIPTOPCODE_AND, // run ops until END if the exit status is zero
@@ -41,15 +41,15 @@ enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE_READ, // returns data from and info about the provided input
     SCRIPTOPCODE_READVAR, // read a variable into the accumulator
     SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
-    SCRIPTOPCODE_READARG, // read an argument into the accumulator
-    SCRIPTOPCODE_READARGSEP, // read an argument into the accumulator and push on separator characters
-    SCRIPTOPCODE_READRET, // read the exit status into the accumulator
+    SCRIPTOPCODE_READARRAY, // read array elements into the accumulator
+    SCRIPTOPCODE_READARRAYSEP, // read array elements into the accumulator and push on separator characters
     SCRIPTOPCODE_SET, // set a variable
     SCRIPTOPCODE_UNSET, // unset a variable
     SCRIPTOPCODE_GET, // get a variable
     SCRIPTOPCODE_CMP, // compare
+    SCRIPTOPCODE_TEXT, // write text to the output
     SCRIPTOPCODE_MATH, // do math
-    SCRIPTOPCODE_RAISE, // raise an event
+    SCRIPTOPCODE_FIRE, // fire an event
     SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
     SCRIPTOPCODE_EXIT, // terminate execution
@@ -62,30 +62,26 @@ struct __attribute__((packed)) scriptopdata_readvar {
     struct scriptstring name;
     uint32_t namecrc;
 };
-struct __attribute__((packed)) scriptopdata_readvarsep {
+struct __attribute__((packed)) scriptopdata_readarray {
     struct scriptstring name;
     uint32_t namecrc;
-};
-struct __attribute__((packed)) scriptopdata_readarg {
-    int index;
-};
-struct __attribute__((packed)) scriptopdata_readargsep {
-    int index;
+    int from;
+    int to;
 };
 struct __attribute__((packed)) scriptopdata_cmd {
     scriptfunc_t func;
 };
 
+union scriptopdata {
+    struct scriptopdata_add add;
+    struct scriptopdata_readvar readvar;
+    struct scriptopdata_readarray readarray;
+    struct scriptopdata_cmd cmd;
+};
+
 struct __attribute__((packed)) scriptop {
     enum scriptopcode opcode;
-    union {
-        struct scriptopdata_add add;
-        struct scriptopdata_readvar readvar;
-        struct scriptopdata_readvarsep readvarsep;
-        struct scriptopdata_readarg readarg;
-        struct scriptopdata_readargsep readargsep;
-        struct scriptopdata_cmd cmd;
-    };
+    union scriptopdata data[];
 };
 
 struct script {
@@ -193,7 +189,7 @@ struct scripteventtable {
     int size;
 };
 
-bool compileScript(char* path, scriptfunc_t (*findcmd)(struct charbuf*), struct script* out, char** e);
+bool compileScript(char* path, scriptfunc_t (*findcmd)(char*), struct script* out, struct charbuf* e);
 void cleanUpScript(struct script*);
 
 bool createScriptEventTable(struct scripteventtable*, int);

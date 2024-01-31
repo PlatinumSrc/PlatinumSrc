@@ -79,6 +79,12 @@ int initLoop(void) {
 
     plog(LL_INFO, "Almost there...");
 
+    mainscript = loadResource(RC_SCRIPT, "main", NULL);
+    if (!mainscript) {
+        plog(LL_CRIT | LF_MSGBOX, "Could not start main script");
+        //return 1;
+    }
+
     test = loadResource(RC_SOUND, "common:sounds/wind1", &audiostate.soundrcopt);
     if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);

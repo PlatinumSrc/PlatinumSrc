@@ -51,7 +51,7 @@ union __attribute__((packed)) resource {
     struct rc_material* material;
     struct rc_model* model;
     //struct rc_playermodel* playermodel;
-    //struct rc_script* script;
+    struct rc_script* script;
     struct rc_sound* sound;
     struct rc_texture* texture;
     struct rc_values* values;
@@ -65,7 +65,7 @@ union __attribute__((packed)) rcopt {
     struct rcopt_material* material;
     struct rcopt_model* model;
     //struct rcopt_playermodel* playermodel;
-    //struct rcopt_script* script;
+    struct rcopt_script* script;
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
     //struct rcopt_values* values;
@@ -99,12 +99,12 @@ struct __attribute__((packed)) rcdata {
             //struct rcopt_playermodel playermodelopt;
         };
         struct __attribute__((packed)) {
-            //struct rc_script script;
-            //struct rcopt_script scriptopt;
+            struct rc_script script;
+            struct rcopt_script scriptopt;
         };
         struct __attribute__((packed)) {
             struct rc_sound sound;
-            //struct rcopt_sound soundopt;
+            struct rcopt_sound soundopt;
         };
         struct __attribute__((packed)) {
             struct rc_texture texture;
@@ -132,6 +132,9 @@ struct rcopt_material materialopt_default = {
 struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
+struct rcopt_script scriptopt_default = {
+    NULL
+};
 struct rcopt_sound soundopt_default = {
     true
 };
@@ -141,13 +144,15 @@ struct rcopt_texture textureopt_default = {
 
 void* defaultopt[RC__COUNT] = {
     NULL,
-    /*&mapopt_default*/ NULL,
+    NULL,
+    NULL,
     &materialopt_default,
-    /*&modelopt_default*/ NULL,
+    &modelopt_default,
     NULL,
-    NULL,
+    &scriptopt_default,
     &soundopt_default,
     &textureopt_default,
+    NULL
 };
 
 static struct {
@@ -160,16 +165,16 @@ static struct {
 } modinfo;
 
 static char** extlist[RC__COUNT] = {
-    (char*[2]){".cfg", NULL},
-    (char*[3]){".ttf", ".otf", NULL},
-    (char*[2]){".pmf", NULL},
-    (char*[2]){".txt", NULL},
-    (char*[2]){".p3m", NULL},
-    (char*[2]){".txt", NULL},
-    (char*[3]){".psc", NULL},
-    (char*[4]){".ogg", ".mp3", ".wav", NULL},
-    (char*[5]){".png", ".jpg", ".tga", ".bmp", NULL},
-    (char*[2]){".txt", NULL},
+    (char*[]){".cfg", NULL},
+    (char*[]){".ttf", ".otf", NULL},
+    (char*[]){".pmf", NULL},
+    (char*[]){".txt", NULL},
+    (char*[]){".p3m", NULL},
+    (char*[]){".txt", NULL},
+    (char*[]){".psc", NULL},
+    (char*[]){".ogg", ".mp3", ".wav", NULL},
+    (char*[]){".png", ".jpg", ".tga", ".bmp", NULL},
+    (char*[]){".txt", NULL}
 };
 
 static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {
@@ -351,6 +356,9 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
         case RC_MODEL:
             size += sizeof(struct rc_model) + sizeof(struct rcopt_model);
             break;
+        case RC_SCRIPT:
+            size += sizeof(struct rc_script) + sizeof(struct rcopt_script);
+            break;
         case RC_SOUND:
             size += sizeof(struct rc_sound) + sizeof(struct rcopt_sound);
             break;
@@ -407,6 +415,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     uint32_t pcrc = strcrc32(p);
     struct rcdata* d;
     struct rcgroup* g = &groups[t];
+    if (!o.ptr) o.ptr = defaultopt[t];
     for (int i = 0; i < g->len; ++i) {
         d = g->data[i];
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
@@ -419,6 +428,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         (o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREBONES) ||
                         (o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
                     if (o.model->texture_quality != d->modelopt.texture_quality) goto nomatch;
+                } break;
+                case RC_SCRIPT: {
+                    if (o.script->findcmd != d->scriptopt.findcmd) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
                     if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
@@ -449,7 +461,6 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->font.font = font;
             }
         } break;
-        #endif
         case RC_MATERIAL: {
             struct cfg* mat = cfg_open(p);
             if (mat) {
@@ -465,7 +476,6 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 }
                 tmp = cfg_getvar(mat, NULL, "texture");
                 if (tmp) {
-                    if (!o.material) o.material = &materialopt_default;
                     struct rcopt_texture texopt = {false, o.material->quality};
                     d->material.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt);
                     free(tmp);
@@ -484,10 +494,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 if (tmp) {
                     sscanf(tmp, "%f", &d->material.color[3]);
                 }
+                d->materialopt = *o.material;
             }
         } break;
+        #endif
         case RC_MODEL: {
-            if (!o.model) o.model = &modelopt_default;
             struct p3m* m = p3m_loadfile(p, o.model->flags);
             if (m) {
                 d = loadResource_newptr(t, g, p, pcrc);
@@ -498,13 +509,27 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     //d->model.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt);
                     d->model.textures[i] = NULL;
                 }
+                d->modelopt = *o.model;
+            }
+        } break;
+        case RC_SCRIPT: {
+            struct script s;
+            struct charbuf e;
+            cb_init(&e, 128);
+            if (compileScript(p, o.script->findcmd, &s, &e)) {
+                cb_dump(&e);
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->script.script = s;
+                d->scriptopt = *o.script;
+            } else {
+                plog(LL_ERROR, "Failed to compile script %s: %s", uri, cb_peek(&e));
+                cb_dump(&e);
             }
         } break;
         #ifndef MODULE_SERVER
         case RC_SOUND: {
             FILE* f = fopen(p, "rb");
             if (f) {
-                if (!o.sound) o.sound = &soundopt_default;
                 if (!strcmp(ext, ".ogg")) {
                     fseek(f, 0, SEEK_END);
                     long sz = ftell(f);
@@ -528,6 +553,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 d->sound.channels = info.channels;
                                 d->sound.is8bit = false;
                                 d->sound.stereo = (info.channels > 1);
+                                d->soundopt = *o.sound;
                                 stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)d->sound.data, len * ch);
                                 stb_vorbis_close(v);
                                 free(data);
@@ -540,6 +566,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 d->sound.freq = info.sample_rate;
                                 d->sound.channels = info.channels;
                                 d->sound.stereo = (info.channels > 1);
+                                d->soundopt = *o.sound;
                                 stb_vorbis_close(v);
                             }
                         } else {
@@ -570,6 +597,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 d->sound.channels = m->info.channels;
                                 d->sound.is8bit = false;
                                 d->sound.stereo = (m->info.channels > 1);
+                                d->soundopt = *o.sound;
                                 mp3dec_ex_read(m, (mp3d_sample_t*)d->sound.data, m->samples);
                                 mp3dec_ex_close(m);
                                 free(data);
@@ -581,6 +609,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 d->sound.freq = m->info.hz;
                                 d->sound.channels = m->info.channels;
                                 d->sound.stereo = (m->info.channels > 1);
+                                d->soundopt = *o.sound;
                                 mp3dec_ex_close(m);
                             }
                         }
@@ -624,6 +653,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                         d->sound.channels = spec.channels;
                                         d->sound.is8bit = (destfrmt == AUDIO_U8);
                                         d->sound.stereo = (spec.channels > 1);
+                                        d->soundopt = *o.sound;
                                     }
                                 } else {
                                     d = loadResource_newptr(t, g, p, pcrc);
@@ -635,6 +665,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                     d->sound.channels = spec.channels;
                                     d->sound.is8bit = (destfrmt == AUDIO_U8);
                                     d->sound.stereo = (spec.channels > 1);
+                                    d->soundopt = *o.sound;
                                 }
                             } else {
                                 free(data);
@@ -649,7 +680,6 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_TEXTURE: {
             int w, h, c;
             if (stbi_info(p, &w, &h, &c)) {
-                if (!o.texture) o.texture = &textureopt_default;
                 if (o.texture->needsalpha) {
                     c = 4;
                 } else {
@@ -739,6 +769,10 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
             }
             p3m_free(r->model.model);
             free(r->model.textures);
+        } break;
+        case RC_SCRIPT: {
+            struct script s = r->script.script;
+            cleanUpScript(&s);
         } break;
         case RC_SOUND: {
             free(r->sound.data);

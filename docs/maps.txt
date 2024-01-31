@@ -19,7 +19,7 @@ Format:
         <<u8: 0..16>: Gamemode count> [char[... 0]: Gamemode]...
 
     Data:
-        <u8: Grid X size> <u8: Grid Z size> <u32: <Index in array of <Cube>>>...
+        <u8: Zone count> <u32: Index in array of <Cube>>...
         <u32: Cube count (must be at least 1)> <Cube>... <Cube data>...
         <u32: Prop count> [Prop]...
         <u32: Prop reference count> [Prop reference]...
@@ -30,7 +30,6 @@ Format:
         <u32: Server string table size> <<char: 0> <char[... 0]>...: Server string table>
         <u32: Script count> [Embedded script]...
     Client data:
-        <u16: Material count> [Material]...
         <u32: Triangle count> [Triangle]...
 
     Cube: <u8: <Cube type>> <Cube data>
@@ -42,7 +41,7 @@ Format:
                >
     Cube data: [ <Cube lighting data> ]
                [ <Cube chunk data> ]
-               [ <Parent cube data> | <Solid cube data> | <Angled cube data> ]
+               [ { <Parent cube data> | <Solid cube data> | <Angled cube data> } ]
 
     Parent cube data:
         <u32: (+X, +Y, +Z) child index in array of <Cube>>
@@ -54,7 +53,7 @@ Format:
         <u32: (+X, -Y, -Z) child index in array of <Cube>>
         <u32: (-X, -Y, -Z) child index in array of <Cube>>
     Solid cube data:
-        <u16: Material index>
+        <<Client resource>: Material>
         <u32: Triangle index>
         <u16:
             <4 bits: 0>
@@ -62,7 +61,7 @@ Format:
             <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
         >
     Angled cube data:
-        <u16: Material index>
+        <<Client resource>: Material>
         <u32: Triangle index>
         <u16:
             <2 bits: 0>
@@ -76,22 +75,24 @@ Format:
 
     Cube lighting data:
         <u8[3]: Base light>
-        <u16: Index in array of <Light reference>> <u8: # of dynamic lights>
+        <u32: Index in array of <Light reference>> <u8: # of dynamic lights>
     Cube chunk data:
         <u16: Index in array of <Prop reference>> <u16: # of props>
         <u32: Index in visibility data> <u32: # of cubes>
 
     String: <u32: Byte index in the string table>
     Server string: <u32: Byte index in the server string table>
+    Client string: <u32: Byte index in the server string table>
     Resource: <<String>: Byte index to a resource path in the string table>
     Server resource: <<Server string>: Byte index to a resource path in the server string table>
-
-    Triangle: <<Point>[3]>
-    Point: <float[3]: XYZ><float[3]: Texture XY><float[3]: Lightmap XY>
+    Client resource: <<Client string>: Byte index to a resource path in the client string table>
 
     Prop reference: <u32: Index in array of <Prop>>
 
     Team: <u32: Byte index in [Team data]...>
     Team data: <<Server string>: Name> <float[3]: Color>
+
+    Triangle: <<Point>[3]>
+    Point: <float[3]: XYZ> <float[2]: Texture XY> <float[2]: Lightmap XY>
 
 

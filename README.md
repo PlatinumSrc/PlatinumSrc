@@ -100,7 +100,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `EMULATOR` - Command used to run the executable or ROM
         - `EMUFLAGS` - Flags to pass to the emulator
         - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
-        - `O` - Set the optimization level \(defaults to 2\)
+        - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
         - `M32` - Produce a 32-bit binary
         - `NATIVE` - Tune build for native system
         - `DEBUG` - Enable debug symbols and messages

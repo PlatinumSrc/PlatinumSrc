@@ -253,7 +253,10 @@ ifndef DEBUG
 else
     _CPPFLAGS += -DPSRC_DBGLVL=$(DEBUG)
     ifneq ($(CROSS),nxdk)
-        _CFLAGS += -Og -g
+        ifndef O
+            O := g
+        endif
+        _CFLAGS += -O$(O) -g
     else
         _CFLAGS += -g -gdwarf-4
         _LDFLAGS += -debug

@@ -241,7 +241,7 @@ static int bootstrap(void) {
     }
 
     plog(LL_INFO, "Main directory: %s", maindir);
-    plog(LL_INFO, "Game directory: %s" PATHSEPSTR "%s", maindir, gamedir);
+    plog(LL_INFO, "Game directory: %s" PATHSEPSTR "games" PATHSEPSTR "%s", maindir, gamedir);
     plog(LL_INFO, "User directory: %s", userdir);
     plog(LL_INFO, "Save directory: %s", savedir);
 
@@ -368,16 +368,17 @@ int main(int argc, char** argv) {
                 }
                 printf("USAGE: %s [OPTION]...\n", argv[0]);
                 puts("OPTIONS:");
-                puts("    -help - Display this help text.");
-                puts("    -version - Display version information.");
-                puts("    -game=NAME - Set the game to run.");
-                puts("    -maindir=DIR - Set the main directory.");
-                puts("    -userdir=DIR - Set the user directory.");
-                puts("    -{set|s} [SECT|VAR=VAL]... - Override config values.");
-                puts("    -{config|cfg|c}=FILE - Set the config file path.");
-                puts("    -{nouserconfig|nousercfg} - Do not load the user config.");
-                puts("    -mods NAME[,NAME]... - Mods to load (on top of the mods in the config).");
-                puts("    -icon PATH - Override the game's icon.");
+                puts("    -help                       Display this help text.");
+                puts("    -version                    Display version information.");
+                puts("    -game=NAME                  Set the game to run.");
+                puts("    -mods=NAME[,NAME]...        More mods to load.");
+                puts("    -icon=PATH                  Override the game's icon.");
+                puts("    -maindir=DIR                Set the main directory.");
+                puts("    -userdir=DIR                Set user the directory.");
+                puts("    -{set|s} [SECT|VAR=VAL]...  Override config values.");
+                puts("    -{config|cfg|c}=FILE        Set the config file path.");
+                puts("    -{nouserconfig|nousercfg}   Do not load the user config.");
+                puts("    -nocontroller               Do not init controllers.");
                 ret = 0;
             } else if (!strcmp(opt.data, "version")) {
                 e = args_getoptval(&a, 0, -1, &val, &err);

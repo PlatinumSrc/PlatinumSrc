@@ -2,6 +2,7 @@
 #define PSRC_COMMON_COMMON_H
 
 #include "config.h"
+#include "resource.h"
 
 struct options {
     char* game;
@@ -17,15 +18,16 @@ struct options {
 
 extern int quitreq;
 
+extern struct options options;
+
 extern char* maindir;
 extern char* userdir;
-
 extern char* gamedir; // relative to <maindir>/games
 extern char* savedir;
 
 extern struct cfg* config;
 extern struct cfg* gameconfig;
 
-extern struct options options;
+extern struct rc_script* mainscript;
 
 #endif

@@ -18,9 +18,9 @@
         sounds/
         textures/
         weapons/
-        autoexec.psc - The script that starts the game (this should typically display a splash screen, set up the game,
-                       then load the main menu).
         game.cfg - Game info/config. See 'game config.txt' for details.
+        main.psc - The script that starts the game (this should typically display a splash screen, set up the game, then
+                   load the main menu).
     mods/ - Subfolders act as overlays for <Main dir>
 
 <User dir>/ - Most likely a directory (specified by the 'userdir' variable in 'game.txt') inside of the system/user's

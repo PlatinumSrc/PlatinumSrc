@@ -13,8 +13,9 @@ Entity data:
         { ENT_HEADLESS
         | ENT_GENERIC
         | ENT_BOX
-        | ENT_TRIGGERBOX
-        | ENT_TRIGGERRADIUS
+        | ENT_TRIGGER
+        | ENT_CHMAP
+        | ENT_CHZONE
         | ENT_USE
         | ENT_HOLDUSE
         | ENT_MULTIPLEXER
@@ -30,16 +31,16 @@ Entity data:
         | ENT_WEAPON
         | ENT_AMMO
         | ENT_HEALTHSTATION
-        | ENT_SHIELDSTATION
-        | ENT_COLLIDE }
+        | ENT_SHIELDSTATION }
     Entity data:
         <u8: Min difficulty level>
         <u16: Gamemodes>
         { <Headless entity data>
         | <Generic entity data>
         | <Box entity data>
-        | <Trigger box entity data>
-        | <Trigger radius entity data>
+        | <Trigger entity data>
+        | <Map change entity data>
+        | <Zone change entity data>
         | <Press to use entity data>
         | <Hold to use entity data>
         | <Multiplexer entity data>
@@ -55,8 +56,7 @@ Entity data:
         | <Weapon entity data>
         | <Ammo entity data>
         | <Health station entity data>
-        | <Shield station entity data>
-        | <Collider entity data> }
+        | <Shield station entity data> }
 
     Entity filter data:
         { <u8: ENTFILT_ANY>
@@ -95,7 +95,6 @@ Entity data:
         | <u8: ENTACT_TELEPORT> <Entity selector> <float[3]: Position>
         | <u8: ENTACT_PUSH> <Entity selector> <float[3]: Amount>
         | <u8: ENTACT_SAVE>
-        | <u8: ENTACT_CHANGEMAP> <Server resource> <u8: <7 bits: 0> <1 bit: Keep player state>>
         | <u8: ENTACT_PLAYSOUND> <Entity selector> <u8: { ENTSNDORIG_SELF | ENTSNDORIG_TARGET | ENTSNDORIG_FROMTARGET |
           ENTSNDORIG_TOTARGET | ENTSNDORIG_WORLD }> <float[3]: Offset> <Server resource>
         | <u8: ENTACT_CHANGEMUSIC> <Entity selector> <Server resource>
@@ -109,7 +108,7 @@ Entity data:
     Entity selector:
         <u32: Byte index in [Entity selector data]...>
     Entity actions:
-        <u16: # of actions> <u32: Byte index in [Action]...>...
+        <u8: # of actions> <u32: Byte index in [Action]...>...
 
     Headless entity data:
         <<Server resource>: Script>
@@ -127,10 +126,13 @@ Entity data:
         <float[3]: Scale>
     Box entity data:
         <u8:
-            <7 bits: 0>
+            <1 bit: 0>
+            <1 bit: Hide +X> <1 bit: Hide +Y> <1 bit: Hide +Z>
+            <1 bit: Hide -X> <1 bit: Hide -Y> <1 bit: Hide -Z>
             <1 bit: Start hidden>
         >
-        <Material>
+        <<Server resource>: Material>
+        <u8: { ENT_BOX_EMPTY | ENT_BOX_COLLIDE | ENT_BOX_WATER | ENT_BOX_SOLID }>
         <float[3]: Origin>
         <float[3]: Radius>
         <float[3]: New origin>
@@ -139,10 +141,10 @@ Entity data:
         <<Entity signal>: Hide>
         <<Entity signal>: Move>
         <<Entity signal>: Move back>
-    Trigger box entity data:
+    Trigger entity data:
         <u8:
             <7 bits: 0>
-            <1 bit: Start enabled>
+            <1 bit: Start disabled>
         >
         <Entity filter>
         <float[3]: Origin>
@@ -150,17 +152,26 @@ Entity data:
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
         <Entity actions>
-    Trigger radius entity data:
+    Map change entity data:
         <u8:
             <7 bits: 0>
-            <1 bit: Start enabled>
+            <1 bit: Start disabled>
         >
         <Entity filter>
         <float[3]: Origin>
-        <float: Radius>
+        <float[3]: Radius>
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
-        <Entity actions>
+    Zone change entity data:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Start disabled>
+        >
+        <Entity filter>
+        <float[3]: Origin>
+        <float[3]: Radius>
+        <<Entity signal>: Enable>
+        <<Entity signal>: Disable>
     Press to use entity data:
         <u8:
             <7 bits: 0>
@@ -305,7 +316,7 @@ Entity data:
         >
         <<Entity signal>: Enable>
         <<Entity signal>: Disable>
-        <Light>
+        <Light reference>
     Health entity data:
         <<Server resource>: Model>
         <float: Respawn delay>
@@ -322,9 +333,5 @@ Entity data:
         <<Server resource>: Weapon>
         <float: Respawn delay>
         <i16: Amount>
-    Collider entity data:
-        <Entity filter>
-        <float[3]: Origin>
-        <float[2]: Radius>
 
 

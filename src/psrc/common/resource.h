@@ -2,6 +2,7 @@
 #define PSRC_COMMON_RESOURCE_H
 
 #include "config.h"
+#include "scripting.h"
 #include "p3m.h"
 
 #ifndef MODULE_SERVER
@@ -43,6 +44,14 @@ struct __attribute__((packed)) rc_config {
 // RC_VALUES
 struct __attribute__((packed)) rc_values {
     struct cfg* values;
+};
+
+// RC_SCRIPT
+struct __attribute__((packed)) rc_script {
+    struct script script;
+};
+struct __attribute__((packed)) rcopt_script {
+    scriptfunc_t (*findcmd)(char*);
 };
 
 // RC_FONT
