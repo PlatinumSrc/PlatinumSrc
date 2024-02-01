@@ -7,11 +7,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-struct __attribute__((packed)) scriptstring {
-    int offset;
-    int len;
-};
-
 struct scriptstate;
 
 typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
@@ -55,6 +50,11 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_EXIT, // terminate execution
 };
 
+struct __attribute__((packed)) scriptstring {
+    int offset;
+    int len;
+};
+
 struct __attribute__((packed)) scriptopdata_add {
     struct scriptstring data;
 };
@@ -86,7 +86,6 @@ struct __attribute__((packed)) scriptop {
 
 struct script {
     char* strings;
-    int opcount;
     struct scriptop* ops;
 };
 

@@ -93,79 +93,39 @@ static inline int interpesc(struct compilerfile* f, int c, uint8_t flags, char* 
     *l = 1;
     return 0;
 }
-static inline int getstr(struct compilerfile* f, int flags, struct charbuf* cb, struct charbuf* e) {
-    int instr = 0;
-    while (1) {
-        int tmp = compiler_fgetc(f);
-        if (instr == '"') {
-            if (tmp == EOF) {
-                if (e) cb_addstr(e, "Unexpected EOF");
-                return -1;
-            }
-            if (!(flags & IESC_NUL) && !tmp) {
-                if (e) cb_addstr(e, "Unexpected null char");
-                return -1;
-            }
-            if (tmp == '"') {
-                instr = 0;
-            } else if (tmp == '\\') {
-                char tmp2[3];
-                int len;
-                tmp = interpesc(f, tmp, flags, tmp2, &len);
-                if (tmp == -1) {
-                    if (e) cb_addstr(e, "Unexpected EOF");
-                    return -1;
-                }
-                cb_addpartstr(cb, tmp2, len);
-            } else {
-                cb_add(cb, tmp);
-            }
-        } else if (instr == '\'') {
-            if (tmp == EOF) {
-                if (e) cb_addstr(e, "Unexpected EOF");
-                return -1;
-            }
-            if (!(flags & IESC_NUL) && !tmp) {
-                if (e) cb_addstr(e, "Unexpected null char");
-                return -1;
-            }
-            if (tmp == '\'') {
-                instr = 0;
-            } else {
-                cb_add(cb, tmp);
-            }
-        } else {
-            if (tmp == '"') {
-                instr = '"';
-            } else if (tmp == '\'') {
-                instr = '\'';
-            } else if (tmp == ' ' || tmp == '\t' || !tmp) {
-                return 1;
-            } else if (tmp == '\n' || tmp == ';' || tmp == '|' || tmp == '&' || tmp == EOF) {
-                return 0;
-            } else if (tmp == '\\') {
-                tmp = compiler_fgetc(f);
-                if (tmp == EOF) {
-                    if (e) cb_addstr(e, "Unexpected EOF");
-                    return -1;
-                } else if (tmp == '\\') {
-                    cb_add(cb, '\\');
-                } else if (tmp == '"') {
-                    cb_add(cb, '"');
-                } else if (tmp == '\'') {
-                    cb_add(cb, '\'');
-                } else if (tmp != '\n') {
-                    cb_add(cb, '\\');
-                    cb_add(cb, tmp);
-                }
-            } else {
-                cb_add(cb, tmp);
-            }
-        }
+struct compileScript_scope {
+    enum scriptopcode* data;
+    int index;
+    int size;
+};
+static inline void compileScript_pushscope(struct compileScript_scope* s, int o) {
+    ++s->index;
+    if (s->index == s->size) {
+        s->size *= 2;
+        s->data = realloc(s->data, s->size * sizeof(*s->data));
     }
+    s->data[s->index] = o;
 }
-bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* out, struct charbuf* e) {
-    (void)findcmd; (void)out;
+static inline bool compileScript_popscope(struct compileScript_scope* s) {
+    if (s->index == -1) return false;
+    --s->index;
+    return true;
+}
+struct scriptsz {
+    int stringsz;
+    int stringlen;
+    int opsz;
+    int oplen;
+    //int opct;
+};
+static inline void compileScript_addop(struct script* out, struct scriptsz* sz, struct scriptop* op) {
+    
+}
+static inline void compileScript_addstr(struct script* out, struct scriptsz* sz, struct charbuf* cb) {
+    
+}
+bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out, struct charbuf* e) {
+    (void)findcmd;
     struct compilerfile f;
     {
         int tmp = isFile(p);
@@ -186,99 +146,201 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* out, 
         }
     }
     bool ret = true;
+    struct script out;
+    struct scriptsz sz = {.stringsz = 256, .opsz = 256};
+    out.strings = malloc(sz.stringsz);
+    out.ops = malloc(sz.opsz);
     struct charbuf cb;
     cb_init(&cb, 256);
-    // TODO: decrustify
-    //int scope = 0;
-    bool needcmd = false;
+    struct compileScript_scope scope = {.index = -1, .size = 4};
+    scope.data = malloc(scope.size * sizeof(*scope.data));
+    char instr = 0;
+    bool reqcmd = false;
     while (1) {
-        int tmp;
+        struct scriptop op;
+        int arg = 0;
+        int c;
         do {
-            tmp = compiler_fgetc(&f);
-        } while (tmp == ' ' || tmp == '\t' || tmp == '\n');
-        if (tmp == EOF) {
-            if (needcmd) {
-                if (e) cb_addstr(e, "Expected a command");
+            c = compiler_fgetc(&f);
+        } while (c == '\n' || c == ' ' || c == '\t' || c == ';' || !c);
+        if (c == EOF) {
+            if (reqcmd) {
+                if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
-                goto ret;
             }
             goto ret;
         }
-        compiler_fungetc(&f);
-        tmp = getstr(&f, 0, &cb, e);
-        if (tmp == -1) {
+        if (c == '|' || c == '&') {
+            if (e) cb_addstr(e, "Syntax error");
             ret = false;
             goto ret;
         }
-        printf("CMD: {%s}\n", cb_peek(&cb));
-        if (tmp == 1) {
-            compiler_fungetc(&f);
-            do {
-                tmp = compiler_fgetc(&f);
-            } while (tmp == ' ' || tmp == '\t');
-            if (tmp == '\n' || tmp == ';' || tmp == '|' || tmp == '&' || tmp == EOF) goto nextcmd;
-            compiler_fungetc(&f);
-            cb_clear(&cb);
+        reqcmd = false;
+        while (1) {
             while (1) {
-                tmp = getstr(&f, IESC_NUL | IESC_DOL, &cb, e);
-                if (tmp == -1) {
+                if (instr == '"') {
+                    if (c == EOF) {
+                        if (e) cb_addstr(e, "Unexpected EOF");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!arg && !c) {
+                        if (e) cb_addstr(e, "Unexpected null char");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (c == '"') {
+                        instr = 0;
+                    } else if (c == '\\') {
+                        char tmp[3];
+                        int len;
+                        c = interpesc(&f, compiler_fgetc(&f), (arg) ? (IESC_NUL | IESC_DOL) : 0, tmp, &len);
+                        if (c == -1) {
+                            if (e) cb_addstr(e, "Unexpected EOF");
+                            ret = false;
+                            goto ret;
+                        }
+                        cb_addpartstr(&cb, tmp, len);
+                    } else {
+                        cb_add(&cb, c);
+                    }
+                } else if (instr == '\'') {
+                    if (c == EOF) {
+                        if (e) cb_addstr(e, "Unexpected EOF");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!arg && !c) {
+                        if (e) cb_addstr(e, "Unexpected null char");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (c == '\'') {
+                        instr = 0;
+                    } else {
+                        cb_add(&cb, c);
+                    }
+                } else {
+                    switch (c) {
+                        case '"':
+                            instr = '"';
+                            break;
+                        case '\'':
+                            instr = '\'';
+                            break;
+                        case ' ':
+                        case '\t':
+                        case 0:
+                            do {
+                                c = compiler_fgetc(&f);
+                            } while (c == ' ' || c == '\t' || !c);
+                            goto longbreak;
+                        case '\n':
+                        case ';':
+                        case '|':
+                        case '&':
+                        case EOF:
+                            goto longbreak;
+                        case '\\':
+                            c = compiler_fgetc(&f);
+                            switch (c) {
+                                case EOF:
+                                    goto longbreak;
+                                case '\\':
+                                case '"':
+                                case '\'':
+                                case ' ':
+                                case '\t':
+                                case ';':
+                                case '|':
+                                case '&':
+                                    cb_add(&cb, c);
+                                    break;
+                                case '\n':
+                                    break;
+                                case '$':
+                                    if (arg) {
+                                        cb_add(&cb, '$');
+                                    } else {
+                                        cb_add(&cb, '\\');
+                                        cb_add(&cb, '$');
+                                    }
+                                    break;
+                            }
+                            break;
+                        default:
+                            cb_add(&cb, c);
+                            break;
+                    }
+                }
+                c = compiler_fgetc(&f);
+            }
+            longbreak:;
+            if (arg) {
+                if (arg == 16) {
+                    if (e) cb_addstr(e, "Syntax error");
                     ret = false;
                     goto ret;
                 }
-                printf("ARG: {%s}\n", cb_peek(&cb));
-                compiler_fungetc(&f);
-                do {
-                    tmp = compiler_fgetc(&f);
-                } while (tmp == ' ' || tmp == '\t');
-                if (tmp == '\n' || tmp == ';' || tmp == '|' || tmp == '&' || tmp == EOF) goto nextcmd;
-                compiler_fungetc(&f);
-                cb_clear(&cb);
+                printf("ARG %d: {%s}\n", arg, cb_peek(&cb));
+            } else {
+                printf("CMD: {%s}\n", cb_peek(&cb));
             }
-        } else {
-            if (needcmd) {
-                if (e) cb_addstr(e, "Expected a command");
-                ret = false;
-                goto ret;
+            if (c == '|' || c == '&') {
+                reqcmd = true;
+                break;
             }
-            goto nextcmd;
+            if (c == '\n' || c == ';') {
+                break;
+            }
+            ++arg;
+            cb_clear(&cb);
         }
-        compiler_fungetc(&f);
-        nextcmd:;
-        if (tmp == '|') {
-            if (needcmd) {
-                if (e) cb_addstr(e, "Expected a command");
+        cb_clear(&cb);
+        puts("ENTER");
+        if (c == '|') {
+            c = compiler_fgetc(&f);
+            if (c == '|') {
+                puts("OR");
+            } else if (c == EOF) {
+                if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
                 goto ret;
-            }
-            tmp = compiler_fgetc(&f);
-            if (tmp == '|') {
-                puts("OR");
             } else {
                 puts("PIPE");
                 compiler_fungetc(&f);
             }
-            needcmd = true;
-        } else if (tmp == '&') {
-            if (needcmd) {
-                if (e) cb_addstr(e, "Expected a command");
+        } else if (c == '&') {
+            c = compiler_fgetc(&f);
+            if (c == '&') {
+                puts("AND");
+            } else if (c == EOF) {
+                if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
                 goto ret;
-            }
-            tmp = compiler_fgetc(&f);
-            if (tmp != '&') {
+            } else {
                 if (e) cb_addstr(e, "Syntax error");
                 ret = false;
                 goto ret;
             }
-            needcmd = true;
-        } else {
-            needcmd = false;
+        } else if (c == EOF) {
+            goto ret;
         }
-        puts("---");
-        if (tmp == EOF) goto ret;
-        cb_clear(&cb);
     }
     ret:;
+    if (ret) {
+        *_out = out;
+    } else {
+        if (e) {
+            cb_addstr(e, " on line ");
+            char tmp[16];
+            sprintf(tmp, "%d", f.line);
+            cb_addstr(e, tmp);
+        }
+        free(out.strings);
+        free(out.ops);
+    }
+    free(scope.data);
     cb_dump(&cb);
     return ret;
 }

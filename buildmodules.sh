@@ -16,7 +16,7 @@ build_engine() {
     buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
     pkgrel() { _zip_u "PlatinumSrc Engine Windows i686" psrc.exe; }
     buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y CC='wine i686-w64-mingw32-gcc' inc.null=NUL
-    pkgrel() { _zip_u "PlatinumSrc Engine Xbox (NXDK)" PlatinumSrc.xiso.iso; }
+    pkgrel() { _zip_u "PlatinumSrc Engine Xbox (NXDK)" xiso/default.xbe; }
     buildrel "${1}" "Xbox (NXDK)" "${@:2}" CROSS=nxdk
     pkgrel() { _zip_u "PlatinumSrc Engine Emscripten" index.html psrc.js psrc.wasm; }
     buildrel "${1}" "Emscripten" "${@:2}" CROSS=emscr
