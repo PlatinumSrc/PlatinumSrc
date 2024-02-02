@@ -4,6 +4,7 @@
 #include "logging.h"
 
 #include <stdio.h>
+#include <limits.h>
 
 struct compilerfile {
     FILE* f;
@@ -93,6 +94,9 @@ static inline int interpesc(struct compilerfile* f, int c, uint8_t flags, char* 
     *l = 1;
     return 0;
 }
+static inline bool isvarchar(int c) {
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9'));
+}
 struct compileScript_scope {
     enum scriptopcode* data;
     int index;
@@ -112,16 +116,11 @@ static inline bool compileScript_popscope(struct compileScript_scope* s) {
     return true;
 }
 struct scriptsz {
-    int stringsz;
-    int stringlen;
     int opsz;
     int oplen;
     //int opct;
 };
 static inline void compileScript_addop(struct script* out, struct scriptsz* sz, struct scriptop* op) {
-    
-}
-static inline void compileScript_addstr(struct script* out, struct scriptsz* sz, struct charbuf* cb) {
     
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out, struct charbuf* e) {
@@ -146,10 +145,10 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
         }
     }
     bool ret = true;
-    struct script out;
-    struct scriptsz sz = {.stringsz = 256, .opsz = 256};
-    out.strings = malloc(sz.stringsz);
-    out.ops = malloc(sz.opsz);
+    struct scriptsz sz = {.opsz = 256};
+    struct script out = {.ops = malloc(sz.opsz)};
+    struct charbuf strings;
+    cb_init(&strings, 256);
     struct charbuf cb;
     cb_init(&cb, 256);
     struct compileScript_scope scope = {.index = -1, .size = 4};
@@ -158,6 +157,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
     bool reqcmd = false;
     while (1) {
         struct scriptop op;
+        struct scriptop tmpop;
         int arg = 0;
         int c;
         do {
@@ -201,6 +201,162 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                             goto ret;
                         }
                         cb_addpartstr(&cb, tmp, len);
+                    } else if (c == '$') {
+                        if (arg) {
+                            int len = cb.len;
+                            bool array = false;
+                            int start = 0, end = INT_MAX;
+                            c = compiler_fgetc(&f);
+                            if (c >= '0' && c <= '9') {
+                                do {
+                                    cb_add(&cb, c);
+                                    c = compiler_fgetc(&f);
+                                } while (c >= '0' && c <= '9');
+                                compiler_fungetc(&f);
+                            } else if (c == '@' || c == '?') {
+                                cb_add(&cb, c);
+                            } else if (c == '{') {
+                                c = compiler_fgetc(&f);
+                                if (c == EOF) {
+                                    if (e) cb_addstr(e, "Unexpected EOF");
+                                    ret = false;
+                                    goto ret;
+                                }
+                                if (c == '@') {
+                                    cb_add(&cb, '@');
+                                    c = compiler_fgetc(&f);
+                                } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+                                    do {
+                                        cb_add(&cb, c);
+                                        c = compiler_fgetc(&f);
+                                    } while (isvarchar(c));
+                                } else {
+                                    if (e) cb_addstr(e, "Syntax error");
+                                    ret = false;
+                                    goto ret;
+                                }
+                                if (c == EOF) {
+                                    if (e) cb_addstr(e, "Unexpected EOF");
+                                    ret = false;
+                                    goto ret;
+                                }
+                                if (c == ':') {
+                                    int8_t negative = -1;
+                                    while (1) {
+                                        c = compiler_fgetc(&f);
+                                        if (c >= '0' && c <= '9') {
+                                            if (negative == -1) {
+                                                negative = 0;
+                                                start = c - '0';
+                                            } else {
+                                                start *= 10;
+                                                start += c - '0';
+                                            }
+                                        } else if (c == '-') {
+                                            if (negative != -1) {
+                                                if (e) cb_addstr(e, "Syntax error");
+                                                ret = false;
+                                                goto ret;
+                                            }
+                                            negative = 1;
+                                            start = 0;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if (negative) start = -start;
+                                    if (c == EOF) {
+                                        if (e) cb_addstr(e, "Unexpected EOF");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                    if (c == ',') {
+                                        negative = -1;
+                                        while (1) {
+                                            c = compiler_fgetc(&f);
+                                            if (c >= '0' && c <= '9') {
+                                                if (negative == -1) {
+                                                    negative = 0;
+                                                    end = c - '0';
+                                                } else {
+                                                    end *= 10;
+                                                    end += c - '0';
+                                                }
+                                            } else if (c == '-') {
+                                                if (negative != -1) {
+                                                    if (e) cb_addstr(e, "Syntax error");
+                                                    ret = false;
+                                                    goto ret;
+                                                }
+                                                negative = 1;
+                                                end = 0;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        if (negative) end = -end;
+                                        if (c == EOF) {
+                                            if (e) cb_addstr(e, "Unexpected EOF");
+                                            ret = false;
+                                            goto ret;
+                                        }
+                                        if (c != '}') {
+                                            if (e) cb_addstr(e, "Syntax error");
+                                            ret = false;
+                                            goto ret;
+                                        }
+                                    } else if (c != '}') {
+                                        if (e) cb_addstr(e, "Syntax error");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                } else if (c != '}') {
+                                    if (e) cb_addstr(e, "Syntax error");
+                                    ret = false;
+                                    goto ret;
+                                }
+                                array = true;
+                            } else if (c == EOF) {
+                                cb_add(&cb, '$');
+                                goto longbreak;
+                            } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+                                do {
+                                    cb_add(&cb, c);
+                                    c = compiler_fgetc(&f);
+                                } while (isvarchar(c));
+                                compiler_fungetc(&f);
+                            } else {
+                                cb_add(&cb, '$');
+                                continue;
+                            }
+                            if (len > 0) {
+                                tmpop.opcode = SCRIPTOPCODE_ADD;
+                                tmpop.data.add.data.offset = strings.len;
+                                tmpop.data.add.data.len = len;
+                                cb_addpartstr(&strings, cb.data, len);
+                                compileScript_addop(&out, &sz, &tmpop);
+                            }
+                            if (array) {
+                                tmpop.opcode = SCRIPTOPCODE_READARRAY;
+                                tmpop.data.readarray.name.offset = strings.len;
+                                tmpop.data.readarray.name.len = cb.len - len;
+                                cb_addpartstr(&strings, &cb.data[len], cb.len - len);
+                                tmpop.data.readarray.namecrc = crc32((uint8_t*)&cb.data[len], cb.len - len);
+                                tmpop.data.readarray.from = start;
+                                tmpop.data.readarray.to = end;
+                                compileScript_addop(&out, &sz, &tmpop);
+                            } else {
+                                tmpop.opcode = SCRIPTOPCODE_READVAR;
+                                tmpop.data.readvar.name.offset = strings.len;
+                                tmpop.data.readvar.name.len = cb.len - len;
+                                cb_addpartstr(&strings, &cb.data[len], cb.len - len);
+                                tmpop.data.readvar.namecrc = crc32((uint8_t*)&cb.data[len], cb.len - len);
+                                compileScript_addop(&out, &sz, &tmpop);
+                            }
+                            cb_clear(&cb);
+                        } else {
+                            cb_add(&cb, '$');
+                        }
                     } else {
                         cb_add(&cb, c);
                     }
@@ -245,6 +401,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                             c = compiler_fgetc(&f);
                             switch (c) {
                                 case EOF:
+                                    cb_add(&cb, '\\');
                                     goto longbreak;
                                 case '\\':
                                 case '"':
@@ -268,6 +425,163 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                                     break;
                             }
                             break;
+                        case '$':
+                            if (arg) {
+                                int len = cb.len;
+                                bool array = false;
+                                int start = 0, end = INT_MAX;
+                                c = compiler_fgetc(&f);
+                                if (c >= '0' && c <= '9') {
+                                    do {
+                                        cb_add(&cb, c);
+                                        c = compiler_fgetc(&f);
+                                    } while (c >= '0' && c <= '9');
+                                    compiler_fungetc(&f);
+                                } else if (c == '@' || c == '?') {
+                                    cb_add(&cb, c);
+                                } else if (c == '{') {
+                                    c = compiler_fgetc(&f);
+                                    if (c == EOF) {
+                                        if (e) cb_addstr(e, "Unexpected EOF");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                    if (c == '@') {
+                                        cb_add(&cb, '@');
+                                        c = compiler_fgetc(&f);
+                                    } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+                                        do {
+                                            cb_add(&cb, c);
+                                            c = compiler_fgetc(&f);
+                                        } while (isvarchar(c));
+                                    } else {
+                                        if (e) cb_addstr(e, "Syntax error");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                    if (c == EOF) {
+                                        if (e) cb_addstr(e, "Unexpected EOF");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                    if (c == ':') {
+                                        int8_t negative = -1;
+                                        while (1) {
+                                            c = compiler_fgetc(&f);
+                                            if (c >= '0' && c <= '9') {
+                                                if (negative == -1) {
+                                                    negative = 0;
+                                                    start = c - '0';
+                                                } else {
+                                                    start *= 10;
+                                                    start += c - '0';
+                                                }
+                                            } else if (c == '-') {
+                                                if (negative != -1) {
+                                                    if (e) cb_addstr(e, "Syntax error");
+                                                    ret = false;
+                                                    goto ret;
+                                                }
+                                                negative = 1;
+                                                start = 0;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        if (negative) start = -start;
+                                        if (c == EOF) {
+                                            if (e) cb_addstr(e, "Unexpected EOF");
+                                            ret = false;
+                                            goto ret;
+                                        }
+                                        if (c == ',') {
+                                            negative = -1;
+                                            while (1) {
+                                                c = compiler_fgetc(&f);
+                                                if (c >= '0' && c <= '9') {
+                                                    if (negative == -1) {
+                                                        negative = 0;
+                                                        end = c - '0';
+                                                    } else {
+                                                        end *= 10;
+                                                        end += c - '0';
+                                                    }
+                                                } else if (c == '-') {
+                                                    if (negative != -1) {
+                                                        if (e) cb_addstr(e, "Syntax error");
+                                                        ret = false;
+                                                        goto ret;
+                                                    }
+                                                    negative = 1;
+                                                    end = 0;
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+                                            if (negative) end = -end;
+                                            if (c == EOF) {
+                                                if (e) cb_addstr(e, "Unexpected EOF");
+                                                ret = false;
+                                                goto ret;
+                                            }
+                                            if (c != '}') {
+                                                if (e) cb_addstr(e, "Syntax error");
+                                                ret = false;
+                                                goto ret;
+                                            }
+                                        } else if (c != '}') {
+                                            if (e) cb_addstr(e, "Syntax error");
+                                            ret = false;
+                                            goto ret;
+                                        }
+                                    } else if (c != '}') {
+                                        if (e) cb_addstr(e, "Syntax error");
+                                        ret = false;
+                                        goto ret;
+                                    }
+                                    array = true;
+                                } else if (c == EOF) {
+                                    cb_add(&cb, '$');
+                                    goto longbreak;
+                                } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+                                    do {
+                                        cb_add(&cb, c);
+                                        c = compiler_fgetc(&f);
+                                    } while (isvarchar(c));
+                                    compiler_fungetc(&f);
+                                } else {
+                                    cb_add(&cb, '$');
+                                    continue;
+                                }
+                                if (len > 0) {
+                                    tmpop.opcode = SCRIPTOPCODE_ADD;
+                                    tmpop.data.add.data.offset = strings.len;
+                                    tmpop.data.add.data.len = len;
+                                    cb_addpartstr(&strings, cb.data, len);
+                                    compileScript_addop(&out, &sz, &tmpop);
+                                }
+                                if (array) {
+                                    tmpop.opcode = SCRIPTOPCODE_READARRAYSEP;
+                                    tmpop.data.readarray.name.offset = strings.len;
+                                    tmpop.data.readarray.name.len = cb.len - len;
+                                    cb_addpartstr(&strings, &cb.data[len], cb.len - len);
+                                    tmpop.data.readarray.namecrc = crc32((uint8_t*)&cb.data[len], cb.len - len);
+                                    tmpop.data.readarray.from = start;
+                                    tmpop.data.readarray.to = end;
+                                    compileScript_addop(&out, &sz, &tmpop);
+                                } else {
+                                    tmpop.opcode = SCRIPTOPCODE_READVARSEP;
+                                    tmpop.data.readvar.name.offset = strings.len;
+                                    tmpop.data.readvar.name.len = cb.len - len;
+                                    cb_addpartstr(&strings, &cb.data[len], cb.len - len);
+                                    tmpop.data.readvar.namecrc = crc32((uint8_t*)&cb.data[len], cb.len - len);
+                                    compileScript_addop(&out, &sz, &tmpop);
+                                }
+                                cb_clear(&cb);
+                            } else {
+                                cb_add(&cb, '$');
+                            }
+                            break;
                         default:
                             cb_add(&cb, c);
                             break;
@@ -277,14 +591,17 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             }
             longbreak:;
             if (arg) {
-                if (arg == 16) {
-                    if (e) cb_addstr(e, "Syntax error");
-                    ret = false;
-                    goto ret;
+                if (cb.len > 0) {
+                    tmpop.opcode = SCRIPTOPCODE_ADD;
+                    tmpop.data.add.data.offset = strings.len;
+                    tmpop.data.add.data.len = cb.len;
+                    cb_addpartstr(&strings, cb.data, cb.len);
+                    compileScript_addop(&out, &sz, &tmpop);
                 }
-                printf("ARG %d: {%s}\n", arg, cb_peek(&cb));
+                tmpop.opcode = SCRIPTOPCODE_PUSH;
+                compileScript_addop(&out, &sz, &tmpop);
             } else {
-                printf("CMD: {%s}\n", cb_peek(&cb));
+                printf("! SEARCH {%s}\n", cb_peek(&cb));
             }
             if (c == '|' || c == '&') {
                 reqcmd = true;
@@ -297,23 +614,26 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             cb_clear(&cb);
         }
         cb_clear(&cb);
-        puts("ENTER");
+        compileScript_addop(&out, &sz, &op);
         if (c == '|') {
             c = compiler_fgetc(&f);
             if (c == '|') {
-                puts("OR");
+                tmpop.opcode = SCRIPTOPCODE_OR;
+                compileScript_addop(&out, &sz, &tmpop);
             } else if (c == EOF) {
                 if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
                 goto ret;
             } else {
-                puts("PIPE");
+                tmpop.opcode = SCRIPTOPCODE_PIPE;
+                compileScript_addop(&out, &sz, &tmpop);
                 compiler_fungetc(&f);
             }
         } else if (c == '&') {
             c = compiler_fgetc(&f);
             if (c == '&') {
-                puts("AND");
+                tmpop.opcode = SCRIPTOPCODE_AND;
+                compileScript_addop(&out, &sz, &tmpop);
             } else if (c == EOF) {
                 if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
@@ -329,7 +649,8 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
     }
     ret:;
     if (ret) {
-        *_out = out;
+        _out->ops = out.ops;
+        _out->strings = cb_finalize(&strings);
     } else {
         if (e) {
             cb_addstr(e, " on line ");
@@ -337,7 +658,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             sprintf(tmp, "%d", f.line);
             cb_addstr(e, tmp);
         }
-        free(out.strings);
+        cb_dump(&strings);
         free(out.ops);
     }
     free(scope.data);

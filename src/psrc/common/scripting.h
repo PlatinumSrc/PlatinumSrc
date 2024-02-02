@@ -81,7 +81,7 @@ union scriptopdata {
 
 struct __attribute__((packed)) scriptop {
     enum scriptopcode opcode;
-    union scriptopdata data[];
+    union scriptopdata data;
 };
 
 struct script {
