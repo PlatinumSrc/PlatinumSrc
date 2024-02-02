@@ -740,9 +740,9 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                     compileScript_addop(&out, &sz, &tmpop);
                     reqcmd = true;
                     goto findcmd;
-                } else if (!strcmp(cb.data, "func")) {
-                    compileScript_pushscope(&scope, SCRIPTOPCODE_FUNC, 0);
-                    op.opcode = SCRIPTOPCODE_FUNC;
+                } else if (!strcmp(cb.data, "def")) {
+                    compileScript_pushscope(&scope, SCRIPTOPCODE_DEF, 0);
+                    op.opcode = SCRIPTOPCODE_DEF;
                 } else if (!strcmp(cb.data, "on")) {
                     compileScript_pushscope(&scope, SCRIPTOPCODE_ON, 0);
                     op.opcode = SCRIPTOPCODE_ON;
@@ -768,12 +768,12 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         goto ret;
                     }
                     op.opcode = SCRIPTOPCODE_END;
-                } else if (!strcmp(cb.data, "call")) {
-                    op.opcode = SCRIPTOPCODE_CALL;
+                } else if (!strcmp(cb.data, "sub")) {
+                    op.opcode = SCRIPTOPCODE_SUB;
                 } else if (!strcmp(cb.data, "return")) {
                     op.opcode = SCRIPTOPCODE_RET;
-                } else if (!strcmp(cb.data, "unfunc")) {
-                    op.opcode = SCRIPTOPCODE_UNFUNC;
+                } else if (!strcmp(cb.data, "undef")) {
+                    op.opcode = SCRIPTOPCODE_UNDEF;
                 } else if (!strcmp(cb.data, "unon")) {
                     op.opcode = SCRIPTOPCODE_UNON;
                 } else if (!strcmp(cb.data, "set")) {

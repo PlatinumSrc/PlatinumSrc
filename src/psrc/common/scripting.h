@@ -24,12 +24,12 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_CONT, // skip the rest of a WHILE block
     SCRIPTOPCODE_BREAK, // end a WHILE block early
     SCRIPTOPCODE_TESTBLOCK, // run conditions in an IF, ELIF, or WHILE block if the exit status is zero
-    SCRIPTOPCODE_FUNC, // set a function
+    SCRIPTOPCODE_DEF, // set a subroutine
     SCRIPTOPCODE_ON, // subscribe to an event
     SCRIPTOPCODE_END, // end program flow blocks
-    SCRIPTOPCODE_CALL, // call a funcion
-    SCRIPTOPCODE_RET, // return from a function call
-    SCRIPTOPCODE_UNFUNC, // unset a function
+    SCRIPTOPCODE_SUB, // call a subroutine
+    SCRIPTOPCODE_RET, // return from a subroutine
+    SCRIPTOPCODE_UNDEF, // unset a subroutine
     SCRIPTOPCODE_UNON, // unsubscribe from an event
     SCRIPTOPCODE_PIPE, // set the command input to the output of the last command 
     SCRIPTOPCODE_ADD, // add data to the accumulator
