@@ -132,22 +132,33 @@ struct scriptsz {
     //int opct;
 };
 static inline void compileScript_addop(struct script* out, struct scriptsz* sz, struct scriptop* op) {
+    int len = sizeof(op->opcode);
     switch (op->opcode) {
-        case SCRIPTOPCODE_TRUE: puts("true"); break;
-        case SCRIPTOPCODE_FALSE: puts("false"); break;
-        case SCRIPTOPCODE_AND: puts("and"); break;
-        case SCRIPTOPCODE_OR: puts("or"); break;
-        case SCRIPTOPCODE_IF: puts("if"); break;
-        case SCRIPTOPCODE_ELIF: puts("elif"); break;
-        case SCRIPTOPCODE_ELSE: puts("else"); break;
-        case SCRIPTOPCODE_WHILE: puts("while"); break;
-        case SCRIPTOPCODE_TESTBLOCK: puts("testblock"); break;
-        case SCRIPTOPCODE_END: puts("end"); break;
-        case SCRIPTOPCODE_PIPE: puts("pipe"); break;
-        case SCRIPTOPCODE_ADD: printf("add [%d, %d]\n", op->data.add.data.offset, op->data.add.data.len); break;
-        case SCRIPTOPCODE_PUSH: puts("push"); break;
-        default: printf("! %d\n", op->opcode); break;
+        case SCRIPTOPCODE_ADD:
+            len += sizeof(op->data.add);
+            break;
+        case SCRIPTOPCODE_READVAR:
+        case SCRIPTOPCODE_READVARSEP:
+            len += sizeof(op->data.readvar);
+            break;
+        case SCRIPTOPCODE_READARRAY:
+        case SCRIPTOPCODE_READARRAYSEP:
+            len += sizeof(op->data.readarray);
+            break;
+        case SCRIPTOPCODE_CMD:
+            len += sizeof(op->data.cmd);
+            break;
+        default: break;
     }
+    if (sz->oplen + len >= sz->opsz) {
+        do {
+            sz->opsz *= 2;
+        } while (sz->oplen + len >= sz->opsz);
+        out->ops = realloc(out->ops, sz->opsz);
+    }
+    memcpy(((void*)out->ops) + sz->oplen, op, len);
+    sz->oplen += len;
+    //printf("len: %d, oplen: %d, opsz: %d\n", len, sz->oplen, sz->opsz);
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out, struct charbuf* e) {
     (void)findcmd;
@@ -629,7 +640,6 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                 compileScript_addop(&out, &sz, &tmpop);
             } else {
                 cb_nullterm(&cb);
-                //printf("CMD: {%s}\n", cb.data);
                 if (!strcmp(cb.data, ":") || !strcmp(cb.data, "true")) {
                     op.opcode = SCRIPTOPCODE_TRUE;
                 } else if (!strcmp(cb.data, "false")) {
@@ -678,6 +688,32 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                     compileScript_addop(&out, &sz, &tmpop);
                     reqcmd = true;
                     goto findcmd;
+                } else if (!strcmp(cb.data, "continue")) {
+                    uint8_t f;
+                    if (compileScript_getscope(&scope, &f) != SCRIPTOPCODE_WHILE) {
+                        if (e) cb_addstr(e, "Misplaced 'continue'");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!(f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Missing 'do' before 'continue'");
+                        ret = false;
+                        goto ret;
+                    }
+                    op.opcode = SCRIPTOPCODE_CONT;
+                } else if (!strcmp(cb.data, "break")) {
+                    uint8_t f;
+                    if (compileScript_getscope(&scope, &f) != SCRIPTOPCODE_WHILE) {
+                        if (e) cb_addstr(e, "Misplaced 'break'");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!(f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Missing 'do' before 'break'");
+                        ret = false;
+                        goto ret;
+                    }
+                    op.opcode = SCRIPTOPCODE_BREAK;
                 } else if (!strcmp(cb.data, "then")) {
                     uint8_t f;
                     enum scriptopcode tmp = compileScript_getscope(&scope, &f);
@@ -704,6 +740,12 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                     compileScript_addop(&out, &sz, &tmpop);
                     reqcmd = true;
                     goto findcmd;
+                } else if (!strcmp(cb.data, "func")) {
+                    compileScript_pushscope(&scope, SCRIPTOPCODE_FUNC, 0);
+                    op.opcode = SCRIPTOPCODE_FUNC;
+                } else if (!strcmp(cb.data, "on")) {
+                    compileScript_pushscope(&scope, SCRIPTOPCODE_ON, 0);
+                    op.opcode = SCRIPTOPCODE_ON;
                 } else if (!strcmp(cb.data, "end")) {
                     uint8_t f;
                     enum scriptopcode tmp = compileScript_getscope(&scope, &f);
@@ -726,6 +768,44 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         goto ret;
                     }
                     op.opcode = SCRIPTOPCODE_END;
+                } else if (!strcmp(cb.data, "call")) {
+                    op.opcode = SCRIPTOPCODE_CALL;
+                } else if (!strcmp(cb.data, "return")) {
+                    op.opcode = SCRIPTOPCODE_RET;
+                } else if (!strcmp(cb.data, "unfunc")) {
+                    op.opcode = SCRIPTOPCODE_UNFUNC;
+                } else if (!strcmp(cb.data, "unon")) {
+                    op.opcode = SCRIPTOPCODE_UNON;
+                } else if (!strcmp(cb.data, "set")) {
+                    op.opcode = SCRIPTOPCODE_SET;
+                } else if (!strcmp(cb.data, "unset")) {
+                    op.opcode = SCRIPTOPCODE_UNSET;
+                } else if (!strcmp(cb.data, "get")) {
+                    op.opcode = SCRIPTOPCODE_GET;
+                } else if (!strcmp(cb.data, "test")) {
+                    op.opcode = SCRIPTOPCODE_TEST;
+                } else if (!strcmp(cb.data, "[")) {
+                    op.opcode = SCRIPTOPCODE_BRACTEST;
+                } else if (!strcmp(cb.data, "$") || !strcmp(cb.data, "text")) {
+                    op.opcode = SCRIPTOPCODE_TEXT;
+                } else if (!strcmp(cb.data, "math")) {
+                    op.opcode = SCRIPTOPCODE_MATH;
+                } else if (!strcmp(cb.data, "fire")) {
+                    op.opcode = SCRIPTOPCODE_FIRE;
+                } else if (!strcmp(cb.data, "sleep")) {
+                    op.opcode = SCRIPTOPCODE_SLEEP;
+                } else if (!strcmp(cb.data, "exit")) {
+                    op.opcode = SCRIPTOPCODE_EXIT;
+                } else {
+                    if (findcmd && (op.data.cmd.func = findcmd(cb.data))) {
+                        op.opcode = SCRIPTOPCODE_CMD;
+                    } else {
+                        if (e) cb_addstr(e, "Unknown command '");
+                        cb_addstr(e, cb.data);
+                        cb_add(e, '\'');
+                        ret = false;
+                        goto ret;
+                    }
                 }
             }
             if (c == '|' || c == '&') {

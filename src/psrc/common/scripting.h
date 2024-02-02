@@ -27,9 +27,8 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_FUNC, // set a function
     SCRIPTOPCODE_ON, // subscribe to an event
     SCRIPTOPCODE_END, // end program flow blocks
-    SCRIPTOPCODE_SUB, // start a sub-state
     SCRIPTOPCODE_CALL, // call a funcion
-    SCRIPTOPCODE_RET, // return from a sub-state or function call
+    SCRIPTOPCODE_RET, // return from a function call
     SCRIPTOPCODE_UNFUNC, // unset a function
     SCRIPTOPCODE_UNON, // unsubscribe from an event
     SCRIPTOPCODE_PIPE, // set the command input to the output of the last command 
@@ -44,6 +43,7 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_UNSET, // unset a variable
     SCRIPTOPCODE_GET, // get a variable
     SCRIPTOPCODE_TEST, // compare
+    SCRIPTOPCODE_BRACTEST, // compare and the last arg must be ]
     SCRIPTOPCODE_TEXT, // write text to the output
     SCRIPTOPCODE_MATH, // do math
     SCRIPTOPCODE_FIRE, // fire an event
