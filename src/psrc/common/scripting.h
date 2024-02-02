@@ -12,16 +12,18 @@ struct scriptstate;
 typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
 
 enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less nonsensical
+    SCRIPTOPCODE__INVAL = -1,
     SCRIPTOPCODE_TRUE, // set exit status to 0
     SCRIPTOPCODE_FALSE, // set exit status to 1
     SCRIPTOPCODE_AND, // run ops until END if the exit status is zero
     SCRIPTOPCODE_OR, // run ops until END if the exit status is non-zero
-    SCRIPTOPCODE_IF, // start an IF block and run ops until ELIF, ELSE, or END if the exit status is zero
-    SCRIPTOPCODE_ELIF, // run ops in an IF block until ELSE or END if the exit status is zero
-    SCRIPTOPCODE_ELSE, // run ops in an IF block until END if the exit status is zero
+    SCRIPTOPCODE_IF, // start an IF block
+    SCRIPTOPCODE_ELIF, // change to an ELIF block
+    SCRIPTOPCODE_ELSE, // change to an ELSE block and run ops until END
     SCRIPTOPCODE_WHILE, // start a WHILE block
-    SCRIPTOPCODE_TESTWHILE, // run ops in a WHILE block if the exit status is zero
+    SCRIPTOPCODE_CONT, // skip the rest of a WHILE block
     SCRIPTOPCODE_BREAK, // end a WHILE block early
+    SCRIPTOPCODE_TESTBLOCK, // run conditions in an IF, ELIF, or WHILE block if the exit status is zero
     SCRIPTOPCODE_FUNC, // set a function
     SCRIPTOPCODE_ON, // subscribe to an event
     SCRIPTOPCODE_END, // end program flow blocks
@@ -41,13 +43,14 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_SET, // set a variable
     SCRIPTOPCODE_UNSET, // unset a variable
     SCRIPTOPCODE_GET, // get a variable
-    SCRIPTOPCODE_CMP, // compare
+    SCRIPTOPCODE_TEST, // compare
     SCRIPTOPCODE_TEXT, // write text to the output
     SCRIPTOPCODE_MATH, // do math
     SCRIPTOPCODE_FIRE, // fire an event
     SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
     SCRIPTOPCODE_EXIT, // terminate execution
+    SCRIPTOPCODE__COUNT,
 };
 
 struct __attribute__((packed)) scriptstring {

@@ -98,30 +98,56 @@ static inline bool isvarchar(int c) {
     return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9'));
 }
 struct compileScript_scope {
-    enum scriptopcode* data;
+    int16_t* data;
     int index;
     int size;
 };
-static inline void compileScript_pushscope(struct compileScript_scope* s, int o) {
+static inline void compileScript_pushscope(struct compileScript_scope* s, enum scriptopcode o, uint8_t f) {
     ++s->index;
     if (s->index == s->size) {
         s->size *= 2;
         s->data = realloc(s->data, s->size * sizeof(*s->data));
     }
-    s->data[s->index] = o;
+    s->data[s->index] = (o & 0xFF) | (f << 8);
+}
+static inline bool compileScript_chscope(struct compileScript_scope* s, enum scriptopcode o, uint8_t f) {
+    if (s->index == -1) return false;
+    s->data[s->index] = (o & 0xFF) | (f << 8);
+    return true;
 }
 static inline bool compileScript_popscope(struct compileScript_scope* s) {
     if (s->index == -1) return false;
     --s->index;
     return true;
 }
+static inline enum scriptopcode compileScript_getscope(struct compileScript_scope* s, uint8_t* f) {
+    if (s->index == -1) return SCRIPTOPCODE__INVAL;
+    if (f) *f = (s->data[s->index] & 0xFF00) >> 8;
+    return s->data[s->index] & 0xFF;
+}
+#define SCOPEFLAG_EXEC (1 << 0)
 struct scriptsz {
     int opsz;
     int oplen;
     //int opct;
 };
 static inline void compileScript_addop(struct script* out, struct scriptsz* sz, struct scriptop* op) {
-    
+    switch (op->opcode) {
+        case SCRIPTOPCODE_TRUE: puts("true"); break;
+        case SCRIPTOPCODE_FALSE: puts("false"); break;
+        case SCRIPTOPCODE_AND: puts("and"); break;
+        case SCRIPTOPCODE_OR: puts("or"); break;
+        case SCRIPTOPCODE_IF: puts("if"); break;
+        case SCRIPTOPCODE_ELIF: puts("elif"); break;
+        case SCRIPTOPCODE_ELSE: puts("else"); break;
+        case SCRIPTOPCODE_WHILE: puts("while"); break;
+        case SCRIPTOPCODE_TESTBLOCK: puts("testblock"); break;
+        case SCRIPTOPCODE_END: puts("end"); break;
+        case SCRIPTOPCODE_PIPE: puts("pipe"); break;
+        case SCRIPTOPCODE_ADD: printf("add [%d, %d]\n", op->data.add.data.offset, op->data.add.data.len); break;
+        case SCRIPTOPCODE_PUSH: puts("push"); break;
+        default: printf("! %d\n", op->opcode); break;
+    }
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out, struct charbuf* e) {
     (void)findcmd;
@@ -167,8 +193,9 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             if (reqcmd) {
                 if (e) cb_addstr(e, "Unexpected EOF");
                 ret = false;
+                goto ret;
             }
-            goto ret;
+            break;
         }
         if (c == '|' || c == '&') {
             if (e) cb_addstr(e, "Syntax error");
@@ -601,7 +628,105 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                 tmpop.opcode = SCRIPTOPCODE_PUSH;
                 compileScript_addop(&out, &sz, &tmpop);
             } else {
-                printf("! SEARCH {%s}\n", cb_peek(&cb));
+                cb_nullterm(&cb);
+                //printf("CMD: {%s}\n", cb.data);
+                if (!strcmp(cb.data, ":") || !strcmp(cb.data, "true")) {
+                    op.opcode = SCRIPTOPCODE_TRUE;
+                } else if (!strcmp(cb.data, "false")) {
+                    op.opcode = SCRIPTOPCODE_FALSE;
+                } else if (!strcmp(cb.data, "if")) {
+                    compileScript_pushscope(&scope, SCRIPTOPCODE_IF, 0);
+                    tmpop.opcode = SCRIPTOPCODE_IF;
+                    compileScript_addop(&out, &sz, &tmpop);
+                    reqcmd = true;
+                    goto findcmd;
+                } else if (!strcmp(cb.data, "elif")) {
+                    uint8_t f;
+                    if (compileScript_getscope(&scope, &f) != SCRIPTOPCODE_IF) {
+                        if (e) cb_addstr(e, "Misplaced 'elif'");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!(f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Missing 'then' before 'elif'");
+                        ret = false;
+                        goto ret;
+                    }
+                    compileScript_chscope(&scope, SCRIPTOPCODE_ELIF, 0);
+                    tmpop.opcode = SCRIPTOPCODE_ELIF;
+                    compileScript_addop(&out, &sz, &tmpop);
+                    reqcmd = true;
+                    goto findcmd;
+                } else if (!strcmp(cb.data, "else")) {
+                    uint8_t f;
+                    enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+                    if (tmp != SCRIPTOPCODE_IF && tmp != SCRIPTOPCODE_ELIF) {
+                        if (e) cb_addstr(e, "Misplaced 'else'");
+                        ret = false;
+                        goto ret;
+                    }
+                    if (!(f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Missing 'then' before 'else'");
+                        ret = false;
+                        goto ret;
+                    }
+                    compileScript_chscope(&scope, SCRIPTOPCODE_ELSE, SCOPEFLAG_EXEC);
+                    op.opcode = SCRIPTOPCODE_ELSE;
+                } else if (!strcmp(cb.data, "while")) {
+                    compileScript_pushscope(&scope, SCRIPTOPCODE_WHILE, 0);
+                    tmpop.opcode = SCRIPTOPCODE_WHILE;
+                    compileScript_addop(&out, &sz, &tmpop);
+                    reqcmd = true;
+                    goto findcmd;
+                } else if (!strcmp(cb.data, "then")) {
+                    uint8_t f;
+                    enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+                    if ((tmp != SCRIPTOPCODE_IF && tmp != SCRIPTOPCODE_ELIF) || (f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Misplaced 'then'");
+                        ret = false;
+                        goto ret;
+                    }
+                    compileScript_chscope(&scope, tmp, f | SCOPEFLAG_EXEC);
+                    tmpop.opcode = SCRIPTOPCODE_TESTBLOCK;
+                    compileScript_addop(&out, &sz, &tmpop);
+                    reqcmd = true;
+                    goto findcmd;
+                } else if (!strcmp(cb.data, "do")) {
+                    uint8_t f;
+                    enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+                    if (tmp != SCRIPTOPCODE_WHILE || (f & SCOPEFLAG_EXEC)) {
+                        if (e) cb_addstr(e, "Misplaced 'do'");
+                        ret = false;
+                        goto ret;
+                    }
+                    compileScript_chscope(&scope, tmp, f | SCOPEFLAG_EXEC);
+                    tmpop.opcode = SCRIPTOPCODE_TESTBLOCK;
+                    compileScript_addop(&out, &sz, &tmpop);
+                    reqcmd = true;
+                    goto findcmd;
+                } else if (!strcmp(cb.data, "end")) {
+                    uint8_t f;
+                    enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+                    if (tmp == SCRIPTOPCODE_IF || tmp == SCRIPTOPCODE_ELIF) {
+                        if (!(f & SCOPEFLAG_EXEC)) {
+                            if (e) cb_addstr(e, "Missing 'then' before 'end'");
+                            ret = false;
+                            goto ret;
+                        }
+                    } else if (tmp == SCRIPTOPCODE_WHILE) {
+                        if (!(f & SCOPEFLAG_EXEC)) {
+                            if (e) cb_addstr(e, "Missing 'do' before 'end'");
+                            ret = false;
+                            goto ret;
+                        }
+                    }
+                    if (!compileScript_popscope(&scope)) {
+                        if (e) cb_addstr(e, "Misplaced 'end'");
+                        ret = false;
+                        goto ret;
+                    }
+                    op.opcode = SCRIPTOPCODE_END;
+                }
             }
             if (c == '|' || c == '&') {
                 reqcmd = true;
@@ -644,8 +769,17 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                 goto ret;
             }
         } else if (c == EOF) {
-            goto ret;
+            break;
         }
+        continue;
+        findcmd:;
+        cb_clear(&cb);
+        compiler_fungetc(&f);
+    }
+    if (scope.index != -1) {
+        if (e) cb_addstr(e, "Missing 'end'");
+        ret = false;
+        goto ret;
     }
     ret:;
     if (ret) {
