@@ -7,10 +7,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-struct scriptstate;
-
-typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
-
 enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less nonsensical
     SCRIPTOPCODE__INVAL = -1,
     SCRIPTOPCODE_TRUE, // set exit status to 0
@@ -39,9 +35,10 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
     SCRIPTOPCODE_READARRAY, // read array elements into the accumulator
     SCRIPTOPCODE_READARRAYSEP, // read array elements into the accumulator and push on separator characters
+    SCRIPTOPCODE_ARRAY, // create an empty array
     SCRIPTOPCODE_SET, // set a variable
-    SCRIPTOPCODE_UNSET, // unset a variable
     SCRIPTOPCODE_GET, // get a variable
+    SCRIPTOPCODE_UNSET, // delete a variable
     SCRIPTOPCODE_TEST, // compare
     SCRIPTOPCODE_BRACTEST, // compare and the last arg must be ]
     SCRIPTOPCODE_TEXT, // write text to the output
@@ -52,6 +49,10 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_EXIT, // terminate execution
     SCRIPTOPCODE__COUNT,
 };
+
+struct scriptstate;
+
+typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
 
 struct __attribute__((packed)) scriptstring {
     int offset;
@@ -93,7 +94,9 @@ struct script {
 };
 
 struct __attribute__((packed)) scriptstatedata {
+    enum scriptopcode from;
     int pc;
+    bool skip;
     int ret;
     int argc;
     struct charbuf* argv;
@@ -113,24 +116,26 @@ struct __attribute__((packed)) scriptstatevar {
         } array;
     };
 };
-struct __attribute__((packed)) scriptstatefunc {
-    bool valid : 1;
+struct __attribute__((packed)) scriptstatesub {
     bool copied : 1;
     char* name;
     uint32_t namecrc;
     struct scriptop* data;
 };
 struct __attribute__((packed)) scriptstateeventsub {
-    bool valid : 1;
     bool copied : 1;
+    int tableeventindex;
+    int tablesubindex;
     char* name;
     uint32_t namecrc;
     struct scriptop* data;
 };
 enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_NONE,
-    SCRIPTWAIT_UNTIL,
-    SCRIPTWAIT_INF,
+    SCRIPTWAIT_INTUNTIL, // positive value (interruptable by getting an event)
+    SCRIPTWAIT_UNTIL, // negative value (uninterruptable)
+    SCRIPTWAIT_INTINF, // sleep inf (interruptable by getting an event)
+    SCRIPTWAIT_INF, // sleep -inf (uninterruptable, basically hangs the script)
 };
 struct scripteventtable;
 struct scriptstate {
@@ -150,12 +155,12 @@ struct scriptstate {
         int size;
     } vars;
     struct {
-        struct scriptstatefunc* data;
+        struct scriptstatesub* data;
         int len;
         int size;
-    } funcs;
+    } subs;
     struct {
-        struct scriptestateeventsub* data;
+        struct scriptstateeventsub* data;
         int len;
         int size;
     } eventsubs;
@@ -173,14 +178,15 @@ struct scriptstate {
 
 struct scripteventsub {
     struct scriptstate* script;
-    int handler;
+    int index;
 };
 struct scriptevent {
     char* name;
     uint32_t namecrc;
-    int uses;
-    int subcount;
     struct scripteventsub* subs;
+    int len;
+    int size;
+    int uses;
 };
 struct scripteventtable {
     #ifndef PSRC_NOMT
@@ -200,8 +206,8 @@ void destroyScriptEventTable(struct scripteventtable*);
 
 struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
 bool execScriptState(struct scriptstate*, int*);
-void resetScriptState(struct scriptstate*, struct script*);
-void clearScriptState(struct scriptstate*, struct script*);
+void resetScriptState(struct scriptstate*, struct script*); // start from beginning and change script if not NULL
+void clearScriptState(struct scriptstate*, struct script*); // start from beginning, clear everything, and change script if not NULL
 void deleteScriptState(struct scriptstate*);
 
 #endif

@@ -2,6 +2,7 @@
 #include "crc.h"
 #include "filesystem.h"
 #include "logging.h"
+#include "time.h"
 
 #include <stdio.h>
 #include <limits.h>
@@ -212,6 +213,12 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             if (e) cb_addstr(e, "Syntax error");
             ret = false;
             goto ret;
+        }
+        if (c == '#') {
+            do {
+                c = compiler_fgetc(&f);
+            } while (c != '\n' && c != EOF);
+            continue;
         }
         reqcmd = false;
         while (1) {
@@ -433,6 +440,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         case ';':
                         case '|':
                         case '&':
+                        case '#':
                         case EOF:
                             goto longbreak;
                         case '\\':
@@ -812,7 +820,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                 reqcmd = true;
                 break;
             }
-            if (c == '\n' || c == ';') {
+            if (c == '\n' || c == ';' || c == '#') {
                 break;
             }
             ++arg;
@@ -848,6 +856,8 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                 ret = false;
                 goto ret;
             }
+        } else if (c == '#') {
+            compiler_fungetc(&f);
         } else if (c == EOF) {
             break;
         }
@@ -863,7 +873,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
     }
     ret:;
     if (ret) {
-        _out->ops = out.ops;
+        _out->ops = realloc(out.ops, sz.oplen);
         _out->strings = cb_finalize(&strings);
     } else {
         if (e) {
@@ -899,4 +909,111 @@ void destroyScriptEventTable(struct scripteventtable* t) {
 void fireScriptEvent(struct scripteventtable* t, char* name, int argc, struct charbuf* argv) {
     (void)t; (void)name; (void)argc; (void)argv;
     //uint32_t namecrc = strcrc32(name);
+}
+
+struct scriptstate* newScriptState(struct script* s, struct scripteventtable* t) {
+    struct scriptstate* ss = malloc(sizeof(*ss));
+    #ifndef PSRC_NOMT
+    if (!createMutex(&ss->lock)) {
+        free(ss);
+        return NULL;
+    }
+    #endif
+    ss->script = s;
+    ss->eventtable = t;
+    ss->state.index = -1;
+    ss->state.size = 4;
+    ss->state.data = malloc(ss->state.size * sizeof(*ss->state.data));
+    //ss_pushstate(ss, 
+    ss->vars.len = 0;
+    ss->vars.size = 4;
+    ss->vars.data = malloc(ss->vars.size * sizeof(*ss->vars.data));
+    ss->subs.len = 0;
+    ss->subs.size = 4;
+    ss->subs.data = malloc(ss->subs.size * sizeof(*ss->subs.data));
+    ss->eventsubs.len = 0;
+    ss->eventsubs.size = 4;
+    ss->eventsubs.data = malloc(ss->eventsubs.size * sizeof(*ss->eventsubs.data));
+    ss->args.len = 0;
+    ss->args.size = 16;
+    ss->args.data = malloc(ss->args.size * sizeof(*ss->args.data));
+    cb_init(&ss->acc, 256);
+    cb_init(&ss->in, 256);
+    cb_init(&ss->out, 256);
+    ss->waitstate = SCRIPTWAIT_NONE;
+}
+
+bool execScriptState(struct scriptstate* ss, int* e) {
+    switch (ss->waitstate) {
+        case SCRIPTWAIT_NONE:
+            break;
+        case SCRIPTWAIT_INTUNTIL:
+        case SCRIPTWAIT_UNTIL:
+            if (altutime() >= ss->waituntil) return true;
+            break;
+        case SCRIPTWAIT_INTINF:
+        case SCRIPTWAIT_INF:
+            return true;
+    }
+}
+
+void resetScriptState(struct scriptstate* ss, struct script* s) {
+    
+}
+
+void clearScriptState(struct scriptstate* ss, struct script* s) {
+    
+}
+
+void deleteScriptState(struct scriptstate* ss) {
+    while (ss->state.index >= 0) {
+        //ss_popstate(ss);
+    }
+    for (int i = 0; i < ss->vars.len; ++i) {
+        struct scriptstatevar* v = &ss->vars.data[i];
+        if (v->name) {
+            free(v->name);
+            if (v->arraysize >= 0) {
+                for (int j = 0; j < v->arraysize; ++j) {
+                    free(v->array.data[j]);
+                }
+                free(v->array.data);
+                free(v->array.len);
+            } else {
+                free(v->single.data);
+            }
+        }
+    }
+    for (int i = 0; i < ss->subs.len; ++i) {
+        struct scriptstatesub* s = &ss->subs.data[i];
+        if (s->name) {
+            free(s->name);
+            if (s->copied) free(s->data);
+        }
+    }
+    if (ss->eventtable) {
+        #ifndef PSRC_NOMT
+        acquireWriteAccess(&ss->eventtable->lock);
+        #endif
+        for (int i = 0; i < ss->eventsubs.len; ++i) {
+            struct scriptstateeventsub* s = &ss->eventsubs.data[i];
+            if (s->name) {
+                struct scriptevent* e = &ss->eventtable->data[s->tableeventindex];
+                e->subs[s->tablesubindex].script = NULL;
+                --e->uses;
+                free(s->name);
+                if (s->copied) free(s->data);
+            }
+        }
+        #ifndef PSRC_NOMT
+        releaseWriteAccess(&ss->eventtable->lock);
+        #endif
+    }
+    for (int i = 0; i < ss->args.len; ++i) {
+        struct charbuf* a = &ss->args.data[i];
+        cb_dump(a);
+    }
+    cb_dump(&ss->acc);
+    cb_dump(&ss->in);
+    cb_dump(&ss->out);
 }
