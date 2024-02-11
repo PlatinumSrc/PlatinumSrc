@@ -209,7 +209,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             }
             break;
         }
-        if (c == '|' || c == '&') {
+        if (c == '|' || c == '&' || c == ')') {
             if (e) cb_addstr(e, "Syntax error");
             ret = false;
             goto ret;
@@ -218,6 +218,11 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             do {
                 c = compiler_fgetc(&f);
             } while (c != '\n' && c != EOF);
+            continue;
+        } else if (c == '(') {
+            compileScript_pushscope(&scope, SCRIPTOPCODE_GROUP, 0);
+            tmpop.opcode = SCRIPTOPCODE_GROUP;
+            compileScript_addop(&out, &sz, &tmpop);
             continue;
         }
         reqcmd = false;
@@ -440,6 +445,8 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         case ';':
                         case '|':
                         case '&':
+                        case '(':
+                        case ')':
                         case '#':
                         case EOF:
                             goto longbreak;
@@ -731,7 +738,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         goto ret;
                     }
                     compileScript_chscope(&scope, tmp, f | SCOPEFLAG_EXEC);
-                    tmpop.opcode = SCRIPTOPCODE_TESTBLOCK;
+                    tmpop.opcode = SCRIPTOPCODE_TESTIF;
                     compileScript_addop(&out, &sz, &tmpop);
                     reqcmd = true;
                     goto findcmd;
@@ -744,7 +751,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                         goto ret;
                     }
                     compileScript_chscope(&scope, tmp, f | SCOPEFLAG_EXEC);
-                    tmpop.opcode = SCRIPTOPCODE_TESTBLOCK;
+                    tmpop.opcode = SCRIPTOPCODE_TESTWHILE;
                     compileScript_addop(&out, &sz, &tmpop);
                     reqcmd = true;
                     goto findcmd;
@@ -770,7 +777,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                             goto ret;
                         }
                     }
-                    if (!compileScript_popscope(&scope)) {
+                    if (tmp == SCRIPTOPCODE_GROUP || !compileScript_popscope(&scope)) {
                         if (e) cb_addstr(e, "Misplaced 'end'");
                         ret = false;
                         goto ret;
@@ -816,11 +823,11 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
                     }
                 }
             }
-            if (c == '|' || c == '&') {
+            if (c == '|' || c == '&' || c == '(') {
                 reqcmd = true;
                 break;
             }
-            if (c == '\n' || c == ';' || c == '#') {
+            if (c == '\n' || c == ';' || c == ')' || c == '#') {
                 break;
             }
             ++arg;
@@ -858,6 +865,16 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             }
         } else if (c == '#') {
             compiler_fungetc(&f);
+        } else if (c == ')') {
+            uint8_t f;
+            enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+            if (tmp != SCRIPTOPCODE_GROUP || !compileScript_popscope(&scope)) {
+                if (e) cb_addstr(e, "Misplaced ')'");
+                ret = false;
+                goto ret;
+            }
+            tmpop.opcode = SCRIPTOPCODE_END;
+            compileScript_addop(&out, &sz, &tmpop);
         } else if (c == EOF) {
             break;
         }

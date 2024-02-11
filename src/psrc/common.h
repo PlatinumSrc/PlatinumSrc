@@ -1,10 +1,13 @@
 #ifndef PSRC_COMMON_COMMON_H
 #define PSRC_COMMON_COMMON_H
 
-#include "config.h"
-#include "resource.h"
+#include "common/config.h"
 
-struct options {
+#include <stdbool.h>
+
+extern int quitreq;
+
+extern struct options {
     char* game;
     char* mods;
     char* icon;
@@ -14,11 +17,7 @@ struct options {
     char* config;
     bool nouserconfig;
     bool nocontroller;
-};
-
-extern int quitreq;
-
-extern struct options options;
+} options;
 
 extern char* maindir;
 extern char* userdir;
@@ -27,7 +26,5 @@ extern char* savedir;
 
 extern struct cfg* config;
 extern struct cfg* gameconfig;
-
-extern struct rc_script* mainscript;
 
 #endif

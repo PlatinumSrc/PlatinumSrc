@@ -7,14 +7,18 @@
 #include "../common/threading.h"
 
 #include "../../stb/stb_vorbis.h"
-#include "../../minimp3/minimp3_ex.h"
+#ifdef PSRC_USEMINIMP3
+    #include "../../minimp3/minimp3_ex.h"
+#endif
 
 #include "../platform.h"
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <SDL.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #include <stdint.h>
@@ -25,7 +29,9 @@ struct audiosound_audbuf {
     int len;
     union {
         int16_t* data[2];
+        #ifdef PSRC_USEMINIMP3
         mp3d_sample_t* data_mp3;
+        #endif
     };
 };
 struct __attribute__((packed)) audiosound_fx {
@@ -38,7 +44,9 @@ struct audiosound {
     struct rc_sound* rc;
     union {
         stb_vorbis* vorbis;
+        #ifdef PSRC_USEMINIMP3
         mp3dec_ex_t* mp3;
+        #endif
     };
     struct audiosound_audbuf audbuf;
     struct __attribute__((packed)) {

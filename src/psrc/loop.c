@@ -5,8 +5,11 @@
 #include "common/logging.h"
 #include "common/config.h"
 #include "common/filesystem.h"
-#include "common/common.h"
 #include "common/time.h"
+
+#include "common.h"
+
+struct rc_script* mainscript;
 
 static struct rc_sound* test;
 static uint64_t testsound = -1;

@@ -6,10 +6,12 @@
 
 #include "../../cglm/cglm.h"
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <SDL.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #include <stdbool.h>
@@ -17,14 +19,14 @@
 
 enum rendapi {
     RENDAPI__INVAL = -1,
-    #ifndef PSRC_ENGINE_RENDERER_NOGL
-    #ifndef PSRC_ENGINE_RENDERER_NOGL11
+    #ifdef PSRC_USEGL
+    #ifdef PSRC_USEGL11
     RENDAPI_GL11,
     #endif
-    #ifndef PSRC_ENGINE_RENDERER_NOGL33
+    #ifdef PSRC_USEGL33
     RENDAPI_GL33,
     #endif
-    #ifndef PSRC_ENGINE_RENDERER_NOGLES30
+    #ifdef PSRC_USEGLES30
     RENDAPI_GLES30,
     #endif
     #endif
@@ -33,7 +35,7 @@ enum rendapi {
 
 enum rendapigroup {
     RENDAPIGROUP__INVAL = -1,
-    #ifndef PSRC_ENGINE_RENDERER_NOGL
+    #ifdef PSRC_USEGL
     RENDAPIGROUP_GL,
     #endif
     RENDAPIGROUP__COUNT,
@@ -75,7 +77,7 @@ struct rendstate {
     enum rcopt_texture_qlt texqlt;
     enum rendlighting lighting;
     union {
-        #ifndef PSRC_ENGINE_RENDERER_NOGL
+        #ifdef PSRC_USEGL
         struct {
             #if PLATFORM != PLAT_NXDK
             SDL_GLContext ctx;
@@ -89,15 +91,15 @@ struct rendstate {
             float scale;
             #endif
             union {
-                #ifndef PSRC_ENGINE_RENDERER_NOGL11
+                #ifdef PSRC_USEGL11
                 struct {
                 } gl11;
                 #endif
-                #ifndef PSRC_ENGINE_RENDERER_NOGL33
+                #ifdef PSRC_USEGL33
                 struct {
                 } gl33;
                 #endif
-                #ifndef PSRC_ENGINE_RENDERER_NOGLES30
+                #ifdef PSRC_USEGLES30
                 struct {
                 } gles;
                 #endif

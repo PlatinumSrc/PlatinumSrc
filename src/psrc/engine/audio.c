@@ -2,9 +2,9 @@
 
 #include "../common/logging.h"
 #include "../common/string.h"
-#include "../common/common.h"
 #include "../common/time.h"
 
+#include "../common.h"
 #include "../debug.h"
 
 #include "../../cglm/cglm.h"
@@ -19,7 +19,6 @@ static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct aud
     stb_vorbis_seek(s->vorbis, ab->off);
     stb_vorbis_get_samples_short(s->vorbis, 2, ab->data, ab->len);
 }
-
 static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len) {
     if (pos >= ab->off + ab->len) {
         int oldoff = ab->off;
@@ -42,7 +41,6 @@ static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct aud
         }
     }
 }
-
 static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
@@ -54,7 +52,6 @@ static inline __attribute__((always_inline)) void getvorbisat(struct audiosound*
     *out_l = ab->data[0][pos - ab->off];
     *out_r = ab->data[1][pos - ab->off];
 }
-
 static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
@@ -67,11 +64,11 @@ static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct a
     *out_r = tmp;
 }
 
+#ifdef PSRC_USEMINIMP3
 static inline __attribute__((always_inline)) void getmp3at_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab, int ch) {
     mp3dec_ex_seek(s->mp3, ab->off * ch);
     mp3dec_ex_read(s->mp3, ab->data_mp3, ab->len * ch);
 }
-
 static inline __attribute__((always_inline)) void getmp3at_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int ch) {
     if (pos >= ab->off + ab->len) {
         int oldoff = ab->off;
@@ -94,7 +91,6 @@ static inline __attribute__((always_inline)) void getmp3at_prepbuf(struct audios
         }
     }
 }
-
 static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
@@ -106,7 +102,6 @@ static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s,
     *out_l = ab->data_mp3[(pos - ab->off) * channels];
     *out_r = ab->data_mp3[(pos - ab->off) * channels + 1];
 }
-
 static inline __attribute__((always_inline)) void getmp3at_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
     if (pos < 0 || pos >= len) {
         *out_l = 0;
@@ -119,6 +114,7 @@ static inline __attribute__((always_inline)) void getmp3at_forcemono(struct audi
     *out_l = tmp;
     *out_r = tmp;
 }
+#endif
 
 static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
     fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
@@ -307,6 +303,7 @@ void mixsounds(int buf) {
                     }
                 }
             } break;
+            #ifdef PSRC_USEMINIMP3
             case RC_SOUND_FRMT_MP3: {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
@@ -359,6 +356,7 @@ void mixsounds(int buf) {
                     }
                 }
             } break;
+            #endif
             case RC_SOUND_FRMT_WAV: {
                 union {
                     uint8_t* ptr;
@@ -627,11 +625,13 @@ static inline void stopSound_inline(struct audiosound* v) {
             free(v->audbuf.data[0]);
             free(v->audbuf.data[1]);
         } break;
+        #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3: {
             mp3dec_ex_close(v->mp3);
             free(v->mp3);
             free(v->audbuf.data_mp3);
         } break;
+        #endif
     }
     releaseResource(v->rc);
 }
@@ -810,6 +810,7 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
                 v->audbuf.data[1] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[1]));
                 stb_vorbis_get_samples_short(v->vorbis, 2, v->audbuf.data, v->audbuf.len);
             } break;
+            #ifdef PSRC_USEMINIMP3
             case RC_SOUND_FRMT_MP3: {
                 v->mp3 = malloc(sizeof(*v->mp3));
                 mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
@@ -818,6 +819,7 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
                 v->audbuf.data_mp3 = malloc(v->audbuf.len * v->rc->channels * sizeof(*v->audbuf.data_mp3));
                 mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
             } break;
+            #endif
         }
         v->offset = 0;
         v->flags = f;

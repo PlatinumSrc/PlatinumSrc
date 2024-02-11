@@ -4,6 +4,7 @@
 const char* platname[PLAT__COUNT] = {
     "Unknown",
     "Android",
+    "Dreamcast",
     "Emscripten",
     "FreeBSD",
     "Haiku",
@@ -11,6 +12,7 @@ const char* platname[PLAT__COUNT] = {
     "MacOS",
     "NetBSD",
     "OpenBSD",
+    "PlayStation 2",
     "Unix",
     "Windows",
     "Xbox (NXDK)"
@@ -18,6 +20,7 @@ const char* platname[PLAT__COUNT] = {
 const char* platdir[PLAT__COUNT] = {
     "unknown",
     "android",
+    "dreamcast",
     "emscripten",
     "freebsd",
     "haiku",
@@ -25,6 +28,7 @@ const char* platdir[PLAT__COUNT] = {
     "macos",
     "netbsd",
     "openbsd",
+    "ps2",
     "unix",
     "windows",
     "nxdk"
@@ -32,6 +36,7 @@ const char* platdir[PLAT__COUNT] = {
 const char* altplatdir[PLAT__COUNT] = {
     NULL,
     NULL,
+    "dc",
     "emscr",
     "bsd",
     NULL,
@@ -39,6 +44,7 @@ const char* altplatdir[PLAT__COUNT] = {
     NULL,
     "bsd",
     "bsd",
+    NULL,
     "unix",
     "win32",
     "xbox"

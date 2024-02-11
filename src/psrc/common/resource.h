@@ -98,7 +98,9 @@ struct __attribute__((packed)) rcopt_material {
 // RC_SOUND
 enum __attribute__((packed)) rc_sound_frmt {
     RC_SOUND_FRMT_VORBIS,
+    #ifdef PSRC_USEMINIMP3
     RC_SOUND_FRMT_MP3,
+    #endif
     RC_SOUND_FRMT_WAV,
 };
 struct __attribute__((packed)) rc_sound {

@@ -4,10 +4,12 @@
 #include "../platform.h"
 #include "../common/threading.h"
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <SDL.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #include <stdbool.h>

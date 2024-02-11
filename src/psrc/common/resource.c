@@ -1,6 +1,6 @@
 #include "resource.h"
-#include "common.h"
 
+#include "../common.h"
 #include "../debug.h"
 
 #include "logging.h"
@@ -13,13 +13,17 @@
     #include "../../stb/stb_image.h"
     #include "../../stb/stb_image_resize.h"
     #include "../../stb/stb_vorbis.h"
-    #include "../../minimp3/minimp3_ex.h"
+    #ifdef PSRC_USEMINIMP3
+        #include "../../minimp3/minimp3_ex.h"
+    #endif
 #endif
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <SDL.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #include <stddef.h>
@@ -573,6 +577,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                             free(data);
                         }
                     }
+                #ifdef PSRC_USEMINIMP3
                 } else if (!strcmp(ext, ".mp3")) {
                     fseek(f, 0, SEEK_END);
                     long sz = ftell(f);
@@ -615,6 +620,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         }
                         free(m);
                     }
+                #endif
                 } else if (!strcmp(ext, ".wav")) {
                     SDL_RWops* rwops = SDL_RWFromFP(f, false);
                     if (rwops) {

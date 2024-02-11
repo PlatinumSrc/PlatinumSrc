@@ -1,32 +1,39 @@
 #ifndef PSRC_PLATFORM_H
 #define PSRC_PLATFORM_H
 
-#define PLAT_UNKNOWN 0
-#define PLAT_ANDROID 1
-#define PLAT_EMSCR   2
-#define PLAT_FREEBSD 3
-#define PLAT_HAIKU   4
-#define PLAT_LINUX   5
-#define PLAT_MACOS   6
-#define PLAT_NETBSD  7
-#define PLAT_OPENBSD 8
-#define PLAT_UNIX    9
-#define PLAT_WIN32   10
-#define PLAT_NXDK    11
-#define PLAT__COUNT  12
+#define PLAT_UNKNOWN   0
+#define PLAT_ANDROID   1
+#define PLAT_DREAMCAST 2
+#define PLAT_EMSCR     3
+#define PLAT_FREEBSD   4
+#define PLAT_HAIKU     5
+#define PLAT_LINUX     6
+#define PLAT_MACOS     7
+#define PLAT_NETBSD    8
+#define PLAT_OPENBSD   9
+#define PLAT_PS2       10
+#define PLAT_UNIX      11
+#define PLAT_WIN32     12
+#define PLAT_NXDK      13
+#define PLAT__COUNT    14
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
 #define ARCH_ARM     2
 #define ARCH_ARM64   3
 #define ARCH_I386    4
-#define ARCH_WASM    5
+#define ARCH_MIPS    5
+#define ARCH_SUPERH  6
+#define ARCH_WASM    7
+#define ARCH__COUNT  8
 
 #define BO_LE 1234
 #define BO_BE 4321
 
 #if defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
+#elif defined(_arch_dreamcast)
+    #define PLATFORM PLAT_DREAMCAST
 #elif defined(__EMSCRIPTEN__)
     #define PLATFORM PLAT_EMSCR
 #elif defined(__FreeBSD__)
@@ -41,6 +48,8 @@
     #define PLATFORM PLAT_NETBSD
 #elif defined(__OpenBSD__)
     #define PLATFORM PLAT_OPENBSD
+#elif defined(_EE)
+    #define PLATFORM PLAT_PS2
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
@@ -85,6 +94,12 @@
     #ifndef BYTEORDER
         #define BYTEORDER BO_LE
     #endif
+#elif defined(mips) || defined(__mips) || defined(__mips__)
+    #define ARCH ARCH_MIPS
+    #define ARCHSTR "MIPS"
+#elif defined(__sh__) || defined(__SH__)
+    #define ARCH ARCH_SUPERH
+    #define ARCHSTR "SuperH"
 #elif defined(__wasm) || defined(__wasm__) || defined(__WASM__)
     #define ARCH ARCH_WASM
     #define ARCHSTR "WebAssembly"

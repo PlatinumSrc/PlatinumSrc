@@ -13,5 +13,3 @@ char* savedir = NULL;
 
 struct cfg* config = NULL;
 struct cfg* gameconfig = NULL;
-
-struct rc_script* mainscript;

@@ -3,19 +3,21 @@
 #include "common/filesystem.h"
 #include "common/config.h"
 #include "common/resource.h"
-#include "common/common.h"
 #include "common/time.h"
 #include "common/arg.h"
 
 #include "version.h"
 #include "platform.h"
 #include "debug.h"
+#include "common.h"
 #include "loop.h"
 
-#if PLATFORM != PLAT_NXDK
-    #include <SDL2/SDL.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <SDL.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
+#else
+    #include <SDL2/SDL.h>
 #endif
 
 #include <signal.h>
@@ -392,7 +394,7 @@ int main(int argc, char** argv) {
                 #if DEBUG(0)
                 printf("Debug level: %d\n", PSRC_DBGLVL);
                 #endif
-                #ifdef USE_DISCORD_GAME_SDK
+                #ifdef PSRC_USEDISCORDGAMESDK
                 puts("Discord game SDK enabled");
                 #endif
                 #ifdef PSRC_NOSIMD

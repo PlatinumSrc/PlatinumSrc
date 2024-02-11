@@ -18,6 +18,8 @@
     #include <GL/gl.h>
 #elif PLATFORM == PLAT_WIN32
     #include <windows.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <SDL/SDL.h>
 #else
     #include <SDL2/SDL.h>
 #endif

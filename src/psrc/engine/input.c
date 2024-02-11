@@ -2,7 +2,7 @@
 #include "renderer.h"
 #include "../common/logging.h"
 #include "../common/string.h"
-#include "../common/common.h"
+#include "../common.h"
 #include "../platform.h"
 #include "../debug.h"
 

@@ -13,13 +13,15 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_FALSE, // set exit status to 1
     SCRIPTOPCODE_AND, // run ops until END if the exit status is zero
     SCRIPTOPCODE_OR, // run ops until END if the exit status is non-zero
+    SCRIPTOPCODE_GROUP, // start a GROUP block
     SCRIPTOPCODE_IF, // start an IF block
     SCRIPTOPCODE_ELIF, // change to an ELIF block
     SCRIPTOPCODE_ELSE, // change to an ELSE block and run ops until END
+    SCRIPTOPCODE_TESTIF, // run conditions in an IF or ELIF block if the exit status is zero
     SCRIPTOPCODE_WHILE, // start a WHILE block
+    SCRIPTOPCODE_TESTWHILE, // run conditions in a WHILE block if the exit status is zero
     SCRIPTOPCODE_CONT, // skip the rest of a WHILE block
     SCRIPTOPCODE_BREAK, // end a WHILE block early
-    SCRIPTOPCODE_TESTBLOCK, // run conditions in an IF, ELIF, or WHILE block if the exit status is zero
     SCRIPTOPCODE_DEF, // set a subroutine
     SCRIPTOPCODE_ON, // subscribe to an event
     SCRIPTOPCODE_END, // end program flow blocks
@@ -206,6 +208,8 @@ void destroyScriptEventTable(struct scripteventtable*);
 
 struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
 bool execScriptState(struct scriptstate*, int*);
+bool getScriptStateVar(struct scriptstate*, char* name, int namelen, struct scriptstatevar*);
+void setScriptStateVar(struct scriptstate*, char* name, int namelen, int index, char* data, int datalen);
 void resetScriptState(struct scriptstate*, struct script*); // start from beginning and change script if not NULL
 void clearScriptState(struct scriptstate*, struct script*); // start from beginning, clear everything, and change script if not NULL
 void deleteScriptState(struct scriptstate*);
