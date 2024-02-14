@@ -204,7 +204,7 @@ else ifeq ($(USEGLES30),y)
 endif
 
 _CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -fno-exceptions -Wall -Wextra -Wuninitialized
-_CPPFLAGS := $(CPPFLAGS) -DMODULE=$(MODULE)
+_CPPFLAGS := $(CPPFLAGS)
 _LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
@@ -382,21 +382,21 @@ else ifneq ($(CROSS),nxdk)
 endif
 
 ifeq ($(MODULE),engine)
-    _CPPFLAGS += -DMODULE_ENGINE
-    _WRFLAGS += -DMODULE_ENGINE
+    _CPPFLAGS += -DPSRC_MODULE_ENGINE
+    _WRFLAGS += -DPSRC_MODULE_ENGINE
     _CFLAGS += $(CFLAGS.lib.SDL2)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2)
 else ifeq ($(MODULE),server)
-    _CPPFLAGS += -DMODULE_SERVER
-    _WRFLAGS += -DMODULE_SERVER
+    _CPPFLAGS += -DPSRC_MODULE_SERVER
+    _WRFLAGS += -DPSRC_MODULE_SERVER
     _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_common) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
-    _CPPFLAGS += -DMODULE_EDITOR
-    _WRFLAGS += -DMODULE_EDITOR
+    _CPPFLAGS += -DPSRC_MODULE_EDITOR
+    _WRFLAGS += -DPSRC_MODULE_EDITOR
     _CFLAGS += $(CFLAGS.lib.SDL2)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
@@ -463,6 +463,9 @@ else
 TARGET = $(BINPATH)
 endif
 
+__SRCDIR := $(SRCDIR)
+__OBJDIR := $(_OBJDIR)
+
 else
 
 TARGET = $(BINPATH)
@@ -487,13 +490,13 @@ export PLATFORM
 export PLATFORMDIR
 
 define mkdir
-if [ ! -d '$(1)' ]; then echo 'Creating $(1)...'; mkdir -p '$(1)'; fi; true
+if [ ! -d '$(1)' ]; then echo 'Creating $(1)/...'; mkdir -p '$(1)'; fi; true
 endef
 define rm
-if [ -f '$(1)' ]; then echo 'Removing $(1)...'; rm -f '$(1)'; fi; true
+if [ -f '$(1)' ]; then echo 'Removing $(1)/...'; rm -f '$(1)'; fi; true
 endef
 define rmdir
-if [ -d '$(1)' ]; then echo 'Removing $(1)...'; rm -rf '$(1)'; fi; true
+if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
 endef
 ifndef EMULATOR
 define exec
@@ -501,7 +504,7 @@ define exec
 endef
 else
 define exec
-$(EMULATOR) $(EMUFLAGS) $(EMUPATHFLAG) '$(1)' $(RUNFLAGS)
+$(EMULATOR) $(EMUFLAGS) $(EMUPATHFLAG) '$(dir $(1))$(notdir $(1))' $(RUNFLAGS)
 endef
 endif
 
@@ -522,7 +525,7 @@ define a_path
 $(patsubst $(_OBJDIR)/%,%,$(1))
 endef
 $(_OBJDIR)/%.a: $$(wildcard $(SRCDIR)/$(call a_path,%)/*.c) $(call inc,$(SRCDIR)/$(call a_path,%)/*.c)
-	@'$(MAKE)' --no-print-directory MKSUB=y SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
+	@'$(MAKE)' --no-print-directory MKSUB=y __SRCDIR=$(__SRCDIR) __OBJDIR=$(__OBJDIR) SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
 endif
 
 $(OUTDIR):
@@ -532,9 +535,9 @@ $(_OBJDIR):
 	@$(call mkdir,$@)
 
 $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
-	@echo Compiling $(notdir $<)...
+	@echo Compiling $(patsubst $(__SRCDIR)/%,%,$<)...
 	@$(CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
-	@echo Compiled $(notdir $<)
+	@echo Compiled $(patsubst $(__SRCDIR)/%,%,$<)
 
 ifneq ($(MKSUB),y)
 
@@ -575,7 +578,7 @@ ifeq ($(CROSS),nxdk)
 	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; '$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} main.exe
 	@echo Made NXDK libs
 endif
-	@echo Linking $(notdir $@)...
+	@echo Linking $@...
 ifeq ($(CROSS),win32)
 ifneq ($(WINDRES),)
 	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
@@ -595,14 +598,14 @@ ifneq ($(NOSTRIP),y)
 	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
 endif
-	@echo Linked $(notdir $@)
+	@echo Linked $@
 
 else
 
 $(BINPATH): $(OBJECTS) | $(OUTDIR)
-	@echo Building $(notdir $@)...
+	@echo Building $(patsubst $(__OBJDIR)/%,%,$@)...
 	@$(AR) rcs $@ $^
-	@echo Built $(notdir $@)
+	@echo Built $(patsubst $(__OBJDIR)/%,%,$@)
 
 endif
 
@@ -610,7 +613,7 @@ build: $(TARGET)
 	@:
 
 run: build
-	@echo Running $(notdir $(TARGET))...
+	@echo Running $(TARGET)...
 	@$(call exec,$(TARGET))
 
 clean:

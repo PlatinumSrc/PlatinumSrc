@@ -104,6 +104,7 @@ struct compileScript_scope {
     int size;
 };
 static inline void compileScript_pushscope(struct compileScript_scope* s, enum scriptopcode o, uint8_t f) {
+    //printf("push %d\n", o);
     ++s->index;
     if (s->index == s->size) {
         s->size *= 2;
@@ -112,11 +113,13 @@ static inline void compileScript_pushscope(struct compileScript_scope* s, enum s
     s->data[s->index] = (o & 0xFF) | (f << 8);
 }
 static inline bool compileScript_chscope(struct compileScript_scope* s, enum scriptopcode o, uint8_t f) {
+    //printf("ch %d\n", o);
     if (s->index == -1) return false;
     s->data[s->index] = (o & 0xFF) | (f << 8);
     return true;
 }
 static inline bool compileScript_popscope(struct compileScript_scope* s) {
+    //puts("pop");
     if (s->index == -1) return false;
     --s->index;
     return true;
@@ -124,9 +127,11 @@ static inline bool compileScript_popscope(struct compileScript_scope* s) {
 static inline enum scriptopcode compileScript_getscope(struct compileScript_scope* s, uint8_t* f) {
     if (s->index == -1) return SCRIPTOPCODE__INVAL;
     if (f) *f = (s->data[s->index] & 0xFF00) >> 8;
+    //printf("get %d\n", s->data[s->index] & 0xFF);
     return s->data[s->index] & 0xFF;
 }
 #define SCOPEFLAG_EXEC (1 << 0)
+#define SCOPEFLAG_PUTEND (1 << 1)
 struct scriptsz {
     int opsz;
     int oplen;
@@ -193,6 +198,7 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
     scope.data = malloc(scope.size * sizeof(*scope.data));
     char instr = 0;
     bool reqcmd = false;
+    bool putend = false;
     while (1) {
         struct scriptop op;
         struct scriptop tmpop;
@@ -835,9 +841,38 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
         }
         cb_clear(&cb);
         compileScript_addop(&out, &sz, &op);
+        if (c == ')') {
+            uint8_t f;
+            enum scriptopcode tmp = compileScript_getscope(&scope, &f);
+            if (tmp != SCRIPTOPCODE_GROUP || !compileScript_popscope(&scope)) {
+                if (e) cb_addstr(e, "Misplaced ')'");
+                ret = false;
+                goto ret;
+            }
+            tmpop.opcode = SCRIPTOPCODE_END;
+            compileScript_addop(&out, &sz, &tmpop);
+        }
+        if (scope.index >= 0) {
+            if (scope.data[scope.index] & SCOPEFLAG_PUTEND) {
+                tmpop.opcode = SCRIPTOPCODE_END;
+                compileScript_addop(&out, &sz, &tmpop);
+                scope.data[scope.index] &= ~(SCOPEFLAG_PUTEND << 8);
+            }
+        } else {
+            if (putend) {
+                tmpop.opcode = SCRIPTOPCODE_END;
+                compileScript_addop(&out, &sz, &tmpop);
+                putend = false;
+            }
+        }
         if (c == '|') {
             c = compiler_fgetc(&f);
             if (c == '|') {
+                if (scope.index >= 0) {
+                    scope.data[scope.index] |= SCOPEFLAG_PUTEND << 8;
+                } else {
+                    putend = true;
+                }
                 tmpop.opcode = SCRIPTOPCODE_OR;
                 compileScript_addop(&out, &sz, &tmpop);
             } else if (c == EOF) {
@@ -852,6 +887,11 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
         } else if (c == '&') {
             c = compiler_fgetc(&f);
             if (c == '&') {
+                if (scope.index >= 0) {
+                    scope.data[scope.index] |= SCOPEFLAG_PUTEND << 8;
+                } else {
+                    putend = true;
+                }
                 tmpop.opcode = SCRIPTOPCODE_AND;
                 compileScript_addop(&out, &sz, &tmpop);
             } else if (c == EOF) {
@@ -865,16 +905,6 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
             }
         } else if (c == '#') {
             compiler_fungetc(&f);
-        } else if (c == ')') {
-            uint8_t f;
-            enum scriptopcode tmp = compileScript_getscope(&scope, &f);
-            if (tmp != SCRIPTOPCODE_GROUP || !compileScript_popscope(&scope)) {
-                if (e) cb_addstr(e, "Misplaced ')'");
-                ret = false;
-                goto ret;
-            }
-            tmpop.opcode = SCRIPTOPCODE_END;
-            compileScript_addop(&out, &sz, &tmpop);
         } else if (c == EOF) {
             break;
         }
@@ -884,7 +914,14 @@ bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out,
         compiler_fungetc(&f);
     }
     if (scope.index != -1) {
-        if (e) cb_addstr(e, "Missing 'end'");
+        if (e) {
+            enum scriptopcode tmp = compileScript_getscope(&scope, NULL);
+            if (tmp == SCRIPTOPCODE_GROUP) {
+                cb_addstr(e, "Missing ')'");
+            } else {
+                cb_addstr(e, "Missing 'end'");
+            }
+        }
         ret = false;
         goto ret;
     }
@@ -971,6 +1008,93 @@ bool execScriptState(struct scriptstate* ss, int* e) {
         case SCRIPTWAIT_INTINF:
         case SCRIPTWAIT_INF:
             return true;
+    }
+    struct scriptop op;
+    //ss_readop(ss->script, ss->state.data[ss->state.index].pc, &op);
+    switch (op.opcode) {
+        case SCRIPTOPCODE_TRUE: {
+            ss->state.data[ss->state.index].ret = 0;
+        } break;
+        case SCRIPTOPCODE_FALSE: {
+            ss->state.data[ss->state.index].ret = 1;
+        } break;
+        case SCRIPTOPCODE_AND: {
+        } break;
+        case SCRIPTOPCODE_OR: {
+        } break;
+        case SCRIPTOPCODE_GROUP: {
+        } break;
+        case SCRIPTOPCODE_IF: {
+        } break;
+        case SCRIPTOPCODE_ELIF: {
+        } break;
+        case SCRIPTOPCODE_ELSE: {
+        } break;
+        case SCRIPTOPCODE_TESTIF: {
+        } break;
+        case SCRIPTOPCODE_WHILE: {
+        } break;
+        case SCRIPTOPCODE_TESTWHILE: {
+        } break;
+        case SCRIPTOPCODE_CONT: {
+        } break;
+        case SCRIPTOPCODE_BREAK: {
+        } break;
+        case SCRIPTOPCODE_DEF: {
+        } break;
+        case SCRIPTOPCODE_ON: {
+        } break;
+        case SCRIPTOPCODE_END: {
+        } break;
+        case SCRIPTOPCODE_SUB: {
+        } break;
+        case SCRIPTOPCODE_RET: {
+        } break;
+        case SCRIPTOPCODE_UNDEF: {
+        } break;
+        case SCRIPTOPCODE_UNON: {
+        } break;
+        case SCRIPTOPCODE_PIPE: {
+        } break;
+        case SCRIPTOPCODE_ADD: {
+        } break;
+        case SCRIPTOPCODE_PUSH: {
+        } break;
+        case SCRIPTOPCODE_READ: {
+        } break;
+        case SCRIPTOPCODE_READVAR: {
+        } break;
+        case SCRIPTOPCODE_READVARSEP: {
+        } break;
+        case SCRIPTOPCODE_READARRAY: {
+        } break;
+        case SCRIPTOPCODE_READARRAYSEP: {
+        } break;
+        case SCRIPTOPCODE_ARRAY: {
+        } break;
+        case SCRIPTOPCODE_SET: {
+        } break;
+        case SCRIPTOPCODE_GET: {
+        } break;
+        case SCRIPTOPCODE_UNSET: {
+        } break;
+        case SCRIPTOPCODE_TEST: {
+        } break;
+        case SCRIPTOPCODE_BRACTEST: {
+        } break;
+        case SCRIPTOPCODE_TEXT: {
+        } break;
+        case SCRIPTOPCODE_MATH: {
+        } break;
+        case SCRIPTOPCODE_FIRE: {
+        } break;
+        case SCRIPTOPCODE_SLEEP: {
+        } break;
+        case SCRIPTOPCODE_CMD: {
+        } break;
+        case SCRIPTOPCODE_EXIT: {
+        } break;
+        default: break;
     }
 }
 

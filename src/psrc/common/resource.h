@@ -5,7 +5,7 @@
 #include "scripting.h"
 #include "p3m.h"
 
-#ifndef MODULE_SERVER
+#ifndef PSRC_MODULE_SERVER
     #include "../../schrift/schrift.h"
 #endif
 
@@ -56,7 +56,7 @@ struct __attribute__((packed)) rcopt_script {
 
 // RC_FONT
 struct __attribute__((packed)) rc_font {
-    #ifndef MODULE_SERVER
+    #ifndef PSRC_MODULE_SERVER
     SFT_Font* font;
     #endif
 };

@@ -9,7 +9,7 @@
 #include "threading.h"
 #include "crc.h"
 
-#ifndef MODULE_SERVER
+#ifndef PSRC_MODULE_SERVER
     #include "../../stb/stb_image.h"
     #include "../../stb/stb_image_resize.h"
     #include "../../stb/stb_vorbis.h"
@@ -457,7 +457,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->config.config = config;
             }
         } break;
-        #ifndef MODULE_SERVER
+        #ifndef PSRC_MODULE_SERVER
         case RC_FONT: {
             SFT_Font* font = sft_loadfile(p);
             if (font) {
@@ -530,7 +530,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 cb_dump(&e);
             }
         } break;
-        #ifndef MODULE_SERVER
+        #ifndef PSRC_MODULE_SERVER
         case RC_SOUND: {
             FILE* f = fopen(p, "rb");
             if (f) {
