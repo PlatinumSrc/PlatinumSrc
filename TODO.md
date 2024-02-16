@@ -14,13 +14,14 @@
             - XGU \(NXDK\)
             - GSKIT \(PS2\)
             - Software?
+                - Not really needed
                 - Might go with a software GL library
         - Maps
         - Entities and props
     - Audio
-        - Effects
-            - Filters
-            - Reverb
+        - Filters
+        - Reverb
+    - Physics
     - UI...
     - Input
         - Touch UI
@@ -43,8 +44,7 @@
 ### Done
 - Engine
     - Audio
-        - Effects
-            - 3D
+        - 3D effect
     - Input
         - Keyboard and mouse
         - Controller

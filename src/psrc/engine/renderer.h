@@ -101,7 +101,7 @@ struct rendstate {
                 #endif
                 #ifdef PSRC_USEGLES30
                 struct {
-                } gles;
+                } gles30;
                 #endif
             };
         } gl;
@@ -134,7 +134,7 @@ void stopRenderer(void);
 void quitRenderer(void);
 void render(void);
 void display(void);
-void* takeScreenshot(int*, int*, int*);
+void* takeScreenshot(int* w, int* h, int* sz);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];

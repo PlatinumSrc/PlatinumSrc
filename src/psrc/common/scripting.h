@@ -138,6 +138,7 @@ enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_UNTIL, // negative value (uninterruptable)
     SCRIPTWAIT_INTINF, // sleep inf (interruptable by getting an event)
     SCRIPTWAIT_INF, // sleep -inf (uninterruptable, basically hangs the script)
+    SCRIPTWAIT_EXIT,
 };
 struct scripteventtable;
 struct scriptstate {
@@ -207,7 +208,7 @@ void fireScriptEvent(struct scripteventtable*, char* name, int argc, struct char
 void destroyScriptEventTable(struct scripteventtable*);
 
 struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
-bool execScriptState(struct scriptstate*, int*);
+bool execScriptState(struct scriptstate*, int*, struct charbuf*);
 bool getScriptStateVar(struct scriptstate*, char* name, int namelen, struct scriptstatevar*);
 void setScriptStateVar(struct scriptstate*, char* name, int namelen, int index, char* data, int datalen);
 void resetScriptState(struct scriptstate*, struct script*); // start from beginning and change script if not NULL
