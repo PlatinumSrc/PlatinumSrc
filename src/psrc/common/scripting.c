@@ -968,7 +968,7 @@ void fireScriptEvent(struct scripteventtable* t, char* name, int argc, struct ch
     //uint32_t namecrc = strcrc32(name);
 }
 
-struct scriptstate* newScriptState(struct script* s, struct scripteventtable* t) {
+struct scriptstate* newScriptState(struct script* s, struct scripteventtable* t, int argc, struct charbuf* argv) {
     struct scriptstate* ss = malloc(sizeof(*ss));
     #ifndef PSRC_NOMT
     if (!createMutex(&ss->lock)) {
@@ -981,7 +981,7 @@ struct scriptstate* newScriptState(struct script* s, struct scripteventtable* t)
     ss->state.index = -1;
     ss->state.size = 4;
     ss->state.data = malloc(ss->state.size * sizeof(*ss->state.data));
-    //ss_pushstate(ss, 
+    //ss_pushstate(ss, SCRIPTOPCODE__INVAL, -1, argc, argv);
     ss->vars.len = 0;
     ss->vars.size = 4;
     ss->vars.data = malloc(ss->vars.size * sizeof(*ss->vars.data));
@@ -1019,7 +1019,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
     struct scriptstatedata* state = &ss->state.data[ss->state.index];
     while (1) {
         int ret = -1;
-        //ss_readop(ss->script, ss->state.data[ss->state.index].pc, &op);
+        //int newpc = ss_readop(ss->script, state->pc, &op);
         if (op.opcode == SCRIPTOPCODE_PIPE) {
             union {
                 char* c;
@@ -1033,10 +1033,14 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             ss->out.size = tmp.i;
             ss->in.len = ss->out.len;
             ss->out.len = 0;
+            cb_nullterm(&ss->in);
             continue;
-        } else if (out && ss->out.len > 0) {
-            cb_addpartstr(out, ss->out.data, ss->out.len);
-            cb_clear(&ss->out);
+        } else {
+            if (ss->in.len > 0) cb_clear(&ss->in);
+            if (ss->out.len > 0) {
+                if (out) cb_addpartstr(out, ss->out.data, ss->out.len);
+                cb_clear(&ss->out);
+            }
         }
         switch (op.opcode) {
             case SCRIPTOPCODE_TRUE: {
@@ -1046,62 +1050,264 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 state->ret = 1;
             } break;
             case SCRIPTOPCODE_AND: {
+                if (state->ret) {
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_AND);
+                } else {
+                    //state = ss_pushstate(ss, SCRIPTOPCODE_AND, -1, -1, NULL);
+                }
             } break;
             case SCRIPTOPCODE_OR: {
+                if (state->ret) {
+                    //state = ss_pushstate(ss, SCRIPTOPCODE_OR, -1, -1, NULL);
+                } else {
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_OR);
+                }
             } break;
             case SCRIPTOPCODE_GROUP: {
+                //state = ss_pushstate(ss, SCRIPTOPCODE_GROUP, -1, -1, NULL);
             } break;
             case SCRIPTOPCODE_IF: {
+                //state = ss_pushstate(ss, SCRIPTOPCODE_IF, -1, -1, NULL);
             } break;
             case SCRIPTOPCODE_ELIF: {
+                //ss_editstate(ss, SCRIPTOPCODE_ELIF, -1);
             } break;
             case SCRIPTOPCODE_ELSE: {
+                //ss_editstate(ss, SCRIPTOPCODE_ELSE, -1);
             } break;
             case SCRIPTOPCODE_TESTIF: {
+                if (state->ret) {
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_TESTIF);
+                }
             } break;
             case SCRIPTOPCODE_WHILE: {
+                //state = ss_pushstate(ss, SCRIPTOPCODE_WHILE, newpc, -1, -1, NULL);
             } break;
             case SCRIPTOPCODE_TESTWHILE: {
+                if (state->ret) {
+                    //ss_editstate(ss, SCRIPTOPCODE_WHILE, -1);
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_TESTWHILE);
+                }
             } break;
             case SCRIPTOPCODE_CONT: {
+                //newpc = ss_skip(ss, SCRIPTOPCODE_CONT);
             } break;
             case SCRIPTOPCODE_BREAK: {
+                //ss_editstate(ss, SCRIPTOPCODE_WHILE, -1);
+                //newpc = ss_skip(ss, SCRIPTOPCODE_BREAK);
             } break;
             case SCRIPTOPCODE_DEF: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "def: too few arguments\n");
+                    ret = 0;
+                } else if (ss->args.len == 1) {
+                    //ss_setsub(ss->args.data[0].data, ss->args.data[0].len, newpc);
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_DEF);
+                } else {
+                    cb_addstr(&ss->out, "def: too many arguments\n");
+                    ret = 0;
+                }
             } break;
             case SCRIPTOPCODE_ON: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "on: too few arguments\n");
+                    ret = 0;
+                } else if (ss->args.len == 1) {
+                    //ss_setevsub(ss->args.data[0].data, ss->args.data[0].len, newpc);
+                    //newpc = ss_skip(ss, SCRIPTOPCODE_DEF);
+                } else {
+                    cb_addstr(&ss->out, "on: too many arguments\n");
+                    ret = 0;
+                }
             } break;
             case SCRIPTOPCODE_END: {
+                //state = ss_popstate(ss);
             } break;
             case SCRIPTOPCODE_SUB: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "sub: too few arguments\n");
+                    state->ret = 1;
+                } else {
+                    #if 0
+                    int s = ss_findsub(ss->args.data[0].data, ss->args.data[0].len);
+                    if (s >= 0) {
+                        if (ss->args.len == 1) {
+                            state = ss_pushstate(ss, SCRIPTOPCODE_SUB, newpc, -1, -1, NULL);
+                        } else {
+                            state = ss_pushstate(ss, SCRIPTOPCODE_SUB, newpc, -1, ss->args.len - 1, &ss->args.data[1]);
+                        }
+                    } else {
+                        cb_addstr(&ss->out, "sub: cannot find '%s'\n", ss->args.data[0].data);
+                        state->ret = 1;
+                    }
+                    #endif
+                }
             } break;
             case SCRIPTOPCODE_RET: {
+                //TODO: use unix-style options
+                //state = ss_popstate(ss);
+                if (ss->args.len == 0) {
+                    //state = ss_popstate(ss);
+                    //state->ret = 0;
+                } else if (ss->args.len == 1) {
+                    //state = ss_popstate(ss);
+                    //state->ret = atoi(ss->args.data[0].data);
+                } else if (ss->args.len == 2) {
+                    //state = ss_popstate(ss);
+                    //state->ret = atoi(ss->args.data[0].data);
+                    //cb_addpartstr(&ss->out, ss->args.data[1].data, ss->args.data[1].len);
+                } else {
+                    cb_addstr(&ss->out, "ret: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_UNDEF: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "undef: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_unsetsub(ss->args.data[0].data, ss->args.data[0].len);
+                } else {
+                    cb_addstr(&ss->out, "undef: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_UNON: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "unon: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_unsetevsub(ss->args.data[0].data, ss->args.data[0].len);
+                } else {
+                    cb_addstr(&ss->out, "unon: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_ADD: {
+                cb_addpartstr(&ss->acc, &ss->script->strings[op.data.add.data.offset], op.data.add.data.len);
             } break;
             case SCRIPTOPCODE_PUSH: {
-            } break;
-            case SCRIPTOPCODE_READ: {
+                //ss_pusharg(ss);
             } break;
             case SCRIPTOPCODE_READVAR: {
+                #if 0
+                int len;
+                char* data = ss_getvar(&ss->script->strings[op.data.readvar.name.offset], op.data.readvar.name.len, op.data.readvar.namecrc, &len);
+                if (data) {
+                    cb_addpartstr(&ss->acc, data, len);
+                    ss_pusharg(ss);
+                }
+                #endif
             } break;
             case SCRIPTOPCODE_READVARSEP: {
+                #if 0
+                int len;
+                char* data = ss_getvar(&ss->script->strings[op.data.readvar.name.offset], op.data.readvar.name.len, op.data.readvar.namecrc, &len);
+                if (data) {
+                    bool space = true;
+                    for (int i = 0; i <= len; ++i) {
+                        char c = *data;
+                        if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                            if (!space) {
+                                ss_pusharg(ss);
+                                space = true;
+                            }
+                        } else {
+                            cb_add(&ss->acc, c);
+                            space = false;
+                        }
+                        ++data;
+                    }
+                }
+                #endif
             } break;
             case SCRIPTOPCODE_READARRAY: {
+                #if 0
+                int dim;
+                int* len;
+                char** data = ss_getarray(&ss->script->strings[op.data.readarray.name.offset], op.data.readarray.len, op.data.readarray.namecrc, &dim, &len);
+                if (data) {
+                    for (int i = 0; i < dim; ++i) {
+                        cb_addpartstr(&ss->acc, data[i], len[i]);
+                        ss_pusharg(ss);
+                    }
+                }
+                #endif
             } break;
             case SCRIPTOPCODE_READARRAYSEP: {
+                #if 0
+                int dim;
+                int* len;
+                char** data = ss_getarray(&ss->script->strings[op.data.readarray.name.offset], op.data.readarray.len, op.data.readarray.namecrc, &dim, &len);
+                if (data) {
+                    for (int i = 0; i < dim; ++i) {
+                        int l = len[i];
+                        char* d = data[i];
+                        bool space = true;
+                        for (int i = 0; i <= l; ++i) {
+                            char c = *d;
+                            if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                                if (!space) {
+                                    ss_pusharg(ss);
+                                    space = true;
+                                }
+                            } else {
+                                cb_add(&ss->acc, c);
+                                space = false;
+                            }
+                            ++d;
+                        }
+                    }
+                }
+                #endif
             } break;
             case SCRIPTOPCODE_ARRAY: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "array: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_setarray(ss->args.data[0].data, ss->args.data[0].len, 0, NULL);
+                } else {
+                    //ss_setarray(ss->args.data[0].data, ss->args.data[0].len, ss->args.len - 1, &ss->args.data[1]);
+                }
             } break;
             case SCRIPTOPCODE_SET: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "set: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_setvar(ss->args.data[0].data, ss->args.data[0].len, ss->in.data, ss->in.len);
+                } else if (ss->args.len == 2) {
+                    //ss_setvar(ss->args.data[0].data, ss->args.data[0].len, ss->args.data[1].data, ss->args.data[1].len);
+                } else {
+                    cb_addstr(&ss->out, "set: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_GET: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "get: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //int len = ss->args.data[0].len;
+                    //char* data = ss->args.data[0].data;
+                    //data = ss_getvar(data, len, crc32(data, len), &len);
+                    //if (data) cb_addpartstr(&ss->out, data, len);
+                } else {
+                    cb_addstr(&ss->out, "get: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_UNSET: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "unset: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_unsetvar(ss->args.data[0].data, ss->args.data[0].len);
+                } else {
+                    cb_addstr(&ss->out, "unset: too many arguments\n");
+                    state->ret = 1;
+                }
             } break;
             case SCRIPTOPCODE_TEST: {
             } break;
@@ -1115,16 +1321,22 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         cb_addpartstr(&ss->out, ss->args.data[i].data, ss->args.data[i].len);
                     }
                 }
-                cb_nullterm(&ss->out);
             } break;
             case SCRIPTOPCODE_MATH: {
             } break;
             case SCRIPTOPCODE_FIRE: {
+                if (ss->args.len == 0) {
+                    cb_addstr(&ss->out, "fire: too few arguments\n");
+                    state->ret = 1;
+                } else if (ss->args.len == 1) {
+                    //ss_fire(ss->args.data[0].data, ss->args.data[0].len, 0, NULL);
+                } else {
+                    //ss_fire(ss->args.data[0].data, ss->args.data[0].len, ss->args.len - 1, &ss->args.data[1]);
+                }
             } break;
             case SCRIPTOPCODE_SLEEP: {
                 if (ss->args.len == 0) {
                     cb_addstr(&ss->out, "sleep: too few arguments\n");
-                    cb_nullterm(&ss->out);
                     state->ret = 1;
                 } else if (ss->args.len == 1) {
                     bool negative;
@@ -1137,7 +1349,6 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     }
                     if (!*arg) {
                         cb_addstr(&ss->out, "sleep: syntax error\n");
-                        cb_nullterm(&ss->out);
                         state->ret = 1;
                         break;
                     }
@@ -1155,7 +1366,6 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                                     if (!*arg) break;
                                     if (*arg < '0' || *arg > '9') {
                                         cb_addstr(&ss->out, "sleep: syntax error\n");
-                                        cb_nullterm(&ss->out);
                                         state->ret = 1;
                                         goto longbreak;
                                     }
@@ -1167,7 +1377,6 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                             d *= 10;
                             if (*arg < '0' || *arg > '9') {
                                 cb_addstr(&ss->out, "sleep: syntax error\n");
-                                cb_nullterm(&ss->out);
                                 state->ret = 1;
                                 goto longbreak;
                             }
@@ -1181,14 +1390,12 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     ret = 1;
                 } else {
                     cb_addstr(&ss->out, "sleep: too many arguments\n");
-                    cb_nullterm(&ss->out);
                     state->ret = 1;
                 }
                 longbreak:;
             } break;
             case SCRIPTOPCODE_CMD: {
                 state->ret = op.data.cmd.func(ss, &ss->in, ss->args.len, ss->args.data, &ss->out);
-                cb_nullterm(&ss->out);
             } break;
             case SCRIPTOPCODE_EXIT: {
                 if (ss->args.len == 0) {
@@ -1197,19 +1404,20 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     if (ec) *ec = atoi(ss->args.data[0].data);
                 } else {
                     cb_addstr(&ss->out, "exit: too many arguments\n");
-                    cb_nullterm(&ss->out);
                     state->ret = 1;
                     break;
                 }
-                ss->waitstate = SCRIPTWAIT_EXIT;
                 ret = 0;
             } break;
             default: break;
         }
         if (ret == 0) {
+            ss->waitstate = SCRIPTWAIT_EXIT;
             if (out) cb_addpartstr(out, ss->out.data, ss->out.len);
             return false;
-        } else if (ret == 1) {
+        }
+        //state->pc = newpc;
+        if (ret == 1) {
             return true;
         }
     }
@@ -1231,8 +1439,8 @@ void deleteScriptState(struct scriptstate* ss) {
         struct scriptstatevar* v = &ss->vars.data[i];
         if (v->name) {
             free(v->name);
-            if (v->arraysize >= 0) {
-                for (int j = 0; j < v->arraysize; ++j) {
+            if (v->dim >= 0) {
+                for (int j = 0; j < v->dim; ++j) {
                     free(v->array.data[j]);
                 }
                 free(v->array.data);

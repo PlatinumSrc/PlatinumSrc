@@ -32,7 +32,6 @@ enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less n
     SCRIPTOPCODE_PIPE, // set the command input to the output of the last command 
     SCRIPTOPCODE_ADD, // add data to the accumulator
     SCRIPTOPCODE_PUSH, // flush the accumulator to a new out argument
-    SCRIPTOPCODE_READ, // returns data from and info about the provided input
     SCRIPTOPCODE_READVAR, // read a variable into the accumulator
     SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
     SCRIPTOPCODE_READARRAY, // read array elements into the accumulator
@@ -98,15 +97,16 @@ struct script {
 struct __attribute__((packed)) scriptstatedata {
     enum scriptopcode from;
     int pc;
-    bool skip;
+    int loop;
     int ret;
     int argc;
     struct charbuf* argv;
 };
 struct __attribute__((packed)) scriptstatevar {
     char* name;
+    int namelen;
     uint32_t namecrc;
-    int arraysize;
+    int dim;
     union {
         struct {
             char* data;
@@ -121,6 +121,7 @@ struct __attribute__((packed)) scriptstatevar {
 struct __attribute__((packed)) scriptstatesub {
     bool copied : 1;
     char* name;
+    int namelen;
     uint32_t namecrc;
     struct scriptop* data;
 };
@@ -129,6 +130,7 @@ struct __attribute__((packed)) scriptstateeventsub {
     int tableeventindex;
     int tablesubindex;
     char* name;
+    int namelen;
     uint32_t namecrc;
     struct scriptop* data;
 };
@@ -207,7 +209,7 @@ bool createScriptEventTable(struct scripteventtable*, int);
 void fireScriptEvent(struct scripteventtable*, char* name, int argc, struct charbuf* argv);
 void destroyScriptEventTable(struct scripteventtable*);
 
-struct scriptstate* newScriptState(struct script*, struct scripteventtable*);
+struct scriptstate* newScriptState(struct script*, struct scripteventtable*, int argc, struct charbuf* argv);
 bool execScriptState(struct scriptstate*, int*, struct charbuf*);
 bool getScriptStateVar(struct scriptstate*, char* name, int namelen, struct scriptstatevar*);
 void setScriptStateVar(struct scriptstate*, char* name, int namelen, int index, char* data, int datalen);
