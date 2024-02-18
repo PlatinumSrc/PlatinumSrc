@@ -104,18 +104,18 @@ static const uint64_t crc64_table[] = {
     0xA6DF411FBFB21CA3, 0xDC0731D78F8795DA, 0x536FA08FDFD90E51, 0x29B7D047EFEC8728
 };
 
-uint32_t crc32(const uint8_t* d, size_t l) {
+uint32_t crc32(const void* d, size_t l) {
     uint32_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc32_table[(crc ^ *d++) & 0xFF] ^ (crc >> 8);
+        crc = crc32_table[(crc ^ *(uint8_t*)d++) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
 
-uint64_t crc64(const uint8_t* d, size_t l) {
+uint64_t crc64(const void* d, size_t l) {
     uint64_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc64_table[(crc ^ *d++) & 0xFF] ^ (crc >> 8);
+        crc = crc64_table[(crc ^ *(uint8_t*)d++) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }

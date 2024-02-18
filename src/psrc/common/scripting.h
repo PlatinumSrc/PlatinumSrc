@@ -7,69 +7,65 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum __attribute__((packed)) scriptopcode { // TODO: reorder to something less nonsensical
+enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE__INVAL = -1,
     SCRIPTOPCODE_TRUE, // set exit status to 0
     SCRIPTOPCODE_FALSE, // set exit status to 1
-    SCRIPTOPCODE_AND, // run ops until END if the exit status is zero
-    SCRIPTOPCODE_OR, // run ops until END if the exit status is non-zero
-    SCRIPTOPCODE_GROUP, // start a GROUP block
-    SCRIPTOPCODE_IF, // start an IF block
-    SCRIPTOPCODE_ELIF, // change to an ELIF block
-    SCRIPTOPCODE_ELSE, // change to an ELSE block and run ops until END
-    SCRIPTOPCODE_TESTIF, // run conditions in an IF or ELIF block if the exit status is zero
-    SCRIPTOPCODE_WHILE, // start a WHILE block
-    SCRIPTOPCODE_TESTWHILE, // run conditions in a WHILE block if the exit status is zero
-    SCRIPTOPCODE_CONT, // skip the rest of a WHILE block
-    SCRIPTOPCODE_BREAK, // end a WHILE block early
-    SCRIPTOPCODE_DEF, // set a subroutine
-    SCRIPTOPCODE_ON, // subscribe to an event
-    SCRIPTOPCODE_END, // end program flow blocks
+    SCRIPTOPCODE_JMP, // add to pc
+    SCRIPTOPCODE_JMPTRUE, // set pc if exit status is 0
+    SCRIPTOPCODE_JMPFALSE, // set pc if exit status is 1
+    SCRIPTOPCODE_STATE, // push a new state
+    SCRIPTOPCODE_RET, // pop to the previous state
+    SCRIPTOPCODE_DEF, // define a subroutine
+    SCRIPTOPCODE_EVDEF, // define an event subroutine
+    SCRIPTOPCODE_ENDDEF, // end a subroutine definition
     SCRIPTOPCODE_SUB, // call a subroutine
-    SCRIPTOPCODE_RET, // return from a subroutine
     SCRIPTOPCODE_UNDEF, // unset a subroutine
-    SCRIPTOPCODE_UNON, // unsubscribe from an event
-    SCRIPTOPCODE_PIPE, // set the command input to the output of the last command 
+    SCRIPTOPCODE_UNON, // unset an event subroutine
     SCRIPTOPCODE_ADD, // add data to the accumulator
-    SCRIPTOPCODE_PUSH, // flush the accumulator to a new out argument
     SCRIPTOPCODE_READVAR, // read a variable into the accumulator
     SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
     SCRIPTOPCODE_READARRAY, // read array elements into the accumulator
     SCRIPTOPCODE_READARRAYSEP, // read array elements into the accumulator and push on separator characters
-    SCRIPTOPCODE_ARRAY, // create an empty array
+    SCRIPTOPCODE_PUSH, // flush the accumulator to a new out argument
+    SCRIPTOPCODE_TEXT, // write text to the output
     SCRIPTOPCODE_SET, // set a variable
     SCRIPTOPCODE_GET, // get a variable
-    SCRIPTOPCODE_UNSET, // delete a variable
-    SCRIPTOPCODE_TEST, // compare
-    SCRIPTOPCODE_BRACTEST, // compare and the last arg must be ]
-    SCRIPTOPCODE_TEXT, // write text to the output
-    SCRIPTOPCODE_MATH, // do math
+    SCRIPTOPCODE_SETARRAY, // set an array
+    SCRIPTOPCODE_GETARRAY, // get an array
+    SCRIPTOPCODE_UNSET, // delete a variable or array
     SCRIPTOPCODE_FIRE, // fire an event
+    SCRIPTOPCODE_TEST, // compare
+    SCRIPTOPCODE_MATH, // do math
     SCRIPTOPCODE_SLEEP, // delay execution
     SCRIPTOPCODE_CMD, // execute command
     SCRIPTOPCODE_EXIT, // terminate execution
     SCRIPTOPCODE__COUNT,
+};
+enum __attribute__((packed)) scriptopflag {
+    SCRIPTOPFLAG_PIPE = 1 << 4, // put the output in the input of the next command
 };
 
 struct scriptstate;
 
 typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
 
-struct __attribute__((packed)) scriptstring {
+struct __attribute__((packed)) scriptopdata_jmp {
+    int pc;
+};
+struct __attribute__((packed)) scriptopdata_add {
     int offset;
     int len;
 };
-
-struct __attribute__((packed)) scriptopdata_add {
-    struct scriptstring data;
-};
 struct __attribute__((packed)) scriptopdata_readvar {
-    struct scriptstring name;
-    uint32_t namecrc;
+    int offset;
+    int len;
+    uint32_t crc;
 };
 struct __attribute__((packed)) scriptopdata_readarray {
-    struct scriptstring name;
-    uint32_t namecrc;
+    int offset;
+    int len;
+    uint32_t crc;
     int from;
     int to;
 };
@@ -77,16 +73,15 @@ struct __attribute__((packed)) scriptopdata_cmd {
     scriptfunc_t func;
 };
 
-union scriptopdata {
-    struct scriptopdata_add add;
-    struct scriptopdata_readvar readvar;
-    struct scriptopdata_readarray readarray;
-    struct scriptopdata_cmd cmd;
-};
-
 struct __attribute__((packed)) scriptop {
     enum scriptopcode opcode;
-    union scriptopdata data;
+    union {
+        struct scriptopdata_jmp jmp;
+        struct scriptopdata_add add;
+        struct scriptopdata_readvar readvar;
+        struct scriptopdata_readarray readarray;
+        struct scriptopdata_cmd cmd;
+    };
 };
 
 struct script {
@@ -94,13 +89,19 @@ struct script {
     struct scriptop* ops;
 };
 
+struct scriptstatesub;
 struct __attribute__((packed)) scriptstatedata {
     enum scriptopcode from;
+    struct script script;
+    struct scriptstatesub* sub;
     int pc;
     int loop;
     int ret;
     int argc;
-    struct charbuf* argv;
+    struct {
+        char* data;
+        int len;
+    }* argv;
 };
 struct __attribute__((packed)) scriptstatevar {
     char* name;
@@ -120,19 +121,17 @@ struct __attribute__((packed)) scriptstatevar {
 };
 struct __attribute__((packed)) scriptstatesub {
     bool copied : 1;
+    bool unset : 1;
     char* name;
     int namelen;
     uint32_t namecrc;
-    struct scriptop* data;
+    struct script data;
+    int uses;
 };
 struct __attribute__((packed)) scriptstateeventsub {
-    bool copied : 1;
+    struct scriptstatesub sub;
     int tableeventindex;
     int tablesubindex;
-    char* name;
-    int namelen;
-    uint32_t namecrc;
-    struct scriptop* data;
 };
 enum __attribute__((packed)) scriptwait {
     SCRIPTWAIT_NONE,
