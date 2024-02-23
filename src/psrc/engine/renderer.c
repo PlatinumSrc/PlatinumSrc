@@ -236,6 +236,11 @@ void render_gl_legacy(void) {
         // TODO: render opaque materials front to back with basic lighting
     }
 
+    glEnable(GL_CULL_FACE);
+
+    // TODO: render entities
+
+    glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
@@ -371,6 +376,11 @@ void render_gl_advanced(void) {
         // TODO: render opaque materials front to back with basic lighting
     }
 
+    glEnable(GL_CULL_FACE);
+
+    // TODO: render entities
+
+    glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
@@ -382,6 +392,7 @@ void render_gl_advanced(void) {
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
+
 
     // TODO: render UI
 }
@@ -806,7 +817,6 @@ static bool createWindow(void) {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
-            glEnable(GL_CULL_FACE);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LEQUAL);
         } break;
