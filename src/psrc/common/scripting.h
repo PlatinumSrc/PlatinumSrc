@@ -33,9 +33,7 @@ enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE_UNON, // unset an event subroutine
     SCRIPTOPCODE_SET, // set a variable
     SCRIPTOPCODE_GET, // get a variable
-    SCRIPTOPCODE_SETARRAY, // set an array
-    SCRIPTOPCODE_GETARRAY, // get an array
-    SCRIPTOPCODE_UNSET, // delete a variable or array
+    SCRIPTOPCODE_UNSET, // delete a variable
     SCRIPTOPCODE_TEXT, // write text to the output
     SCRIPTOPCODE_FIRE, // fire an event
     SCRIPTOPCODE_TEST, // compare
@@ -51,7 +49,12 @@ enum __attribute__((packed)) scriptopflag {
 
 struct scriptstate;
 
-typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct charbuf* argv, struct charbuf* o);
+struct __attribute__((packed)) scriptarg {
+    char* data;
+    int len;
+};
+
+typedef int (*scriptfunc_t)(struct scriptstate*, struct charbuf* i, int argc, struct scriptarg* argv, struct charbuf* o);
 
 struct __attribute__((packed)) scriptopdata_jmp {
     int offset;
@@ -115,16 +118,11 @@ struct scriptstatedata {
         }* argv;
     } inargs;
     struct {
-        struct {
-            union {
-                uintptr_t offset;
-                char* data;
-            };
-            int len;
-        }* data;
+        struct scriptarg* data;
         int len;
         int size;
     } args;
+    bool pipe;
 };
 struct __attribute__((packed)) scriptstatevar {
     char* name;

@@ -321,12 +321,14 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "def: too few arguments\n");
+                    state->ret = -1;
                     ret = 0;
                 } else if (state->args.len == 1) {
                     ss_setsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
                     newpc = ss_skipdef(state->script, newpc);
                 } else {
                     cb_addstr(&state->out, "def: too many arguments\n");
+                    state->ret = -1;
                     ret = 0;
                 }
                 ss_clearargs(state);
@@ -335,12 +337,14 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "on: too few arguments\n");
+                    state->ret = -1;
                     ret = 0;
                 } else if (state->args.len == 1) {
                     ss_setevsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
                     newpc = ss_skipon(state->script, newpc);
                 } else {
                     cb_addstr(&state->out, "on: too many arguments\n");
+                    state->ret = -1;
                     ret = 0;
                 }
                 ss_clearargs(state);
@@ -354,6 +358,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     int s = ss_findsub(state->args.data[0].data, state->args.data[0].len);
                     if (s >= 0) {
                         state->pc = newpc;
+                        newpc = -1;
                         if (state->args.len == 1) {
                             ss_clearargs(state);
                             state = ss_pushstate(ss, &ss->subs.data[s]);
@@ -363,40 +368,38 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                             ss_clearargs(state);
                             state = newstate;
                         }
-                        continue;
                     } else {
                         cb_addstr(&state->out, "sub: cannot find '");
                         cb_addpartstr(&state->out, state->args.data[0].data, state->args.data[0].len);
                         cb_add(&state->out, '\'');
                         cb_add(&state->out, '\n');
                         state->ret = 1;
+                        ss_clearargs(state);
                     }
                 }
-                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_RET: {
                 ss_prepargs(state);
                 if (state->args.len == 0) {
                     state = ss_popstate(ss);
                     state->ret = 0;
-                    ss_clearargs(state);
-                    continue;
+                    newpc = -1;
                 } else if (state->args.len == 1) {
                     state = ss_popstate(ss);
                     state->ret = atoi(state->args.data[0].data);
-                    ss_clearargs(state);
-                    continue;
+                    newpc = -1;
                 } else if (state->args.len == 2) {
                     state = ss_popstate(ss);
                     state->ret = atoi(state->args.data[0].data);
                     cb_addpartstr(&state->out, state->args.data[1].data, state->args.data[1].len);
-                    ss_clearargs(state);
-                    continue;
+                    newpc = -1;
                 } else {
                     cb_addstr(&state->out, "ret: too many arguments\n");
-                    state->ret = 0;
+                    state->ret = -1;
                     ret = 0;
+                    break;
                 }
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_UNDEF: {
                 ss_prepargs(state);
@@ -408,17 +411,10 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             } break;
             case SCRIPTOPCODE_SET: {
                 ss_prepargs(state);
+                // !!! do not change return value if reading value from pipe !!!
                 ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_GET: {
-                ss_prepargs(state);
-                ss_clearargs(state);
-            } break;
-            case SCRIPTOPCODE_SETARRAY: {
-                ss_prepargs(state);
-                ss_clearargs(state);
-            } break;
-            case SCRIPTOPCODE_GETARRAY: {
                 ss_prepargs(state);
                 ss_clearargs(state);
             } break;
@@ -506,11 +502,23 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             } break;
             case SCRIPTOPCODE_CMD: {
                 ss_prepargs(state);
-                ss_clearargs(state);
+                state->ret = op.cmd.func(ss, &state->in, state->args.len, state->args.data, &state->out);
+                if (state->ret < 0) ret = 0;
+                else ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_EXIT: {
                 ss_prepargs(state);
-                ss_clearargs(state);
+                if (state->args.len == 0) {
+                    state->ret = 0;
+                } else if (state->args.len == 1) {
+                    state->ret = atoi(state->args.data[0].data);
+                } else {
+                    ss_clearargs(state);
+                    cb_addstr(&state->out, "exit: too many arguments\n");
+                    state->ret = -1;
+                    break;
+                }
+                ret = 0;
             } break;
         }
         if (op.opcode & SCRIPTOPFLAG_PIPE) {
@@ -539,7 +547,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             if (ec) *ec = state->ret;
             return false;
         }
-        state->pc = newpc;
+        if (newpc >= 0) state->pc = newpc;
         if (ret == 1) {
             return true;
         }

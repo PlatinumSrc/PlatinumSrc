@@ -41,3 +41,8 @@ defaultgame = default # read before loading user config
 [ Multiplayer ]
   username = Player
   playermodel = default
+  spray = default
+  download = required,maps,textures,sounds
+  autodownload = false
+  extralists = 
+  extraservers = 

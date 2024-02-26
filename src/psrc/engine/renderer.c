@@ -155,22 +155,25 @@ static void gl_calcViewMat(void) {
     campos[1] = rendstate.campos[1] * rendstate.gl.scale;
     campos[2] = rendstate.campos[2] * rendstate.gl.scale;
     #endif
-    float rotradx = rendstate.camrot[0] * M_PI / 180.0;
-    float rotrady = rendstate.camrot[1] * -M_PI / 180.0;
-    float rotradz = rendstate.camrot[2] * M_PI / 180.0;
-    front[0] = (-sin(rotrady)) * cos(rotradx);
-    front[1] = sin(rotradx);
-    front[2] = cos(rotrady) * cos(rotradx);
-    up[0] = sin(rotrady) * sin(rotradx) * cos(rotradz) + sin(rotradz) * cos(rotrady);
-    up[1] = cos(rotradx) * cos(rotradz);
-    up[2] = (-cos(rotrady)) * sin(rotradx) * cos(rotradz) + sin(rotradz) * sin(rotrady);
+    static float rotradx, sinx, cosx;
+    static float rotrady, siny, cosy;
+    static float rotradz, sinz, cosz;
+    rotradx = rendstate.camrot[0] * M_PI / 180.0;
+    rotrady = rendstate.camrot[1] * -M_PI / 180.0;
+    rotradz = rendstate.camrot[2] * M_PI / 180.0;
+    front[0] = (-siny) * cosx;
+    front[1] = sinx;
+    front[2] = cosy * cosx;
+    up[0] = siny * sinx * cosz + sinz * cosy;
+    up[1] = cosx * cosz;
+    up[2] = (-cosy) * sinx * cosz + sinz * siny;
     glm_vec3_add(campos, front, front);
     glm_lookat(campos, front, up, rendstate.gl.viewmat);
 }
 
 static void gl_updateWindow(void) {
     glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
-    if (rendstate.apigroup == RENDAPIGROUP_GL) gl_calcProjMat();
+    gl_calcProjMat();
 }
 
 static inline __attribute__((always_inline)) void gl_clearScreen(void) {
