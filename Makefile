@@ -453,9 +453,7 @@ ifeq ($(CROSS),win32)
     endif
 endif
 
-ifeq ($(CROSS),emscr)
-TARGET := index.html
-else ifeq ($(CROSS),nxdk)
+ifeq ($(CROSS),nxdk)
 TARGET = $(XISO)
 else ifeq ($(CROSS),dc)
 TARGET = $(CDI)
@@ -639,12 +637,7 @@ endif
 
 .PHONY: build run clean distclean externclean
 
-ifeq ($(CROSS),emscr)
-
-index.html: $(BINPATH)
-	@cp -f $(BINPATH) index.html
-
-else ifeq ($(CROSS),nxdk)
+ifeq ($(CROSS),nxdk)
 
 $(XISODIR):
 	@$(call mkdir,$@)

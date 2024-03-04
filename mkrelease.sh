@@ -20,7 +20,7 @@ printf "${I} ${TB}Release text:${TR}\n%s\n${TB}EOF${TR}\n" "${RELTEXT}"
 pause
 
 tsk "Building..."
-./buildmoudles.sh || _exit
+./buildrelease.sh || _exit
 inf "Making PlatinumSrc_Assets.zip..."
 _zip_r "PlatinumSrc_Assets.zip" common/ engine/ icons/
 inf "Making PlatinumSrc_Extras.zip..."

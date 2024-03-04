@@ -76,37 +76,6 @@ struct rendstate {
     } res;
     enum rcopt_texture_qlt texqlt;
     enum rendlighting lighting;
-    union {
-        #ifdef PSRC_USEGL
-        struct {
-            #if PLATFORM != PLAT_NXDK
-            SDL_GLContext ctx;
-            #endif
-            uint8_t fastclear : 1;
-            float nearplane;
-            float farplane;
-            mat4 projmat;
-            mat4 viewmat;
-            #if PLATFORM == PLAT_NXDK
-            float scale;
-            #endif
-            union {
-                #ifdef PSRC_USEGL11
-                struct {
-                } gl11;
-                #endif
-                #ifdef PSRC_USEGL33
-                struct {
-                } gl33;
-                #endif
-                #ifdef PSRC_USEGLES30
-                struct {
-                } gles30;
-                #endif
-            };
-        } gl;
-        #endif
-    };
 };
 
 extern struct rendstate rendstate;
@@ -132,9 +101,9 @@ void unlockRendererConfig(void);
 bool restartRenderer(void);
 void stopRenderer(void);
 void quitRenderer(void);
-void render(void);
-void display(void);
-void* takeScreenshot(int* w, int* h, int* sz);
+extern void (*render)(void);
+extern void (*display)(void);
+extern void* (*takeScreenshot)(int* w, int* h, int* sz);
 
 extern const char* rendapi_ids[];
 extern const char* rendapi_names[];
