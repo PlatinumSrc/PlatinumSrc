@@ -169,6 +169,7 @@ static inline void compileScript_addop(struct script* out, struct scriptsz* sz, 
 }
 bool compileScript(char* p, scriptfunc_t (*findcmd)(char*), struct script* _out, struct charbuf* e) {
     (void)findcmd;
+    return false;
     struct compilerfile f;
     {
         int tmp = isFile(p);

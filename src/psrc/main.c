@@ -215,6 +215,14 @@ static int bootstrap(void) {
         uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
         char titleidstr[9];
         sprintf(titleidstr, "%08x", (unsigned)titleid);
+        tmp = cfg_getvar(gameconfig, NULL, "userdir");
+        if (tmp) {
+            char* tmp2 = mkpath(NULL, tmp, NULL);
+            free(tmp);
+            tmp = tmp2;
+        } else {
+            tmp = strdup(gamedir);
+        }
         userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
         free(tmp);
         savedir = mkpath("E:\\UDATA", titleidstr, NULL);
@@ -573,9 +581,8 @@ int main(int argc, char** argv) {
     if (!ret) {
         ret = initLoop();
         if (!ret) {
-            while (1) {
+            while (!quitreq) {
                 doLoop();
-                if (quitreq) break;
             }
             quitLoop();
         }
@@ -584,11 +591,12 @@ int main(int argc, char** argv) {
     #if PLATFORM == PLAT_WIN32
     timeEndPeriod(tmrres);
     #elif PLATFORM == PLAT_NXDK
-    if (ret) Sleep(5);
+    if (ret) Sleep(5000);
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
     #endif
     #else
+    // TODO: pass in output from SDL_GetPrefPath
     EM_ASM(
         FS.mkdir('/libsdl');
         FS.mount(IDBFS, {}, '/libsdl');

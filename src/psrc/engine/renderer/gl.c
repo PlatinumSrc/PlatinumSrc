@@ -150,7 +150,7 @@ static void gl_updateFrame(void) {
 }
 
 static void gl_updateVSync(void) {
-    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
+    #if PLATFORM != PLAT_NXDK
     if (rendstate.vsync) {
         if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
     } else {
@@ -494,36 +494,33 @@ static bool gl_beforeCreateWindow(unsigned* f) {
         default:
             break;
     }
-    *f |= SDL_WINDOW_OPENGL;
     #if PLATFORM != PLAT_NXDK
-    {
-        char* tmp;
-        tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
-        if (tmp) {
-            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, strbool(tmp, 1));
-            free(tmp);
-        } else {
-            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        }
-        #if PLATFORM != PLAT_EMSCR
-        {
-            unsigned flags;
-            tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
-            if (strbool(tmp, 0)) flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
-            else flags = 0;
-            free(tmp);
-            tmp = cfg_getvar(config, "Renderer", "gl.debug");
-            if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
-            free(tmp);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
-        }
-        #endif
+    *f |= SDL_WINDOW_OPENGL;
+    char* tmp;
+    tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
+    if (tmp) {
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, strbool(tmp, 1));
+        free(tmp);
+    } else {
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     }
+    #if PLATFORM != PLAT_EMSCR
+    unsigned flags;
+    tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
+    if (strbool(tmp, 0)) flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
+    else flags = 0;
+    free(tmp);
+    tmp = cfg_getvar(config, "Renderer", "gl.debug");
+    if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
+    free(tmp);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
+    #endif
     #else
     //pbgl_set_swap_interval(rendstate.vsync);
     #endif
     return true;
 }
+
 static bool gl_afterCreateWindow(void) {
     #if PLATFORM != PLAT_NXDK
     gldata.ctx = SDL_GL_CreateContext(rendstate.window);
@@ -629,6 +626,11 @@ static bool gl_afterCreateWindow(void) {
     glDepthFunc(GL_LEQUAL);
     return true;
 }
+
+static bool gl_prepRenderer(void) {
+    return true;
+}
+
 static void gl_beforeDestroyWindow(void) {
     #if PLATFORM != PLAT_NXDK
     if (gldata.ctx) SDL_GL_DeleteContext(gldata.ctx);

@@ -1,7 +1,7 @@
 defaultgame = default # read before loading user config
 
 [ Renderer ]
-  resolution.windowed = 1024x768
+  resolution.windowed = 800x600
   resolution.fullscreen = 
   fullscreen = false
   borderless = false

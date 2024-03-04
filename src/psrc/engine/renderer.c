@@ -49,7 +49,7 @@ const char* rendapi_names[] = {
     #endif
 };
 
-struct rc_model* testmodel;
+static struct rc_model* testmodel;
 
 #ifdef PSRC_USEGL
     #include "./renderer/gl.c"
@@ -60,6 +60,7 @@ void (*display)(void);
 void* (*takeScreenshot)(int* w, int* h, int* sz);
 static bool (*beforeCreateWindow)(unsigned*);
 static bool (*afterCreateWindow)(void);
+static bool (*prepRenderer)(void);
 static void (*beforeDestroyWindow)(void);
 static void (*calcProjMat)(void);
 static void (*updateFrame)(void);
@@ -124,7 +125,7 @@ static void updateWindowMode(void) {
             #endif
         } break;
     }
-    rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+    rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
 }
 
 #if PLATFORM != PLAT_NXDK
@@ -189,7 +190,7 @@ static bool createWindow(void) {
     plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
     plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
     #endif
-    rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+    rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
     rendstate.window = SDL_CreateWindow(
         titlestr,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -212,10 +213,6 @@ static bool createWindow(void) {
     return true;
 }
 
-static bool prepRenderer(void) {
-    return true;
-}
-
 static bool startRenderer_internal(void) {
     switch (rendstate.api) {
         #ifdef PSRC_USEGL
@@ -229,7 +226,7 @@ static bool startRenderer_internal(void) {
         case RENDAPI_GLES30: rendstate.apigroup = RENDAPIGROUP_GL; break;
         #endif
         #endif
-        default: break;
+        default: return false;
     }
     switch (rendstate.apigroup) {
         #ifdef PSRC_USEGL
@@ -239,6 +236,7 @@ static bool startRenderer_internal(void) {
             takeScreenshot = gl_takeScreenshot;
             beforeCreateWindow = gl_beforeCreateWindow;
             afterCreateWindow = gl_afterCreateWindow;
+            prepRenderer = gl_prepRenderer;
             beforeDestroyWindow = gl_beforeDestroyWindow;
             calcProjMat = gl_calcProjMat;
             updateVSync = gl_updateVSync;
@@ -246,10 +244,15 @@ static bool startRenderer_internal(void) {
             break;
         #endif
         default:
-            break;
+            return false;
     }
     if (!createWindow()) return false;
-    return prepRenderer();
+    if (!prepRenderer()) {
+        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        destroyWindow();
+        return false;
+    }
+    return true;
 }
 
 static void stopRenderer_internal(void) {
@@ -349,7 +352,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                         break;
                 }
                 SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
-                rendstate.aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+                rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
                 updateFrame();
             } break;
             case RENDOPT_LIGHTING: {

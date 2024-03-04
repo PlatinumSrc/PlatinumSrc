@@ -2,7 +2,7 @@
 
 {
 
-RENDERER_C="src/psrc/engine/renderer.c"
+RENDERER_C="src/psrc/engine/renderer/gl.c"
 GLAD_C="src/glad/glad.c"
 GLAD_C_NEW="$(mktemp)"
 WHITELIST="glGetString glGetStringi glGetIntegerv"
