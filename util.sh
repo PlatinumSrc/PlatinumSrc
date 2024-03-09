@@ -17,11 +17,9 @@ tsk() { printf "${T} ${TB}${1}${TR}\n"; }
 PLATNAME="$(uname -s)"
 PLATARCH="$(uname -m)"
 PLATDESC="${PLATNAME} ${PLATARCH}"
-PLATPATH="$(echo "${PLATDESC}" | sed 's/\//_/g')"
 PLATNAME32="$(i386 uname -s)"
 PLATARCH32="$(i386 uname -m)"
 PLATDESC32="${PLATNAME32} ${PLATARCH32}"
-PLATPATH32="$(echo "${PLATDESC32}" | sed 's/\//_/g')"
 
 ask() {
     RESPONSE=""
@@ -69,10 +67,9 @@ _zip_r() {
 }
 
 buildrel() {
-    local TYPE="${1}"
     local PLATFORM="${2}"
     if [ ! -z "${PLATFORM}" ]; then PLATFORM=" for ${PLATFORM}"; fi
-    inf "Building ${TYPE}${PLATFORM}..."
+    inf "Building ${1}${PLATFORM}..."
     make "${@:3}" distclean 1> /dev/null || _exit
     RESPONSE=""
     while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do
@@ -104,7 +101,7 @@ buildrel() {
                 ;;
         esac
     done
-    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
+    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel "$(echo "${2}" | sed 's/\//_/g')" || _exit
     make "${@:3}" distclean 1> /dev/null || _exit
     [[ ! "${RESPONSE}" == "n" ]] || _exit 1
 }

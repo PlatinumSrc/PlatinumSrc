@@ -19,6 +19,8 @@ enum __attribute__((packed)) scriptopcode {
     SCRIPTOPCODE_READVARSEP, // read a variable into the accumulator and push on separator characters
     SCRIPTOPCODE_READARRAY, // read array elements into the accumulator
     SCRIPTOPCODE_READARRAYSEP, // read array elements into the accumulator and push on separator characters
+    SCRIPTOPCODE_READARRAYLEN, // read array size into the accumulator
+    SCRIPTOPCODE_READARGCT, // read argument count into the accumulator
     SCRIPTOPCODE_READARG, // read arguments into the accumulator
     SCRIPTOPCODE_READARGSEP, // read arguments into the accumulator and push on separator characters
     SCRIPTOPCODE_READRET, // read return code into the accumulator
@@ -128,7 +130,7 @@ struct __attribute__((packed)) scriptstatevar {
     char* name;
     int namelen;
     uint32_t namecrc;
-    int dim;
+    int size;
     union {
         struct {
             char* data;

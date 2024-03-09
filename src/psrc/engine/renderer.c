@@ -52,7 +52,7 @@ const char* rendapi_names[] = {
 static struct rc_model* testmodel;
 
 #ifdef PSRC_USEGL
-    #include "./renderer/gl.c"
+    #include "renderer/gl.c"
 #endif
 
 void (*render)(void);
@@ -239,8 +239,8 @@ static bool startRenderer_internal(void) {
             prepRenderer = gl_prepRenderer;
             beforeDestroyWindow = gl_beforeDestroyWindow;
             calcProjMat = gl_calcProjMat;
-            updateVSync = gl_updateVSync;
             updateFrame = gl_updateFrame;
+            updateVSync = gl_updateVSync;
             break;
         #endif
         default:

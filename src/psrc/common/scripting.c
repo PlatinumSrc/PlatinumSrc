@@ -271,9 +271,11 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
     }
     struct scriptstatedata* state = &ss->state.data[ss->state.index];
     int ret = -1;
+    int counter = 0;
     while (1) {
+        ++counter;
         struct scriptop op;
-        int newpc = 0; //ss_readop(state->script, state->pc, &op);
+        int newpc = ss_readop(state->script, state->pc, &op);
         switch (op.opcode & 0x3F) {
             case SCRIPTOPCODE_TRUE: {
                 state->ret = 0;
@@ -294,22 +296,144 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 cb_addpartstr(&state->acc, &state->script.strings[op.add.offset], op.add.len);
             } break;
             case SCRIPTOPCODE_READVAR: {
-                
+                struct scriptstatevar* v = ss_findvar(ss, &state->script.strings[op.readvar.offset], op.readvar.len, op.readvar.crc);
+                if (v) {
+                    int vsz = v->size;
+                    if (vsz) {
+                        cb_addpartstr(&state->acc, v->array.data[0], v->array.len[0]);
+                        for (int i = 1; i < vsz; ++i) {
+                            cb_add(&state->out, 0);
+                            cb_addpartstr(&state->acc, v->array.data[i], v->array.len[i]);
+                        }
+                    } else if (sz < 0) {
+                        cb_addpartstr(&state->acc, v->single.data, v->single.len);
+                    }
+                }
             } break;
             case SCRIPTOPCODE_READVARSEP: {
-                
+                struct scriptstatevar* v = ss_findvar(ss, &state->script.strings[op.readvar.offset], op.readvar.len, op.readvar.crc);
+                if (v) {
+                    int vsz = v->size;
+                    if (vsz) {
+                        bool space = true;
+                        char* data = v->array.data[0];
+                        int len = v->array.len[0];
+                        for (int i = 0; i < len; ++i) {
+                            char c = *data;
+                            if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                                if (!space) {
+                                    ss_pusharg(state);
+                                    space = true;
+                                }
+                            } else {
+                                cb_add(&state->acc, c);
+                                if (space) space = false;
+                            }
+                            ++data;
+                        }
+                        for (int i = 1; i < vsz; ++i) {
+                            data = v->array.data[i];
+                            len = v->array.len[i];
+                            for (int i = 0; i < len; ++i) {
+                                char c = *data;
+                                if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                                    if (!space) {
+                                        ss_pusharg(state);
+                                        space = true;
+                                    }
+                                } else {
+                                    cb_add(&state->acc, c);
+                                    if (space) space = false;
+                                }
+                                ++data;
+                            }
+                            cb_addpartstr(&state->acc, v->array.data[i], v->array.len[i]);
+                        }
+                    } else if (sz < 0) {
+                        bool space = true;
+                        char* data = v->single.data;
+                        int len = v->single.len;
+                        for (int i = 0; i < len; ++i) {
+                            char c = *data;
+                            if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                                if (!space) {
+                                    ss_pusharg(state);
+                                    space = true;
+                                }
+                            } else {
+                                cb_add(&state->acc, c);
+                                if (space) space = false;
+                            }
+                            ++data;
+                        }
+                    }
+                }
             } break;
             case SCRIPTOPCODE_READARRAY: {
-                
+                struct scriptstatevar* v = ss_findvar(ss, &state->script.strings[op.readvar.offset], op.readvar.len, op.readvar.crc);
             } break;
             case SCRIPTOPCODE_READARRAYSEP: {
-                
+                struct scriptstatevar* v = ss_findvar(ss, &state->script.strings[op.readvar.offset], op.readvar.len, op.readvar.crc);
+            } break;
+            case SCRIPTOPCODE_READARGCT: {
+                char tmp[16];
+                sprintf(tmp, "%d", state->inargs.argc);
+                cb_addstr(&state->acc, tmp);
             } break;
             case SCRIPTOPCODE_READARG: {
-                
+                int max = state->inargs.argc - 1;
+                if (op.readarg.from < 0) op.readarg.from = max - op.readarg.from;
+                if (op.readarg.to < 0) op.readarg.to = max - op.readarg.to;
+                else if (op.readarg.to < max) op.readarg.to = max;
+                if (op.readarg.to >= op.readarg.from) {
+                    cb_addpartstr(&state->acc, state->inargs.argv[op.readarg.from].data, state->inargs.argv[op.readarg.from].len);
+                    ++op.readarg.from;
+                    for (; op.readarg.from <= op.readarg.to; ++op.readarg.from) {
+                        ss_pusharg(state);
+                        cb_addpartstr(&state->acc, state->inargs.argv[op.readarg.from].data, state->inargs.argv[op.readarg.from].len);
+                    }
+                }
             } break;
             case SCRIPTOPCODE_READARGSEP: {
-                
+                int max = state->inargs.argc - 1;
+                if (op.readarg.from < 0) op.readarg.from = max - op.readarg.from;
+                if (op.readarg.to < 0) op.readarg.to = max - op.readarg.to;
+                else if (op.readarg.to < max) op.readarg.to = max;
+                bool space = true;
+                char* data = state->inargs.argv[op.readarg.from].data;
+                int len = state->inargs.argv[op.readarg.from].len;
+                for (int i = 0; i < len; ++i) {
+                    char c = *data;
+                    if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                        if (!space) {
+                            ss_pusharg(state);
+                            space = true;
+                        }
+                    } else {
+                        cb_add(&state->acc, c);
+                        if (space) space = false;
+                    }
+                    ++data;
+                }
+                ++op.readarg.from;
+                for (; op.readarg.from <= op.readarg.to; ++op.readarg.from) {
+                    ss_pusharg(state);
+                    data = state->inargs.argv[op.readarg.from].data;
+                    len = state->inargs.argv[op.readarg.from].len;
+                    for (int i = 0; i < len; ++i) {
+                        char c = *data;
+                        if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                            if (!space) {
+                                ss_pusharg(state);
+                                space = true;
+                            }
+                        } else {
+                            cb_add(&state->acc, c);
+                            if (space) space = false;
+                        }
+                        ++data;
+                    }
+                }
             } break;
             case SCRIPTOPCODE_READRET: {
                 char tmp[16];
@@ -317,57 +441,57 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 cb_addstr(&state->acc, tmp);
             } break;
             case SCRIPTOPCODE_PUSH: {
-                
+                ss_pusharg(state);
             } break;
             case SCRIPTOPCODE_DEF: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "def: too few arguments\n");
                     state->ret = -1;
                     ret = 0;
                 } else if (state->args.len == 1) {
-                    //ss_setsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
-                    //newpc = ss_skipdef(state->script, newpc);
+                    ss_setsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
+                    newpc = ss_skipdef(state->script, newpc);
                 } else {
                     cb_addstr(&state->out, "def: too many arguments\n");
                     state->ret = -1;
                     ret = 0;
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_ON: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "on: too few arguments\n");
                     state->ret = -1;
                     ret = 0;
                 } else if (state->args.len == 1) {
-                    //ss_setevsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
-                    //newpc = ss_skipon(state->script, newpc);
+                    ss_setevsub(ss, state->args.data[0].data, state->args.data[0].len, state->script, newpc);
+                    newpc = ss_skipon(state->script, newpc);
                 } else {
                     cb_addstr(&state->out, "on: too many arguments\n");
                     state->ret = -1;
                     ret = 0;
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_SUB: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "sub: too few arguments\n");
                     state->ret = 1;
                 } else {
-                    int s;// = ss_findsub(state->args.data[0].data, state->args.data[0].len);
+                    int s = ss_findsub(state->args.data[0].data, state->args.data[0].len);
                     if (s >= 0) {
                         state->pc = newpc;
                         newpc = -1;
                         if (state->args.len == 1) {
-                            //ss_clearargs(state);
-                            //state = ss_pushstate(ss, &ss->subs.data[s]);
+                            ss_clearargs(state);
+                            state = ss_pushstate(ss, &ss->subs.data[s]);
                         } else {
-                            struct scriptstatedata* newstate;// = ss_pushstate(ss, &ss->subs.data[s]);
+                            struct scriptstatedata* newstate = ss_pushstate(ss, &ss->subs.data[s]);
                             // TODO: clone args[1...] from state to inargs[0...] of newstate
-                            //ss_clearargs(state);
+                            ss_clearargs(state);
                             state = newstate;
                         }
                     } else {
@@ -376,22 +500,22 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         cb_add(&state->out, '\'');
                         cb_add(&state->out, '\n');
                         state->ret = 1;
-                        //ss_clearargs(state);
+                        ss_clearargs(state);
                     }
                 }
             } break;
             case SCRIPTOPCODE_RET: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
-                    //state = ss_popstate(ss);
+                    state = ss_popstate(ss);
                     state->ret = 0;
                     newpc = -1;
                 } else if (state->args.len == 1) {
-                    //state = ss_popstate(ss);
+                    state = ss_popstate(ss);
                     state->ret = atoi(state->args.data[0].data);
                     newpc = -1;
                 } else if (state->args.len == 2) {
-                    //state = ss_popstate(ss);
+                    state = ss_popstate(ss);
                     state->ret = atoi(state->args.data[0].data);
                     cb_addpartstr(&state->out, state->args.data[1].data, state->args.data[1].len);
                     newpc = -1;
@@ -401,18 +525,18 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     ret = 0;
                     break;
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_UNDEF: {
-                //ss_prepargs(state);
-                //ss_clearargs(state);
+                ss_prepargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_UNON: {
-                //ss_prepargs(state);
-                //ss_clearargs(state);
+                ss_prepargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_SET: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 // !!! do not change return value if reading value from pipe !!!
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "set: too few arguments\n");
@@ -456,16 +580,16 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         goto set_longbreak;
                     }
                     if (array) {
-                        //ss_setvar(ss, name, namelen, data, len);
+                        ss_setvar(ss, name, namelen, data, len);
                     } else {
-                        //ss_setarray(ss, name, namelen, index, data, len);
+                        ss_setarray(ss, name, namelen, index, data, len);
                     }
                 }
                 set_longbreak:;
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_GET: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "get: too few arguments\n");
                     state->ret = 1;
@@ -477,15 +601,9 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         state->ret = 1;
                         goto get_longbreak;
                     }
-                    bool array = false;
-                    int from, to;
                     for (int i = namelen - 1; i >= 0; --i) {
                         if (name[i] == ':') {
                             namelen = i;
-                            if (i != namelen - 1) {
-                                sscanf(&name[i + 1], "%d,%d", &from, &to);
-                                array = true;
-                            }
                             break;
                         }
                     }
@@ -494,43 +612,70 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         state->ret = 1;
                         goto get_longbreak;
                     }
-                    if (array) {
-                        char* data;
-                        int len;
-                        //data = ss_getvar(ss, name, namelen, &len);
-                        cb_addpartstr(&state->out, data, len);
-                    } else {
-                        //ss_getarray(ss, name, namelen, from, to, &state->out);
-                    }
                     state->ret = 0;
+                    if (namelen == 1) {
+                        if (name[0] == '@') {
+                            
+                        } else if (name[0] == '#') {
+                        } else if (name[0] == '?') {
+                        }
+                    }
+                    struct scriptstatevar* v = ss_findvar(ss, name, namelen, crc32(name, namelen));
+                    if (v) {
+                        if (v->size >= 0) {
+                            if (name[namelen] == '#' && !name[namelen + 1]) {
+                                char tmp[16];
+                                sprintf(tmp, "%d", state->ret);
+                                cb_addstr(&state->acc, tmp);
+                            } else {
+                                int max = v->size - 1;
+                                int from = 0;
+                                int to = max;
+                                if (name[namelen]) {
+                                    sscanf(&name[namelen + 1], "%d,%d", &from, &to);
+                                    if (from < 0) from = max - from;
+                                    if (to < 0) to = max - to;
+                                    if (to < from) goto get_longbreak;
+                                }
+                                cb_addpartstr(&state->out, v->array.data[0], v->array.len[0]);
+                                ++from;
+                                for (; from <= to; ++from) {
+                                    cb_add(&state->out, 0);
+                                    cb_addpartstr(&state->out, v->array.data[from], v->array.len[from]);
+                                }
+                            }
+                        } else if (name[namelen] != '#' || name[namelen + 1]) {
+                            cb_addpartstr(&state->out, v->single.data, v->single.len);
+                        }
+                    }
                 } else {
                     cb_addstr(&state->out, "get: too many arguments\n");
                     state->ret = 1;
                 }
                 get_longbreak:;
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_UNSET: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
-                    cb_addstr(&state->out, "get: too few arguments\n");
+                    cb_addstr(&state->out, "unset: too few arguments\n");
                     state->ret = 1;
                 } else if (state->args.len == 1) {
                     if (state->args.data[0].len == 0) {
-                        cb_addstr(&state->out, "get: empty variable name\n");
+                        cb_addstr(&state->out, "unset: empty variable name\n");
                         state->ret = 1;
                     } else {
-                        //ss_unsetvar(ss, state->args.data[0].data, state->args.data[0].len);
+                        ss_unsetvar(ss, state->args.data[0].data, state->args.data[0].len);
                         state->ret = 0;
                     }
                 } else {
-                    cb_addstr(&state->out, "get: too many arguments\n");
+                    cb_addstr(&state->out, "unset: too many arguments\n");
                     state->ret = 1;
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_TEXT: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len > 0) {
                     cb_addpartstr(&state->out, state->args.data[0].data, state->args.data[0].len);
                     for (int i = 1; i < state->args.len; ++i) {
@@ -538,10 +683,10 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     }
                 }
                 state->ret = 0;
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_FIRE: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "fire: too few arguments\n");
                     state->ret = 1;
@@ -549,16 +694,16 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     state->pc = newpc;
                     newpc = -1;
                     state->ret = 0;
-                    //state = ss_fireevent(ss, state->args.data[0].data, state->args.data[0].len, state->args.len - 1, &state->args.data[1]);
+                    state = ss_fireevent(ss, state->args.data[0].data, state->args.data[0].len, state->args.len - 1, &state->args.data[1]);
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_TEST: {
-                //ss_prepargs(state);
-                //ss_clearargs(state);
+                ss_prepargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_MATH: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 state->ret = 0;
                 union {
                     int64_t i;
@@ -671,10 +816,10 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         }
                     }
                 }
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_SLEEP: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     cb_addstr(&state->out, "sleep: too few arguments\n");
                     state->ret = 1;
@@ -733,22 +878,22 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                     state->ret = 1;
                 }
                 sleep_longbreak:;
-                //ss_clearargs(state);
+                ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_CMD: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 state->ret = op.cmd.func(ss, &state->in, state->args.len, state->args.data, &state->out);
                 if (state->ret < 0) ret = 0;
-                else ;//ss_clearargs(state);
+                else ss_clearargs(state);
             } break;
             case SCRIPTOPCODE_EXIT: {
-                //ss_prepargs(state);
+                ss_prepargs(state);
                 if (state->args.len == 0) {
                     state->ret = 0;
                 } else if (state->args.len == 1) {
                     state->ret = atoi(state->args.data[0].data);
                 } else {
-                    //ss_clearargs(state);
+                    ss_clearargs(state);
                     cb_addstr(&state->out, "exit: too many arguments\n");
                     state->ret = -1;
                     break;
@@ -783,7 +928,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             return false;
         }
         if (newpc >= 0) state->pc = newpc;
-        if (ret == 1) {
+        if (ret == 1 || counter == 64) {
             return true;
         }
     }
@@ -799,14 +944,14 @@ void clearScriptState(struct scriptstate* ss, struct script* s) {
 
 void deleteScriptState(struct scriptstate* ss) {
     while (ss->state.index >= 0) {
-        //ss_popstate(ss);
+        ss_popstate(ss);
     }
     for (int i = 0; i < ss->vars.len; ++i) {
         struct scriptstatevar* v = &ss->vars.data[i];
         if (v->name) {
             free(v->name);
-            if (v->dim >= 0) {
-                for (int j = 0; j < v->dim; ++j) {
+            if (v->size >= 0) {
+                for (int j = 0; j < v->size; ++j) {
                     free(v->array.data[j]);
                 }
                 free(v->array.data);

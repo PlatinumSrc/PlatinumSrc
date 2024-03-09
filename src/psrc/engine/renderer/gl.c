@@ -516,6 +516,16 @@ static bool gl_beforeCreateWindow(unsigned* f) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
     #endif
     #else
+    /*
+    char* tmp;
+    tmp = cfg_getvar(config, "Renderer", "pbgl.triplebuffer");
+    if (tmp) {
+        if (strbool(tmp, 0)) {
+            pb_back_buffers(2);
+        }
+        free(tmp);
+    }
+    */
     //pbgl_set_swap_interval(rendstate.vsync);
     #endif
     return true;
@@ -583,19 +593,19 @@ static bool gl_afterCreateWindow(void) {
     #if GL_KHR_debug
     if (glDebugMessageCallback) plog(LL_INFO, "  glDebugMessageCallback is supported");
     #endif
-    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.nearplane");
+    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.near");
     if (tmpstr[0]) {
         gldata.nearplane = atof(tmpstr[0]);
         free(tmpstr[0]);
     } else {
         gldata.nearplane = 0.1;
     }
-    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.farplane");
+    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
     if (tmpstr[0]) {
         gldata.farplane = atof(tmpstr[0]);
         free(tmpstr[0]);
     } else {
-        gldata.farplane = 1000.0;
+        gldata.farplane = 100.0;
     }
     #if PLATFORM == PLAT_NXDK
     tmpstr[0] = cfg_getvar(config, "Renderer", "nxdk.gl.scale");

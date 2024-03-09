@@ -9,28 +9,42 @@ rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
 
 [[ ${#} -eq 0 ]] && modules=(engine server editor) || modules=("${@}")
 
+pkgrel() {
+    local P="${1}"
+    if [ ! -z "${P}" ]; then P=" ${P}"; fi
+    "${ARCHIVER}" "${OUTPUT}${P}" "${FILES[@]}"
+}
+
 build_engine() {
-    pkgrel() { _tar_u "PlatinumSrc Engine ${PLATPATH}" psrc; }
+    OUTPUT="PlatinumSrc Engine"
+    ARCHIVER=_tar_u
+    FILES=(psrc)
     buildrel "${1}" "${PLATDESC}" "${@:2}"
-    pkgrel() { _tar_u "PlatinumSrc Engine ${PLATPATH32}" psrc; }
     buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
-    pkgrel() { _zip_u "PlatinumSrc Engine Windows i686" psrc.exe; }
+    ARCHIVER=_zip_u
+    FILES=(psrc.exe)
     buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y CC='wine i686-w64-mingw32-gcc' inc.null=NUL
-    pkgrel() { _zip_u "PlatinumSrc Engine Xbox (NXDK)" xiso/default.xbe; }
+    FILES=(xiso/default.xbe)
     buildrel "${1}" "Xbox (NXDK)" "${@:2}" CROSS=nxdk
-    pkgrel() { _zip_u "PlatinumSrc Engine Emscripten" index.html psrc.js psrc.wasm; }
+    FILES=(index.html psrc.js psrc.wasm)
     buildrel "${1}" "Emscripten" "${@:2}" CROSS=emscr
 }
 build_server() {
-    pkgrel() { _tar_u "PlatinumSrc Server ${PLATPATH}" psrc-server; }
+    OUTPUT="PlatinumSrc Server"
+    ARCHIVER=_tar_u
+    FILES=(psrc-server)
     buildrel "${1}" "${PLATDESC}" "${@:2}"
-    pkgrel() { _zip_u "PlatinumSrc Server Windows i686" psrc-server.exe; }
+    ARCHIVER=_zip_u
+    FILES=(psrc-server.exe)
     buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y CC='wine i686-w64-mingw32-gcc' inc.null=NUL
 }
 build_editor() {
-    pkgrel() { _tar_u "PlatinumSrc Editor ${PLATPATH}" psrc-editor; }
+    OUTPUT="PlatinumSrc Editor"
+    ARCHIVER=_tar_u
+    FILES=(psrc-editor)
     buildrel "${1}" "${PLATDESC}" "${@:2}"
-    pkgrel() { _zip_u "PlatinumSrc Editor Windows i686" psrc-editor.exe; }
+    ARCHIVER=_zip_u
+    FILES=(psrc-editor.exe)
     buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y CC='wine i686-w64-mingw32-gcc' inc.null=NUL
 }
 

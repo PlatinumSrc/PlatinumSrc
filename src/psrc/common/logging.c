@@ -11,17 +11,19 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#if PLATFORM == PLAT_NXDK
-    #include <pbkit/pbkit.h>
-    #include <pbkit/nv_regs.h>
-    #include <pbgl.h>
-    #include <GL/gl.h>
-#elif PLATFORM == PLAT_WIN32
-    #include <windows.h>
-#elif PLATFORM == PLAT_DREAMCAST
-    #include <SDL/SDL.h>
-#else
-    #include <SDL2/SDL.h>
+#if defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)
+    #if PLATFORM == PLAT_NXDK
+        #include <pbkit/pbkit.h>
+        #include <pbkit/nv_regs.h>
+        #include <pbgl.h>
+        #include <GL/gl.h>
+    #elif PLATFORM == PLAT_WIN32
+        #include <windows.h>
+    #elif PLATFORM == PLAT_DREAMCAST
+        #include <SDL/SDL.h>
+    #else
+        #include <SDL2/SDL.h>
+    #endif
 #endif
 
 #define _STR(x) #x
@@ -162,7 +164,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         va_copy(v, ov);
         writelog(lvl, logfile, func, file, line, s, v);
     }
-    #if PLATFORM != PLAT_NXDK
+    #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && PLATFORM != PLAT_NXDK
     if (lvl & LF_MSGBOX) {
         char* tmpstr = malloc(4096);
         va_copy(v, ov);

@@ -248,7 +248,9 @@ ifneq ($(CROSS),nxdk)
         _LDFLAGS += $(KOS_LDFLAGS)
     else ifneq ($(CROSS),emscr)
         ifeq ($(M32),y)
+            _CFLAGS += -m32
             _CPPFLAGS += -DM32
+            _LDFLAGS += -m32
             ifeq ($(CROSS),win32)
                 _WRFLAGS += -DM32
             endif
@@ -435,13 +437,14 @@ ifdef DEBUG
         BIN := $(BIN).asan
     endif
 endif
-BINPATH := $(BIN)
 ifeq ($(CROSS),win32)
-    BINPATH := $(BINPATH).exe
+    BINPATH := $(BIN).exe
 else ifeq ($(CROSS),emscr)
-    BINPATH := $(BINPATH).html
+    BINPATH := index.html
 else ifeq ($(CROSS),nxdk)
-    BINPATH := $(BINPATH).exe
+    BINPATH := $(BIN).exe
+else
+    BINPATH := $(BIN)
 endif
 BINPATH := $(OUTDIR)/$(BINPATH)
 
@@ -582,13 +585,17 @@ ifneq ($(WINDRES),)
 	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
 endif
 endif
-ifeq ($(CROSS),nxdk)
+ifeq ($(CROSS),emscr)
+	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $(OUTDIR)/$(BIN).html
+	@mv -f $(OUTDIR)/$(BIN).html $(BINPATH)
+else ifeq ($(CROSS),nxdk)
 	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
 	@$(OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
 	@$(OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 else ifeq ($(CROSS),dc)
+	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
 	@$(OBJCOPY) -R .stack -O binary $@
 else
 	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
@@ -622,8 +629,8 @@ ifeq ($(CROSS),nxdk)
 	@$(call rm,$(XISODIR)/default.xbe)
 	@$(call rm,$(BINPATH))
 else ifeq ($(CROSS),emscr)
-	@$(call rm,$(basename $(BINPATH)).js)
-	@$(call rm,$(basename $(BINPATH)).wasm)
+	@$(call rm,$(basename $(OUTDIR)/$(BIN)).js)
+	@$(call rm,$(basename $(OUTDIR)/$(BIN)).wasm)
 endif
 	@$(call rm,$(TARGET))
 
