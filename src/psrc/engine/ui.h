@@ -37,7 +37,7 @@ enum uiattr {
     UIATTR_TEXT_FONT, // char*
     UIATTR_TEXT_SIZE, // unsigned
     UIATTR_TEXT_BORDER, // enum uiborder
-    UIATTR_LINK_TEXT, // char*, struct uidata_textfrmt*, struct uidata_textfrmt*, struct uidata_textfrmt*, struct uidata_textfrmt*
+    UIATTR_LINK_TEXT, // char*, struct uidata_textfrmt*, struct uidata_textfrmt*, struct uidata_textfrmt*
     UIATTR_LINK_FONT, // char*
     UIATTR_LINK_SIZE, // unsigned
     UIATTR_LINK_BORDER, // enum uiborder

@@ -255,6 +255,58 @@ struct scriptstate* newScriptState(struct script* s, struct scripteventtable* t,
     return ss;
 }
 
+static inline int ss_readop(struct script s, int pc, struct scriptop* op) {
+    return -1;
+}
+
+static inline void ss_pusharg(struct scriptstatedata* state) {
+
+}
+static inline void ss_prepargs(struct scriptstatedata* state) {
+    
+}
+static inline void ss_clearargs(struct scriptstatedata* state) {
+    
+}
+
+static inline struct scriptstatedata* ss_pushstate(struct scriptstate* ss, struct scriptstatesub* sub) {
+    return NULL;
+}
+static inline struct scriptstatedata* ss_popstate(struct scriptstate* ss) {
+    return NULL;
+}
+static inline struct scriptstatedata* ss_fireevent(struct scriptstate* ss, char* name, int namelen, int argc, struct scriptarg* argv) {
+    return NULL;
+}
+
+static inline struct scriptstatevar* ss_newvar(struct scriptstate* ss, char* name, int namelen, uint32_t namecrc, int size) {
+    return NULL;
+}
+static inline struct scriptstatevar* ss_findvar(struct scriptstate* ss, char* name, int namelen, uint32_t namecrc) {
+    return NULL;
+}
+static inline void ss_delvar(struct scriptstatevar* v) {
+    
+}
+
+static inline int ss_findsub(char* name, int namelen) {
+    return -1;
+}
+static inline void ss_setsub(struct scriptstate* ss, char* name, int namelen, struct script s, int newpc) {
+    
+}
+
+static inline void ss_setevsub(struct scriptstate* ss, char* name, int namelen, struct script s, int newpc) {
+    
+}
+
+static inline int ss_skipdef(struct script s, int newpc) {
+    return -1;
+}
+static inline int ss_skipon(struct script s, int newpc) {
+    return -1;
+}
+
 bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
     switch (ss->waitstate) {
         case SCRIPTWAIT_NONE:
@@ -300,71 +352,54 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 if (v) {
                     int vsz = v->size;
                     if (vsz) {
-                        cb_addpartstr(&state->acc, v->array.data[0], v->array.len[0]);
-                        for (int i = 1; i < vsz; ++i) {
-                            cb_add(&state->out, 0);
+                        --vsz;
+                        int i = 0;
+                        while (1) {
                             cb_addpartstr(&state->acc, v->array.data[i], v->array.len[i]);
+                            if (i == vsz) break;
+                            ++i;
+                            ss_pusharg(state);
                         }
-                    } else if (sz < 0) {
+                    } else if (vsz < 0) {
                         cb_addpartstr(&state->acc, v->single.data, v->single.len);
                     }
                 }
             } break;
             case SCRIPTOPCODE_READVARSEP: {
                 struct scriptstatevar* v = ss_findvar(ss, &state->script.strings[op.readvar.offset], op.readvar.len, op.readvar.crc);
-                if (v) {
-                    int vsz = v->size;
-                    if (vsz) {
-                        bool space = true;
-                        char* data = v->array.data[0];
-                        int len = v->array.len[0];
+                int vsz = v->size;
+                if (vsz) {
+                    int space = -1;
+                    for (int j = 0; j < vsz; ++j) {
+                        char* data = v->array.data[j];
+                        int len = v->array.len[j];
                         for (int i = 0; i < len; ++i) {
-                            char c = *data;
+                            char c = data[i];
                             if (c == ' ' || c == '\t' || c == '\n' || !c) {
-                                if (!space) {
-                                    ss_pusharg(state);
-                                    space = true;
-                                }
+                                if (!space) space = 1;
                             } else {
-                                cb_add(&state->acc, c);
-                                if (space) space = false;
-                            }
-                            ++data;
-                        }
-                        for (int i = 1; i < vsz; ++i) {
-                            data = v->array.data[i];
-                            len = v->array.len[i];
-                            for (int i = 0; i < len; ++i) {
-                                char c = *data;
-                                if (c == ' ' || c == '\t' || c == '\n' || !c) {
-                                    if (!space) {
-                                        ss_pusharg(state);
-                                        space = true;
-                                    }
-                                } else {
-                                    cb_add(&state->acc, c);
-                                    if (space) space = false;
+                                if (space) {
+                                    if (space == 1) ss_pusharg(state);
+                                    space = 0;
                                 }
-                                ++data;
-                            }
-                            cb_addpartstr(&state->acc, v->array.data[i], v->array.len[i]);
-                        }
-                    } else if (sz < 0) {
-                        bool space = true;
-                        char* data = v->single.data;
-                        int len = v->single.len;
-                        for (int i = 0; i < len; ++i) {
-                            char c = *data;
-                            if (c == ' ' || c == '\t' || c == '\n' || !c) {
-                                if (!space) {
-                                    ss_pusharg(state);
-                                    space = true;
-                                }
-                            } else {
                                 cb_add(&state->acc, c);
-                                if (space) space = false;
                             }
-                            ++data;
+                        }
+                    }
+                } else if (vsz < 0) {
+                    int space = -1;
+                    char* data = v->single.data;
+                    int len = v->single.len;
+                    for (int i = 0; i < len; ++i) {
+                        char c = data[i];
+                        if (c == ' ' || c == '\t' || c == '\n' || !c) {
+                            if (!space) space = 1;
+                        } else {
+                            if (space) {
+                                if (space == 1) ss_pusharg(state);
+                                space = 0;
+                            }
+                            cb_add(&state->acc, c);
                         }
                     }
                 }
@@ -399,39 +434,21 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                 if (op.readarg.from < 0) op.readarg.from = max - op.readarg.from;
                 if (op.readarg.to < 0) op.readarg.to = max - op.readarg.to;
                 else if (op.readarg.to < max) op.readarg.to = max;
-                bool space = true;
-                char* data = state->inargs.argv[op.readarg.from].data;
-                int len = state->inargs.argv[op.readarg.from].len;
-                for (int i = 0; i < len; ++i) {
-                    char c = *data;
-                    if (c == ' ' || c == '\t' || c == '\n' || !c) {
-                        if (!space) {
-                            ss_pusharg(state);
-                            space = true;
-                        }
-                    } else {
-                        cb_add(&state->acc, c);
-                        if (space) space = false;
-                    }
-                    ++data;
-                }
-                ++op.readarg.from;
+                int space = -1;
                 for (; op.readarg.from <= op.readarg.to; ++op.readarg.from) {
-                    ss_pusharg(state);
-                    data = state->inargs.argv[op.readarg.from].data;
-                    len = state->inargs.argv[op.readarg.from].len;
+                    char* data = state->inargs.argv[op.readarg.from].data;
+                    int len = state->inargs.argv[op.readarg.from].len;
                     for (int i = 0; i < len; ++i) {
-                        char c = *data;
+                        char c = data[i];
                         if (c == ' ' || c == '\t' || c == '\n' || !c) {
-                            if (!space) {
-                                ss_pusharg(state);
-                                space = true;
-                            }
+                            if (!space) space = 1;
                         } else {
+                            if (space) {
+                                if (space == 1) ss_pusharg(state);
+                                space = 0;
+                            }
                             cb_add(&state->acc, c);
-                            if (space) space = false;
                         }
-                        ++data;
                     }
                 }
             } break;
@@ -579,10 +596,53 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         state->ret = 1;
                         goto set_longbreak;
                     }
+                    uint32_t namecrc = crc32(name, namelen);
+                    struct scriptstatevar* v = ss_findvar(ss, name, namelen, namecrc);
                     if (array) {
-                        ss_setvar(ss, name, namelen, data, len);
+                        if (!v) {
+                            v = ss_newvar(ss, name, namelen, namecrc, index);
+                            int sz = index + 1;
+                            v->array.data = malloc(sz * sizeof(*v->array.data));
+                            v->array.len = malloc(sz * sizeof(*v->array.len));
+                            for (int i = 0; i < index; ++i) {
+                                v->array.data[i] = NULL;
+                                v->array.len[i] = 0;
+                            }
+                        } else if (v->size < 0) {
+                            ss_delvar(v);
+                            v = ss_newvar(ss, name, namelen, namecrc, index);
+                            int sz = index + 1;
+                            v->array.data = malloc(sz * sizeof(*v->array.data));
+                            v->array.len = malloc(sz * sizeof(*v->array.len));
+                            for (int i = 0; i < index; ++i) {
+                                v->array.data[i] = NULL;
+                                v->array.len[i] = 0;
+                            }
+                        } else {
+                            int oldsz = v->size;
+                            int newsz = index + 1;
+                            if (newsz > oldsz) {
+                                v->array.data = realloc(v->array.data, newsz * sizeof(*v->array.data));
+                                v->array.len = realloc(v->array.len, newsz * sizeof(*v->array.len));
+                                for (; oldsz < newsz; ++oldsz) {
+                                    v->array.data[oldsz] = NULL;
+                                    v->array.len[oldsz] = 0;
+                                }
+                            } else {
+                                free(v->array.data[index]);
+                            }
+                        }
+                        v->array.data[index] = data;
+                        v->array.len[index] = len;
                     } else {
-                        ss_setarray(ss, name, namelen, index, data, len);
+                        if (!v) {
+                            v = ss_newvar(ss, name, namelen, namecrc, -1);
+                        } else if (v->size < 0) {
+                            ss_delvar(v);
+                            v = ss_newvar(ss, name, namelen, namecrc, -1);
+                        }
+                        v->single.data = data;
+                        v->single.len = len;
                     }
                 }
                 set_longbreak:;
@@ -665,7 +725,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                         cb_addstr(&state->out, "unset: empty variable name\n");
                         state->ret = 1;
                     } else {
-                        ss_unsetvar(ss, state->args.data[0].data, state->args.data[0].len);
+                        //ss_delvar
                         state->ret = 0;
                     }
                 } else {
@@ -789,6 +849,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                                         val.v4[2] = tmp.v4[2];
                                         val.v4[3] = tmp.v4[3];
                                         break;
+                                    default: break;
                                 }
                             } break;
                             case MC_ADD: {
@@ -811,8 +872,10 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
                                         val.v4[2] += tmp.v4[2];
                                         val.v4[3] += tmp.v4[3];
                                         break;
+                                    default: break;
                                 }
                             } break;
+                            default: break;
                         }
                     }
                 }
@@ -928,9 +991,7 @@ bool execScriptState(struct scriptstate* ss, int* ec, struct charbuf* out) {
             return false;
         }
         if (newpc >= 0) state->pc = newpc;
-        if (ret == 1 || counter == 64) {
-            return true;
-        }
+        if (ret == 1 || counter == 64) return true;
     }
 }
 
