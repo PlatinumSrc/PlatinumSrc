@@ -17,7 +17,7 @@
 
 #if PLATFORM == PLAT_NXDK
     #include <SDL.h>
-#elif PLATFORM == PLAT_DREAMCAST
+#elif defined(PSRC_USESDL1)
     #include <SDL/SDL.h>
 #else
     #include <SDL2/SDL.h>
@@ -285,8 +285,8 @@ static float fwrap(float n, float d) {
     return tmp;
 }
 void doLoop(void) {
-    static float runspeed = 3.75;
-    static float walkspeed = 1.75;
+    static float runspeed = 4.0;
+    static float walkspeed = 2.0;
     static double framemult = 0.0;
 
     pollInput();
@@ -327,6 +327,10 @@ void doLoop(void) {
     }
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0 : 2.5;
+
+    char* tmp = cfg_getvar(config, "Debug", "printfps");
+    bool printfps = strbool(tmp, false);
+    free(tmp);
 
     {
         // this can probably be optimized
@@ -370,10 +374,27 @@ void doLoop(void) {
         screenshot = false;
     }
 
-    uint64_t tmp = altutime();
-    uint64_t frametime = tmp - framestamp;
-    framestamp = tmp;
+    uint64_t tmputime = altutime();
+    uint64_t frametime = tmputime - framestamp;
+    framestamp = tmputime;
     framemult = frametime / 1000000.0;
+
+    if (printfps) {
+        static uint64_t fpstime = 0;
+        static uint64_t fpsframetime = 0;
+        static int fpsframecount = 0;
+        fpsframetime += frametime;
+        ++fpsframecount;
+        if (tmputime >= fpstime) {
+            fpstime += 200000;
+            if (tmputime >= fpstime) fpstime = tmputime + 200000;
+            uint64_t avgframetime = fpsframetime / fpsframecount;
+            float avgfps = 1000000.0 / (uint64_t)avgframetime;
+            printf("FPS: %.03f (%"PRId64"us)\n", avgfps, avgframetime);
+            fpsframetime = 0;
+            fpsframecount = 0;
+        }
+    }
 }
 
 void quitLoop(void) {
@@ -424,14 +445,19 @@ static int bootstrap(void) {
         maindir = mkpath(NULL, options.maindir, NULL);
         free(options.maindir);
     } else {
+        #ifndef PSRC_USESDL1
         maindir = SDL_GetBasePath();
-        if (!maindir) {
-            plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
-            maindir = ".";
-        } else {
+        #else
+        // TODO: get the dir where the executable is located
+        maindir = NULL;
+        #endif
+        if (maindir) {
             char* tmp = maindir;
             maindir = mkpath(tmp, NULL);
             SDL_free(tmp);
+        } else {
+            plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
+            maindir = strdup(".");
         }
     }
     #else
@@ -494,7 +520,12 @@ static int bootstrap(void) {
         } else {
             tmp = strdup(gamedir);
         }
+        #ifndef PSRC_USESDL1
         userdir = SDL_GetPrefPath(NULL, tmp);
+        #else
+        // TODO: get the system data dir and append tmp
+        userdir = NULL;
+        #endif
         free(tmp);
         if (userdir) {
             char* tmp = userdir;
@@ -502,7 +533,7 @@ static int bootstrap(void) {
             SDL_free(tmp);
         } else {
             plog(LL_WARN, LP_WARN "Failed to get user directory: %s", SDL_GetError());
-            userdir = "." PATHSEPSTR "data";
+            userdir = strdup("." PATHSEPSTR "data");
         }
     }
     savedir = mkpath(userdir, "saves", NULL);

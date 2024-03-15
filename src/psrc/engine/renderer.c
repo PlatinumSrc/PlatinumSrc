@@ -440,7 +440,12 @@ bool initRenderer(void) {
         rendstate.vsync = true;
     }
     tmp = cfg_getvar(config, "Renderer", "fov");
-    rendstate.fov = (tmp) ? atof(tmp) : 90.0;
+    if (tmp) {
+        rendstate.fov = atof(tmp);
+        free(tmp);
+    } else {
+        rendstate.fov = 90.0;
+    }
     testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);
     return true;
 }

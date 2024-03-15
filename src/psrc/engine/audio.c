@@ -557,7 +557,8 @@ static void callback(void* data, uint16_t* stream, int len) {
     #if DEBUG(3)
     plog(LL_INFO | LF_DEBUG, "Playing %d...", audiostate.audbufindex);
     #endif
-    if (audiostate.mixaudbufindex == (audiostate.audbufindex + 3) % 4 || audiostate.mixaudbufindex < 0) {
+    int mixaudbufindex = audiostate.mixaudbufindex;
+    if (mixaudbufindex == (audiostate.audbufindex + 3) % 4 || mixaudbufindex < 0) {
         #if DEBUG(2)
         plog(LL_INFO | LF_DEBUG, "Mixer is beind!");
         #endif

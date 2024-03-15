@@ -6,7 +6,7 @@
 
 #if PLATFORM == PLAT_NXDK
     #include <SDL.h>
-#elif PLATFORM == PLAT_DREAMCAST
+#elif defined(PSRC_USESDL1)
     #include <SDL/SDL.h>
 #else
     #include <SDL2/SDL.h>
@@ -107,9 +107,11 @@ struct inputstate {
     const uint8_t* keystates;
     int mousechx;
     int mousechy;
+    #ifndef PSRC_USESDL1
     SDL_GameController* gamepad;
     int16_t gamepadaxes[SDL_CONTROLLER_AXIS_MAX];
     uint8_t gamepadbuttons[(SDL_CONTROLLER_BUTTON_MAX + 7) / 8];
+    #endif
     struct {
         struct inputactiondata* data;
         int len;

@@ -151,11 +151,15 @@ static void gl_updateFrame(void) {
 
 static void gl_updateVSync(void) {
     #if PLATFORM != PLAT_NXDK
+    #ifndef PSRC_USESDL1
     if (rendstate.vsync) {
         if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
     } else {
         SDL_GL_SetSwapInterval(0);
     }
+    #else
+    SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, rendstate.vsync);
+    #endif
     #else
     //pbgl_set_swap_interval(rendstate.vsync);
     #endif

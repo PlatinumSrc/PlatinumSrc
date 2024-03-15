@@ -365,32 +365,45 @@ endif
 
 CPPFLAGS.lib.discord_game_sdk := 
 LDLIBS.lib.discord_game_sdk := 
-ifeq ($(USE_DISCORDGAMESDK),y)
+ifeq ($(USEDISCORDGAMESDK),y)
     CPPFLAGS.lib.discord_game_sdk += -DPSRC_USEDISCORDGAMESDK
     LDLIBS.lib.discord_game_sdk += -l:$(call so,discord_game_sdk)
 endif
 
-CFLAGS.lib.SDL2 := 
-CPPFLAGS.lib.SDL2 := 
-LDLIBS.lib.SDL2 := 
-ifeq ($(CROSS),win32)
-    CPPFLAGS.lib.SDL2 += -DSDL_MAIN_HANDLED
-    LDLIBS.lib.SDL2 += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
-else ifeq ($(CROSS),emscr)
-    CFLAGS.lib.SDL2 += -sUSE_SDL=2
-    LDLIBS.lib.SDL2 += -sUSE_SDL=2
-else ifneq ($(CROSS),nxdk)
-    LDLIBS.lib.SDL2 += -lSDL2
+CFLAGS.lib.SDL := 
+CPPFLAGS.lib.SDL := 
+LDLIBS.lib.SDL := 
+ifneq ($(USESDL1),y)
+    ifeq ($(CROSS),win32)
+        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
+        LDLIBS.lib.SDL += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
+    else ifeq ($(CROSS),emscr)
+        CFLAGS.lib.SDL += -sUSE_SDL=2
+        LDLIBS.lib.SDL += -sUSE_SDL=2
+    else ifneq ($(CROSS),nxdk)
+        LDLIBS.lib.SDL += -lSDL2
+    endif
+else
+    CPPFLAGS.lib.SDL += -DPSRC_USESDL1
+    ifeq ($(CROSS),win32)
+        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
+        LDLIBS.lib.SDL += -l:libSDL.a -liconv -luser32 -lgdi32 -lwinmm -ldxguid
+    else ifeq ($(CROSS),emscr)
+        CFLAGS.lib.SDL += -sUSE_SDL
+        LDLIBS.lib.SDL += -sUSE_SDL
+    else ifneq ($(CROSS),nxdk)
+        LDLIBS.lib.SDL += -lSDL
+    endif
 endif
 
 ifeq ($(MODULE),engine)
     _CPPFLAGS += -DPSRC_MODULE_ENGINE
     _WRFLAGS += -DPSRC_MODULE_ENGINE
-    _CFLAGS += $(CFLAGS.lib.SDL2)
+    _CFLAGS += $(CFLAGS.lib.SDL)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
-    _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2)
+    _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DPSRC_MODULE_SERVER
     _WRFLAGS += -DPSRC_MODULE_SERVER
@@ -399,11 +412,11 @@ else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DPSRC_MODULE_EDITOR
     _WRFLAGS += -DPSRC_MODULE_EDITOR
-    _CFLAGS += $(CFLAGS.lib.SDL2)
+    _CFLAGS += $(CFLAGS.lib.SDL)
     _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
-    _CPPFLAGS += $(CPPFLAGS.lib.SDL2) $(CPPFLAGS.lib.discord_game_sdk)
+    _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
-    _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL2)
+    _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
 endif
 
 ifeq ($(CROSS),nxdk)

@@ -56,6 +56,7 @@ bool initInput(void) {
     emscripten_set_fullscreenchange_callback("#canvas", NULL, false, emscrfullscrcb);
     emscrfullscr = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN);
     #endif
+    #ifndef PSRC_USESDL1
     char* tmp;
     if (!options.nocontroller) {
         tmp = cfg_getvar(config, "Input", "nocontroller");
@@ -66,12 +67,9 @@ bool initInput(void) {
         free(tmp);
     }
     tmp = cfg_getvar(config, "Input", "rawmouse");
-    if (strbool(tmp, true)) {
-        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
-    } else {
-        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
-    }
+    SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, (strbool(tmp, true)) ? "1" : "0", SDL_HINT_OVERRIDE);
     free(tmp);
+    #endif
     inputstate.keystates = SDL_GetKeyboardState(&inputstate.keystatecount);
     setInputMode(INPUTMODE_UI);
     clearInputActions();
@@ -104,6 +102,7 @@ void pollInput(void) {
                     } break;
                 }
             } break;
+            #ifndef PSRC_USESDL1
             case SDL_CONTROLLERDEVICEADDED: {
                 if (!inputstate.gamepad) {
                     inputstate.gamepad = SDL_GameControllerOpen(e.cdevice.which);
@@ -126,6 +125,7 @@ void pollInput(void) {
             case SDL_CONTROLLERBUTTONUP: {
                 inputstate.gamepadbuttons[e.cbutton.button / 8] &= ~(0x01 << (e.cbutton.button % 8));
             } break;
+            #endif
             default: {
                 switch (inputstate.mode) {
                     case INPUTMODE_INGAME: {

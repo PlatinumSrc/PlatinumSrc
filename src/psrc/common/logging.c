@@ -19,7 +19,7 @@
         #include <GL/gl.h>
     #elif PLATFORM == PLAT_WIN32
         #include <windows.h>
-    #elif PLATFORM == PLAT_DREAMCAST
+    #elif defined(PSRC_USESDL1)
         #include <SDL/SDL.h>
     #else
         #include <SDL2/SDL.h>

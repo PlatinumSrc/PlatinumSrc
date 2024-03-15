@@ -20,7 +20,7 @@
 
 #if PLATFORM == PLAT_NXDK
     #include <SDL.h>
-#elif PLATFORM == PLAT_DREAMCAST
+#elif defined(PSRC_USESDL1)
     #include <SDL/SDL.h>
 #else
     #include <SDL2/SDL.h>
