@@ -16,27 +16,133 @@
 
 struct inputstate inputstate;
 
+static const char* kbkeynames[INKEY_KB__COUNT] = {
+    "esc", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+    "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "backspace",
+    "tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\",
+    "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "enter",
+    "lshift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "rshift",
+    "lctrl", "lalt", "space", "ralt", "menu", "rctrl",
+    "prtsc", "pause",
+    "ins", "home", "pgup",
+    "del", "end", "pgdn",
+    "up",
+    "left", "down", "right",
+    "kp /", "kp *", "kp -",
+    "kp 7", "kp 8", "kp 9", "kp +",
+    "kp 4", "kp 5", "kp 6",
+    "kp 1", "kp 2", "kp 3", "kp enter",
+    "kp 0", "kp ."
+};
+static const char* kbkeydispnames[INKEY_KB__COUNT] = {
+    "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace",
+    "Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\",
+    "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter",
+    "Left Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Right Shift",
+    "Left Control", "Left Alt", "Space", "Right Alt", "Menu", "Right Control",
+    "Print Screen", "Pause",
+    "Insert", "Home", "Page Up",
+    "Delete", "End", "Page Down",
+    "Up",
+    "Left", "Down", "Right",
+    "Keypad /", "Keypad *", "Keypad -",
+    "Keypad 7", "Keypad 8", "Keypad 9", "Keypad +",
+    "Keypad 4", "Keypad 5", "Keypad 6",
+    "Keypad 1", "Keypad 2", "Keypad 3", "Keypad Enter",
+    "Keypad 0", "Keypad ."
+};
+#ifndef PSRC_USESDL1
+static const SDL_Scancode kbkeynums[INKEY_KB__COUNT] = {
+    SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F1, SDL_SCANCODE_F2, SDL_SCANCODE_F3, SDL_SCANCODE_F4, SDL_SCANCODE_F5,
+    SDL_SCANCODE_F6, SDL_SCANCODE_F7, SDL_SCANCODE_F8, SDL_SCANCODE_F9, SDL_SCANCODE_F10, SDL_SCANCODE_F11,
+    SDL_SCANCODE_F12,
+    SDL_SCANCODE_GRAVE, SDL_SCANCODE_1, SDL_SCANCODE_2, SDL_SCANCODE_3, SDL_SCANCODE_4, SDL_SCANCODE_5, SDL_SCANCODE_6,
+    SDL_SCANCODE_7, SDL_SCANCODE_8, SDL_SCANCODE_9, SDL_SCANCODE_0, SDL_SCANCODE_MINUS, SDL_SCANCODE_EQUALS,
+    SDL_SCANCODE_BACKSPACE,
+    SDL_SCANCODE_TAB, SDL_SCANCODE_Q, SDL_SCANCODE_W, SDL_SCANCODE_E, SDL_SCANCODE_R, SDL_SCANCODE_T, SDL_SCANCODE_Y,
+    SDL_SCANCODE_U, SDL_SCANCODE_I, SDL_SCANCODE_O, SDL_SCANCODE_P, SDL_SCANCODE_LEFTBRACKET, SDL_SCANCODE_RIGHTBRACKET,
+    SDL_SCANCODE_BACKSLASH,
+    SDL_SCANCODE_A, SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_F, SDL_SCANCODE_G, SDL_SCANCODE_H, SDL_SCANCODE_J,
+    SDL_SCANCODE_K, SDL_SCANCODE_L, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE, SDL_SCANCODE_RETURN,
+    SDL_SCANCODE_LSHIFT, SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_C, SDL_SCANCODE_V, SDL_SCANCODE_B, SDL_SCANCODE_N,
+    SDL_SCANCODE_M, SDL_SCANCODE_COMMA, SDL_SCANCODE_PERIOD, SDL_SCANCODE_SLASH, SDL_SCANCODE_RSHIFT,
+    SDL_SCANCODE_LCTRL, SDL_SCANCODE_LALT, SDL_SCANCODE_SPACE, SDL_SCANCODE_RALT, SDL_SCANCODE_MENU, SDL_SCANCODE_RCTRL,
+    SDL_SCANCODE_PRINTSCREEN, SDL_SCANCODE_PAUSE,
+    SDL_SCANCODE_INSERT, SDL_SCANCODE_HOME, SDL_SCANCODE_PAGEUP,
+    SDL_SCANCODE_DELETE, SDL_SCANCODE_END, SDL_SCANCODE_PAGEDOWN,
+    SDL_SCANCODE_UP,
+    SDL_SCANCODE_LEFT, SDL_SCANCODE_DOWN, SDL_SCANCODE_RIGHT,
+    SDL_SCANCODE_KP_DIVIDE, SDL_SCANCODE_KP_MULTIPLY, SDL_SCANCODE_KP_MINUS,
+    SDL_SCANCODE_KP_7, SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_9, SDL_SCANCODE_KP_PLUS,
+    SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_5, SDL_SCANCODE_KP_6,
+    SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_3, SDL_SCANCODE_KP_ENTER,
+    SDL_SCANCODE_KP_0, SDL_SCANCODE_KP_PERIOD
+};
+#else
+static const SDLKey kbkeynums[INKEY_KB__COUNT] = {
+    SDLK_ESCAPE, SDLK_F1, SDLK_F2, SDLK_F3, SDLK_F4, SDLK_F5, SDLK_F6, SDLK_F7, SDLK_F8, SDLK_F9, SDLK_F10, SDLK_F11,
+    SDLK_F12,
+    SDLK_BACKQUOTE, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7, SDLK_8, SDLK_9, SDLK_0, SDLK_MINUS,
+    SDLK_EQUALS, SDLK_BACKSPACE,
+    SDLK_TAB, SDLK_q, SDLK_w, SDLK_e, SDLK_r, SDLK_t, SDLK_y, SDLK_u, SDLK_i, SDLK_o, SDLK_p, SDLK_LEFTBRACKET,
+    SDLK_RIGHTBRACKET, SDLK_BACKSLASH,
+    SDLK_a, SDLK_s, SDLK_d, SDLK_f, SDLK_g, SDLK_h, SDLK_j, SDLK_k, SDLK_l, SDLK_SEMICOLON, SDLK_QUOTE, SDLK_RETURN,
+    SDLK_LSHIFT, SDLK_z, SDLK_x, SDLK_c, SDLK_v, SDLK_b, SDLK_n, SDLK_m, SDLK_COMMA, SDLK_PERIOD, SDLK_SLASH,
+    SDLK_RSHIFT,
+    SDLK_LCTRL, SDLK_LALT, SDLK_SPACE, SDLK_RALT, SDLK_MENU, SDLK_RCTRL,
+    SDLK_PRINT, SDLK_PAUSE,
+    SDLK_INSERT, SDLK_HOME, SDLK_PAGEUP,
+    SDLK_DELETE, SDLK_END, SDLK_PAGEDOWN,
+    SDLK_UP,
+    SDLK_LEFT, SDLK_DOWN, SDLK_RIGHT,
+    SDLK_KP_DIVIDE, SDLK_KP_MULTIPLY, SDLK_KP_MINUS,
+    SDLK_KP7, SDLK_KP8, SDLK_KP9, SDLK_KP_PLUS,
+    SDLK_KP4, SDLK_KP5, SDLK_KP6,
+    SDLK_KP1, SDLK_KP2, SDLK_KP3, SDLK_KP_ENTER,
+    SDLK_KP0, SDLK_KP_PERIOD
+};
+#endif
+
+static inline int getkbkeyfromname(const char* name) {
+    for (int i = 0; i < INKEY_KB__COUNT; ++i) {
+        if (!strcasecmp(name, kbkeynames[i])) return i;
+    }
+    return -1;
+}
+static inline const char* getnamefromkbkey(enum inputdevkey_keyboard key) {
+    return kbkeynames[key];
+}
+
 void setInputMode(enum inputmode m) {
     inputstate.mode = m;
     switch (m) {
         case INPUTMODE_UI: {
+            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(false);
+            #endif
             #endif
         } break;
         case INPUTMODE_INGAME: {
+            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(true);
+            #endif
             #endif
         } break;
         case INPUTMODE_TEXTINPUT: {
+            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(false);
             #endif
+            #endif
         } break;
         case INPUTMODE_GETKEY: {
+            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
             SDL_SetRelativeMouseMode(true);
+            #endif
             #endif
         } break;
     }
@@ -69,8 +175,10 @@ bool initInput(void) {
     tmp = cfg_getvar(config, "Input", "rawmouse");
     SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, (strbool(tmp, true)) ? "1" : "0", SDL_HINT_OVERRIDE);
     free(tmp);
-    #endif
     inputstate.keystates = SDL_GetKeyboardState(&inputstate.keystatecount);
+    #else
+    inputstate.keystates = SDL_GetKeyState(&inputstate.keystatecount);
+    #endif
     setInputMode(INPUTMODE_UI);
     clearInputActions();
     return true;
@@ -91,6 +199,7 @@ void pollInput(void) {
             case SDL_QUIT: {
                 ++quitreq;
             } break;
+            #ifndef PSRC_USESDL1
             case SDL_WINDOWEVENT: {
                 switch (e.window.event) {
                     case SDL_WINDOWEVENT_RESIZED: {
@@ -102,7 +211,6 @@ void pollInput(void) {
                     } break;
                 }
             } break;
-            #ifndef PSRC_USESDL1
             case SDL_CONTROLLERDEVICEADDED: {
                 if (!inputstate.gamepad) {
                     inputstate.gamepad = SDL_GameControllerOpen(e.cdevice.which);
@@ -125,13 +233,23 @@ void pollInput(void) {
             case SDL_CONTROLLERBUTTONUP: {
                 inputstate.gamepadbuttons[e.cbutton.button / 8] &= ~(0x01 << (e.cbutton.button % 8));
             } break;
+            #else
+            case SDL_VIDEORESIZE: {
+                struct rendres res = {
+                    .width = e.resize.w,
+                    .height = e.resize.h
+                };
+                updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
+            } break;
             #endif
             default: {
                 switch (inputstate.mode) {
                     case INPUTMODE_INGAME: {
                         switch (e.type) {
                             case SDL_MOUSEMOTION: {
+                                #ifndef PSRC_USESDL1
                                 if (e.motion.which == SDL_TOUCH_MOUSEID) break;
+                                #endif
                                 inputstate.mousechx += e.motion.xrel;
                                 inputstate.mousechy += e.motion.yrel;
                             } break;
@@ -164,28 +282,28 @@ bool getNextInputAction(struct inputaction* a) {
             struct inputkey k = *keys;
             switch (k.dev) {
                 case INPUTDEV_KEYBOARD: {
-                    if (inputstate.keystates[k.keyboard.key] && value < 32767) {
+                    if (inputstate.keystates[kbkeynums[k.keyboard.key]] && value < 32767) {
                         constant = true;
                         value = 32767;
                     }
                 } break;
                 case INPUTDEV_MOUSE: {
                     switch (k.mouse.part) {
-                        case INPUTDEVPART_MOUSE_MOVEMENT: {
+                        case INPART_MOUSE_MOVEMENT: {
                             switch (k.mouse.movement) {
-                                case INPUTDEVKEY_MOUSE_MOVEMENT_PX: {
+                                case INKEY_MOUSE_MOVEMENT_PX: {
                                     int tmp = inputstate.mousechx * 2500;
                                     if (tmp > value) {constant = false; value = tmp;}
                                 } break;
-                                case INPUTDEVKEY_MOUSE_MOVEMENT_PY: {
+                                case INKEY_MOUSE_MOVEMENT_PY: {
                                     int tmp = inputstate.mousechy * -2500;
                                     if (tmp > value) {constant = false; value = tmp;}
                                 } break;
-                                case INPUTDEVKEY_MOUSE_MOVEMENT_NX: {
+                                case INKEY_MOUSE_MOVEMENT_NX: {
                                     int tmp = inputstate.mousechx * -2500;
                                     if (tmp > value) {constant = false; value = tmp;}
                                 } break;
-                                case INPUTDEVKEY_MOUSE_MOVEMENT_NY: {
+                                case INKEY_MOUSE_MOVEMENT_NY: {
                                     int tmp = inputstate.mousechy * 2500;
                                     if (tmp > value) {constant = false; value = tmp;}
                                 } break;
@@ -194,14 +312,15 @@ bool getNextInputAction(struct inputaction* a) {
                         default: break;
                     }
                 } break;
+                #ifndef PSRC_USESDL1
                 case INPUTDEV_GAMEPAD: {
                     switch (k.gamepad.part) {
-                        case INPUTDEVPART_GAMEPAD_AXIS: {
+                        case INPART_GAMEPAD_AXIS: {
                             int tmp = inputstate.gamepadaxes[k.gamepad.axis.id];
                             if (k.gamepad.axis.negative) tmp *= -1;
                             if (tmp >= 7634 && tmp > value) {constant = true; value = tmp;}
                         } break;
-                        case INPUTDEVPART_GAMEPAD_BUTTON: {
+                        case INPART_GAMEPAD_BUTTON: {
                             if (inputstate.gamepadbuttons[k.gamepad.button / 8] & (1 << k.gamepad.button % 8) && value < 32767) {
                                 constant = true;
                                 value = 32767;
@@ -209,6 +328,7 @@ bool getNextInputAction(struct inputaction* a) {
                         } break;
                     }
                 } break;
+                #endif
                 default: break;
             }
             ++keys;
@@ -280,8 +400,8 @@ struct inputkey* inputKeysFromStr(const char* s) {
         k[i].dev = INPUTDEV__INVALID;
         if (dcount == 2) {
             if (!strcasecmp(kds[0], "k") || !strcasecmp(kds[0], "keyboard")) {
-                SDL_Scancode tmp = SDL_GetScancodeFromName(kds[1]);
-                if (tmp >= 0) {
+                int tmp = getkbkeyfromname(kds[1]);
+                if (tmp != -1) {
                     k[i].dev = INPUTDEV_KEYBOARD;
                     k[i].keyboard.key = tmp;
                 }
@@ -291,53 +411,55 @@ struct inputkey* inputKeysFromStr(const char* s) {
                 if (!strcasecmp(kds[1], "b") || !strcasecmp(kds[1], "button")) {
                     if (!strcasecmp(kds[2], "l") || !strcasecmp(kds[2], "left")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_BUTTON;
-                        k[i].mouse.button = INPUTDEVKEY_MOUSE_BUTTON_LEFT;
+                        k[i].mouse.part = INPART_MOUSE_BUTTON;
+                        k[i].mouse.button = INKEY_MOUSE_BUTTON_LEFT;
                     } else if (!strcasecmp(kds[2], "r") || !strcasecmp(kds[2], "right")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_BUTTON;
-                        k[i].mouse.button = INPUTDEVKEY_MOUSE_BUTTON_RIGHT;
+                        k[i].mouse.part = INPART_MOUSE_BUTTON;
+                        k[i].mouse.button = INKEY_MOUSE_BUTTON_RIGHT;
                     } else if (!strcasecmp(kds[2], "m") || !strcasecmp(kds[2], "middle")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_BUTTON;
-                        k[i].mouse.button = INPUTDEVKEY_MOUSE_BUTTON_MIDDLE;
+                        k[i].mouse.part = INPART_MOUSE_BUTTON;
+                        k[i].mouse.button = INKEY_MOUSE_BUTTON_MIDDLE;
                     }
                 } else if (!strcasecmp(kds[1], "m") || !strcasecmp(kds[1], "movement")) {
                     if (!strcasecmp(kds[2], "+x")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_MOVEMENT;
-                        k[i].mouse.movement = INPUTDEVKEY_MOUSE_MOVEMENT_PX;
+                        k[i].mouse.part = INPART_MOUSE_MOVEMENT;
+                        k[i].mouse.movement = INKEY_MOUSE_MOVEMENT_PX;
                     } else if (!strcasecmp(kds[2], "-x")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_MOVEMENT;
-                        k[i].mouse.movement = INPUTDEVKEY_MOUSE_MOVEMENT_NX;
+                        k[i].mouse.part = INPART_MOUSE_MOVEMENT;
+                        k[i].mouse.movement = INKEY_MOUSE_MOVEMENT_NX;
                     } else if (!strcasecmp(kds[2], "+y")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_MOVEMENT;
-                        k[i].mouse.movement = INPUTDEVKEY_MOUSE_MOVEMENT_PY;
+                        k[i].mouse.part = INPART_MOUSE_MOVEMENT;
+                        k[i].mouse.movement = INKEY_MOUSE_MOVEMENT_PY;
                     } else if (!strcasecmp(kds[2], "-y")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_MOVEMENT;
-                        k[i].mouse.movement = INPUTDEVKEY_MOUSE_MOVEMENT_NY;
+                        k[i].mouse.part = INPART_MOUSE_MOVEMENT;
+                        k[i].mouse.movement = INKEY_MOUSE_MOVEMENT_NY;
                     }
                 } else if (!strcasecmp(kds[1], "s") || !strcasecmp(kds[1], "scroll")) {
                     if (!strcasecmp(kds[2], "+") || !strcasecmp(kds[2], "u") || !strcasecmp(kds[2], "up")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_SCROLL;
+                        k[i].mouse.part = INPART_MOUSE_SCROLL;
                         k[i].mouse.scroll = 1;
                     } else if (!strcasecmp(kds[2], "-") || !strcasecmp(kds[2], "d") || !strcasecmp(kds[2], "down")) {
                         k[i].dev = INPUTDEV_MOUSE;
-                        k[i].mouse.part = INPUTDEVPART_MOUSE_SCROLL;
+                        k[i].mouse.part = INPART_MOUSE_SCROLL;
                         k[i].mouse.scroll = 0;
                     }
                 }
-            } else if (!strcasecmp(kds[0], "g") || !strcasecmp(kds[0], "gamepad")) {
+            }
+            #ifndef PSRC_USESDL1
+              else if (!strcasecmp(kds[0], "g") || !strcasecmp(kds[0], "gamepad")) {
                 if (!strcasecmp(kds[1], "a") || !strcasecmp(kds[1], "axis")) {
                     if (*kds[2] == '+' || *kds[2] == '-') {
                         SDL_GameControllerAxis tmp = SDL_GameControllerGetAxisFromString(&kds[2][1]);
                         if (tmp >= 0) {
                             k[i].dev = INPUTDEV_GAMEPAD;
-                            k[i].gamepad.part = INPUTDEVPART_GAMEPAD_AXIS;
+                            k[i].gamepad.part = INPART_GAMEPAD_AXIS;
                             k[i].gamepad.axis.id = tmp;
                             k[i].gamepad.axis.negative = (*kds[2] == '-');
                         }
@@ -346,11 +468,12 @@ struct inputkey* inputKeysFromStr(const char* s) {
                     SDL_GameControllerButton tmp = SDL_GameControllerGetButtonFromString(kds[2]);
                     if (tmp >= 0) {
                         k[i].dev = INPUTDEV_GAMEPAD;
-                        k[i].gamepad.part = INPUTDEVPART_GAMEPAD_BUTTON;
+                        k[i].gamepad.part = INPART_GAMEPAD_BUTTON;
                         k[i].gamepad.button = tmp;
                     }
                 }
             }
+            #endif
         }
         for (int j = 0; j < dcount; ++j) {
             free(kds[j]);

@@ -60,8 +60,10 @@
 #endif
 
 static struct {
+    #ifndef PSRC_USESDL1
     #if PLATFORM != PLAT_NXDK
     SDL_GLContext ctx;
+    #endif
     #endif
     uint8_t fastclear : 1;
     float nearplane;
@@ -89,7 +91,11 @@ static struct {
 
 static void gl_display(void) {
     #if PLATFORM != PLAT_NXDK
+    #ifndef PSRC_USESDL1
     SDL_GL_SwapWindow(rendstate.window);
+    #else
+    SDL_GL_SwapBuffers();
+    #endif
     #else
     pb_wait_for_vbl();
     pbgl_swap_buffers();
@@ -467,12 +473,10 @@ static void* gl_takeScreenshot(int* w, int* h, int* s) {
 }
 
 #define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LL_WARN, "Failed to set " #a " to " #v ": %s", SDL_GetError())
-#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), SDL_GetError())
-#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), SDL_GetError())
-
 static bool gl_beforeCreateWindow(unsigned* f) {
     switch (rendstate.api) {
         #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
+        #ifndef PSRC_USESDL1
         #ifdef PSRC_USEGL11
         case RENDAPI_GL11:
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
@@ -495,11 +499,16 @@ static bool gl_beforeCreateWindow(unsigned* f) {
             break;
         #endif
         #endif
+        #endif
         default:
             break;
     }
     #if PLATFORM != PLAT_NXDK
+    #ifndef PSRC_USESDL1
     *f |= SDL_WINDOW_OPENGL;
+    #else
+    *f |= SDL_OPENGL;
+    #endif
     char* tmp;
     tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
     if (tmp) {
@@ -508,6 +517,7 @@ static bool gl_beforeCreateWindow(unsigned* f) {
     } else {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     }
+    #ifndef PSRC_USESDL1
     #if PLATFORM != PLAT_EMSCR
     unsigned flags;
     tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
@@ -518,6 +528,7 @@ static bool gl_beforeCreateWindow(unsigned* f) {
     if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
     free(tmp);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
+    #endif
     #endif
     #else
     /*
@@ -537,12 +548,14 @@ static bool gl_beforeCreateWindow(unsigned* f) {
 
 static bool gl_afterCreateWindow(void) {
     #if PLATFORM != PLAT_NXDK
+    #ifndef PSRC_USESDL1
     gldata.ctx = SDL_GL_CreateContext(rendstate.window);
     if (!gldata.ctx) {
         plog(LL_CRIT | LF_FUNC, "Failed to create OpenGL context: %s", SDL_GetError());
         return false;
     }
     SDL_GL_MakeCurrent(rendstate.window, gldata.ctx);
+    #endif
     #if PLATFORM != PLAT_EMSCR
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
@@ -555,6 +568,7 @@ static bool gl_afterCreateWindow(void) {
     bool cond[4];
     int tmpint[4];
     char* tmpstr[1];
+    #ifndef PSRC_USESDL1
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &tmpint[0]);
     cond[1] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &tmpint[1]);
     cond[2] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &tmpint[2]);
@@ -569,6 +583,7 @@ static bool gl_afterCreateWindow(void) {
     if (cond[0] && cond[1]) {
         plog(LL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr[0]);
     }
+    #endif
     tmpstr[0] = (char*)glGetString(GL_VERSION);
     plog(LL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
     #ifdef GL_SHADING_LANGUAGE_VERSION
@@ -646,7 +661,9 @@ static bool gl_prepRenderer(void) {
 }
 
 static void gl_beforeDestroyWindow(void) {
+    #ifndef PSRC_USESDL1
     #if PLATFORM != PLAT_NXDK
     if (gldata.ctx) SDL_GL_DeleteContext(gldata.ctx);
+    #endif
     #endif
 }

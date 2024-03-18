@@ -213,7 +213,7 @@ int initLoop(void) {
     setInputMode(INPUTMODE_INGAME);
     struct inputkey* k;
     #if PLATFORM != PLAT_EMSCR
-    k = inputKeysFromStr("k,escape;g,b,start");
+    k = inputKeysFromStr("k,esc;g,b,start");
     #else
     k = inputKeysFromStr("k,backspace;g,b,start");
     #endif
@@ -250,7 +250,7 @@ int initLoop(void) {
     newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
     free(k);
     #if PLATFORM != PLAT_EMSCR
-    k = inputKeysFromStr("k,left ctrl;g,b,leftstick");
+    k = inputKeysFromStr("k,lctrl;g,b,leftstick");
     #else
     k = inputKeysFromStr("k,c;g,b,leftstick");
     #endif
@@ -259,7 +259,7 @@ int initLoop(void) {
     k = inputKeysFromStr("k,space;g,b,a");
     newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
     free(k);
-    k = inputKeysFromStr("k,left shift;g,a,+lefttrigger");
+    k = inputKeysFromStr("k,lshift;g,a,+lefttrigger");
     newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
     free(k);
 

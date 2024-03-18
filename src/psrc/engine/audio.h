@@ -71,7 +71,9 @@ struct audiostate {
     #endif
     volatile bool valid;
     bool usecallback;
+    #ifndef PSRC_USESDL1
     SDL_AudioDeviceID output;
+    #endif
     int freq;
     int channels;
     volatile int8_t audbufindex;

@@ -607,6 +607,7 @@ void updateSounds(void) {
             audiostate.mixaudbufindex = mixbufi;
         }
     } else {
+        #ifndef PSRC_USESDL1
         uint32_t qs = SDL_GetQueuedAudioSize(audiostate.output);
         if (qs < audiostate.audbuf.outsize * audiostate.outbufcount) {
             int count = (audiostate.audbuf.outsize * audiostate.outbufcount - qs) / audiostate.audbuf.outsize;
@@ -615,6 +616,7 @@ void updateSounds(void) {
                 SDL_QueueAudio(audiostate.output, audiostate.audbuf.out[0], audiostate.audbuf.outsize);
             }
         }
+        #endif
     }
 }
 
@@ -903,6 +905,7 @@ bool startAudio(void) {
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
+    #ifndef PSRC_USESDL1
     #ifndef PSRC_NOMT
     tmp = cfg_getvar(config, "Sound", "callback");
     if (tmp) {
@@ -914,7 +917,12 @@ bool startAudio(void) {
     #else
     audiostate.usecallback = false;
     #endif
+    #else
+    audiostate.usecallback = true;
+    #endif
+    #ifndef PSRC_USESDL1
     int flags = 0;
+    #endif
     tmp = cfg_getvar(config, "Sound", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
@@ -922,7 +930,9 @@ bool startAudio(void) {
     } else {
         #if PLATFORM != PLAT_NXDK
         inspec.freq = 44100;
+        #ifndef PSRC_USESDL1
         flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE;
+        #endif
         #else
         inspec.freq = 22050;
         #endif
@@ -933,20 +943,38 @@ bool startAudio(void) {
         free(tmp);
     } else {
         inspec.samples = 1024;
+        #ifndef PSRC_USESDL1
         #if PLATFORM != PLAT_NXDK
         flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
         #endif
+        #endif
     }
-    inspec.callback = (audiostate.usecallback) ? (SDL_AudioCallback)callback : NULL;
+    #ifndef PSRC_USESDL1
+    typedef SDL_AudioCallback audcb;
+    #else
+    typedef void (*audcb)(void*, uint8_t*, int);
+    #endif
+    inspec.callback = (audiostate.usecallback) ? (audcb)callback : NULL;
     inspec.userdata = NULL;
+    bool success;
+    #ifndef PSRC_USESDL1
     SDL_AudioDeviceID output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
-    if (output <= 0) {
-        inspec.channels = 1;
-        output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags);
-    }
     if (output > 0) {
+        success = true;
+    } else {
+        inspec.channels = 1;
+        success = ((output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags)) > 0);
+    }
+    #else
+    success = (SDL_OpenAudio(&inspec, &outspec) == -1);
+    #endif
+    if (success) {
+        #ifndef PSRC_USESDL1
         audiostate.output = output;
         plog(LL_INFO, "Audio info (device id %d):", (int)output);
+        #else
+        plog(LL_INFO, "Audio info:");
+        #endif
         plog(LL_INFO, "  Frequency: %d", outspec.freq);
         plog(LL_INFO, "  Channels: %d (%s)", outspec.channels, (outspec.channels == 1) ? "mono" : "stereo");
         plog(LL_INFO, "  Samples: %d", (int)outspec.samples);
@@ -1013,7 +1041,11 @@ bool startAudio(void) {
         audiostate.mixaudbufindex = -1;
         audiostate.buftime = outspec.samples * 1000000 / outspec.freq;
         audiostate.valid = true;
+        #ifndef PSRC_USESDL1
         SDL_PauseAudioDevice(output, 0);
+        #else
+        SDL_PauseAudio(0);
+        #endif
     } else {
         audiostate.valid = false;
         plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
@@ -1030,8 +1062,13 @@ void stopAudio(void) {
         acquireWriteAccess(&audiostate.lock);
         #endif
         audiostate.valid = false;
+        #ifndef PSRC_USESDL1
         SDL_PauseAudioDevice(audiostate.output, 1);
         SDL_CloseAudioDevice(audiostate.output);
+        #else
+        SDL_PauseAudio(1);
+        SDL_CloseAudio();
+        #endif
         for (int i = 0; i < audiostate.voicecount; ++i) {
             struct audiosound* v = &audiostate.voices[i];
             if (v->id >= 0) {

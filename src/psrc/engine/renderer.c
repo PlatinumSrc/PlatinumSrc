@@ -67,34 +67,50 @@ static void (*updateFrame)(void);
 static void (*updateVSync)(void);
 
 static void destroyWindow(void) {
+    #ifndef PSRC_USESDL1
     if (rendstate.window != NULL) {
         beforeDestroyWindow();
         SDL_Window* w = rendstate.window;
         rendstate.window = NULL;
         SDL_DestroyWindow(w);
     }
+    #else
+    beforeDestroyWindow();
+    #endif
 }
 
 static void updateWindowMode(void) {
     switch (rendstate.mode) {
         case RENDMODE_WINDOWED: {
-            rendstate.res.current = rendstate.res.windowed;
-            #if PLATFORM != PLAT_EMSCR
-            SDL_SetWindowFullscreen(rendstate.window, 0);
-            #else
-            emscripten_exit_fullscreen();
-            #endif
+            if (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) {
+                rendstate.res.current = rendstate.res.windowed;
+                #if PLATFORM != PLAT_EMSCR
+                #ifndef PSRC_USESDL1
+                SDL_SetWindowFullscreen(rendstate.window, 0);
+                #endif
+                #else
+                emscripten_exit_fullscreen();
+                #endif
+            }
+            #ifndef PSRC_USESDL1
             SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
+            #else
+            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags);
+            #endif
         } break;
         case RENDMODE_BORDERLESS: {
             #if PLATFORM != PLAT_EMSCR
-            rendstate.res.current = rendstate.res.fullscr;
+            if (rendstate.mode == RENDMODE_WINDOWED) rendstate.res.current = rendstate.res.fullscr;
+            #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
             mode.w = rendstate.res.fullscr.width;
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            #else
+            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags | SDL_NOFRAME);
+            #endif
             #else
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
@@ -107,13 +123,17 @@ static void updateWindowMode(void) {
         } break;
         case RENDMODE_FULLSCREEN: {
             #if PLATFORM != PLAT_EMSCR
-            rendstate.res.current = rendstate.res.fullscr;
+            if (rendstate.mode == RENDMODE_WINDOWED) rendstate.res.current = rendstate.res.fullscr;
+            #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
             mode.w = rendstate.res.fullscr.width;
             mode.h = rendstate.res.fullscr.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
+            #else
+            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags | SDL_FULLSCREEN);
+            #endif
             #else
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
@@ -130,6 +150,7 @@ static void updateWindowMode(void) {
 
 #if PLATFORM != PLAT_NXDK
 static void updateWindowIcon(void) {
+    #ifndef PSRC_USESDL1
     int w, h, c;
     void* data = stbi_load(rendstate.icon, &w, &h, &c, STBI_rgb_alpha);
     if (data) {
@@ -143,15 +164,23 @@ static void updateWindowIcon(void) {
     } else {
         plog(LL_WARN, "Failed to set window icon");
     }
+    #else
+    plog(LL_WARN, "Failed to set window icon");
+    #endif
 }
 #endif
 
+#ifndef PSRC_USESDL1
+#define SDL_SetHint(n, v) if (!SDL_SetHint((n), (v))) plog(LL_WARN, "Failed to set " #n " to %s: %s", (char*)(v), SDL_GetError())
+#define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), SDL_GetError())
+#endif
 static bool createWindow(void) {
     if (rendstate.api <= RENDAPI__INVAL || rendstate.api >= RENDAPI__COUNT) {
         plog(LL_CRIT, "Invalid rendering API (%d)", (int)rendstate.api);
         return false;
     }
     plog(LL_INFO, "Creating window for %s...", rendapi_names[rendstate.api]);
+    #ifndef PSRC_USESDL1
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -186,11 +215,19 @@ static bool createWindow(void) {
         rendstate.apigroup = RENDAPIGROUP__INVAL;
         return false;
     }
+    #else
+    rendstate.flags = SDL_OPENGL | SDL_RESIZABLE | SDL_ANYFORMAT;
+    if (!beforeCreateWindow(&rendstate.flags)) {
+        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        return false;
+    }
+    #endif
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
     plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
     #endif
     rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
+    #ifndef PSRC_USESDL1
     rendstate.window = SDL_CreateWindow(
         titlestr,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -202,6 +239,12 @@ static bool createWindow(void) {
         return false;
     }
     SDL_SetWindowMinimumSize(rendstate.window, 320, 240);
+    #else
+    if (!SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags)) {
+        plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
+        return false;
+    }
+    #endif
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
     #endif
@@ -351,8 +394,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                         rendstate.res.fullscr = rendstate.res.current;
                         break;
                 }
-                SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
-                rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
+                updateWindowMode();
                 updateFrame();
             } break;
             case RENDOPT_LIGHTING: {

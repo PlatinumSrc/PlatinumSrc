@@ -643,11 +643,19 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         uint32_t sz;
                         if (SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {
                             SDL_AudioCVT cvt;
-                            SDL_AudioFormat destfrmt;
-                            if (SDL_AUDIO_BITSIZE(spec.format) == 8) {
-                                destfrmt = AUDIO_U8;
-                            } else {
-                                destfrmt = AUDIO_S16SYS;
+                            int destfrmt;
+                            {
+                                bool is8bit;
+                                #ifndef PSRC_USESDL1
+                                is8bit = (SDL_AUDIO_BITSIZE(spec.format) == 8);
+                                #else
+                                is8bit = (spec.format == AUDIO_U8 || spec.format == AUDIO_S8);
+                                #endif
+                                if (is8bit) {
+                                    destfrmt = AUDIO_U8;
+                                } else {
+                                    destfrmt = AUDIO_S16SYS;
+                                }
                             }
                             int ret = SDL_BuildAudioCVT(
                                 &cvt,

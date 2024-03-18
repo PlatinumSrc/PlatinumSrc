@@ -170,6 +170,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
         va_copy(v, ov);
         vsnprintf(tmpstr, 4096, s, v);
         #if PLATFORM != PLAT_WIN32
+        #ifndef PSRC_USESDL1
         int flags;
         switch (lvl & 0xFF) {
             default:;
@@ -184,6 +185,7 @@ void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned
                 break;
         }
         SDL_ShowSimpleMessageBox(flags, titlestr, tmpstr, NULL);
+        #endif
         #else
         unsigned flags;
         switch (lvl & 0xFF) {

@@ -58,7 +58,9 @@ enum rendlighting {
 };
 
 struct rendstate {
+    #ifndef PSRC_USESDL1
     SDL_Window* window;
+    #endif
     char* icon;
     enum rendapi api;
     enum rendapigroup apigroup;
@@ -74,6 +76,10 @@ struct rendstate {
         struct rendres current;
         struct rendres windowed, fullscr;
     } res;
+    #ifdef PSRC_USESDL1
+    unsigned flags;
+    uint8_t bpp;
+    #endif
     enum rcopt_texture_qlt texqlt;
     enum rendlighting lighting;
 };
