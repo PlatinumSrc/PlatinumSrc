@@ -118,30 +118,42 @@ void setInputMode(enum inputmode m) {
     inputstate.mode = m;
     switch (m) {
         case INPUTMODE_UI: {
-            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
+            #ifndef PSRC_USESDL1
             SDL_SetRelativeMouseMode(false);
+            #else
+            SDL_WM_GrabInput(SDL_GRAB_OFF);
+            SDL_ShowCursor(1);
             #endif
             #endif
         } break;
         case INPUTMODE_INGAME: {
-            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
+            #ifndef PSRC_USESDL1
             SDL_SetRelativeMouseMode(true);
+            #else
+            SDL_ShowCursor(0);
+            SDL_WM_GrabInput(SDL_GRAB_ON);
             #endif
             #endif
         } break;
         case INPUTMODE_TEXTINPUT: {
-            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
+            #ifndef PSRC_USESDL1
             SDL_SetRelativeMouseMode(false);
+            #else
+            SDL_WM_GrabInput(SDL_GRAB_OFF);
+            SDL_ShowCursor(1);
             #endif
             #endif
         } break;
         case INPUTMODE_GETKEY: {
-            #ifndef PSRC_USESDL1
             #if PLATFORM != PLAT_NXDK
+            #ifndef PSRC_USESDL1
             SDL_SetRelativeMouseMode(true);
+            #else
+            SDL_ShowCursor(0);
+            SDL_WM_GrabInput(SDL_GRAB_ON);
             #endif
             #endif
         } break;

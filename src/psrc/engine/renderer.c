@@ -79,8 +79,8 @@ static void destroyWindow(void) {
     #endif
 }
 
-static void updateWindowMode(void) {
-    switch (rendstate.mode) {
+static void updateWindowMode(enum rendmode newmode) {
+    switch (newmode) {
         case RENDMODE_WINDOWED: {
             if (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) {
                 rendstate.res.current = rendstate.res.windowed;
@@ -91,6 +91,7 @@ static void updateWindowMode(void) {
                 #else
                 emscripten_exit_fullscreen();
                 #endif
+                rendstate.mode = RENDMODE_WINDOWED;
             }
             #ifndef PSRC_USESDL1
             SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
@@ -100,7 +101,10 @@ static void updateWindowMode(void) {
         } break;
         case RENDMODE_BORDERLESS: {
             #if PLATFORM != PLAT_EMSCR
-            if (rendstate.mode == RENDMODE_WINDOWED) rendstate.res.current = rendstate.res.fullscr;
+            if (rendstate.mode == RENDMODE_WINDOWED) {
+                rendstate.res.current = rendstate.res.fullscr;
+                rendstate.mode = RENDMODE_BORDERLESS;
+            }
             #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
@@ -123,7 +127,10 @@ static void updateWindowMode(void) {
         } break;
         case RENDMODE_FULLSCREEN: {
             #if PLATFORM != PLAT_EMSCR
-            if (rendstate.mode == RENDMODE_WINDOWED) rendstate.res.current = rendstate.res.fullscr;
+            if (rendstate.mode == RENDMODE_WINDOWED) {
+                rendstate.res.current = rendstate.res.fullscr;
+                rendstate.mode = RENDMODE_FULLSCREEN;
+            }
             #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
@@ -150,7 +157,6 @@ static void updateWindowMode(void) {
 
 #if PLATFORM != PLAT_NXDK
 static void updateWindowIcon(void) {
-    #ifndef PSRC_USESDL1
     int w, h, c;
     void* data = stbi_load(rendstate.icon, &w, &h, &c, STBI_rgb_alpha);
     if (data) {
@@ -158,15 +164,16 @@ static void updateWindowIcon(void) {
             data, w, h, 32, w * 4,
             0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
         );
+        #ifndef PSRC_USESDL1
         SDL_SetWindowIcon(rendstate.window, s);
+        #else
+        SDL_WM_SetIcon(s, NULL);
+        #endif
         SDL_FreeSurface(s);
         stbi_image_free(data);
     } else {
         plog(LL_WARN, "Failed to set window icon");
     }
-    #else
-    plog(LL_WARN, "Failed to set window icon");
-    #endif
 }
 #endif
 
@@ -185,7 +192,9 @@ static bool createWindow(void) {
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     //SDL_SetRelativeMouseMode(SDL_TRUE);
+    #endif
     unsigned flags;
+    #ifndef PSRC_USESDL1
     #if PLATFORM != PLAT_NXDK
     flags = SDL_WINDOW_RESIZABLE;
     #else
@@ -216,7 +225,21 @@ static bool createWindow(void) {
         return false;
     }
     #else
-    rendstate.flags = SDL_OPENGL | SDL_RESIZABLE | SDL_ANYFORMAT;
+    flags = 0;
+    rendstate.flags = SDL_RESIZABLE | SDL_ANYFORMAT;
+    switch (rendstate.mode) {
+        case RENDMODE_WINDOWED:
+            rendstate.res.current = rendstate.res.windowed;
+            break;
+        case RENDMODE_BORDERLESS:
+            rendstate.res.current = rendstate.res.fullscr;
+            flags |= SDL_NOFRAME;
+            break;
+        case RENDMODE_FULLSCREEN:
+            rendstate.res.current = rendstate.res.fullscr;
+            flags |= SDL_FULLSCREEN;
+            break;
+    }
     if (!beforeCreateWindow(&rendstate.flags)) {
         rendstate.apigroup = RENDAPIGROUP__INVAL;
         return false;
@@ -240,10 +263,11 @@ static bool createWindow(void) {
     }
     SDL_SetWindowMinimumSize(rendstate.window, 320, 240);
     #else
-    if (!SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags)) {
+    if (!SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags | flags)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to create window: %s", SDL_GetError());
         return false;
     }
+    SDL_WM_SetCaption(titlestr, NULL);
     #endif
     #if PLATFORM != PLAT_NXDK
     updateWindowIcon();
@@ -349,24 +373,25 @@ bool updateRendererConfig(enum rendopt opt, ...) {
             } break;
             case RENDOPT_FULLSCREEN: {
                 int tmp = va_arg(args, int);
+                enum rendmode newmode;
                 if (tmp < 0) {
-                    rendstate.mode = (rendstate.mode == RENDMODE_WINDOWED) ?
+                    newmode = (rendstate.mode == RENDMODE_WINDOWED) ?
                         ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
                         RENDMODE_WINDOWED;
                 } else if (tmp) {
-                    rendstate.mode = (rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN;
+                    newmode = (rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN;
                 } else {
-                    rendstate.mode = RENDMODE_WINDOWED;
+                    newmode = RENDMODE_WINDOWED;
                 }
-                updateWindowMode();
+                updateWindowMode(newmode);
                 updateFrame();
             } break;
             case RENDOPT_BORDERLESS: {
                 rendstate.borderless = va_arg(args, int);
-                rendstate.mode = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) ?
+                enum rendmode newmode = (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) ?
                     ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
                     RENDMODE_WINDOWED;
-                updateWindowMode();
+                updateWindowMode(newmode);
                 updateFrame();
             } break;
             case RENDOPT_VSYNC: {
@@ -394,7 +419,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                         rendstate.res.fullscr = rendstate.res.current;
                         break;
                 }
-                updateWindowMode();
+                updateWindowMode(rendstate.mode);
                 updateFrame();
             } break;
             case RENDOPT_LIGHTING: {
@@ -462,6 +487,15 @@ bool initRenderer(void) {
         sscanf(tmp, "%d", &rendstate.fps);
         free(tmp);
     }
+    #ifdef PSRC_USESDL1
+    {
+        const SDL_VideoInfo* vinf = SDL_GetVideoInfo();
+        rendstate.bpp = vinf->vfmt->BitsPerPixel;
+        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = vinf->current_w;
+        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = vinf->current_h;
+        if (rendstate.fps < 0) rendstate.fps = 60; // TODO: get the actual hz somehow?
+    }
+    #endif
     tmp = cfg_getvar(config, "Renderer", "borderless");
     if (tmp) {
         rendstate.borderless = strbool(tmp, false);
