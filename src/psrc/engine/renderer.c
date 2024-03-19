@@ -82,7 +82,7 @@ static void destroyWindow(void) {
 static void updateWindowMode(enum rendmode newmode) {
     switch (newmode) {
         case RENDMODE_WINDOWED: {
-            if (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) {
+            if (rendstate.mode != RENDMODE_WINDOWED) {
                 rendstate.res.current = rendstate.res.windowed;
                 #if PLATFORM != PLAT_EMSCR
                 #ifndef PSRC_USESDL1
@@ -94,31 +94,31 @@ static void updateWindowMode(enum rendmode newmode) {
                 rendstate.mode = RENDMODE_WINDOWED;
             }
             #ifndef PSRC_USESDL1
-            SDL_SetWindowSize(rendstate.window, rendstate.res.windowed.width, rendstate.res.windowed.height);
+            SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
             #else
-            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags);
+            SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags);
             #endif
         } break;
         case RENDMODE_BORDERLESS: {
             #if PLATFORM != PLAT_EMSCR
-            if (rendstate.mode == RENDMODE_WINDOWED) {
+            if (rendstate.mode != RENDMODE_BORDERLESS) {
                 rendstate.res.current = rendstate.res.fullscr;
                 rendstate.mode = RENDMODE_BORDERLESS;
             }
             #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
-            mode.w = rendstate.res.fullscr.width;
-            mode.h = rendstate.res.fullscr.height;
+            mode.w = rendstate.res.current.width;
+            mode.h = rendstate.res.current.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
             #else
-            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags | SDL_NOFRAME);
+            SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags | SDL_NOFRAME);
             #endif
             #else
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
-                SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+                SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
             } else {
                 plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
                 rendstate.mode = RENDMODE_WINDOWED;
@@ -127,24 +127,24 @@ static void updateWindowMode(enum rendmode newmode) {
         } break;
         case RENDMODE_FULLSCREEN: {
             #if PLATFORM != PLAT_EMSCR
-            if (rendstate.mode == RENDMODE_WINDOWED) {
+            if (rendstate.mode != RENDMODE_FULLSCREEN) {
                 rendstate.res.current = rendstate.res.fullscr;
                 rendstate.mode = RENDMODE_FULLSCREEN;
             }
             #ifndef PSRC_USESDL1
             SDL_DisplayMode mode;
             SDL_GetCurrentDisplayMode(0, &mode);
-            mode.w = rendstate.res.fullscr.width;
-            mode.h = rendstate.res.fullscr.height;
+            mode.w = rendstate.res.current.width;
+            mode.h = rendstate.res.current.height;
             SDL_SetWindowDisplayMode(rendstate.window, &mode);
             SDL_SetWindowFullscreen(rendstate.window, SDL_WINDOW_FULLSCREEN);
             #else
-            SDL_SetVideoMode(rendstate.res.windowed.width, rendstate.res.windowed.height, rendstate.bpp, rendstate.flags | SDL_FULLSCREEN);
+            SDL_SetVideoMode(rendstate.res.current.width, rendstate.res.current.height, rendstate.bpp, rendstate.flags | SDL_FULLSCREEN);
             #endif
             #else
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
-                SDL_SetWindowSize(rendstate.window, rendstate.res.fullscr.width, rendstate.res.fullscr.height);
+                SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
             } else {
                 plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
                 rendstate.mode = RENDMODE_WINDOWED;
@@ -226,7 +226,7 @@ static bool createWindow(void) {
     }
     #else
     flags = 0;
-    rendstate.flags = SDL_RESIZABLE | SDL_ANYFORMAT;
+    rendstate.flags = SDL_ANYFORMAT;
     switch (rendstate.mode) {
         case RENDMODE_WINDOWED:
             rendstate.res.current = rendstate.res.windowed;
@@ -408,19 +408,23 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 if (res->height >= 0) rendstate.res.current.height = res->height;
                 switch (rendstate.mode) {
                     case RENDMODE_WINDOWED:
-                        if (rendstate.res.current.width == rendstate.res.windowed.width &&
-                            rendstate.res.current.height == rendstate.res.windowed.height) goto rettrue;
-                        rendstate.res.windowed = rendstate.res.current;
+                        if (rendstate.res.current.width != rendstate.res.windowed.width ||
+                            rendstate.res.current.height != rendstate.res.windowed.height) {
+                            rendstate.res.windowed = rendstate.res.current;
+                            updateWindowMode(rendstate.mode);
+                            updateFrame();
+                        }
                         break;
                     case RENDMODE_BORDERLESS:
                     case RENDMODE_FULLSCREEN:
-                        if (rendstate.res.current.width == rendstate.res.fullscr.width &&
-                            rendstate.res.current.height == rendstate.res.fullscr.height) goto rettrue;
-                        rendstate.res.fullscr = rendstate.res.current;
+                        if (rendstate.res.current.width != rendstate.res.fullscr.width ||
+                            rendstate.res.current.height != rendstate.res.fullscr.height) {
+                            rendstate.res.fullscr = rendstate.res.current;
+                            updateWindowMode(rendstate.mode);
+                            updateFrame();
+                        }
                         break;
                 }
-                updateWindowMode(rendstate.mode);
-                updateFrame();
             } break;
             case RENDOPT_LIGHTING: {
                 rendstate.lighting = va_arg(args, enum rendlighting);

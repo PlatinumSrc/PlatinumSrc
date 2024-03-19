@@ -543,6 +543,7 @@ static bool gl_beforeCreateWindow(unsigned* f) {
     */
     //pbgl_set_swap_interval(rendstate.vsync);
     #endif
+    gl_updateVSync();
     return true;
 }
 
@@ -562,8 +563,8 @@ static bool gl_afterCreateWindow(void) {
         return false;
     }
     #endif
-    gl_updateVSync();
     #endif
+    gl_updateVSync();
     plog(LL_INFO, "OpenGL info:");
     bool cond[4];
     int tmpint[4];

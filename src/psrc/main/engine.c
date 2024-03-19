@@ -442,7 +442,7 @@ static int bootstrap(void) {
     }
     #if PLATFORM != PLAT_NXDK
     if (options.maindir) {
-        maindir = mkpath(NULL, options.maindir, NULL);
+        maindir = mkpath(options.maindir, NULL);
         free(options.maindir);
     } else {
         #ifndef PSRC_USESDL1
@@ -468,7 +468,7 @@ static int bootstrap(void) {
     char* tmp;
 
     if (options.config) {
-        tmp = mkpath(NULL, options.config, NULL);
+        tmp = mkpath(options.config, NULL);
         free(options.config);
     } else {
         tmp = mkpath(maindir, "engine/config/config.cfg", NULL);
@@ -509,7 +509,7 @@ static int bootstrap(void) {
 
     #if PLATFORM != PLAT_NXDK
     if (options.userdir) {
-        userdir = mkpath(NULL, options.userdir, NULL);
+        userdir = mkpath(options.userdir, NULL);
         free(options.userdir);
     } else {
         tmp = cfg_getvar(gameconfig, NULL, "userdir");
@@ -520,10 +520,10 @@ static int bootstrap(void) {
         } else {
             tmp = strdup(gamedir);
         }
+        // TODO: make a function in common/filesystem.c to replace SDL_GetPrefPath
         #ifndef PSRC_USESDL1
         userdir = SDL_GetPrefPath(NULL, tmp);
         #else
-        // TODO: get the system data dir and append tmp
         userdir = NULL;
         #endif
         free(tmp);

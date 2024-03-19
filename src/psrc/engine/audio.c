@@ -966,7 +966,7 @@ bool startAudio(void) {
         success = ((output = SDL_OpenAudioDevice(NULL, false, &inspec, &outspec, flags)) > 0);
     }
     #else
-    success = (SDL_OpenAudio(&inspec, &outspec) == -1);
+    success = (SDL_OpenAudio(&inspec, &outspec) != -1);
     #endif
     if (success) {
         #ifndef PSRC_USESDL1

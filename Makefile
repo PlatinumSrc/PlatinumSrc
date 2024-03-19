@@ -445,9 +445,9 @@ else
 BIN := psrc
 endif
 ifdef DEBUG
-    BIN := $(BIN).debug
+    BIN := $(BIN)_debug
     ifeq ($(ASAN),y)
-        BIN := $(BIN).asan
+        BIN := $(BIN)_asan
     endif
 endif
 ifeq ($(CROSS),win32)

@@ -245,14 +245,6 @@ void pollInput(void) {
             case SDL_CONTROLLERBUTTONUP: {
                 inputstate.gamepadbuttons[e.cbutton.button / 8] &= ~(0x01 << (e.cbutton.button % 8));
             } break;
-            #else
-            case SDL_VIDEORESIZE: {
-                struct rendres res = {
-                    .width = e.resize.w,
-                    .height = e.resize.h
-                };
-                updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
-            } break;
             #endif
             default: {
                 switch (inputstate.mode) {
