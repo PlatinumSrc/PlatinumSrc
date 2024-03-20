@@ -33,7 +33,9 @@
 #  define _POSIX_C_SOURCE 1
 # endif
 # include <fcntl.h>
-# include <sys/mman.h>
+# ifndef SCHRIFT_NO_FILE_MAPPING
+#  include <sys/mman.h>
+# endif
 # include <sys/stat.h>
 # include <unistd.h>
 #endif

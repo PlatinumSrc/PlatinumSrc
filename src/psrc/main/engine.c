@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <inttypes.h>
 #if PLATFORM == PLAT_WIN32
     #include <windows.h>
 #elif PLATFORM == PLAT_EMSCR
@@ -42,7 +43,7 @@
 
 #include "../glue.h"
 
-#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR
+#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
         plog(l, "Received signal: %s; %s", name, msg);
@@ -440,7 +441,12 @@ static int bootstrap(void) {
         fputs(LP_ERROR "Failed to init logging\n", stderr);
         return 1;
     }
-    #if PLATFORM != PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK
+    plog_setfile("D:\\log.txt");
+    maindir = mkpath("D:\\", NULL);
+    #elif PLATFORM == PLAT_DREAMCAST
+    maindir = mkpath("/cd", NULL);
+    #else
     if (options.maindir) {
         maindir = mkpath(options.maindir, NULL);
         free(options.maindir);
@@ -460,9 +466,6 @@ static int bootstrap(void) {
             maindir = strdup(".");
         }
     }
-    #else
-    plog_setfile("D:\\log.txt");
-    maindir = mkpath("D:\\", NULL);
     #endif
 
     char* tmp;
@@ -507,7 +510,26 @@ static int bootstrap(void) {
         return 1;
     }
 
-    #if PLATFORM != PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK
+    {
+        uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
+        char titleidstr[9];
+        sprintf(titleidstr, "%08x", (unsigned)titleid);
+        tmp = cfg_getvar(gameconfig, NULL, "userdir");
+        if (tmp) {
+            char* tmp2 = mkpath(NULL, tmp, NULL);
+            free(tmp);
+            tmp = tmp2;
+        } else {
+            tmp = strdup(gamedir);
+        }
+        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
+        free(tmp);
+        savedir = mkpath("E:\\UDATA", titleidstr, NULL);
+    }
+    #elif PLATFORM == PLAT_DREAMCAST
+    userdir = mkpath("/rd", NULL);
+    #else
     if (options.userdir) {
         userdir = mkpath(options.userdir, NULL);
         free(options.userdir);
@@ -537,23 +559,6 @@ static int bootstrap(void) {
         }
     }
     savedir = mkpath(userdir, "saves", NULL);
-    #else
-    {
-        uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
-        char titleidstr[9];
-        sprintf(titleidstr, "%08x", (unsigned)titleid);
-        tmp = cfg_getvar(gameconfig, NULL, "userdir");
-        if (tmp) {
-            char* tmp2 = mkpath(NULL, tmp, NULL);
-            free(tmp);
-            tmp = tmp2;
-        } else {
-            tmp = strdup(gamedir);
-        }
-        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
-        free(tmp);
-        savedir = mkpath("E:\\UDATA", titleidstr, NULL);
-    }
     #endif
 
     tmp = cfg_getvar(gameconfig, NULL, "name");
@@ -669,11 +674,10 @@ static void emscrmain(void) {
 }
 #endif
 int main(int argc, char** argv) {
-    (void)argc; (void)argv;
     makeVerStrs();
     static int ret;
     #if PLATFORM != PLAT_EMSCR
-    #if PLATFORM != PLAT_NXDK
+    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_DREAMCAST
     ret = -1;
     {
         struct args a;
@@ -872,6 +876,8 @@ int main(int argc, char** argv) {
     #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     #endif
+    #else
+    (void)argc; (void)argv;
     #endif
     #if PLATFORM == PLAT_WIN32
     TIMECAPS tc;

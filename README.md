@@ -104,8 +104,8 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - `nxdk` - Xbox using NXDK
             <!--
             - `ps2` - PS2 using ps2dev sdk
-            - `dc` - Dreamcast using KallistiOS
             -->
+            - `dc` - Dreamcast using KallistiOS
         - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
         - `M32` - Set to `y` to produce a 32-bit binary
         - `NATIVE` - Set to `y` to tune build for native system
@@ -126,13 +126,11 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `USEGL33` - Set to `y` to use OpenGL 3.3
         - `USEGLES30` - Set to `y` to use OpenGL ES 3.0
         - `USESTDTHREAD` - Set to `y` to use C11 threads
-        - `USEWINPTHREAD` - \(Windows\) Set to `y` to use winpthread instead of win32 threads
         - `CC` - C compiler
         - `LD` - Linker \(defaults to `CC`'s value\)
         - `AR` - Archiver
         - `STRIP` - Symbol remover
         - `OBJCOPY` - Executable editor
-        - `WINDRES` - \(Windows\) Windows resource compiler
         - `PREFIX` - Text to prepend to tool names
         - `CFLAGS` - Extra C compiler flags
         - `CPPFLAGS` - Extra C preprocessor flags
@@ -142,19 +140,22 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `EMULATOR` - Command used to run the executable or ROM
         - `EMUFLAGS` - Flags to pass to the emulator
         - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
-        - `XBE_TITLE` - \(NXDK\) XBE title and XISO name \(default is `PlatinumSrc`\)
-        - `XBE_TITLEID` - \(NXDK\) XBE title ID \(default is `PQ-001`\)
-        - `XBE_VERSION` - \(NXDK\) XBE version \(default is taken from `version.h`\)
-        - `XBE_XTIMAGE` - \(NXDK\) Path to XPR image \(default is `icons/engine.xpr`\)
-        - `XISO` - \(NXDK\) Path to write XISO to \(default is `$(OUTDIR)/$(XBE_TITLE).xiso.iso`\)
-        - `XISODIR` - \(NXDK\) Path to make the XISO from \(default is `$(OUTDIR)/xiso`\)
-        <!--
-        - `IP_TITLE` - \(Dreamcast\) IP.BIN title and CDI name \(default is `PlatinumSrc`\)
-        - `IP_COMPANY` - \(Dreamcast\) IP.BIN company name \(default is `PQCraft`\)
-        - `IP_MRIMAGE` - \(Dreamcast\) Path to MR image \(default is `icons/engine.mr`\)
-        - `CDI` - \(Dreamcast\) Path to write CDI to \(default is `$(OUTDIR)/$(IP_TITLE).cdi`\)
-        - `CDIDIR` - \(Dreamcast\) Path to make the CDI from \(default is `$(OUTDIR)/cdi`\)
-        -->
+        - Windows
+            - `USEWINPTHREAD` - Set to `y` to use winpthread instead of win32 threads
+            - `WINDRES` - Windows resource compiler
+        - NXDK
+            - `XBE_TITLE` - XBE title and XISO name \(default is `PlatinumSrc`\)
+            - `XBE_TITLEID` - XBE title ID \(default is `PQ-001`\)
+            - `XBE_VERSION` - XBE version \(default is taken from `version.h`\)
+            - `XBE_XTIMAGE` - Path to XPR image \(default is `icons/engine.xpr`\)
+            - `XISO` - Path to write XISO to \(default is `$(OUTDIR)/$(XBE_TITLE).xiso.iso`\)
+            - `XISODIR` - Path to make the XISO from \(default is `$(OUTDIR)/xiso`\)
+        - Dreamcast
+            - `IP_TITLE` - IP.BIN title and CDI name \(default is `PlatinumSrc`\)
+            - `IP_COMPANY` - IP.BIN company name \(default is `PQCraft`\)
+            - `IP_MRIMAGE` - Path to MR image \(default is `icons/engine.mr`\)
+            - `CDI` - Path to write CDI to \(default is `$(OUTDIR)/$(IP_TITLE).cdi`\)
+            - `CDIDIR` - Path to make the CDI from \(default is `$(OUTDIR)/cdi`\)
 
     Examples:
     ```

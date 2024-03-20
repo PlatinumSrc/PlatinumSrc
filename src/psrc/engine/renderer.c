@@ -462,7 +462,7 @@ bool initRenderer(void) {
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
     rendstate.res.windowed = (struct rendres){1024, 768};
-    #elif PLATFORM == PLAT_NXDK
+    #elif PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST
     rendstate.res.windowed = (struct rendres){640, 480};
     #else
     rendstate.res.windowed = (struct rendres){800, 600};

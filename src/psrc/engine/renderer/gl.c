@@ -4,6 +4,8 @@
         #include <pbgl.h>
         #include <pbkit/pbkit.h>
         #include <pbkit/nv_regs.h>
+    #elif PLATFORM == PLAT_DREAMCAST
+        #include <GL/glkos.h>
     #endif
     #ifdef GL_KHR_debug
         #undef GL_KHR_debug
@@ -90,15 +92,17 @@ static struct {
 } gldata;
 
 static void gl_display(void) {
-    #if PLATFORM != PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK
+    pb_wait_for_vbl();
+    pbgl_swap_buffers();
+    #elif PLATFORM == PLAT_DREAMCAST
+    glKosSwapBuffers();
+    #else
     #ifndef PSRC_USESDL1
     SDL_GL_SwapWindow(rendstate.window);
     #else
     SDL_GL_SwapBuffers();
     #endif
-    #else
-    pb_wait_for_vbl();
-    pbgl_swap_buffers();
     #endif
 }
 
@@ -504,10 +508,14 @@ static bool gl_beforeCreateWindow(unsigned* f) {
             break;
     }
     #if PLATFORM != PLAT_NXDK
+    #if PLATFORM != PLAT_DREAMCAST
     #ifndef PSRC_USESDL1
     *f |= SDL_WINDOW_OPENGL;
     #else
     *f |= SDL_OPENGL;
+    #endif
+    #else
+    (void)f;
     #endif
     char* tmp;
     tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
@@ -557,7 +565,7 @@ static bool gl_afterCreateWindow(void) {
     }
     SDL_GL_MakeCurrent(rendstate.window, gldata.ctx);
     #endif
-    #if PLATFORM != PLAT_EMSCR
+    #if PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
         return false;
@@ -644,8 +652,15 @@ static bool gl_afterCreateWindow(void) {
     gldata.fastclear = strbool(tmpstr[0], true);
     #endif
     free(tmpstr[0]);
+    return true;
+}
+
+static bool gl_prepRenderer(void) {
     #if GL_KHR_debug
     if (glDebugMessageCallback) glDebugMessageCallback(gl_dbgcb, NULL);
+    #endif
+    #if PLATFORM == PLAT_DREAMCAST
+    glKosInit();
     #endif
     glClearColor(0.0, 0.0, 0.1, 1.0);
     gl_updateFrame();
@@ -654,10 +669,6 @@ static bool gl_afterCreateWindow(void) {
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    return true;
-}
-
-static bool gl_prepRenderer(void) {
     return true;
 }
 

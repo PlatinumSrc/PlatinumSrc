@@ -62,6 +62,7 @@ else ifeq ($(CROSS),emscr)
     NOSTRIP := y
     NOMT := y
     USEGL11 := y
+    USELIBGL := y
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
@@ -102,6 +103,7 @@ else ifeq ($(CROSS),nxdk)
     NOSIMD := y
     USESTDTHREAD := y
     USEGL11 := y
+    USELIBGL := y
     USEXGU := y
     MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
     MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
@@ -149,14 +151,16 @@ else ifeq ($(CROSS),dc)
     SCRAMBLE := $(KOS_BASE)/utils/scramble/scramble
     MAKEIP := $(KOS_BASE)/utils/makeip/makeip
     MKISOFS := mkisofs
-    CDI4DC := $(KOS_BASE)/utils/cdi4dc/cdi4dc
+    CDI4DC := $(KOS_BASE)/utils/img4dc/cdi4dc/cdi4dc
     IP_TITLE := PlatinumSrc
     IP_COMPANY := PQCraft
-    IP_MRIMAGE := icons/engine.png
+    IP_MRIMAGE := icons/engine.mr
     CDI := $(OUTDIR)/$(IP_TITLE).cdi
     CDIDIR := $(OUTDIR)/cdi
     USESTDTHREAD := y
     USEGL11 := y
+    USELIBGL := y
+    USESDL1 := y
 else
     $(error Invalid cross-compilation target: $(CROSS))
 endif
@@ -223,9 +227,13 @@ ifneq ($(CROSS),nxdk)
         _LDLIBS += -lidbfs.js
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
-            _LDLIBS += -lGL
         endif
         _LDFLAGS += --embed-file common/ --embed-file engine/ --embed-file games/ --embed-file mods/
+    endif
+    ifeq ($(USEGL),y)
+        ifeq ($(USELIBGL),y)
+            _LDLIBS += -lGL
+        endif
     endif
     ifneq ($(NOMT),y)
         ifneq ($(USESTDTHREAD),y)
@@ -244,8 +252,14 @@ ifneq ($(CROSS),nxdk)
         endif
     endif
     ifeq ($(CROSS),dc)
-        _CFLAGS += $(KOS_CFLAGS)
-        _LDFLAGS += $(KOS_LDFLAGS)
+        #_CFLAGS += $(KOS_CFLAGS) $(KOS_INC_PATHS)
+        _CFLAGS += -D_arch_${KOS_ARCH} -D_arch_sub_${KOS_SUBARCH} $(KOS_INC_PATHS)
+        #_CFLAGS += -ml -m4-single-only -nostartfiles -nostdlib
+        #_LDFLAGS += $(KOS_LDFLAGS) $(KOS_LIB_PATHS)
+        _LDFLAGS += $(KOS_LIB_PATHS)
+        #_LDFLAGS += -ml -m4-single-only -Wl,-d -Wl,-S -Wl,-x -nostartfiles -nostdlib -e _main -Wl,-T$(KOS_BASE)/loadable/shlelf_dc.xr
+        #_LDLIBS += $(KOS_LIBS)
+        #_LDLIBS += -Wl,--start-group -lkallisti_exports -lgcc -Wl,--end-group
     else ifneq ($(CROSS),emscr)
         ifeq ($(M32),y)
             _CFLAGS += -m32
@@ -353,6 +367,8 @@ endif
 CPPFLAGS.dir.schrift := 
 ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
+else ifeq ($(CROSS),dc)
+    CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
 endif
 
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
@@ -456,6 +472,8 @@ else ifeq ($(CROSS),emscr)
     BINPATH := index.html
 else ifeq ($(CROSS),nxdk)
     BINPATH := $(BIN).exe
+else ifeq ($(CROSS),dc)
+    BINPATH := $(BIN).elf
 else
     BINPATH := $(BIN)
 endif
@@ -566,12 +584,10 @@ endif
 a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_engine)
 
 a.dir.psrc_engine = $(call a,psrc/engine) $(a.dir.psrc_server)
-ifeq ($(CROSS),emscr)
-else ifeq ($(CROSS),nxdk)
-else ifeq ($(CROSS),ps2)
-else ifeq ($(CROSS),dc)
-else ifeq ($(USEGL),y)
+ifeq ($(USEGL),y)
+ifneq ($(USELIBGL),y)
 a.dir.psrc_engine += $(call a,glad)
+endif
 endif
 
 a.dir.psrc_server = $(call a,psrc/server)
@@ -599,7 +615,7 @@ ifneq ($(WINDRES),)
 endif
 endif
 ifeq ($(CROSS),emscr)
-	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $(OUTDIR)/$(BIN).html
+	@$(LD) $(_LDFLAGS) $^ $(_LDLIBS) -o $(OUTDIR)/$(BIN).html
 	@mv -f $(OUTDIR)/$(BIN).html $(BINPATH)
 else ifeq ($(CROSS),nxdk)
 	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
@@ -608,8 +624,8 @@ ifneq ($(XBE_XTIMAGE),)
 endif
 	@$(OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 else ifeq ($(CROSS),dc)
-	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
-	@$(OBJCOPY) -R .stack -O binary $@
+	@$(LD) $(_LDFLAGS) $(KOS_START) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_LDLIBS) -lm $(KOS_LDFLAGS) $(KOS_LIBS) -o $@
+#	@$(OBJCOPY) -R .stack -O binary $@
 else
 	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
@@ -685,18 +701,21 @@ $(CDIDIR):
 
 $(CDIDIR)/1ST_READ.bin: $(BINPATH) | $(CDIDIR)
 	@echo Creating $@ from $<...
-	@'$(SCRAMBLE)' $< $@
+	@$(OBJCOPY) -R .stack -O binary $< $<.bin
+	@'$(SCRAMBLE)' $<.bin $@
+	@$(call rm,$<.bin)
 
 $(OUTDIR)/IP.BIN:
 ifneq ($(IP_MRIMAGE),)
-	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)' -l $(IP_MRIMAGE)
+	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)' -l $(IP_MRIMAGE) $@
 else
-	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)'
+	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)' $@
 endif
 
 $(CDI): $(CDIDIR)/1ST_READ.bin $(OUTDIR)/IP.BIN
 	@echo Creating $@...
-	@$(MKISOFS) -C 0,11702 -V '$(IP_TITLE)' -G $(OUTDIR)/IP.BIN -rJl -o $(patsubst %.cdi,%.iso,$@) $(CDIDIR)
+	@$(MKISOFS) -f -C 0,11702 -V '$(IP_TITLE)' -G $(OUTDIR)/IP.BIN -rJl -o $(patsubst %.cdi,%.iso,$@) $(CDIDIR)
 	@$(CDI4DC) $(patsubst %.cdi,%.iso,$@) $@
+	@$(call rm,$(patsubst %.cdi,%.iso,$@))
 
 endif
