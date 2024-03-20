@@ -34,6 +34,7 @@ static const char* kbkeynames[INKEY_KB__COUNT] = {
     "kp 1", "kp 2", "kp 3", "kp enter",
     "kp 0", "kp ."
 };
+#if 0
 static const char* kbkeydispnames[INKEY_KB__COUNT] = {
     "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
     "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace",
@@ -52,6 +53,7 @@ static const char* kbkeydispnames[INKEY_KB__COUNT] = {
     "Keypad 1", "Keypad 2", "Keypad 3", "Keypad Enter",
     "Keypad 0", "Keypad ."
 };
+#endif
 #ifndef PSRC_USESDL1
 static const SDL_Scancode kbkeynums[INKEY_KB__COUNT] = {
     SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F1, SDL_SCANCODE_F2, SDL_SCANCODE_F3, SDL_SCANCODE_F4, SDL_SCANCODE_F5,
@@ -113,6 +115,15 @@ static inline int getkbkeyfromname(const char* name) {
 static inline const char* getnamefromkbkey(enum inputdevkey_keyboard key) {
     return kbkeynames[key];
 }
+
+#if PLATFORM == PLAT_DREAMCAST
+enum {
+    DC_AXIS_LEFTX,
+    DC_AXIS_LEFTY,
+    DC_AXIS_LEFTTRIGGER,
+    DC_AXIS_RIGHTTRIGGER
+};
+#endif
 
 void setInputMode(enum inputmode m) {
     inputstate.mode = m;
@@ -203,6 +214,16 @@ void pollInput(void) {
     #if PLATFORM == PLAT_EMSCR
     if (rendstate.mode == RENDMODE_BORDERLESS || rendstate.mode == RENDMODE_FULLSCREEN) {
         if (!emscrfullscr) updateRendererConfig(RENDOPT_FULLSCREEN, 0, RENDOPT_END);
+    }
+    #endif
+    #if defined(PSRC_USESDL1) && PLATFORM == PLAT_DREAMCAST
+    {
+        maple_device_t* gamepad = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
+        if (gamepad) {
+            inputstate.gamepadstate = maple_dev_status(gamepad);
+        } else {
+            inputstate.gamepadstate = NULL;
+        }
     }
     #endif
     SDL_Event e;
@@ -326,6 +347,30 @@ bool getNextInputAction(struct inputaction* a) {
                         } break;
                         case INPART_GAMEPAD_BUTTON: {
                             if (inputstate.gamepadbuttons[k.gamepad.button / 8] & (1 << k.gamepad.button % 8) && value < 32767) {
+                                constant = true;
+                                value = 32767;
+                            }
+                        } break;
+                    }
+                } break;
+                #elif PLATFORM == PLAT_DREAMCAST
+                case INPUTDEV_GAMEPAD: {
+                    if (!inputstate.gamepadstate) break;
+                    switch (k.gamepad.part) {
+                        case INPART_GAMEPAD_AXIS: {
+                            int tmp;
+                            switch (k.gamepad.axis.id) {
+                                case DC_AXIS_LEFTX: tmp = inputstate.gamepadstate->joyx * 256; break;
+                                case DC_AXIS_LEFTY: tmp = inputstate.gamepadstate->joyy * 256; break;
+                                case DC_AXIS_LEFTTRIGGER: tmp = inputstate.gamepadstate->ltrig * 128; break;
+                                case DC_AXIS_RIGHTTRIGGER: tmp = inputstate.gamepadstate->rtrig * 128; break;
+                                default: tmp = 0; break;
+                            }
+                            if (k.gamepad.axis.negative) tmp *= -1;
+                            if (tmp >= 7634 && tmp > value) {constant = true; value = tmp;}
+                        } break;
+                        case INPART_GAMEPAD_BUTTON: {
+                            if (inputstate.gamepadstate->buttons & k.gamepad.button && value < 32767) {
                                 constant = true;
                                 value = 32767;
                             }
@@ -471,6 +516,61 @@ struct inputkey* inputKeysFromStr(const char* s) {
                 } else if (!strcasecmp(kds[1], "b") || !strcasecmp(kds[1], "button")) {
                     SDL_GameControllerButton tmp = SDL_GameControllerGetButtonFromString(kds[2]);
                     if (tmp >= 0) {
+                        k[i].dev = INPUTDEV_GAMEPAD;
+                        k[i].gamepad.part = INPART_GAMEPAD_BUTTON;
+                        k[i].gamepad.button = tmp;
+                    }
+                }
+            }
+            #elif PLATFORM == PLAT_DREAMCAST
+              else if (!strcasecmp(kds[0], "g") || !strcasecmp(kds[0], "gamepad")) {
+                if (!strcasecmp(kds[1], "a") || !strcasecmp(kds[1], "axis")) {
+                    if (*kds[2] == '+' || *kds[2] == '-') {
+                        int tmp;
+                        char* str = &kds[2][1];
+                        if (!strcasecmp(str, "leftx")) {
+                            tmp = DC_AXIS_LEFTX;
+                        } else if (!strcasecmp(str, "lefty")) {
+                            tmp = DC_AXIS_LEFTY;
+                        } else if (!strcasecmp(str, "lefttrigger")) {
+                            tmp = DC_AXIS_LEFTTRIGGER;
+                        } else if (!strcasecmp(str, "righttrigger")) {
+                            tmp = DC_AXIS_RIGHTTRIGGER;
+                        } else {
+                            tmp = -1;
+                        }
+                        if (tmp >= 0) {
+                            k[i].dev = INPUTDEV_GAMEPAD;
+                            k[i].gamepad.part = INPART_GAMEPAD_AXIS;
+                            k[i].gamepad.axis.id = tmp;
+                            k[i].gamepad.axis.negative = (*kds[2] == '-');
+                        }
+                    }
+                } else if (!strcasecmp(kds[1], "b") || !strcasecmp(kds[1], "button")) {
+                    unsigned tmp;
+                    char* str = kds[2];
+                    if (!strcasecmp(str, "a")) {
+                        tmp = CONT_A;
+                    } else if (!strcasecmp(str, "b")) {
+                        tmp = CONT_B;
+                    } else if (!strcasecmp(str, "x")) {
+                        tmp = CONT_X;
+                    } else if (!strcasecmp(str, "y")) {
+                        tmp = CONT_Y;
+                    } else if (!strcasecmp(str, "dpup")) {
+                        tmp = CONT_DPAD_UP;
+                    } else if (!strcasecmp(str, "dpdown")) {
+                        tmp = CONT_DPAD_DOWN;
+                    } else if (!strcasecmp(str, "dpleft")) {
+                        tmp = CONT_DPAD_LEFT;
+                    } else if (!strcasecmp(str, "dpright")) {
+                        tmp = CONT_DPAD_RIGHT;
+                    } else if (!strcasecmp(str, "start")) {
+                        tmp = CONT_START;
+                    } else {
+                        tmp = 0;
+                    }
+                    if (tmp) {
                         k[i].dev = INPUTDEV_GAMEPAD;
                         k[i].gamepad.part = INPART_GAMEPAD_BUTTON;
                         k[i].gamepad.button = tmp;

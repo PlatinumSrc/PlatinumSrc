@@ -196,18 +196,17 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - HaikuOS
     - Emscripten
     - Xbox \(NXDK\)
+    - Dreamcast
 - Untested
     - FreeBSD
     - NetBSD
     - OpenBSD
+    - Windows 9x no KernelEx
 - Wanted
     - Android
     - Xbox \(XDK\)?
         - No OpenGL
         - Uses MSVC
-    - Dreamcast?
-        - SDL 1.2 instead of 2.x
-        - VMU storage space is limited
     - PS2
         - ps2gl is not OpenGL
     - PSP

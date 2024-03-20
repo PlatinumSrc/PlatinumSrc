@@ -8,6 +8,10 @@
     #include <SDL.h>
 #elif defined(PSRC_USESDL1)
     #include <SDL/SDL.h>
+    #if PLATFORM == PLAT_DREAMCAST
+        #include <dc/maple.h>
+        #include <dc/maple/controller.h>
+    #endif
 #else
     #include <SDL2/SDL.h>
 #endif
@@ -91,7 +95,11 @@ struct inputkey {
                     uint8_t negative : 1;
                     uint8_t id : 6;
                 } axis;
+                #if defined(PSRC_USESDL1) && PLATFORM == PLAT_DREAMCAST
+                uint16_t button;
+                #else
                 uint8_t button;
+                #endif
             };
         } gamepad;
     };
@@ -136,6 +144,8 @@ struct inputstate {
     SDL_GameController* gamepad;
     int16_t gamepadaxes[SDL_CONTROLLER_AXIS_MAX];
     uint8_t gamepadbuttons[(SDL_CONTROLLER_BUTTON_MAX + 7) / 8];
+    #elif PLATFORM == PLAT_DREAMCAST
+    cont_state_t* gamepadstate;
     #endif
     struct {
         struct inputactiondata* data;

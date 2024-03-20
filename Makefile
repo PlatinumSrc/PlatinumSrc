@@ -251,16 +251,7 @@ ifneq ($(CROSS),nxdk)
             endif
         endif
     endif
-    ifeq ($(CROSS),dc)
-        #_CFLAGS += $(KOS_CFLAGS) $(KOS_INC_PATHS)
-        _CFLAGS += -D_arch_${KOS_ARCH} -D_arch_sub_${KOS_SUBARCH} $(KOS_INC_PATHS)
-        #_CFLAGS += -ml -m4-single-only -nostartfiles -nostdlib
-        #_LDFLAGS += $(KOS_LDFLAGS) $(KOS_LIB_PATHS)
-        _LDFLAGS += $(KOS_LIB_PATHS)
-        #_LDFLAGS += -ml -m4-single-only -Wl,-d -Wl,-S -Wl,-x -nostartfiles -nostdlib -e _main -Wl,-T$(KOS_BASE)/loadable/shlelf_dc.xr
-        #_LDLIBS += $(KOS_LIBS)
-        #_LDLIBS += -Wl,--start-group -lkallisti_exports -lgcc -Wl,--end-group
-    else ifneq ($(CROSS),emscr)
+    ifneq ($(CROSS),emscr)
         ifeq ($(M32),y)
             _CFLAGS += -m32
             _CPPFLAGS += -DM32
@@ -451,6 +442,10 @@ include $(NXDK_DIR)/lib/sdl/Makefile
 _CFLAGS += $(NXDK_CFLAGS)
 _LDFLAGS += $(NXDK_LDFLAGS)
 
+else ifeq ($(CROSS),dc)
+    _CFLAGS += $(KOS_CFLAGS) $(KOS_INC_PATHS)
+    _LDFLAGS += $(KOS_LDFLAGS) $(KOS_LIB_PATHS)
+    _LDLIBS += $(KOS_START) $(KOS_LIBS)
 endif
 
 ifeq ($(MODULE),server)
@@ -623,11 +618,8 @@ ifneq ($(XBE_XTIMAGE),)
 	@$(OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
 	@$(OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
-else ifeq ($(CROSS),dc)
-	@$(LD) $(_LDFLAGS) $(KOS_START) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_LDLIBS) -lm $(KOS_LDFLAGS) $(KOS_LIBS) -o $@
-#	@$(OBJCOPY) -R .stack -O binary $@
 else
-	@$(LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
+	@$(LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
 	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
