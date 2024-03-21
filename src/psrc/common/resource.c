@@ -128,7 +128,7 @@ struct __attribute__((packed)) rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
+static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
 
 struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
@@ -146,7 +146,7 @@ struct rcopt_texture textureopt_default = {
     false, RCOPT_TEXTURE_QLT_HIGH
 };
 
-void* defaultopt[RC__COUNT] = {
+static void* defaultopt[RC__COUNT] = {
     NULL,
     NULL,
     NULL,
@@ -157,6 +157,19 @@ void* defaultopt[RC__COUNT] = {
     &soundopt_default,
     &textureopt_default,
     NULL
+};
+
+static void* typenames[RC__COUNT] = {
+    "config",
+    "font",
+    "map",
+    "material",
+    "model",
+    "playermodel",
+    "script",
+    "sound",
+    "texture",
+    "values"
 };
 
 static struct {
@@ -410,24 +423,10 @@ static void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o)
 #define loadResource_wrapper(t, p, o) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)})
 
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
-    char* tstr;
-    switch (t) {
-        case RC_CONFIG: tstr = "config"; break;
-        case RC_FONT: tstr = "font"; break;
-        case RC_MAP: tstr = "map"; break;
-        case RC_MATERIAL: tstr = "material"; break;
-        case RC_MODEL: tstr = "model"; break;
-        case RC_PLAYERMODEL: tstr = "playermodel"; break;
-        case RC_SCRIPT: tstr = "script"; break;
-        case RC_SOUND: tstr = "sound"; break;
-        case RC_TEXTURE: tstr = "texture"; break;
-        case RC_VALUES: tstr = "values"; break;
-        default: tstr = ""; break;
-    }
     char* ext;
     char* p = getRcPath(uri, t, &ext);
     if (!p) {
-        plog(LL_ERROR, "Could not find %s at resource path %s", tstr, uri);
+        plog(LL_ERROR, "Could not find %s at resource path %s", typenames[t], uri);
         return NULL;
     }
     uint32_t pcrc = strcrc32(p);
@@ -765,7 +764,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         default: break;
     }
     free(p);
-    if (!d) plog(LL_WARN, "Failed to load %s at resource path %s", tstr, uri);
+    if (!d) plog(LL_WARN, "Failed to load %s at resource path %s", typenames[t], uri);
     return d;
 }
 

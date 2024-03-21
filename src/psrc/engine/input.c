@@ -360,10 +360,10 @@ bool getNextInputAction(struct inputaction* a) {
                         case INPART_GAMEPAD_AXIS: {
                             int tmp;
                             switch (k.gamepad.axis.id) {
-                                case DC_AXIS_LEFTX: tmp = inputstate.gamepadstate->joyx * 256; break;
-                                case DC_AXIS_LEFTY: tmp = inputstate.gamepadstate->joyy * 256; break;
-                                case DC_AXIS_LEFTTRIGGER: tmp = inputstate.gamepadstate->ltrig * 128; break;
-                                case DC_AXIS_RIGHTTRIGGER: tmp = inputstate.gamepadstate->rtrig * 128; break;
+                                case DC_AXIS_LEFTX: tmp = inputstate.gamepadstate->joyx; tmp = tmp * 256 + tmp + 128; break;
+                                case DC_AXIS_LEFTY: tmp = inputstate.gamepadstate->joyy; tmp = tmp * 256 + tmp + 128; break;
+                                case DC_AXIS_LEFTTRIGGER: tmp = inputstate.gamepadstate->ltrig; tmp = tmp * 128 + tmp / 2; break;
+                                case DC_AXIS_RIGHTTRIGGER: tmp = inputstate.gamepadstate->rtrig; tmp = tmp * 128 + tmp / 2; break;
                                 default: tmp = 0; break;
                             }
                             if (k.gamepad.axis.negative) tmp *= -1;

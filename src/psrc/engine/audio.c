@@ -48,20 +48,8 @@ static inline __attribute__((always_inline)) void getvorbisat(struct audiosound*
         return;
     }
     getvorbisat_prepbuf(s, ab, pos, len);
-    //printf("<- [%d, %d] [%d]\n", s->audbuf.off, s->audbuf.len, pos);
     *out_l = ab->data[0][pos - ab->off];
     *out_r = ab->data[1][pos - ab->off];
-}
-static inline __attribute__((always_inline)) void getvorbisat_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= len) {
-        *out_l = 0;
-        *out_r = 0;
-        return;
-    }
-    getvorbisat_prepbuf(s, ab, pos, len);
-    int tmp = ((int)ab->data[0][pos - ab->off] + (int)ab->data[1][pos - ab->off]) / 2;
-    *out_l = tmp;
-    *out_r = tmp;
 }
 
 #ifdef PSRC_USEMINIMP3
@@ -102,18 +90,6 @@ static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s,
     *out_l = ab->data_mp3[(pos - ab->off) * channels];
     *out_r = ab->data_mp3[(pos - ab->off) * channels + 1];
 }
-static inline __attribute__((always_inline)) void getmp3at_forcemono(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= len) {
-        *out_l = 0;
-        *out_r = 0;
-        return;
-    }
-    int channels = s->rc->channels;
-    getmp3at_prepbuf(s, ab, pos, len, channels);
-    int tmp = ((int)ab->data_mp3[(pos - ab->off) * channels] + (int)ab->data_mp3[(pos - ab->off) * channels + 1]) / 2;
-    *out_l = tmp;
-    *out_r = tmp;
-}
 #endif
 
 static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
@@ -123,8 +99,10 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
 
-static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int64_t i, int64_t freq, int64_t outfreq) {
-    return (offset + i * (int64_t)fx->speedmul / 1000) * freq / outfreq + (int64_t)fx->posoff;
+static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int64_t i, int64_t freq, int64_t outfreq, uint8_t* frac) {
+    int64_t tmp = (offset + i * (int64_t)fx->speedmul / 1000) * freq;
+    *frac = (tmp % outfreq) * 255 / outfreq;
+    return tmp / outfreq + (int64_t)fx->posoff;
 }
 
 static inline void calcSoundFX(struct audiosound* s) {
@@ -210,20 +188,39 @@ static inline void calcSoundFX(struct audiosound* s) {
     }
 }
 
-#define mixsounds_pre() {\
-    if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-    pos = calcpos(&fx, offset, i, freq, outfreq);\
+#define mixsounds_body(c) {\
+    if (flags & SOUNDFLAG_FORCEMONO && stereo) {\
+        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
+            if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+            pos = calcpos(&fx, offset, i, freq, outfreq, &frac);\
+            c\
+            int tmp = (l * fx.volmul[0] / 65536 + r * fx.volmul[1] / 65536) / 2;\
+            audbuf[0][i] += tmp;\
+            audbuf[1][i] += tmp;\
+        }\
+    } else {\
+        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
+            if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+            pos = calcpos(&fx, offset, i, freq, outfreq, &frac);\
+            c\
+            audbuf[0][i] += l * fx.volmul[0] / 65536;\
+            audbuf[1][i] += r * fx.volmul[1] / 65536;\
+        }\
+    }\
 }
-#define mixsounds_post(l, r) {\
-    audbuf[0][i] += l * fx.volmul[0] / 65536;\
-    audbuf[1][i] += r * fx.volmul[1] / 65536;\
+#define mixsounds_interpbody(c) {\
+    if (frac) {\
+        c\
+        ifrac = 255 - frac;\
+        l = (l * ifrac + l2 * frac) / 255;\
+        r = (r * ifrac + r2 * frac) / 255;\
+    }\
 }
 void mixsounds(int buf) {
     int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
     memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
     memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
     int outfreq = audiostate.freq;
-    int tmpbuf[2];
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
@@ -249,58 +246,43 @@ void mixsounds(int buf) {
         int len = rc->len;
         if (!len) goto skipmix;
         int64_t pos;
+        int64_t pos2;
+        uint8_t frac;
+        uint8_t ifrac;
         bool stereo = rc->stereo;
+        int l, r, l2, r2;
         switch (rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                pos = ((pos % len) + len) % len;
-                                getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                pos = ((pos % len) + len) % len;
-                                getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        }
+                        mixsounds_body (
+                            pos = ((pos % len) + len) % len;
+                            getvorbisat(s, &ab, pos, len, &l, &r);
+                            mixsounds_interpbody (
+                                pos2 = (((pos + 1) % len) + len) % len;
+                                getvorbisat(s, &ab, pos2, len, &l2, &r2);
+                            )
+                        )
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0) pos %= len;
-                                getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0) pos %= len;
-                                getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        }
+                        mixsounds_body (
+                            if (pos >= 0) pos %= len;
+                            getvorbisat(s, &ab, pos, len, &l, &r);
+                            mixsounds_interpbody (
+                                pos2 = pos + 1;
+                                if (pos2 >= 0) pos2 %= len;
+                                getvorbisat(s, &ab, pos2, len, &l2, &r2);
+                            )
+                        )
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                            mixsounds_pre();
-                            getvorbisat_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                        }
-                    } else {
-                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                            mixsounds_pre();
-                            getvorbisat(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                        }
-                    }
+                    mixsounds_body (
+                        getvorbisat(s, &ab, pos, len, &l, &r);
+                        mixsounds_interpbody (
+                            pos2 = pos + 1;
+                            getvorbisat(s, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
                 }
             } break;
             #ifdef PSRC_USEMINIMP3
@@ -308,52 +290,33 @@ void mixsounds(int buf) {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                pos = ((pos % len) + len) % len;
-                                getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                pos = ((pos % len) + len) % len;
-                                getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        }
+                        mixsounds_body (
+                            pos = ((pos % len) + len) % len;
+                            getmp3at(s, &ab, pos, len, &l, &r);
+                            mixsounds_interpbody (
+                                pos2 = (((pos + 1) % len) + len) % len;
+                                getmp3at(s, &ab, pos2, len, &l2, &r2);
+                            )
+                        )
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0) pos %= len;
-                                getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0) pos %= len;
-                                getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                                mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                            }
-                        }
+                        mixsounds_body (
+                            if (pos >= 0) pos %= len;
+                            getmp3at(s, &ab, pos, len, &l, &r);
+                            mixsounds_interpbody (
+                                pos2 = pos + 1;
+                                if (pos2 >= 0) pos2 %= len;
+                                getmp3at(s, &ab, pos2, len, &l2, &r2);
+                            )
+                        )
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                            mixsounds_pre();
-                            getmp3at_forcemono(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                        }
-                    } else {
-                        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                            mixsounds_pre();
-                            getmp3at(s, &ab, pos, len, &tmpbuf[0], &tmpbuf[1]);
-                            mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                        }
-                    }
+                    mixsounds_body (
+                        getmp3at(s, &ab, pos, len, &l, &r);
+                        mixsounds_interpbody (
+                            pos2 = pos + 1;
+                            getmp3at(s, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
                 }
             } break;
             #endif
@@ -368,149 +331,129 @@ void mixsounds(int buf) {
                 int channels = rc->channels;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            if (is8bit) {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    pos = ((pos % len) + len) % len;
-                                    tmpbuf[0] = data.i8[pos * channels] - 128;
-                                    tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                    tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                    int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                    mixsounds_post(tmp, tmp);
-                                }
-                            } else {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    pos = ((pos % len) + len) % len;
-                                    tmpbuf[0] = data.i16[pos * channels];
-                                    tmpbuf[1] = data.i16[pos * channels + stereo];
-                                    int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                    mixsounds_post(tmp, tmp);
-                                }
-                            }
+                        if (is8bit) {
+                            mixsounds_body (
+                                pos = ((pos % len) + len) % len;
+                                l = data.i8[pos * channels] - 128;
+                                l = l * 256 + (l + 128);
+                                r = data.i8[pos * channels + stereo] - 128;
+                                r = r * 256 + (r + 128);
+                                mixsounds_interpbody (
+                                    pos2 = (((pos + 1) % len) + len) % len;
+                                    l2 = data.i8[pos2 * channels] - 128;
+                                    l2 = l2 * 256 + (l2 + 128);
+                                    r2 = data.i8[pos2 * channels + stereo] - 128;
+                                    r2 = r2 * 256 + (r2 + 128);
+                                )
+                            )
                         } else {
-                            if (is8bit) {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    pos = ((pos % len) + len) % len;
-                                    tmpbuf[0] = data.i8[pos * channels] - 128;
-                                    tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                    tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                    mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                }
-                            } else {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    pos = ((pos % len) + len) % len;
-                                    tmpbuf[0] = data.i16[pos * channels];
-                                    tmpbuf[1] = data.i16[pos * channels + stereo];
-                                    mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                }
-                            }
+                            mixsounds_body (
+                                pos = ((pos % len) + len) % len;
+                                l = data.i16[pos * channels];
+                                r = data.i16[pos * channels + stereo];
+                                mixsounds_interpbody (
+                                    pos2 = (((pos + 1) % len) + len) % len;
+                                    l2 = data.i16[pos2 * channels];
+                                    r2 = data.i16[pos2 * channels + stereo];
+                                )
+                            )
                         }
                     } else {
-                        if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                            if (is8bit) {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    if (pos >= 0) {
-                                        pos %= len;
-                                        tmpbuf[0] = data.i8[pos * channels] - 128;
-                                        tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                        tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                        tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                        int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                        mixsounds_post(tmp, tmp);
-                                    }
+                        if (is8bit) {
+                            mixsounds_body (
+                                if (pos >= 0) {
+                                    pos %= len;
+                                    l = data.i8[pos * channels] - 128;
+                                    l = l * 256 + (l + 128);
+                                    r = data.i8[pos * channels + stereo] - 128;
+                                    r = r * 256 + (r + 128);
+                                    mixsounds_interpbody (
+                                        pos2 = pos + 1;
+                                        if (pos2 >= 0) {
+                                            pos2 %= len;
+                                            l2 = data.i8[pos2 * channels] - 128;
+                                            l2 = l2 * 256 + (l2 + 128);
+                                            r2 = data.i8[pos2 * channels + stereo] - 128;
+                                            r2 = r2 * 256 + (r2 + 128);
+                                        } else {
+                                            l2 = 0;
+                                            r2 = 0;
+                                        }
+                                    )
+                                } else {
+                                    l = 0;
+                                    r = 0;
                                 }
-                            } else {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    if (pos >= 0) {
-                                        pos %= len;
-                                        tmpbuf[0] = data.i16[pos * channels];
-                                        tmpbuf[1] = data.i16[pos * channels + stereo];
-                                        int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                        mixsounds_post(tmp, tmp);
-                                    }
-                                }
-                            }
+                            )
                         } else {
-                            if (is8bit) {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    if (pos >= 0) {
-                                        pos %= len;
-                                        tmpbuf[0] = data.i8[pos * channels] - 128;
-                                        tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                        tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                        tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                        mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                    }
+                            mixsounds_body (
+                                if (pos >= 0) {
+                                    pos %= len;
+                                    l = data.i16[pos * channels];
+                                    r = data.i16[pos * channels + stereo];
+                                    mixsounds_interpbody (
+                                        pos2 = pos + 1;
+                                        if (pos2 >= 0) {
+                                            pos2 %= len;
+                                            l2 = data.i16[pos2 * channels];
+                                            r2 = data.i16[pos2 * channels + stereo];
+                                        } else {
+                                            l2 = 0;
+                                            r2 = 0;
+                                        }
+                                    )
+                                } else {
+                                    l = 0;
+                                    r = 0;
                                 }
-                            } else {
-                                for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                    mixsounds_pre();
-                                    if (pos >= 0) {
-                                        pos %= len;
-                                        tmpbuf[0] = data.i16[pos * channels];
-                                        tmpbuf[1] = data.i16[pos * channels + stereo];
-                                        mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                    }
-                                }
-                            }
+                            )
                         }
                     }
                 } else {
-                    if (flags & SOUNDFLAG_FORCEMONO && stereo) {
-                        if (is8bit) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * channels] - 128;
-                                    tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                    tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                    int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                    mixsounds_post(tmp, tmp);
-                                }
+                    if (is8bit) {
+                        mixsounds_body (
+                            if (pos >= 0 && pos < len) {
+                                l = data.i8[pos * channels] - 128;
+                                l = l * 256 + (l + 128);
+                                r = data.i8[pos * channels + stereo] - 128;
+                                r = r * 256 + (r + 128);
+                                mixsounds_interpbody (
+                                    pos2 = pos + 1;
+                                    if (pos2 >= 0 && pos2 < len) {
+                                        l2 = data.i8[pos2 * channels] - 128;
+                                        l2 = l2 * 256 + (l2 + 128);
+                                        r2 = data.i8[pos2 * channels + stereo] - 128;
+                                        r2 = r2 * 256 + (r2 + 128);
+                                    } else {
+                                        l2 = 0;
+                                        r2 = 0;
+                                    }
+                                )
+                            } else {
+                                l = 0;
+                                r = 0;
                             }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i16[pos * channels];
-                                    tmpbuf[1] = data.i16[pos * channels + stereo];
-                                    int tmp = (tmpbuf[0] + tmpbuf[1]) / 2;
-                                    mixsounds_post(tmp, tmp);
-                                }
-                            }
-                        }
+                        )
                     } else {
-                        if (is8bit) {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i8[pos * channels] - 128;
-                                    tmpbuf[0] = tmpbuf[0] * 256 + (tmpbuf[0] + 128);
-                                    tmpbuf[1] = data.i8[pos * channels + stereo] - 128;
-                                    tmpbuf[1] = tmpbuf[1] * 256 + (tmpbuf[1] + 128);
-                                    mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                }
+                        mixsounds_body (
+                            if (pos >= 0 && pos < len) {
+                                l = data.i16[pos * channels];
+                                r = data.i16[pos * channels + stereo];
+                                mixsounds_interpbody (
+                                    pos2 = pos + 1;
+                                    if (pos2 >= 0 && pos2 < len) {
+                                        l2 = data.i16[pos2 * channels];
+                                        r2 = data.i16[pos2 * channels + stereo];
+                                    } else {
+                                        l2 = 0;
+                                        r2 = 0;
+                                    }
+                                )
+                            } else {
+                                l = 0;
+                                r = 0;
                             }
-                        } else {
-                            for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {
-                                mixsounds_pre();
-                                if (pos >= 0 && pos < len) {
-                                    tmpbuf[0] = data.i16[pos * channels];
-                                    tmpbuf[1] = data.i16[pos * channels + stereo];
-                                    mixsounds_post(tmpbuf[0], tmpbuf[1]);
-                                }
-                            }
-                        }
+                        )
                     }
                 }
             } break;
