@@ -12,7 +12,12 @@
     #endif
     #define GL_KHR_debug 0
 #else
-    #include "../../../glad/gl.h"
+    #ifndef PSRC_USELIBGL
+        #include "../../../glad/gl.h"
+    #else
+        #define GL_EXT_PROTOTYPES
+        #include <GL/gl.h>
+    #endif
     #ifndef GL_KHR_debug
         #define GL_KHR_debug 0
     #endif
@@ -187,36 +192,48 @@ static inline void gl_clearScreen(void) {
 static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
     if (!verts) verts = m->vertices;
     long lt = SDL_GetTicks();
-    double dt = (double)(lt % 1000) / 1000.0;
-    double t = (double)(lt / 1000) + dt;
-    float tsin = sin(t * 0.179254 * M_PI) * 2.0;
-    float tsin2 = fabs(sin(t * 0.374124 * M_PI));
-    float tcos = cos(t * 0.214682 * M_PI) * 0.5;
-    for (int ig = 0; ig < m->indexgroupcount; ++ig) {
-        uint16_t indcount = m->indexgroups[ig].indexcount;
-        uint16_t* inds = m->indexgroups[ig].indices;
-        glBegin(GL_TRIANGLES);
-        //glColor3f(1.0, 1.0, 1.0);
-        for (uint16_t i = 0; i < indcount; ++i) {
-            float tmp1 = verts[*inds].z * 7.5;
-            #if 1
-            int ci = (*inds * 0x10492851) ^ *inds;
-            uint8_t c[3] = {ci >> 16, ci >> 8, ci};
-            //glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
-            #else
-            //glColor3f(tmp1, tmp1, tmp1);
-            int tmpi = i - (i % 3);
-            int ci = (tmpi * 0x10632151);
-            ci ^= (tmpi >> 16) * 0x234120B4;
-            ci -= 0x12E23827;
-            uint8_t c[3] = {ci >> 16, ci >> 8, ci};
-            #endif
-            glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
-            glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, -verts[*inds].z + 1.75 + tcos);
-            ++inds;
+    #if 0
+    int vertct = 0;
+    for (int mc = 0; mc < 5; ++mc) {
+    #endif
+        double dt = (double)(lt % 1000) / 1000.0;
+        double t = (double)(lt / 1000) + dt;
+        float tsin = sin(t * 0.179254 * M_PI) * 2.0;
+        float tsin2 = fabs(sin(t * 0.374124 * M_PI));
+        float tcos = cos(t * 0.214682 * M_PI) * 0.5;
+        for (int ig = 0; ig < m->indexgroupcount; ++ig) {
+            uint16_t indcount = m->indexgroups[ig].indexcount;
+            uint16_t* inds = m->indexgroups[ig].indices;
+            glBegin(GL_TRIANGLES);
+            //glColor3f(1.0, 1.0, 1.0);
+            for (uint16_t i = 0; i < indcount; ++i) {
+                float tmp1 = verts[*inds].z * 7.5;
+                if (tmp1 < 0.0) tmp1 = 0.0;
+                else if (tmp1 > 1.0) tmp1 = 1.0;
+                #if 1
+                int ci = (*inds * 0x10492851) ^ *inds;
+                uint8_t c[3] = {ci >> 16, ci >> 8, ci};
+                //glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
+                #else
+                //glColor3f(tmp1, tmp1, tmp1);
+                int tmpi = i - (i % 3);
+                int ci = (tmpi * 0x10632151);
+                ci ^= (tmpi >> 16) * 0x234120B4;
+                ci -= 0x12E23827;
+                uint8_t c[3] = {ci >> 16, ci >> 8, ci};
+                #endif
+                glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
+                glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, -verts[*inds].z + 1.75 + tcos);
+                //++vertct;
+                ++inds;
+            }
+            glEnd();
         }
-        glEnd();
+    #if 0
+        lt += 100;
     }
+    printf("verts: %d, tris: %d\n", vertct, vertct / 3);
+    #endif
 }
 #if 0
 static void render_gl_legacy(void) {
@@ -516,6 +533,7 @@ static bool gl_beforeCreateWindow(unsigned* f) {
     #endif
     #else
     (void)f;
+    glKosInit();
     #endif
     char* tmp;
     tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
@@ -659,9 +677,6 @@ static bool gl_prepRenderer(void) {
     #if GL_KHR_debug
     if (glDebugMessageCallback) glDebugMessageCallback(gl_dbgcb, NULL);
     #endif
-    #if PLATFORM == PLAT_DREAMCAST
-    glKosInit();
-    #endif
     glClearColor(0.0, 0.0, 0.1, 1.0);
     gl_updateFrame();
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -675,7 +690,11 @@ static bool gl_prepRenderer(void) {
 static void gl_beforeDestroyWindow(void) {
     #ifndef PSRC_USESDL1
     #if PLATFORM != PLAT_NXDK
+    #if PLATFORM != PLAT_DREAMCAST
     if (gldata.ctx) SDL_GL_DeleteContext(gldata.ctx);
+    #else
+    glKosShutdown();
+    #endif
     #endif
     #endif
 }

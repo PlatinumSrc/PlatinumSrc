@@ -1,9 +1,8 @@
 <prefix> <path>
 
-prefix: { <self prefix> | <common prefix> | <engine prefix> | <game prefix> | <mod prefix> | <user prefix> | <custom prefix> }
+prefix: { <self prefix> | <engine prefix> | <game prefix> | <mod prefix> | <user prefix> | <custom prefix> }
 
 self prefix: [ [ "self" ] ":" ] (Access resources in <base dir>/<current game dir>/.)
-common prefix: "common:" (Access resources in <base dir>/common/.)
 engine prefix: "engine:" (Access resources in <base dir>/engine/.)
 game prefix: "game:" <game dir> "/" (Access resources in <base dir>/<game dir>/.)
 mod prefix: "mod:" <mod dir> "/" (Access resources in <user dir>/mods/<mod dir>/.)

@@ -232,6 +232,7 @@ ifneq ($(CROSS),nxdk)
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USELIBGL),y)
+            _CPPFLAGS += -DPSRC_USELIBGL
             _LDLIBS += -lGL
         endif
     endif

@@ -233,11 +233,9 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
         if (c) {
             if (c == ':') {
                 uri = ++tmp;
-                char* srcstr = cb_reinit(&tmpcb, 256);
+                char* srcstr = cb_peek(&tmpcb);
                 if (!*srcstr || !strcmp(srcstr, "self")) {
                     prefix = RCPREFIX_SELF;
-                } else if (!strcmp(srcstr, "common")) {
-                    prefix = RCPREFIX_COMMON;
                 } else if (!strcmp(srcstr, "game")) {
                     prefix = RCPREFIX_GAME;
                 } else if (!strcmp(srcstr, "mod")) {
@@ -251,7 +249,7 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
                     free(srcstr);
                     return NULL;
                 }
-                free(srcstr);
+                cb_clear(&tmpcb);
                 break;
             } else {
                 cb_add(&tmpcb, c);
@@ -310,13 +308,6 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
                 cb_clear(&tmpcb);
             }
             if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "games", gamedir, path, NULL)) >= 1) goto found;
-        } break;
-        case RCPREFIX_COMMON: {
-            for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "common", path, NULL)) >= 1) goto found;
-                cb_clear(&tmpcb);
-            }
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "common", path, NULL)) >= 1) goto found;
         } break;
         case RCPREFIX_ENGINE: {
             for (int i = 0; i < modinfo.len; ++i) {

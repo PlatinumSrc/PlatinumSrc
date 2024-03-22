@@ -99,12 +99,6 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
 
-static inline __attribute__((always_inline)) int64_t calcpos(struct audiosound_fx* fx, int64_t offset, int64_t i, int64_t freq, int64_t outfreq, uint8_t* frac) {
-    int64_t tmp = (offset + i * (int64_t)fx->speedmul / 1000) * freq;
-    *frac = (tmp % outfreq) * 255 / outfreq;
-    return tmp / outfreq + (int64_t)fx->posoff;
-}
-
 static inline void calcSoundFX(struct audiosound* s) {
     s->fx[1].speedmul = roundf(s->speed * 1000.0);
     if (s->flags & SOUNDFLAG_POSEFFECT) {
@@ -135,7 +129,7 @@ static inline void calcSoundFX(struct audiosound* s) {
                     if (s->flags & SOUNDFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = roundf(dist * -0.0025 * (float)s->rc->freq);
+                        s->fx[1].posoff = roundf(dist * -0.0025 * (float)audiostate.freq);
                     }
                     if (!(s->flags & SOUNDFLAG_RELPOS)) {
                         // TODO: optimize?
@@ -188,20 +182,29 @@ static inline void calcSoundFX(struct audiosound* s) {
     }
 }
 
+#define mixsounds_calcpos() {\
+    int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
+    fxoff = fx.posoff;\
+    offset += mul / div;\
+    frac += mul % div;\
+    offset += frac / div;\
+    frac %= div;\
+    pos = offset;\
+}
 #define mixsounds_body(c) {\
     if (flags & SOUNDFLAG_FORCEMONO && stereo) {\
         for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
             if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            pos = calcpos(&fx, offset, i, freq, outfreq, &frac);\
+            mixsounds_calcpos();\
             c\
-            int tmp = (l * fx.volmul[0] / 65536 + r * fx.volmul[1] / 65536) / 2;\
-            audbuf[0][i] += tmp;\
-            audbuf[1][i] += tmp;\
+            int tmp = (l + r) / 2;\
+            audbuf[0][i] += tmp * fx.volmul[0] / 65536;\
+            audbuf[1][i] += tmp * fx.volmul[1] / 65536;\
         }\
     } else {\
         for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
             if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            pos = calcpos(&fx, offset, i, freq, outfreq, &frac);\
+            mixsounds_calcpos();\
             c\
             audbuf[0][i] += l * fx.volmul[0] / 65536;\
             audbuf[1][i] += r * fx.volmul[1] / 65536;\
@@ -209,18 +212,20 @@ static inline void calcSoundFX(struct audiosound* s) {
     }\
 }
 #define mixsounds_interpbody(c) {\
+    /*printf("frac [%d, %d -> %d, %d]: %d\n", pos, freq, outfreq, fx.speedmul, frac);*/\
     if (frac) {\
+        pos2 = pos + 1;\
         c\
-        ifrac = 255 - frac;\
-        l = (l * ifrac + l2 * frac) / 255;\
-        r = (r * ifrac + r2 * frac) / 255;\
+        uint8_t tmpfrac = frac / 1000 * 255 / outfreq;\
+        uint8_t ifrac = 255 - tmpfrac;\
+        l = (l * ifrac + l2 * tmpfrac) / 255;\
+        r = (r * ifrac + r2 * tmpfrac) / 255;\
     }\
 }
-void mixsounds(int buf) {
+static void mixsounds(int buf) {
     int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
     memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
     memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
-    int outfreq = audiostate.freq;
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
@@ -232,6 +237,9 @@ void mixsounds(int buf) {
         bool chfx = s->state.fxchanged;
         struct audiosound_fx sfx[2];
         struct audiosound_fx fx;
+        long offset = s->offset;
+        int fxoff = s->fxoff;
+        int frac = s->frac;
         if (chfx) {
             //puts("fxchanged");
             sfx[0] = s->fx[0];
@@ -241,16 +249,28 @@ void mixsounds(int buf) {
             fx = s->fx[1];
             if (!fx.volmul[0] && !fx.volmul[1]) goto skipmix;
         }
-        int64_t offset = s->offset;
-        int freq = rc->freq;
         int len = rc->len;
         if (!len) goto skipmix;
-        int64_t pos;
-        int64_t pos2;
-        uint8_t frac;
-        uint8_t ifrac;
+        int outfreq = audiostate.freq;
+        int freq = rc->freq;
+        #if 0
+        {
+            int outfreq2 = outfreq, gcd = freq;
+            while (outfreq2) {
+                int tmp = gcd % outfreq2;
+                gcd = outfreq2;
+                outfreq2 = tmp;
+            }
+            outfreq /= gcd;
+            freq /= gcd;
+        }
+        #endif
+        int div = outfreq * 1000;
+        long pos;
+        long pos2;
         bool stereo = rc->stereo;
-        int l, r, l2, r2;
+        int l, r;
+        int l2, r2;
         switch (rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
                 struct audiosound_audbuf ab = s->audbuf;
@@ -260,7 +280,7 @@ void mixsounds(int buf) {
                             pos = ((pos % len) + len) % len;
                             getvorbisat(s, &ab, pos, len, &l, &r);
                             mixsounds_interpbody (
-                                pos2 = (((pos + 1) % len) + len) % len;
+                                pos2 = ((pos2 % len) + len) % len;
                                 getvorbisat(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
@@ -269,7 +289,6 @@ void mixsounds(int buf) {
                             if (pos >= 0) pos %= len;
                             getvorbisat(s, &ab, pos, len, &l, &r);
                             mixsounds_interpbody (
-                                pos2 = pos + 1;
                                 if (pos2 >= 0) pos2 %= len;
                                 getvorbisat(s, &ab, pos2, len, &l2, &r2);
                             )
@@ -279,7 +298,6 @@ void mixsounds(int buf) {
                     mixsounds_body (
                         getvorbisat(s, &ab, pos, len, &l, &r);
                         mixsounds_interpbody (
-                            pos2 = pos + 1;
                             getvorbisat(s, &ab, pos2, len, &l2, &r2);
                         )
                     )
@@ -294,7 +312,7 @@ void mixsounds(int buf) {
                             pos = ((pos % len) + len) % len;
                             getmp3at(s, &ab, pos, len, &l, &r);
                             mixsounds_interpbody (
-                                pos2 = (((pos + 1) % len) + len) % len;
+                                pos2 = ((pos2 % len) + len) % len;
                                 getmp3at(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
@@ -303,7 +321,6 @@ void mixsounds(int buf) {
                             if (pos >= 0) pos %= len;
                             getmp3at(s, &ab, pos, len, &l, &r);
                             mixsounds_interpbody (
-                                pos2 = pos + 1;
                                 if (pos2 >= 0) pos2 %= len;
                                 getmp3at(s, &ab, pos2, len, &l2, &r2);
                             )
@@ -313,7 +330,6 @@ void mixsounds(int buf) {
                     mixsounds_body (
                         getmp3at(s, &ab, pos, len, &l, &r);
                         mixsounds_interpbody (
-                            pos2 = pos + 1;
                             getmp3at(s, &ab, pos2, len, &l2, &r2);
                         )
                     )
@@ -339,7 +355,7 @@ void mixsounds(int buf) {
                                 r = data.i8[pos * channels + stereo] - 128;
                                 r = r * 256 + (r + 128);
                                 mixsounds_interpbody (
-                                    pos2 = (((pos + 1) % len) + len) % len;
+                                    pos2 = ((pos2 % len) + len) % len;
                                     l2 = data.i8[pos2 * channels] - 128;
                                     l2 = l2 * 256 + (l2 + 128);
                                     r2 = data.i8[pos2 * channels + stereo] - 128;
@@ -352,7 +368,7 @@ void mixsounds(int buf) {
                                 l = data.i16[pos * channels];
                                 r = data.i16[pos * channels + stereo];
                                 mixsounds_interpbody (
-                                    pos2 = (((pos + 1) % len) + len) % len;
+                                    pos2 = ((pos2 % len) + len) % len;
                                     l2 = data.i16[pos2 * channels];
                                     r2 = data.i16[pos2 * channels + stereo];
                                 )
@@ -368,7 +384,6 @@ void mixsounds(int buf) {
                                     r = data.i8[pos * channels + stereo] - 128;
                                     r = r * 256 + (r + 128);
                                     mixsounds_interpbody (
-                                        pos2 = pos + 1;
                                         if (pos2 >= 0) {
                                             pos2 %= len;
                                             l2 = data.i8[pos2 * channels] - 128;
@@ -392,7 +407,6 @@ void mixsounds(int buf) {
                                     l = data.i16[pos * channels];
                                     r = data.i16[pos * channels + stereo];
                                     mixsounds_interpbody (
-                                        pos2 = pos + 1;
                                         if (pos2 >= 0) {
                                             pos2 %= len;
                                             l2 = data.i16[pos2 * channels];
@@ -418,7 +432,6 @@ void mixsounds(int buf) {
                                 r = data.i8[pos * channels + stereo] - 128;
                                 r = r * 256 + (r + 128);
                                 mixsounds_interpbody (
-                                    pos2 = pos + 1;
                                     if (pos2 >= 0 && pos2 < len) {
                                         l2 = data.i8[pos2 * channels] - 128;
                                         l2 = l2 * 256 + (l2 + 128);
@@ -440,7 +453,6 @@ void mixsounds(int buf) {
                                 l = data.i16[pos * channels];
                                 r = data.i16[pos * channels + stereo];
                                 mixsounds_interpbody (
-                                    pos2 = pos + 1;
                                     if (pos2 >= 0 && pos2 < len) {
                                         l2 = data.i16[pos2 * channels];
                                         r2 = data.i16[pos2 * channels + stereo];
@@ -464,9 +476,13 @@ void mixsounds(int buf) {
         #endif
         if (chfx) {
             s->state.fxchanged = false;
-            s->offset += audiostate.audbuf.len * sfx[1].speedmul / 1000;
+            s->offset = offset;
+            s->fxoff = fxoff;
+            s->frac = frac;
         } else {
-            s->offset += audiostate.audbuf.len * fx.speedmul / 1000;
+            s->offset = offset;
+            s->fxoff = fxoff;
+            s->frac = frac;
         }
         #ifndef PSRC_NOMT
         writeToReadAccess(&audiostate.lock);
@@ -768,6 +784,8 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
             #endif
         }
         v->offset = 0;
+        v->fxoff = 0;
+        v->frac = 0;
         v->flags = f;
         v->state.paused = paused;
         v->state.fxchanged = false;

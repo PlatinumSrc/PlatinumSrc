@@ -35,7 +35,7 @@ struct audiosound_audbuf {
     };
 };
 struct __attribute__((packed)) audiosound_fx {
-    int posoff; // position offset in source freq samples (based on the dist between campos and pos)
+    int posoff; // position offset in output freq samples (based on the dist between campos and pos)
     int speedmul; // position mult in units of 1000 (based on speed)
     int volmul[2]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
 };
@@ -50,7 +50,9 @@ struct audiosound {
     };
     struct audiosound_audbuf audbuf;
     struct __attribute__((packed)) {
-        int64_t offset; // amount of samples passed in output sample rate
+        long offset;
+        int fxoff; // TODO: move somewhere better
+        int frac;
         uint8_t flags;
         struct {
             uint8_t paused : 1;

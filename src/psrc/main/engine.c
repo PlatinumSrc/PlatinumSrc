@@ -39,6 +39,9 @@
     #include <pbkit/pbkit.h>
     #include <pbgl.h>
     #include <GL/gl.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <kos.h>
+    KOS_INIT_FLAGS(INIT_IRQ | INIT_THD_PREEMPT | INIT_CONTROLLER | INIT_VMU | INIT_NO_DCLOAD);
 #endif
 
 #include "../glue.h"
@@ -193,8 +196,8 @@ int initLoop(void) {
         //return 1;
     }
 
-    test = loadResource(RC_SOUND, "common:sounds/wind1", &audiostate.soundrcopt);
-    if (test) playSound(false, test, SOUNDFLAG_LOOP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt);
+    if (test) playSound(false, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
     if (test) playSound(
@@ -968,6 +971,8 @@ int main(int argc, char** argv) {
     if (ret) Sleep(5000);
     pbgl_shutdown();
     HalReturnToFirmware(HalQuickRebootRoutine);
+    #elif PLATFORM == PLAT_DREAMCAST
+    arch_menu();
     #endif
     #else
     // TODO: pass in output from SDL_GetPrefPath

@@ -4,7 +4,7 @@
 const char* platname[PLAT__COUNT] = {
     "Unknown",
     "Android",
-    "Dreamcast",
+    "Dreamcast (KallistiOS)",
     "Emscripten",
     "FreeBSD",
     "Haiku",
@@ -12,7 +12,7 @@ const char* platname[PLAT__COUNT] = {
     "MacOS",
     "NetBSD",
     "OpenBSD",
-    "PlayStation 2",
+    "PlayStation 2 (PS2Dev)",
     "Unix",
     "Windows",
     "Xbox (NXDK)"

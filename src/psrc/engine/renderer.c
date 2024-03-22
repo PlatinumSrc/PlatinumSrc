@@ -444,10 +444,22 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 }
 
 bool initRenderer(void) {
+    #if PLATFORM == PLAT_LINUX && defined(SDL_HINT_VIDEODRIVER)
+    SDL_SetHint(SDL_HINT_VIDEODRIVER, "wayland");
+    if (SDL_Init(SDL_INIT_VIDEO)) {
+        plog(LL_WARN | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
+        SDL_SetHint(SDL_HINT_VIDEODRIVER, "");
+        if (SDL_Init(SDL_INIT_VIDEO)) {
+            plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
+            return false;
+        }
+    }
+    #else
     if (SDL_Init(SDL_INIT_VIDEO)) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
     }
+    #endif
     #if defined(PSRC_USEGL)
     #if defined(PSRC_USEGL11)
     rendstate.api = RENDAPI_GL11;

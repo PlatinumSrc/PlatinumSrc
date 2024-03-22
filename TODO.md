@@ -13,6 +13,7 @@
                 - Not really needed
             - XGU \(NXDK\)
             - GSKIT \(PS2\)
+            - PVR \(Dreamcast\)
             - Software?
                 - Not really needed
                 - Might go with a software GL library

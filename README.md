@@ -61,22 +61,24 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Compiling for the PlayStation 2 using the ps2dev sdk
         - [ps2dev](https://github.com/ps2dev/ps2dev)
             - See [this forum post](https://www.ps2-home.com/forum/viewtopic.php?t=9488) for a tutorial
-    - Compiling for the Dreamcast using KallistiOS
-        - KallistiOS
-            - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
     -->
+    - Compiling for the Dreamcast using KallistiOS
+        - [KallistiOS](http://gamedev.allusion.net/softprj/kos)
+            - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
 
 - Setup
     - Xbox using the NXDK
         1. Create a directory called `xiso`
-        2. Copy \(or symlink\) the `common` and `engine` directories into `xiso/`
-        3. Also copy \(or symlink\) the games and/or mods you want to include in the disc image
-            - There should be a directory \(or link\) called `games` and if you have mods, a directory \(or link\) called `mods`
+        2. Copy \(or symlink\) the `engine` directory into `xiso/`
+        3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
+            - There should be a directory \(or link\) called `games`, and if you have mods, a directory \(or link\) called `mods`
     <!--
     - PS2 using the ps2dev sdk
+    -->
     - Dreamcast using KallistiOS
         1. Create a directory called `cdi`
-    -->
+        2. Copy \(or symlink\) the `engine` directory into `cdi/`
+        3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
     - Windows 2000 or Windows 98 with KernelEx
         1. Download [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
             - On Linux, use Wine and add MinGW's bin folder to the `PATH` \(can be done using regedit to modify `HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment\PATH`\)

@@ -28,7 +28,6 @@ enum __attribute__((packed)) rctype {
 
 enum __attribute__((packed)) rcprefix {
     RCPREFIX_SELF = -1,
-    RCPREFIX_COMMON,
     RCPREFIX_ENGINE,
     RCPREFIX_GAME,
     RCPREFIX_MOD,
