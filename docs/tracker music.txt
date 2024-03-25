@@ -1,0 +1,76 @@
+PTM - PlatinumSrc Tracker Music
+
+- .ptm file extension
+- Current version is 0.0
+- All data should be little endian
+
+Format:
+
+    <Header> <Data>
+
+    Header:
+        <char[4]: {'P', 'T', 'M', 0}>
+        <u8: Major version> <u8: Minor version>
+        <char[... 0]: Song name>
+        <char[... 0]: Author>
+        <char[... 0]: Comments>
+        <float: Base BPM>
+        <u16: Total song length>
+        <u16: Page size>
+    Data:
+        <u8: Group count> [ <Group> ]...
+        <u8: Track count> [ <Track> ]...
+        <u32: Command data size> [ <Command> ]...
+        <u8: Instrument count> [ <Instrument> ]...
+        <u8: Sample count> [ <Sample> ]...
+
+    Group:
+        <char[... 0]: Name>
+        <float: BPM multiplier>
+        <float[2]: Global volume multiplier>
+
+    Track:
+        <u8: Group (0xFF for none)>
+        <u8: <7 bits: 0> <1 bit: Enabled>>
+        <u8: Instrument>
+        <float[2]: Volume>
+        <u16: Note count> [ <Note> ]...
+
+    Note:
+        <u16: Duration (notes until next)>
+        <i8: Note (Half steps from C4; -128 for silence)>
+
+    Command:
+        <u16: Position in notes relative to last command>
+        { <u8: PTM_CMD_SETBPM> <float: Amount>
+        | <u8: PTM_CMD_SETVOL> <u8: Track (0xFF for global)> <float[2]: Amount>
+        | <u8: PTM_CMD_CHBPM> <float: Amount>
+        | <u8: PTM_CMD_CHPITCH> <u8: Track (0xFF for global)> <i8: Amount>
+        | <u8: PTM_CMD_CHVOL> <u8: Track (0xFF for global)> <float[2]: Amount>
+        | <u8: PTM_CMD_SETBPMSLIDE> <float: Amount> <u8: Duration>
+        | <u8: PTM_CMD_SETVOLSLIDE> <u8: Track (0xFF for global)> <float[2]: Amount> <u8: Duration>
+        | <u8: PTM_CMD_CHBPMSLIDE> <float: Amount> <u8: Duration>
+        | <u8: PTM_CMD_CHPITCHSLIDE> <u8: Track (0xFF for global)> <i8: Amount> <u8: Duration>
+        | <u8: PTM_CMD_CHVOLSLIDE> <u8: Track (0xFF for global)> <float[2]: Amount> <u8: Duration>
+        | <u8: PTM_CMD_LOOP> <u16: Note> <u8: Count (0 for infinite)>
+        | <u8: PTM_CMD_LOOPPAGE> <u16: Page> <u8: Count (0 for infinite)>
+        | <u8: PTM_CMD_INSTRUMENT> <u8: Track (0xFF for all)> <u8: Instrument>
+        | <u8: PTM_CMD_ENABLETRACK> <u8: Track (0xFF for all)>
+        | <u8: PTM_CMD_DISABLETRACK> <u8: Track (0xFF for all)>
+        | <u8: PTM_CMD_TOGGLETRACK> <u8: Track (0xFF for all)> }
+
+    Instrument:
+        <u8: Sample count> [ <i8: Minimum note> <u8: Sample> (Should be sorted from highest minimum to lowest) ]...
+        <float: Attack duration> <float: Note influence>
+        <float: Decay duration> <float: Note influence> <float[2]: Decay volume> <float[2]: Note influence>
+        <float: Sustain duration> <float: Note influence>
+        <float: Release duration> <float: Note influence>
+
+    Sample:
+        <u16: Rate>
+        <u32: Length>
+        <u32: Loop start> <u32: Loop end>
+        <u8: <7 bits: 0> <1 bit: 16-bit>>
+        { <i8[]: Sample data> | <i16[]: Sample data> }
+
+

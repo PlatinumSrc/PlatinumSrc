@@ -160,6 +160,7 @@ else ifeq ($(CROSS),dc)
     USESTDTHREAD := y
     USEGL11 := y
     USELIBGL := y
+    USEPVR := y
     USESDL1 := y
 else
     $(error Invalid cross-compilation target: $(CROSS))

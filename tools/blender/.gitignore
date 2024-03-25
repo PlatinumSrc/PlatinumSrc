@@ -1,0 +1,6 @@
+*
+!/addons/
+!/addons/*/
+!/addons/*/*.py
+.**
+!/.gitignore

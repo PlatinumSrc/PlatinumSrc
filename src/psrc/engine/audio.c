@@ -182,6 +182,7 @@ static inline void calcSoundFX(struct audiosound* s) {
     }
 }
 
+// TODO: optimize?
 #define mixsounds_calcpos() {\
     int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
     fxoff = fx.posoff;\
@@ -212,7 +213,6 @@ static inline void calcSoundFX(struct audiosound* s) {
     }\
 }
 #define mixsounds_interpbody(c) {\
-    /*printf("frac [%d, %d -> %d, %d]: %d\n", pos, freq, outfreq, fx.speedmul, frac);*/\
     if (frac) {\
         pos2 = pos + 1;\
         c\

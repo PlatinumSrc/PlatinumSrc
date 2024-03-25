@@ -1,5 +1,4 @@
 <Main dir>/ - Most likely the directory the engine executable is located.
-    common/ - Common assets (shares a similar layout to games/).
     engine/
         config/
             autoexec.psc - (Optional) console commands to run on startup.

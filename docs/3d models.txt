@@ -1,19 +1,17 @@
 P3M - PlatinumSrc 3D Model File/Format
 
-- .p3m extension
+- .p3m file extension
 - Current version is 1.0
 - All data should be little endian
 
 Format:
 
-    <Header>
-    <Data>
+    <Header> <Data>
 
     Header:
         <char[4]: {'P', '3', 'M', 0}>
         <u8: Major version> <u8: Minor version>
         <u8: <7 bits: 0> <1 bit: Has animations>>
-
     Data:
         <u16: Vertex count> [Vertex]... [Texture vertex]...
         <u8: Index group count> [Index group]...
@@ -29,7 +27,6 @@ Format:
 
     Vertex:
         <float: X> <float: Y> <float: Z>
-
     Texture vertex:
         <float: U> <float: V>
 
@@ -46,12 +43,10 @@ Format:
     Action:
         <float: Max frame>
         <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
-
     Action data:
         <u8: Translation count> [ <float: Frame> <float[3]: Translation> ]...
         <u8: Rotation count> [ <float: Frame> <float[3]: Rotation> ]...
         <u8: Scale count> [ <float: Frame> <float[3]: Scale> ]...
-
     Animation:
         <<String>: Name>
         <u32: Microseconds per frame>

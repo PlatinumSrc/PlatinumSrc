@@ -65,6 +65,11 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Compiling for the Dreamcast using KallistiOS
         - [KallistiOS](http://gamedev.allusion.net/softprj/kos)
             - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
+        - [img4dc](https://github.com/Kazade/img4dc)
+            1. Go into the KallistiOS directory
+            2. Go into `utils/`
+            3. Git clone `https://github.com/Kazade/img4dc`
+            4. Enter `img4dc/` and build it
 
 - Setup
     - Xbox using the NXDK

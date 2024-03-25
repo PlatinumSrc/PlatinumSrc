@@ -22,7 +22,7 @@ pause
 tsk "Building..."
 ./buildrelease.sh || _exit
 inf "Making PlatinumSrc_Assets.zip..."
-_zip_r "PlatinumSrc_Assets.zip" common/ engine/ icons/
+_zip_r "PlatinumSrc_Assets.zip" engine/ icons/
 inf "Making PlatinumSrc_Extras.zip..."
 _zip_r "PlatinumSrc_Extras.zip" docs/ tools/
 pause

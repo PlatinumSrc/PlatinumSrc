@@ -6,10 +6,7 @@ PMF - PlatinumSrc Map File/Format
 
 Format:
 
-    <Header>
-    <u64: Size of compressed <Data>> <u64: Size of <Data> before compression> <Compressed <Data>>
-    <u64: Size of compressed <Server data>> <u64: Size of <Server data> before compression> <Compressed <Server data>>
-    <u64: Size of compressed <Client data>> <u64: Size of <Client data> before compression> <Compressed <Client data>>
+    <Header> <Data>
 
     Header:
         <char[4]: {'P', 'M', 'F', 0}>
@@ -17,8 +14,12 @@ Format:
         <char[... 0]: Name> <char[... 0]: Authors> <char[... 0]: Description>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
         <<u8: 0..16>: Gamemode count> [char[... 0]: Gamemode]...
-
     Data:
+        <u64: Size of compressed <Shared Data>> <u64: Size of <Shared Data> before compression> <Compressed <Shared Data>>
+        <u64: Size of compressed <Server data>> <u64: Size of <Server data> before compression> <Compressed <Server data>>
+        <u64: Size of compressed <Client data>> <u64: Size of <Client data> before compression> <Compressed <Client data>>
+
+    Shared Data:
         <u8: Section X count> <u8: Section Z count> <u8: Section size (2^n)> <u32: Index in array of <Cube>>...
         <u32: Cube count (must be at least 1)> <Cube>... <Cube data>...
         <u32: Prop count> [Prop]...

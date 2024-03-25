@@ -11,7 +11,7 @@
             - GL 3.3/GLES 3.0/WebGL 2.0
             - D3D 7 \(Windows\)?
                 - Not really needed
-            - XGU \(NXDK\)
+            - XGU or PBKit \(NXDK\)
             - GSKIT \(PS2\)
             - PVR \(Dreamcast\)
             - Software?

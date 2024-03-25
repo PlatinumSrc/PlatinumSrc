@@ -41,6 +41,7 @@
     #include <GL/gl.h>
 #elif PLATFORM == PLAT_DREAMCAST
     #include <kos.h>
+    #include <dirent.h>
     KOS_INIT_FLAGS(INIT_IRQ | INIT_THD_PREEMPT | INIT_CONTROLLER | INIT_VMU | INIT_NO_DCLOAD);
 #endif
 
@@ -489,7 +490,27 @@ static int bootstrap(void) {
     plog_setfile("D:\\log.txt");
     maindir = mkpath("D:\\", NULL);
     #elif PLATFORM == PLAT_DREAMCAST
-    maindir = mkpath("/cd", NULL);
+    {
+        DIR* d = opendir("/cd");
+        if (d) {
+            closedir(d);
+            maindir = mkpath("/cd", NULL);
+        } else {
+            d = opendir("/sd/psrc");
+            if (d) {
+                closedir(d);
+                maindir = mkpath("/sd/psrc", NULL);
+            } else {
+                d = opendir("/sd/PlatinumSrc");
+                if (d) {
+                    closedir(d);
+                    maindir = mkpath("/sd/PlatinumSrc", NULL);
+                } else {
+                    maindir = mkpath("/sd", NULL);
+                }
+            }
+        }
+    }
     #else
     if (options.maindir) {
         maindir = mkpath(options.maindir, NULL);
@@ -540,6 +561,7 @@ static int bootstrap(void) {
 
     tmp = mkpath(maindir, "games", gamedir, NULL);
     if (isFile(tmp)) {
+        plog(LL_INFO, "Main directory: %s", maindir);
         plog(LL_CRIT | LF_MSGBOX, "Could not find game directory for '%s'", gamedir);
         free(tmp);
         return 1;
@@ -550,6 +572,8 @@ static int bootstrap(void) {
     gameconfig = cfg_open(tmp);
     free(tmp);
     if (!gameconfig) {
+        plog(LL_INFO, "Main directory: %s", maindir);
+        plog(LL_INFO, "Game directory: %s" PATHSEPSTR "games" PATHSEPSTR "%s", maindir, gamedir);
         plog(LL_CRIT | LF_MSGBOX, "Could not read game.cfg for '%s'", gamedir);
         return 1;
     }
