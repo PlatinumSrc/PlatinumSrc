@@ -15,6 +15,7 @@
 #define VER_PATCH 0
 
 static char* filename = NULL;
+static unsigned filenamelen = 0;
 static FILE* filedata = NULL;
 
 enum __attribute__((packed)) cliopt_c {
@@ -48,15 +49,24 @@ static void cleanuptty(void) {
     tcsetattr(STDIN_FILENO, TCSANOW, &ttyi.t);
 }
 static void updatetty(void) {
+    #ifndef SIGWINCH
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     ttyi.w = w.ws_col;
     ttyi.h = w.ws_row;
+    #endif
 }
 static void sigh(int sig) {
     (void)sig;
     cleanuptty();
     exit(0);
+}
+static void sigwinchh(int sig) {
+    (void)sig;
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    ttyi.w = w.ws_col;
+    ttyi.h = w.ws_row;
 }
 static void setuptty(void) {
     tcgetattr(STDIN_FILENO, &ttyi.t);
@@ -74,6 +84,9 @@ static void setuptty(void) {
     #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     #endif
+    #ifdef SIGWINCH
+    signal(SIGWINCH, sigwinchh);
+    #endif
     ttyi.nt = ttyi.t;
     ttyi.nt.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
     ttyi.nt.c_cflag |= (CS8);
@@ -81,6 +94,11 @@ static void setuptty(void) {
     //ttyi.nt.c_cc[VMIN] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &ttyi.nt);
     //fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+    write(STDOUT_FILENO, "\e[H\e[2J\e[3J", 11);
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    ttyi.w = w.ws_col;
+    ttyi.h = w.ws_row;
 }
 
 enum __attribute__((packed)) keytype {
@@ -159,13 +177,46 @@ static char* dctext[CLIOPT_C__COUNT][DC__COUNT] = {
         "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌"
     }
 };
+static char** curdctext;
+#define PUTDC(x) fputs(curdctext[(x)], stdout)
 static void draw(void) {
-    updatetty();
-    
+    {
+        if (!filenamelen) filenamelen = strlen(filename);
+        int sparew = ttyi.w - 17 /* sizeof(".| Platinum -  |.")*/ - filenamelen;
+        PUTDC(DC_DBR);
+        if (sparew < 0) {
+            sparew = ttyi.w - 14;
+            if (sparew < 0) {
+                sparew = ttyi.w - 2;
+                PUTDC(DC_DBR);
+                for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
+                PUTDC(DC_DBL);
+            } else {
+                int halfw = sparew / 2;
+                for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
+                PUTDC(DC_VBL);
+                fputs(" Platinum ", stdout);
+                PUTDC(DC_VBR);
+                halfw += sparew % 2;
+                for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
+            }
+        } else {
+            int halfw = sparew / 2;
+            for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
+            PUTDC(DC_VBL);
+            printf(" Platinum - %s ", filename);
+            PUTDC(DC_VBR);
+            halfw += sparew % 2;
+            for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
+        }
+        PUTDC(DC_DBL);
+    }
+    fflush(stdout);
 }
 
 static void run(void) {
-
+    updatetty();
+    draw();
 }
 
 static void die(const char* argv0, const char* f, ...) {
@@ -273,6 +324,7 @@ int main(int argc, char** argv) {
         }
     }
     setuptty();
+    curdctext = dctext[cliopt.c];
     run();
     cleanuptty();
     return 0;
