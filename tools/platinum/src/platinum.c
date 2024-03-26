@@ -10,12 +10,14 @@
 #include <signal.h>
 #include <stdint.h>
 
+#include "string.h"
+#include "time.h"
+
 #define VER_MAJOR 0
 #define VER_MINOR 0
 #define VER_PATCH 0
 
 static char* filename = NULL;
-static unsigned filenamelen = 0;
 static FILE* filedata = NULL;
 
 enum __attribute__((packed)) cliopt_c {
@@ -44,16 +46,18 @@ static struct {
     unsigned h;
     struct termios t;
     struct termios nt;
-} ttyi;
+    fd_set fds;
+} tty;
 static void cleanuptty(void) {
-    tcsetattr(STDIN_FILENO, TCSANOW, &ttyi.t);
+    write(STDOUT_FILENO, "\e[?25h\e[H\e[2J\e[3J\e[?1049l", 25);
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty.t);
 }
 static void updatetty(void) {
     #ifndef SIGWINCH
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    ttyi.w = w.ws_col;
-    ttyi.h = w.ws_row;
+    tty.w = w.ws_col;
+    tty.h = w.ws_row;
     #endif
 }
 static void sigh(int sig) {
@@ -61,15 +65,9 @@ static void sigh(int sig) {
     cleanuptty();
     exit(0);
 }
-static void sigwinchh(int sig) {
-    (void)sig;
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    ttyi.w = w.ws_col;
-    ttyi.h = w.ws_row;
-}
+static void sigwinchh(int sig);
 static void setuptty(void) {
-    tcgetattr(STDIN_FILENO, &ttyi.t);
+    tcgetattr(STDIN_FILENO, &tty.t);
     signal(SIGINT, sigh);
     signal(SIGTERM, sigh);
     #ifdef SIGQUIT
@@ -87,27 +85,33 @@ static void setuptty(void) {
     #ifdef SIGWINCH
     signal(SIGWINCH, sigwinchh);
     #endif
-    ttyi.nt = ttyi.t;
-    ttyi.nt.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    ttyi.nt.c_cflag |= (CS8);
-    ttyi.nt.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-    //ttyi.nt.c_cc[VMIN] = 0;
-    tcsetattr(STDIN_FILENO, TCSANOW, &ttyi.nt);
+    tty.nt = tty.t;
+    tty.nt.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    tty.nt.c_cflag |= (CS8);
+    tty.nt.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    //tty.nt.c_cc[VMIN] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &tty.nt);
     //fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
-    write(STDOUT_FILENO, "\e[H\e[2J\e[3J", 11);
+    FD_ZERO(&tty.fds);
+    write(STDOUT_FILENO, "\e[?1049h\e[?25l\e[2J\e[3J", 22);
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    ttyi.w = w.ws_col;
-    ttyi.h = w.ws_row;
+    tty.w = w.ws_col;
+    tty.h = w.ws_row;
 }
 
 enum __attribute__((packed)) keytype {
     KT_NULL,
+    KT_UNKOWN,
     KT_CHAR,
     KT_UP,
     KT_DOWN,
     KT_LEFT,
     KT_RIGHT,
+    KT_HOME,
+    KT_END,
+    KT_PGUP,
+    KT_PGDN,
     KT_FN,
     KF_SHIFT = (1 << 4),
     KF_CTRL = (1 << 5),
@@ -116,7 +120,7 @@ enum __attribute__((packed)) keytype {
 struct key {
     enum keytype t;
     union {
-        char ascii;
+        char c;
         uint8_t fn;
     };
 };
@@ -124,18 +128,58 @@ static struct {
     uint8_t r;
     uint8_t w;
     struct key d[256];
+    struct charbuf cb;
 } kbuf = {
     .r = 255
 };
-static struct key getkey(void) {
-    int ct = 0;
-    ioctl(0, FIONREAD, &ct);
-    if (ct) {
-        
+static bool getkey(uint64_t t, struct key* o) {
+    if ((kbuf.r + 1) % 256 != kbuf.w) {
+        ++kbuf.r;
+        *o = kbuf.d[kbuf.r];
+        return true;
     }
-    if ((kbuf.r + 1) % 256 == kbuf.w) return (struct key){.t = KT_NULL};
-    ++kbuf.r;
-    return kbuf.d[kbuf.r];
+    int tmp;
+    {
+        struct timeval tv;
+        tv.tv_sec = t / 1000000;
+        tv.tv_usec = t % 1000000;
+        FD_SET(STDIN_FILENO, &tty.fds);
+        tmp = select(STDIN_FILENO + 1, &tty.fds, NULL, NULL, &tv);
+        if (!tmp) return false;
+        if (tmp < 0) {
+            o->t = KT_NULL;
+            return true;
+        }
+    }
+    ioctl(STDIN_FILENO, FIONREAD, &tmp);
+    bool wroteret = false;
+    readkey:;
+    char c = 0;
+    read(STDIN_FILENO, &c, 1);
+    --tmp;
+    struct key k;
+    if (c == '\e') {
+        if (!tmp) {
+            k.t = KT_CHAR;
+            k.c = '\e';
+        } else {
+            k.t = KT_UNKOWN;
+        }
+    } else {
+        k.t = KT_CHAR;
+        k.c = c;
+    }
+    if (wroteret) {
+        if (kbuf.r != kbuf.w) {
+            kbuf.d[kbuf.w] = k;
+            ++kbuf.w;
+        }
+    } else {
+        *o = k;
+        wroteret = true;
+    }
+    if (tmp) goto readkey;
+    return true;
 }
 
 static struct {
@@ -159,10 +203,10 @@ enum __attribute__((packed)) drawcomponent {
 };
 static char* dctext[CLIOPT_C__COUNT][DC__COUNT] = {
     {
-        "|", "|", "|", "|", ".", ".", "|", "|", ".", "'",
-        "'", "'", ".", "'", "'", ".", "|", "-", "+", "|",
-        "|", "'", ".", "'", ".", "|", "-", "+", "'", "'",
-        ".", ".", "'", "'", ".", ".", "+", "+", "'", "."
+        "|", "|", "|", "|", ",", ".", "!", "!", ",", "\"",
+        "\"", "'", ".", "'", "'", ".", "|", "-", "+", "|",
+        "!", "\"", ",", "\"", ",", "!", "=", "#", "'", "\"",
+        ".", ",", "\"", "'", ".", ",", "+", "+", "'", "."
     },
     {
         "\xB3", "\xB4", "\xB5", "\xB6", "\xB7", "\xB8", "\xB9", "\xBA", "\xBB", "\xBC",
@@ -179,44 +223,187 @@ static char* dctext[CLIOPT_C__COUNT][DC__COUNT] = {
 };
 static char** curdctext;
 #define PUTDC(x) fputs(curdctext[(x)], stdout)
-static void draw(void) {
-    {
-        if (!filenamelen) filenamelen = strlen(filename);
-        int sparew = ttyi.w - 17 /* sizeof(".| Platinum -  |.")*/ - filenamelen;
-        PUTDC(DC_DBR);
-        if (sparew < 0) {
-            sparew = ttyi.w - 14;
-            if (sparew < 0) {
-                sparew = ttyi.w - 2;
-                PUTDC(DC_DBR);
-                for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
-                PUTDC(DC_DBL);
-            } else {
-                int halfw = sparew / 2;
-                for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
-                PUTDC(DC_VBL);
-                fputs(" Platinum ", stdout);
-                PUTDC(DC_VBR);
-                halfw += sparew % 2;
-                for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
-            }
-        } else {
-            int halfw = sparew / 2;
-            for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
-            PUTDC(DC_VBL);
-            printf(" Platinum - %s ", filename);
-            PUTDC(DC_VBR);
-            halfw += sparew % 2;
-            for (int i = 0; i < halfw; ++i) PUTDC(DC_BH);
-        }
-        PUTDC(DC_DBL);
+static struct {
+    struct charbuf title;
+    int titleoff;
+    union {
+        unsigned drew;
+        struct {
+            unsigned drewframe : 1;
+            unsigned drewtitle : 1;
+        };
+    };
+} ui = {0};
+static void sigwinchh(int sig) {
+    (void)sig;
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    tty.w = w.ws_col;
+    tty.h = w.ws_row;
+    write(STDOUT_FILENO, "\e[H\e[2J\e[3J", 11);
+    ui.drew = 0;
+}
+static void setuititle(const char* s) {
+    cb_clear(&ui.title);
+    cb_addstr(&ui.title, "Platinum Music Tracker ");
+    char num[12];
+    sprintf(num, "%d", VER_MAJOR);
+    cb_addstr(&ui.title, num);
+    cb_add(&ui.title, '.');
+    sprintf(num, "%d", VER_MINOR);
+    cb_addstr(&ui.title, num);
+    cb_add(&ui.title, '.');
+    sprintf(num, "%d", VER_PATCH);
+    cb_addstr(&ui.title, num);
+    cb_add(&ui.title, ' ');
+    cb_add(&ui.title, '-');
+    cb_add(&ui.title, ' ');
+    cb_addstr(&ui.title, s);
+    cb_addstr(&ui.title, "   ///   ");
+    ui.titleoff = 0;
+}
+static void drawuiframe(void) {
+    int sparew = tty.w - 2;
+    int spareh = tty.h - 2;
+    fputs("\e[H", stdout);
+    PUTDC(DC_DBR);
+    for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
+    PUTDC(DC_DBL);
+    for (int i = 0; i < spareh; ++i) {
+        putchar('\n');
+        PUTDC(DC_V);
+        printf("\e[%d;%dH", i + 2, tty.w);
+        PUTDC(DC_V);
     }
+    putchar('\n');
+    PUTDC(DC_UBR);
+    for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
+    PUTDC(DC_UBL);
+}
+static void drawuititle(void) {
+    int tpos = (tty.w + 1) / 2 - ui.title.len / 2 - 2;
+    if (tpos < 2) tpos = 2;
+    int tmax = tty.w - 6;
+    printf("\e[1;%dH", tpos);
+    PUTDC(DC_VBL);
+    putchar(' ');
+    int i = ui.titleoff;
+    int j = 1;
+    while (1) {
+        if (i < ui.title.len) putchar(ui.title.data[i]);
+        else putchar(' ');
+        i = (i + 1) % ui.title.len;
+        if (i == ui.titleoff || j == ui.title.len ||  j == tmax) break;
+        ++j;
+    }
+    putchar(' ');
+    PUTDC(DC_VBR);
+}
+static void udvuititle(void) {
+    ui.titleoff = (ui.titleoff + 1) % ui.title.len;
+    ui.drewtitle = false;
+}
+static void drawui(void) {
+    if (!ui.drewframe) {drawuiframe(); ui.drewframe = 1;}
+    if (!ui.drewtitle) {drawuititle(); ui.drewtitle = 1;}
     fflush(stdout);
 }
 
+struct timer {
+    uint64_t t;
+    uint64_t a;
+    void* d;
+};
+static struct {
+    struct timer* data;
+    int len;
+    int size;
+    int index;
+    int next;
+} tdata = {
+    .next = -1
+};
+static int newtimer(uint64_t a, void* d) {
+    int i = 0;
+    for (; i < tdata.len; ++i) {
+        if (!tdata.data[i].a) goto found;
+    }
+    if (i == tdata.size) {
+        tdata.size *= 2;
+        tdata.data = realloc(tdata.data, tdata.size * sizeof(*tdata.data));
+    }
+    ++tdata.len;
+    found:;
+    tdata.data[i].t = altutime() + a;
+    tdata.data[i].a = a;
+    tdata.data[i].d = d;
+    return i;
+}
+static void deltimer(int i) {
+    tdata.data[i].a = 0;
+}
+static int getnexttimer(uint64_t* u) {
+    if (!tdata.len) return -1;
+    uint64_t m;
+    int cur = tdata.next;
+    int next = -1;
+    if (cur == -1) {
+        cur = 0;
+        m = tdata.data[0].t;
+        for (int i = 1; i < tdata.len; ++i) {
+            if (tdata.data[i].t < m) {
+                cur = i;
+                m = tdata.data[i].t;
+            }
+        }
+    }
+    *u = tdata.data[cur].t;
+    tdata.data[cur].t += tdata.data[cur].a;
+    for (int i = 0; i < tdata.len; ++i) {
+        if (next == -1 || tdata.data[i].t < m) {
+            next = i;
+            m = tdata.data[i].t;
+        }
+    }
+    tdata.next = next;
+    return cur;
+}
+
 static void run(void) {
-    updatetty();
-    draw();
+    enum __attribute__((packed)) ev {
+        EV_NOTHING,
+        EV_ADVTITLE
+    };
+    newtimer(200000, (void*)EV_ADVTITLE);
+    while (1) {
+        uint64_t tt;
+        int ti = getnexttimer(&tt);
+        recalctimer:;
+        uint64_t d;
+        if (ti >= 0) {
+            uint64_t lt = altutime();
+            if (tt > lt) d = tt - lt;
+            else d = 0;
+        } else {
+            d = 0;
+        }
+        updatetty();
+        drawui();
+        struct key k;
+        if (getkey(d, &k)) {
+            printf("k.t: %d, k.c: %d\n", k.t, k.c);
+            if (k.t == KT_CHAR && k.c == 'q') break;
+            goto recalctimer;
+        }
+        if (ti >= 0) {
+            switch ((enum ev)tdata.data[ti].d) {
+                case EV_ADVTITLE: {
+                    udvuititle();
+                } break;
+                default: break;
+            };
+        }
+    }
 }
 
 static void die(const char* argv0, const char* f, ...) {
@@ -323,8 +510,14 @@ int main(int argc, char** argv) {
             filename = strdup("untitled.ptm");
         }
     }
-    setuptty();
     curdctext = dctext[cliopt.c];
+    cb_init(&kbuf.cb, 16);
+    cb_init(&ui.title, 256);
+    setuititle(filename);
+    tdata.len = 0;
+    tdata.size = 4;
+    tdata.data = malloc(tdata.size * sizeof(*tdata.data));
+    setuptty();
     run();
     cleanuptty();
     return 0;
