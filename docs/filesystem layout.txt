@@ -43,7 +43,7 @@
 <Server dir>/ - The location the server executable was started in.
     content/ - Subfolders overlay <Game dir>.
         all/ - Content for all platforms.
-        <platform>/ - Override files when sending to a client with a specific platform.
+        <platform>/ - Override files when sending to a client using a specific platform.
     games/
-    mods/ - Mods files are not downloaded to clients
+    mods/ - Mod files are not downloaded to clients
     server.cfg - See 'default server config.txt'

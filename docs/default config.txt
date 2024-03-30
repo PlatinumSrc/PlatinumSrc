@@ -1,4 +1,5 @@
 defaultgame = default # read before loading user config
+mods = 
 
 [ Renderer ]
   resolution.windowed = 800x600

@@ -28,7 +28,6 @@ enum __attribute__((packed)) cliopt_c {
 };
 enum __attribute__((packed)) cliopt_o {
     CLIOPT_O_VT,
-    CLIOPT_O_VTCOLOR,
     #ifdef _WIN32
     CLIOPT_O_CONHOST
     #endif
@@ -38,7 +37,7 @@ static struct {
     enum cliopt_o o;
 } cliopt = {
     .c = CLIOPT_C_UTF8,
-    .o = CLIOPT_O_VTCOLOR
+    .o = CLIOPT_O_VT
 };
 
 static struct {
@@ -49,7 +48,7 @@ static struct {
     fd_set fds;
 } tty;
 static void cleanuptty(void) {
-    write(STDOUT_FILENO, "\e[?25h\e[H\e[2J\e[3J\e[?1049l", 25);
+    write(STDOUT_FILENO, "\e[0m\e[?25h\e[H\e[2J\e[3J\e[?1049l", 29);
     tcsetattr(STDIN_FILENO, TCSANOW, &tty.t);
 }
 static void updatetty(void) {
@@ -93,7 +92,7 @@ static void setuptty(void) {
     tcsetattr(STDIN_FILENO, TCSANOW, &tty.nt);
     //fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
     FD_ZERO(&tty.fds);
-    write(STDOUT_FILENO, "\e[?1049h\e[?25l\e[2J\e[3J", 22);
+    write(STDOUT_FILENO, "\e[?1049h\e[?25l", 14);
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     tty.w = w.ws_col;
@@ -191,14 +190,113 @@ static struct {
     .bpm = 150.0
 };
 
+struct __attribute__((packed)) drawcolor {
+    union {
+        uint32_t data;
+        struct {
+            union {
+                uint8_t attribs;
+                struct {
+                    uint8_t bold : 1;
+                    uint8_t dim : 1;
+                    uint8_t italic : 1;
+                    uint8_t underline : 1;
+                    uint8_t blink : 1;
+                    uint8_t inverse : 1;
+                    uint8_t strikethrough : 1;
+                    uint8_t : 1;
+                };
+            };
+            uint8_t havefgc : 1;
+            uint8_t havebgc : 1;
+            uint8_t : 6;
+            uint8_t fgc;
+            uint8_t bgc;
+        };
+    };
+};
+static inline void setdrawcolor(struct drawcolor c) {
+    static struct drawcolor cur = {0};
+};
+enum __attribute__((packed)) drawcolorattrib {
+    DCA_UITITLE,
+    DCA_BORDER,
+    DCA_TIP,
+    DCA_ACTIVETITLE,
+    DCA_INACTIVETITLE,
+    DCA_ACTIVETEXT,
+    DCA_INACTIVETEXT,
+    DCA_ACTIVESELECTION,
+    DCA_INACTIVESELECTION,
+    DCA_TEXTBOX,
+    DCA_BUTTON,
+    DCA_TRACK,
+    DCA_TRACKUNUSED,
+    DCA_TRACKLINE,
+    DCA_TRACKID,
+    DCA_TRACKGROUP,
+    DCA_TRACKVOLUME,
+    DCA_TRACKINSTRUMENT,
+    DCA_TRACKNOTE,
+    DCA_TRACKVOLUMECMD,
+    DCA_TRACKPITCHCMD,
+    DCA_TRACKERROR,
+    DCA_PATTERNLOOP,
+    DCA_HEADIDLE,
+    DCA_HEADPLAYING,
+    DCA_HEADPAUSED,
+    DCA__COUNT,
+    DCA__END = DCA__COUNT
+};
+#include "themes.h"
+static struct drawcolor currenttheme[DCA__COUNT];
+#define SETDCA(x) setdrawcolor(currenttheme[(x)])
+#if 0
+static inline void SETMIXEDDCA(enum drawcolorattrib f, enum drawcolorattrib b) {
+    struct drawcolor new;
+    new.attribs = currenttheme[f].attribs | currenttheme[b].attribs;
+    new.inverse = !(currenttheme[f].inverse == currenttheme[f].inverse);
+    new.havefgc = currenttheme[f].havefgc;
+    new.fgc = currenttheme[f].fgc;
+    new.havebgc = currenttheme[b].havebgc;
+    new.bgc = currenttheme[b].bgc;
+    setdrawcolor(new);
+}
+#endif
+static inline void SETMIXEDDCA(enum drawcolorattrib dca, ...) {
+    struct drawcolor new = {0};
+    va_list v;
+    va_start(v, dca);
+    while (1) {
+        struct drawcolor tmp = currenttheme[dca];
+        if (tmp.inverse) {
+            new.inverse = !new.inverse;
+            tmp.inverse = 0;
+        }
+        new.attribs |= tmp.attribs;
+        if (!new.havefgc && tmp.havefgc) {
+            new.fgc = tmp.fgc;
+            new.havefgc = 1;
+        }
+        if (!new.havebgc && tmp.havebgc) {
+            new.bgc = tmp.bgc;
+            new.havebgc = 1;
+        }
+        dca = va_arg(v, enum drawcolorattrib);
+        if (dca == DCA__END) break;
+    }
+    va_end(v);
+    setdrawcolor(new);
+}
 enum __attribute__((packed)) drawcomponent {
     // U = up, D = down, L = left, R = right
     // V = vertical (up+down), H = horizontal (left+right)
     // B = bold/double
-    DC_V, DC_VL, DC_VBL, DC_BVL, DC_BDL, DC_DBL, DC_BVBL, DC_BV, DC_BDBL, DC_BUBL,
-    DC_BUL, DC_UBL, DC_DL, DC_UR, DC_UH, DC_DH, DC_VR, DC_H, DC_VH, DC_VBR,
-    DC_BVR, DC_BUBR, DC_BDBR, DC_BUBH, DC_BDBH, DC_BVBR, DC_BH, DC_BVBH, DC_UBV, DC_BUV,
-    DC_DBH, DC_BDH, DC_BUR, DC_UBR, DC_DBR, DC_BDR, DC_BVH, DC_VBH, DC_UL, DC_DR,
+    DC_BOXV, DC_BOXVL, DC_BOXVBL, DC_BOXBVL, DC_BOXBDL, DC_BOXDBL, DC_BOXBVBL, DC_BOXBV, DC_BOXBDBL, DC_BOXBUBL,
+    DC_BOXBUL, DC_BOXUBL, DC_BOXDL, DC_BOXUR, DC_BOXUH, DC_BOXDH, DC_BOXVR, DC_BOXH, DC_BOXVH, DC_BOXVBR,
+    DC_BOXBVR, DC_BOXBUBR, DC_BOXBDBR, DC_BOXBUBH, DC_BOXBDBH, DC_BOXBVBR, DC_BOXBH, DC_BOXBVBH, DC_BOXUBV, DC_BOXBUV,
+    DC_BOXDBH, DC_BOXBDH, DC_BOXBUR, DC_BOXUBR, DC_BOXDBR, DC_BOXBDR, DC_BOXBVH, DC_BOXVBH, DC_BOXUL, DC_BOXDR,
+    DC_SCROLLUP, DC_SCROLLDOWN, DC_LEFTARROW, DC_RIGHTARROW, DC_DOT,
     DC__COUNT
 };
 static char* dctext[CLIOPT_C__COUNT][DC__COUNT] = {
@@ -206,19 +304,22 @@ static char* dctext[CLIOPT_C__COUNT][DC__COUNT] = {
         "|", "|", "|", "|", ",", ".", "!", "!", ",", "\"",
         "\"", "'", ".", "'", "'", ".", "|", "-", "+", "|",
         "!", "\"", ",", "\"", ",", "!", "=", "#", "'", "\"",
-        ".", ",", "\"", "'", ".", ",", "+", "+", "'", "."
+        ".", ",", "\"", "'", ".", ",", "+", "+", "'", ".",
+        "^", "v", "<", ">", "."
     },
     {
         "\xB3", "\xB4", "\xB5", "\xB6", "\xB7", "\xB8", "\xB9", "\xBA", "\xBB", "\xBC",
         "\xBD", "\xBE", "\xBF", "\xC0", "\xC1", "\xC2", "\xC3", "\xC4", "\xC5", "\xC6",
         "\xC7", "\xC8", "\xC9", "\xCA", "\xCB", "\xCC", "\xCD", "\xCE", "\xCF", "\xD0",
-        "\xD1", "\xD2", "\xD3", "\xD4", "\xD5", "\xD6", "\xD7", "\xD8", "\xD9", "\xDA"
+        "\xD1", "\xD2", "\xD3", "\xD4", "\xD5", "\xD6", "\xD7", "\xD8", "\xD9", "\xDA",
+        "\x1E", "\x1F", "\x11", "\x10", "\x07"
     },
     {
         "│", "┤", "╡", "╢", "╖", "╕", "╣", "║", "╗", "╝",
         "╜", "╛", "┐", "└", "┴", "┬", "├", "─", "┼", "╞",
         "╟", "╚", "╔", "╩", "╦", "╠", "═", "╬", "╧", "╨",
-        "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌"
+        "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌",
+        "▲", "▼", "◄", "►", "·"
     }
 };
 static char** curdctext;
@@ -229,6 +330,7 @@ static struct {
     union {
         unsigned drew;
         struct {
+            unsigned drewbg : 1;
             unsigned drewframe : 1;
             unsigned drewtitle : 1;
         };
@@ -240,7 +342,6 @@ static void sigwinchh(int sig) {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     tty.w = w.ws_col;
     tty.h = w.ws_row;
-    write(STDOUT_FILENO, "\e[H\e[2J\e[3J", 11);
     ui.drew = 0;
 }
 static void setuititle(const char* s) {
@@ -262,30 +363,34 @@ static void setuititle(const char* s) {
     cb_addstr(&ui.title, "   ///   ");
     ui.titleoff = 0;
 }
+static void drawuibg(void) {
+    //SETDCA(
+    fputs("\e[H\e[2J\e[3J", stdout);
+}
 static void drawuiframe(void) {
     int sparew = tty.w - 2;
     int spareh = tty.h - 2;
     fputs("\e[H", stdout);
-    PUTDC(DC_DBR);
-    for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
-    PUTDC(DC_DBL);
+    PUTDC(DC_BOXDBR);
+    for (int i = 0; i < sparew; ++i) PUTDC(DC_BOXBH);
+    PUTDC(DC_BOXDBL);
     for (int i = 0; i < spareh; ++i) {
         putchar('\n');
-        PUTDC(DC_V);
+        PUTDC(DC_BOXV);
         printf("\e[%d;%dH", i + 2, tty.w);
-        PUTDC(DC_V);
+        PUTDC(DC_BOXV);
     }
     putchar('\n');
-    PUTDC(DC_UBR);
-    for (int i = 0; i < sparew; ++i) PUTDC(DC_BH);
-    PUTDC(DC_UBL);
+    PUTDC(DC_BOXUBR);
+    for (int i = 0; i < sparew; ++i) PUTDC(DC_BOXBH);
+    PUTDC(DC_BOXUBL);
 }
 static void drawuititle(void) {
     int tpos = (tty.w + 1) / 2 - ui.title.len / 2 - 2;
     if (tpos < 2) tpos = 2;
     int tmax = tty.w - 6;
     printf("\e[1;%dH", tpos);
-    PUTDC(DC_VBL);
+    putchar(' ');
     putchar(' ');
     int i = ui.titleoff;
     int j = 1;
@@ -297,13 +402,14 @@ static void drawuititle(void) {
         ++j;
     }
     putchar(' ');
-    PUTDC(DC_VBR);
+    putchar(' ');
 }
 static void udvuititle(void) {
     ui.titleoff = (ui.titleoff + 1) % ui.title.len;
     ui.drewtitle = false;
 }
 static void drawui(void) {
+    if (!ui.drewbg) {drawuibg(); ui.drewbg = 1;}
     if (!ui.drewframe) {drawuiframe(); ui.drewframe = 1;}
     if (!ui.drewtitle) {drawuititle(); ui.drewtitle = 1;}
     fflush(stdout);
@@ -425,8 +531,7 @@ static void puthelp(const char* argv0) {
     puts("                        cp437: 8-bit code page 437");
     puts("                        utf-8: UTF-8 (default)");
     puts("  -o, --output      How to output color and move the cursor");
-    puts("                        vt:      VT escape codes without color");
-    puts("                        vtcolor: VT escape codes using color (default)");
+    puts("                        vt:      VT escape codes");
     puts("                        conhost: Conhost functions (Windows only)");
     exit(0);
 }
@@ -484,8 +589,6 @@ int main(int argc, char** argv) {
                     if (i >= argc) die(argv[0], "Expected argument value for %s", optname);
                     if (!strcmp(argv[i], "vt")) {
                          cliopt.o = CLIOPT_O_VT;
-                    } else if (!strcmp(argv[i], "vtcolor")) {
-                         cliopt.o = CLIOPT_O_VTCOLOR;
                     }
                     #ifdef _WIN32
                       else if (!strcmp(argv[i], "conhost")) {
