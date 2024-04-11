@@ -19,21 +19,21 @@ Format:
         <u8: Notes per beat>
         <u8: Pattern size>
         <u8: Pattern count>
-        <u8: Song pattern count> [ <u8: Pattern> ]... <u8: Loop Pattern>
-        <u8: Track count> [ <Track> ]...
-        <u8: Group count> [ <Group> ]...
-        <u8: Instrument count> [ <Instrument> ]...
-        <u8: Sample count> [ <Sample> ]...
+        <u8: Song pattern count> [u8: Pattern]... <u8: Loop Pattern>
+        <u8: Track count> [Track]...
+        <u8: Group count> [Group]...
+        <u8: Instrument count> [Instrument]...
+        <u8: Sample count> [Sample]...
 
     Track:
         <u8: <7 bits: 0> <1 bit: Enabled>>
         <u8: Group (0xFF for none)>
         <u8: Instrument>
         <u8[2]: Volume>
-        [ <Pattern data> ]...
+        [Pattern data]...
 
     Pattern data:
-        [ <Note> ]...
+        <u8: Note count> [Note]...
     Note:
         <u8: Duration>
         <i8: Note (Half steps from C0; -128 for silence, any other negative number for no change)>
@@ -43,10 +43,8 @@ Format:
     Global command:
         { <u8: PTM_CMD_SETVOL> <u8: New value>
         | <u8: PTM_CMD_SETVOLGRAD> <u8: New value>
-        | <u8: PTM_CMD_ADDBPM> <u8: Amount>
-        | <u8: PTM_CMD_SUBBPM> <u8: Amount>
-        | <u8: PTM_CMD_ADDBPMGRAD> <u8: Amount>
-        | <u8: PTM_CMD_SUBBPMGRAD> <u8: Amount>
+        | <u8: PTM_CMD_SETBPM> <u8: Amount>
+        | <u8: PTM_CMD_SETBPMGRAD> <u8: Amount>
         | <u8: PTM_CMD_ENABLETRACK> <u8: Track (0xFF for all)>
         | <u8: PTM_CMD_DISABLETRACK> <u8: Track (0xFF for all)>
         | <u8: PTM_CMD_TOGGLETRACK> <u8: Track (0xFF for all)> }

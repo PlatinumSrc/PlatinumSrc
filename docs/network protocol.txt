@@ -15,12 +15,12 @@ Low-level protocol:
         login with encryption: <u8: 0b00001111><u8: protocol revision><u8[128]: public key><char[0..127]: username>
                                <char: 0><char[0..127]: game>
 
-        data: <u8: 0b00000101><u32: CRC32><u32: message #><u8: user index><u32: UID><u64: rand from server><u16: # of
-              bytes><u8[0..484]: data>
-        encrypted data: <u8: 0b01010101><u32: CRC32><u32: message #><u8: user index><u32: UID><u16: # of bytes>
-                        <u8[0..480]: encrypted (using symmetrical key) data>
+        data: <u8: 0b00000101><u32: message #><u8: user index><u32: UID><u64: rand from server><u16: # of
+              bytes><u8[0..488]: data>
+        encrypted data: <u8: 0b01010101><u32: message #><u8: user index><u32: UID><u16: # of bytes>
+                        <u8[0..496]: encrypted (using symmetrical key) data>
 
-        disconnect: <u32: CRC32><u8: 0b00000000>
+        disconnect: <u8: 0b00000000>
 
 
     server to client:
@@ -42,17 +42,17 @@ Low-level protocol:
                                        public key from client>
         bad login: <u8: 0b11000000><char[0..507]: reason>
 
-        data: <u8: 0b00000101><u32: CRC32><u32: message #><u16: # of bytes><u8[0..497]: data>
-        encrypted data: <u8: 0b01010101><u32: CRC32><u32: message #><u16: # of bytes><u8[0..496]: data encrypted using
-                        symmetrical key>
+        data: <u8: 0b00000101><u32: message #><u16: # of bytes><u8[0..501]: data>
+        encrypted data: <u8: 0b01010101><u32: message #><u16: # of bytes><u8[0..501]: data encrypted using symmetrical
+                        key>
 
         disconnect: <u8: 0b00000000><char[0..507]: reason>
 
 
     both:
 
-        ack: <u8: 0b11111111><u8: # of messages>[<u32: message #><u32: message # bitwise NOT>]...
-        resend: <u8: 0b10101010><u8: # of messages>[<u32: message #><u32: message # bitwise NOT>]...
+        ack: <u8: 0b11111111><u8: # of messages>[u32: message #]...
+        resend: <u8: 0b10101010><u8: # of messages>[u32: message #]...
         keepalive: <u8: 0b00110011>
         ack keepalive: <u8: 0b11001100>
 

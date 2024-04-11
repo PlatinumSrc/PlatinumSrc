@@ -1,11 +1,11 @@
 <Main dir>/ - Most likely the directory the engine executable is located.
     engine/
         config/
-            autoexec.psc - (Optional) console commands to run on startup.
+            autorun.bas - (Optional) console commands to run on startup.
             config.cfg - Optional. See 'default config.txt' for details.
         fonts/
         shaders/
-    games/ - This layout is optional (except for game.cfg and main.psc) but is highly recommended.
+    games/ - This layout is optional (except for game.cfg and main.bas) but is highly recommended.
         <Game dir>/
             cosmetics/
             items/
@@ -15,18 +15,19 @@
             models/
             music/
             playermodels/
+            scripts/
             sounds/
             textures/
             weapons/
             game.cfg - Game info/config. See 'game config.txt' for details.
-            main.psc - The script that starts the game (this should typically display a splash screen, set up the game, then
+            main.bas - The script that starts the game (this should typically display a splash screen, set up the game, then
                        load the main menu).
     mods/ - Subfolders act as overlays for <Main dir>.
 
 <User dir>/ - A directory (specified by the 'userdir' variable in 'game.txt') most likely inside of the system/user's
               program data directory.
     config/
-        autoexec.psc - (Optional) console commands to run after autoexec.psc in <Main dir>/engine/.
+        autorun.bas - (Optional) console commands to run after autorun.bas in <Main dir>/engine/.
         config.cfg - Optional.
     cosmetics/
     custom/ - Custom content from other users
