@@ -41,6 +41,7 @@ bool initLogging(void) {
 }
 
 static FILE* logfile = NULL;
+char* logpath = NULL;
 
 static void plog_writedate(FILE* f) {
     static char tmpstr[32];
@@ -63,6 +64,8 @@ bool plog_setfile(const char* f) {
         if (tmp) {
             if (logfile) fclose(logfile);
             logfile = tmp;
+            free(logpath);
+            logpath = strdup(f);
             bool writelog;
             #if PLATFORM != PLAT_NXDK
             writelog = !isatty(fileno(logfile));

@@ -47,10 +47,10 @@ struct __attribute__((packed)) rc_values {
 
 // RC_SCRIPT
 struct __attribute__((packed)) rc_script {
-    struct script script;
+    struct pbscript script;
 };
 struct __attribute__((packed)) rcopt_script {
-    scriptfunc_t (*findcmd)(char*);
+    //scriptfunc_t (*findcmd)(char*);
 };
 
 // RC_FONT

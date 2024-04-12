@@ -20,12 +20,15 @@ ifeq ($(CROSS),)
     AR := $(PREFIX)$(AR)
     STRIP ?= strip
     STRIP := $(PREFIX)$(STRIP)
+    OBJCOPY ?= objcopy
+    OBJCOPY := $(PREFIX)$(OBJCOPY)
     ifneq ($(M32),y)
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o 2> $(null) || uname -s; uname -m)))
     else
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o 2> $(null) || i386 uname -s; i386 uname -m)))
     endif
     USEGL := y
+    USEWEAKGL := y
 else ifeq ($(CROSS),win32)
     ifneq ($(M32),y)
         ifneq ($(OS),Windows_NT)
@@ -45,9 +48,12 @@ else ifeq ($(CROSS),win32)
     AR := $(PREFIX)$(AR)
     STRIP ?= strip
     STRIP := $(PREFIX)$(STRIP)
+    OBJCOPY ?= objcopy
+    OBJCOPY := $(PREFIX)$(OBJCOPY)
     WINDRES ?= windres
     WINDRES := $(PREFIX)$(WINDRES)
     USEGL := y
+    USEGLAD := y
 else ifeq ($(CROSS),emscr)
     ifeq ($(MODULE),engine)
     else ifneq ($(MODULE),editor)
@@ -62,7 +68,6 @@ else ifeq ($(CROSS),emscr)
     NOSTRIP := y
     NOMT := y
     USEGL11 := y
-    USELIBGL := y
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
         $(error Please define the NXDK_DIR environment variable)
@@ -103,7 +108,6 @@ else ifeq ($(CROSS),nxdk)
     NOSIMD := y
     USESTDTHREAD := y
     USEGL11 := y
-    USELIBGL := y
     USEXGU := y
     MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
     MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
@@ -159,7 +163,6 @@ else ifeq ($(CROSS),dc)
     CDIDIR := $(OUTDIR)/cdi
     USESTDTHREAD := y
     USEGL11 := y
-    USELIBGL := y
     USEPVR := y
     USESDL1 := y
 else
@@ -232,8 +235,9 @@ ifneq ($(CROSS),nxdk)
         _LDFLAGS += --embed-file common/ --embed-file engine/ --embed-file games/ --embed-file mods/
     endif
     ifeq ($(USEGL),y)
-        ifeq ($(USELIBGL),y)
-            _CPPFLAGS += -DPSRC_USELIBGL
+        ifeq ($(USEGLAD),y)
+            _CPPFLAGS += -DPSRC_USEGLAD
+        else
             _LDLIBS += -lGL
         endif
     endif
@@ -357,11 +361,10 @@ ifeq ($(USEMINIMP3),y)
     endif
 endif
 
-CPPFLAGS.dir.schrift := 
 ifeq ($(CROSS),nxdk)
-    CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
+    CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
 else ifeq ($(CROSS),dc)
-    CPPFLAGS.dir.schrift += -DSCHRIFT_NO_FILE_MAPPING
+    CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
 endif
 
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
@@ -372,11 +375,9 @@ ifeq ($(NOMT),y)
     CPPFLAGS.dir.stb += -DSTBI_NO_THREAD_LOCALS
 endif
 
-CPPFLAGS.lib.discord_game_sdk := 
-LDLIBS.lib.discord_game_sdk := 
 ifeq ($(USEDISCORDGAMESDK),y)
-    CPPFLAGS.lib.discord_game_sdk += -DPSRC_USEDISCORDGAMESDK
-    LDLIBS.lib.discord_game_sdk += -l:$(call so,discord_game_sdk)
+    CPPFLAGS.lib.discord_game_sdk := -DPSRC_USEDISCORDGAMESDK
+    LDLIBS.lib.discord_game_sdk := -l:$(call so,discord_game_sdk)
 endif
 
 CFLAGS.lib.SDL := 
@@ -582,7 +583,7 @@ a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_engine)
 
 a.dir.psrc_engine = $(call a,psrc/engine) $(a.dir.psrc_server)
 ifeq ($(USEGL),y)
-ifneq ($(USELIBGL),y)
+ifeq ($(USEGLAD),y)
 a.dir.psrc_engine += $(call a,glad)
 endif
 endif
@@ -624,6 +625,9 @@ else
 	@$(LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
 	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
+endif
+ifeq ($(USEWEAKGL),y)
+	@$(OBJCOPY) -w -W 'gl[A-Z]*' $@
 endif
 endif
 	@echo Linked $@

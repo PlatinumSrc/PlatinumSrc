@@ -29,7 +29,7 @@ static inline void cb_add(struct charbuf* b, char c) {
     b->data[b->len++] = c;
 }
 static inline void cb_addstr(struct charbuf* b, const char* s) {
-    while(*s) cb_add(b, *(s++));
+    while (*s) cb_add(b, *(s++));
 }
 static inline void cb_addpartstr(struct charbuf* b, const char* s, long l) {
     // TODO: make it so that this function instead will see how much space is left before a realloc and manually copy

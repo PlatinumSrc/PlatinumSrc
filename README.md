@@ -21,23 +21,23 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - GCC with GNU Binutils or Clang with LLVM
             - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
             - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
-        - SDL2
+        - SDL 2.x or 1.2.x
     - Compiling for Windows
         - Compiling on Windows with MSYS2
             - MSYS2
             - GNU Make
             - GCC with GNU Binutils or Clang with LLVM
                 - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
-            - MinGW SDL2
+            - MinGW SDL 2.x or 1.2.x
         - Compiling on Windows without MSYS2
             - Git bash
             - Make for Windows
             - MinGW
-            - MinGW SDL2
+            - MinGW SDL 2.x or 1.2.x
         - Cross-compiling on Unix-like platforms
             - GNU Make
             - MinGW
-            - MinGW SDL2
+            - MinGW SDL 2.x or 1.2.x
     - Compiling for Windows 2000 or Windows 98 with KernelEx
         - Cross-compiling on Unix-like platforms
             - Wine
@@ -101,68 +101,75 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `distclean` - Clean up intermediate and output files
         - `externclean` - Clean up external tools
     - Makefile variables
-        - `MODULE` - Which module to build \(default is `engine`\)
-            - `engine` - Game engine
-            - `server` - Standalone server
-            - `editor` - Map editor
-        - `CROSS` - Cross compile
-            - `win32` - Windows 2000+ or Windows 98 with KernelEx
-            - `emscr` - Emscripten
-            - `nxdk` - Xbox using NXDK
-            <!--
-            - `ps2` - PS2 using ps2dev sdk
-            -->
-            - `dc` - Dreamcast using KallistiOS
-        - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
-        - `M32` - Set to `y` to produce a 32-bit binary
-        - `NATIVE` - Set to `y` to tune build for native system
-        - `DEBUG` - Enable debug symbols and messages
-            - `0` - Symbols only
-            - `1` - Basic messages
-            - `2` - Advanced messages
-            - `3` - Detailed messages
-        - `ASAN` - Set to `y` to enable the address sanitizer \(requires `DEBUG` to be set\)
-        - `NOSTRIP` - Set to `y` to not strip symbols
-        - `NOLTO` - Set to `y` to disable link-time optimization \(ignored if `DEBUG` is set\)
-        - `NOFASTMATH` - Set to `y` to disable `-ffast-math`
-        - `NOSIMD` - Set to `y` to not use SIMD
-        - `NOMT` - Set to `y` to disable multithreading
-        - `USEDISCORDGAMESDK` - Set to `y` to use the Discord Game SDK
-        - `USEGL` - Set to `y` to use OpenGL
-        - `USEGL11` - Set to `y` to use OpenGL 1.1
-        - `USEGL33` - Set to `y` to use OpenGL 3.3
-        - `USEGLES30` - Set to `y` to use OpenGL ES 3.0
-        - `USESTDTHREAD` - Set to `y` to use C11 threads
-        - `CC` - C compiler
-        - `LD` - Linker \(defaults to `CC`'s value\)
-        - `AR` - Archiver
-        - `STRIP` - Symbol remover
-        - `OBJCOPY` - Executable editor
-        - `PREFIX` - Text to prepend to tool names
-        - `CFLAGS` - Extra C compiler flags
-        - `CPPFLAGS` - Extra C preprocessor flags
-        - `LDFLAGS` - Extra linker flags
-        - `LDLIBS` - Extra linker libraries
-        - `RUNFLAGS` - Flags to pass to the executable
-        - `EMULATOR` - Command used to run the executable or ROM
-        - `EMUFLAGS` - Flags to pass to the emulator
-        - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
-        - Windows
-            - `USEWINPTHREAD` - Set to `y` to use winpthread instead of win32 threads
-            - `WINDRES` - Windows resource compiler
-        - NXDK
-            - `XBE_TITLE` - XBE title and XISO name \(default is `PlatinumSrc`\)
-            - `XBE_TITLEID` - XBE title ID \(default is `PQ-001`\)
-            - `XBE_VERSION` - XBE version \(default is taken from `version.h`\)
-            - `XBE_XTIMAGE` - Path to XPR image \(default is `icons/engine.xpr`\)
-            - `XISO` - Path to write XISO to \(default is `$(OUTDIR)/$(XBE_TITLE).xiso.iso`\)
-            - `XISODIR` - Path to make the XISO from \(default is `$(OUTDIR)/xiso`\)
-        - Dreamcast
-            - `IP_TITLE` - IP.BIN title and CDI name \(default is `PlatinumSrc`\)
-            - `IP_COMPANY` - IP.BIN company name \(default is `PQCraft`\)
-            - `IP_MRIMAGE` - Path to MR image \(default is `icons/engine.mr`\)
-            - `CDI` - Path to write CDI to \(default is `$(OUTDIR)/$(IP_TITLE).cdi`\)
-            - `CDIDIR` - Path to make the CDI from \(default is `$(OUTDIR)/cdi`\)
+        - Build options
+            - `MODULE` - Which module to build \(default is `engine`\)
+                - `engine` - Game engine
+                - `server` - Standalone server
+                - `editor` - Map editor
+            - `CROSS` - Cross compile
+                - `win32` - Windows 2000+ or Windows 98 with KernelEx
+                - `emscr` - Emscripten
+                - `nxdk` - Xbox using NXDK
+                <!--
+                - `ps2` - PS2 using ps2dev sdk
+                -->
+                - `dc` - Dreamcast using KallistiOS
+            - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
+            - `M32` - Set to `y` to produce a 32-bit binary
+            - `NATIVE` - Set to `y` to tune build for native system
+            - `DEBUG` - Enable debug symbols and messages
+                - `0` - Symbols only
+                - `1` - Basic messages
+                - `2` - Advanced messages
+                - `3` - Detailed messages
+            - `ASAN` - Set to `y` to enable the address sanitizer \(requires `DEBUG` to be set\)
+            - `NOSTRIP` - Set to `y` to not strip symbols
+            - `NOLTO` - Set to `y` to disable link-time optimization \(ignored if `DEBUG` is set\)
+            - `NOFASTMATH` - Set to `y` to disable `-ffast-math`
+            - `NOSIMD` - Set to `y` to not use SIMD
+            - `NOMT` - Set to `y` to disable multithreading
+        - Features
+            - `USEDISCORDGAMESDK` - Set to `y` to use the Discord Game SDK
+            - `USEGL` - Set to `y` to include OpenGL support
+            - `USEGL11` - Set to `y` to include OpenGL 1.1 support
+            - `USEGL33` - Set to `y` to include OpenGL 3.3 support
+            - `USEGLES30` - Set to `y` to include OpenGL ES 3.0 support
+            - `USEGLAD` - Set to `y` to use glad instead of the system's GL library directly
+            - `USEWEAKGL` - Set to `y` to mark `gl[A-Z]*` symbols as weak
+            - `USEMINIMP3` - Set to `y` to include MiniMP3 for MP3 support
+            - `USESTDTHREAD` - Set to `y` to use C11 threads
+            - Windows
+                - `USEWINPTHREAD` - Set to `y` to use winpthread instead of win32 threads
+        - Toolchain
+            - `CC` - C compiler
+            - `LD` - Linker \(defaults to `CC`'s value\)
+            - `AR` - Archiver
+            - `STRIP` - Symbol remover
+            - `OBJCOPY` - Executable editor
+            - `PREFIX` - Text to prepend to tool names
+            - `CFLAGS` - Extra C compiler flags
+            - `CPPFLAGS` - Extra C preprocessor flags
+            - `LDFLAGS` - Extra linker flags
+            - `LDLIBS` - Extra linker libraries
+            - `RUNFLAGS` - Flags to pass to the executable
+            - `EMULATOR` - Command used to run the executable or ROM
+            - `EMUFLAGS` - Flags to pass to the emulator
+            - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
+            - Windows
+                - `WINDRES` - Windows resource compiler
+            - NXDK
+                - `XBE_TITLE` - XBE title and XISO name \(default is `PlatinumSrc`\)
+                - `XBE_TITLEID` - XBE title ID \(default is `PQ-001`\)
+                - `XBE_VERSION` - XBE version \(default is taken from `version.h`\)
+                - `XBE_XTIMAGE` - Path to XPR image \(default is `icons/engine.xpr`\)
+                - `XISO` - Path to write XISO to \(default is `$(OUTDIR)/$(XBE_TITLE).xiso.iso`\)
+                - `XISODIR` - Path to make the XISO from \(default is `$(OUTDIR)/xiso`\)
+            - Dreamcast
+                - `IP_TITLE` - IP.BIN title and CDI name \(default is `PlatinumSrc`\)
+                - `IP_COMPANY` - IP.BIN company name \(default is `PQCraft`\)
+                - `IP_MRIMAGE` - Path to MR image \(default is `icons/engine.mr`\)
+                - `CDI` - Path to write CDI to \(default is `$(OUTDIR)/$(IP_TITLE).cdi`\)
+                - `CDIDIR` - Path to make the CDI from \(default is `$(OUTDIR)/cdi`\)
 
     Examples:
     ```
@@ -182,7 +189,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
 #### Running
 - Dependencies
     - Running the engine or editor on Unix-like platforms
-        - SDL2
+        - SDL 2.x or 1.2.x
 
 - Running the engine
     1. Download a game \(the engine will not run without a game\)

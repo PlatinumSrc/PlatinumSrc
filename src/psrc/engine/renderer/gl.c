@@ -12,18 +12,28 @@
     #endif
     #define GL_KHR_debug 0
 #else
-    #ifndef PSRC_USELIBGL
-        #include "../../../glad/gl.h"
-    #else
-        #define GL_EXT_PROTOTYPES
+    #ifndef PSRC_USEGLAD
+        #define GL_GLEXT_PROTOTYPES
         #include <GL/gl.h>
+        #include <GL/glext.h>
+        #if defined(GLAPIENTRY)
+            #define GLDBGCB GLAPIENTRY
+        #elif defined(APIENTRY)
+            #define GLDBGCB APIENTRY
+        #else
+            #define GLDBGCB
+        #endif
+    #else
+        #include "../../../glad/gl.h"
+        #define GLDBGCB GLAD_API_PTR
     #endif
     #ifndef GL_KHR_debug
         #define GL_KHR_debug 0
     #endif
 #endif
 #if GL_KHR_debug
-    static void GLAD_API_PTR gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
+    #pragma weak glDebugMessageCallback
+    static void GLDBGCB gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
         (void)l; (void)u;
         int ll = -1;
         char* sevstr;
@@ -583,7 +593,7 @@ static bool gl_afterCreateWindow(void) {
     }
     SDL_GL_MakeCurrent(rendstate.window, gldata.ctx);
     #endif
-    #if PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST
+    #if PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST && defined(PSRC_USEGLAD)
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
         return false;

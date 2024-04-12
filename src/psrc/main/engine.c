@@ -55,12 +55,27 @@ static void sigh_log(int l, char* name, char* msg) {
         plog(l, "Received signal: %s", name);
     }
 }
+static void sigh_cb_addstr(struct charbuf* b, const char* s) {
+    char c;
+    while ((c = *s)) {
+        if (isalnum(c)) {
+            cb_add(b, c);
+        } else {
+            cb_add(b, '%');
+            char tmp[3];
+            sprintf(tmp, "%02X", c);
+            cb_add(b, tmp[0]);
+            cb_add(b, tmp[1]);
+        }
+        ++s;
+    }
+}
 static void sigh(int sig) {
     signal(sig, sigh);
     #if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809L
     char* signame = strsignal(sig);
     #else
-    char signame[8];
+    char signame[12];
     snprintf(signame, sizeof(signame), "%d", sig);
     #endif
     switch (sig) {
@@ -80,6 +95,62 @@ static void sigh(int sig) {
             sigh_log(LL_WARN, signame, "Forcing exit...");
             exit(1);
             break;
+        case SIGSEGV:
+        #ifdef SIGABRT
+        case SIGABRT:
+        #endif
+        #ifdef SIGBUS
+        case SIGBUS:
+        #endif
+        #ifdef SIGFPE
+        case SIGFPE:
+        #endif
+        #ifdef SIGILL
+        case SIGILL:
+        #endif
+        {
+            plog(LL_CRIT, "Received signal: %s", signame);
+            SDL_MessageBoxButtonData btndata[] = {
+                {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
+                {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"}
+            };
+            char msgdata[1024] = "Received signal: ";
+            strcat(msgdata, signame);
+            strcat(msgdata, ".\nTry to submit a bug report on GitHub?");
+            SDL_MessageBoxData boxdata = {
+                .flags = SDL_MESSAGEBOX_ERROR,
+                .title = "Fatal crash",
+                .message = msgdata,
+                .numbuttons = sizeof(btndata) / sizeof(*btndata),
+                .buttons = btndata
+            };
+            int btn = 0;
+            SDL_ShowMessageBox(&boxdata, &btn);
+            if (btn) {
+                struct charbuf cb;
+                cb_init(&cb, 4096);
+                cb_addstr(&cb, "https://github.com/PQCraft/PlatinumSrc/issues/new?labels=bug&title=Automatic%20crash%20report&body=");
+                sigh_cb_addstr(&cb, verstr);
+                sigh_cb_addstr(&cb, "\n");
+                sigh_cb_addstr(&cb, platstr);
+                sigh_cb_addstr(&cb, "\nGame: ");
+                sigh_cb_addstr(&cb, gamedir);
+                if (logpath) {
+                    sigh_cb_addstr(&cb, "\n\n***!!! PLEASE UPLOAD THE LOG AT `");
+                    sigh_cb_addstr(&cb, logpath);
+                    sigh_cb_addstr(&cb, " HERE AND DELETE THIS TEXT !!!***");
+                }
+                puts(cb_peek(&cb));
+                #if PLATFORM == PLAT_MACOS
+                execlp("open", "open", cb_peek(&cb), NULL);
+                #elif PLATFORM == PLAT_WIN32
+                ShellExecute(NULL, NULL, cb_peek(&cb), NULL, NULL, SW_NORMAL);
+                #else
+                execlp("xdg-open", "xdg-open", cb_peek(&cb), NULL);
+                #endif
+            }
+            exit(1);
+        } break;
         default:
             sigh_log(LL_WARN, signame, NULL);
             break;
@@ -783,7 +854,7 @@ int main(int argc, char** argv) {
                 puts("    -mods=NAME[,NAME]...        More mods to load.");
                 puts("    -icon=PATH                  Override the game's icon.");
                 puts("    -maindir=DIR                Set the main directory.");
-                puts("    -userdir=DIR                Set user the directory.");
+                puts("    -userdir=DIR                Set the user directory.");
                 puts("    -{set|s} [SECT|VAR=VAL]...  Override config values.");
                 puts("    -{config|cfg|c}=FILE        Set the config file path.");
                 puts("    -{nouserconfig|nousercfg}   Do not load the user config.");
@@ -943,6 +1014,19 @@ int main(int argc, char** argv) {
     #endif
     #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
+    #endif
+    signal(SIGSEGV, sigh);
+    #ifdef SIGABRT
+    signal(SIGABRT, sigh);
+    #endif
+    #ifdef SIGBUS
+    signal(SIGBUS, sigh);
+    #endif
+    #ifdef SIGFPE
+    signal(SIGFPE, sigh);
+    #endif
+    #ifdef SIGILL
+    signal(SIGILL, sigh);
     #endif
     #else
     (void)argc; (void)argv;

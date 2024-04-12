@@ -137,7 +137,7 @@ struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
 struct rcopt_script scriptopt_default = {
-    NULL
+    //NULL
 };
 struct rcopt_sound soundopt_default = {
     true
@@ -438,7 +438,9 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     if (o.model->texture_quality != d->modelopt.texture_quality) goto nomatch;
                 } break;
                 case RC_SCRIPT: {
+                    #if 0 // TODO
                     if (o.script->findcmd != d->scriptopt.findcmd) goto nomatch;
+                    #endif
                 } break;
                 case RC_TEXTURE: {
                     if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
@@ -521,6 +523,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_SCRIPT: {
+            #if 0 // TODO
             struct script s;
             struct charbuf e;
             cb_init(&e, 128);
@@ -533,6 +536,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 plog(LL_ERROR, "Failed to compile script %s: %s", uri, cb_peek(&e));
                 cb_dump(&e);
             }
+            #endif
         } break;
         #ifndef PSRC_MODULE_SERVER
         case RC_SOUND: {
@@ -789,8 +793,10 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
             free(r->model.textures);
         } break;
         case RC_SCRIPT: {
+            #if 0 // TODO
             struct script s = r->script.script;
             cleanUpScript(&s);
+            #endif
         } break;
         case RC_SOUND: {
             free(r->sound.data);

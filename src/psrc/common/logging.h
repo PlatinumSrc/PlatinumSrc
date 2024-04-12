@@ -37,6 +37,7 @@ enum __attribute__((packed)) loglevel {
 #define LP_CRIT "{X}: "
 #define LP_DEBUG "<D>: "
 
+extern char* logpath;
 #ifndef PSRC_NOMT
 extern mutex_t loglock;
 #endif
