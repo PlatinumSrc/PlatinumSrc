@@ -218,6 +218,8 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Windows 9x no KernelEx
 - Wanted
     - Android
+        - Need to finish the touch UI
+        - Need to figure out how to build directly from the Makefile
     - Xbox \(XDK\)?
         - No OpenGL
         - Uses MSVC

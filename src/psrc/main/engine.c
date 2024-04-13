@@ -114,7 +114,7 @@ static void sigh(int sig) {
                 {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
                 {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"}
             };
-            char msgdata[1024] = "Received signal: ";
+            char msgdata[256] = "Received signal: ";
             strcat(msgdata, signame);
             strcat(msgdata, ".\nTry to submit a bug report on GitHub?");
             SDL_MessageBoxData boxdata = {
@@ -138,7 +138,7 @@ static void sigh(int sig) {
                 if (logpath) {
                     sigh_cb_addstr(&cb, "\n\n***!!! PLEASE UPLOAD THE LOG AT `");
                     sigh_cb_addstr(&cb, logpath);
-                    sigh_cb_addstr(&cb, " HERE AND DELETE THIS TEXT !!!***");
+                    sigh_cb_addstr(&cb, "` HERE AND DELETE THIS TEXT !!!***");
                 }
                 puts(cb_peek(&cb));
                 #if PLATFORM == PLAT_MACOS
