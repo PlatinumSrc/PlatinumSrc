@@ -80,18 +80,18 @@ struct fontdrawop {
 enum fontdrawjust {
     FDJ_LEFT,
     FDJ_CENTER,
-    FDJ_RIGHT,
+    FDJ_RIGHT
 };
 enum fontdrawattr {
     FDA_DONE,
     FDA_X,     // uint16_t
-    FDA_Y      // uint16_t
+    FDA_Y,     // uint16_t
     FDA_PT,    // unsigned
     FDA_ATTR,  // unsigned
     FDA_FGC,   // uint32_t
-    FDA_BGC    // uint32_t
-    FDA_XJUST, // enum fontdrawjust
-    FDA_YJUST, // enum fontdrawjust
+    FDA_BGC,   // uint32_t
+    FDA_VJUST, // enum fontdrawjust
+    FDA_HJUST  // enum fontdrawjust
 };
 
 struct font* openFont(char*);

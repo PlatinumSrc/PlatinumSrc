@@ -47,7 +47,7 @@ struct __attribute__((packed)) rc_values {
 
 // RC_SCRIPT
 struct __attribute__((packed)) rc_script {
-    struct pbscript script;
+    struct script script;
 };
 struct __attribute__((packed)) rcopt_script {
     //scriptfunc_t (*findcmd)(char*);
@@ -140,11 +140,13 @@ struct __attribute__((packed)) rcopt_map {
     enum rcopt_texture_qlt texture_quality;
 };
 
+#if 0
 struct __attribute__((packed)) rcatt {
     int8_t key;
     void* data;
     void (*cb)(void*);
 };
+#endif
 
 struct __attribute__((packed)) rcheader {
     enum rctype type;
@@ -153,7 +155,7 @@ struct __attribute__((packed)) rcheader {
     int refs;
     int index;
     struct {
-        struct rcatt* data;
+        //struct rcatt* data;
         int8_t len;
         int8_t size;
     } att;
@@ -165,12 +167,14 @@ void* loadResource(enum rctype type, const char* path, void* opt);
 void freeResource(void*);
 void grabResource(void*);
 char* getRcPath(const char* uri, enum rctype type, char** ext);
+#if 0
 int8_t genRcAttKey(void);
 void setRcAtt(void*, int8_t key, void* data, void (*cb)(void*));
 void setRcAttData(void*, int8_t key, void*);
 void setRcAttCallback(void*, int8_t key, void (*)(void*));
 bool getRcAtt(void*, int8_t key, void** out);
 void delRcAtt(void*, int8_t key);
+#endif
 
 #define releaseResource freeResource
 

@@ -36,15 +36,15 @@
 #undef freeResource
 #undef grabResource
 #undef releaseResource
-#undef setRcAtt
-#undef setRcAttData
-#undef setRcAttCallback
-#undef getRcAtt
-#undef delRcAtt
+//#undef setRcAtt
+//#undef setRcAttData
+//#undef setRcAttCallback
+//#undef getRcAtt
+//#undef delRcAtt
 
 #ifndef PSRC_NOMT
 static mutex_t rclock; // TODO: turn into an access lock
-static mutex_t rcattidlock;
+//static mutex_t rcattidlock;
 #endif
 
 union __attribute__((packed)) resource {
@@ -400,7 +400,7 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     ptr->header.path = strdup(p);
     ptr->header.pathcrc = pcrc;
     ptr->header.refs = 1;
-    ptr->header.att.data = NULL;
+    //ptr->header.att.data = NULL;
     return ptr;
 }
 
@@ -846,6 +846,7 @@ void grabResource(void* _r) {
     }
 }
 
+#if 0
 int8_t genRcAttKey(void) {
     #ifndef PSRC_NOMT
     lockMutex(&rcattidlock);
@@ -931,6 +932,7 @@ void delRcAtt(void* r, int8_t key) {
         }
     }
 }
+#endif
 
 static inline void loadMods_addpath(char* p) {
     ++modinfo.len;
@@ -1075,7 +1077,7 @@ char** queryModInfo(int* len) {
 bool initResource(void) {
     #ifndef PSRC_NOMT
     if (!createMutex(&rclock)) return false;
-    if (!createMutex(&rcattidlock)) return false;
+    //if (!createMutex(&rcattidlock)) return false;
     if (!createMutex(&modinfo.lock)) return false;
     #endif
 
@@ -1116,7 +1118,7 @@ void quitResource(void) {
 
     #ifndef PSRC_NOMT
     destroyMutex(&rclock);
-    destroyMutex(&rcattidlock);
+    //destroyMutex(&rcattidlock);
     destroyMutex(&modinfo.lock);
     #endif
 }

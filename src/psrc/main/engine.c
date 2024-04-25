@@ -192,7 +192,9 @@ static void rearmWatchdog(unsigned sec) {
 struct rc_script* mainscript;
 
 static struct rc_sound* test;
-static uint64_t testsound = -1;
+static int testemt_env;
+static int testemt_world;
+static int testemt_obj;
 static float lookspeed[2];
 static uint64_t toff;
 static uint64_t framestamp;
@@ -268,22 +270,18 @@ int initLoop(void) {
         //return 1;
     }
 
+    testemt_env = newAudioEmitter(1, 0, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    testemt_world = newAudioEmitter(1, EMITTERFLAG_POSEFFECT | EMITTERFLAG_FORCEMONO, SOUNDFX_END);
+    testemt_obj = newAudioEmitter(1, EMITTERFLAG_POSEFFECT | EMITTERFLAG_FORCEMONO, SOUNDFX_POS, 0.0, 0.0, 4.0, SOUNDFX_END);
+
     test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt);
-    if (test) playSound(false, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_VOL, 0.5, 0.5, SOUNDFX_END);
+    if (test) playSound(testemt_env, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
-    if (test) playSound(
-        false, test,
-        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END
-    );
+    if (test) playSound(testemt_world, test, SOUNDFLAG_LOOP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/health", &audiostate.soundrcopt);
-    if (test) testsound = playSound(
-        false, test,
-        SOUNDFLAG_POSEFFECT | SOUNDFLAG_FORCEMONO | SOUNDFLAG_LOOP,
-        SOUNDFX_POS, 0.0, 0.0, 4.0, SOUNDFX_END
-    );
+    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
+    if (test) playSound(testemt_obj, test, SOUNDFLAG_LOOP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
     freeResource(test);
 
     // TODO: cleanup
@@ -414,7 +412,7 @@ void doLoop(void) {
     long lt = SDL_GetTicks() - toff;
     double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
-    changeSoundFX(testsound, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
+    editAudioEmitter(testemt_obj, false, 0, 0, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
 
     static bool screenshot = false;
 

@@ -99,21 +99,22 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
 
-static inline void calcSoundFX(struct audiosound* s) {
+static inline void calcSoundFx(struct audiosound* s) {
+    struct audioemitter* e = &audiostate.emitters.data[s->emitter];
     s->fx[1].speedmul = roundf(s->speed * 1000.0);
-    if (s->flags & SOUNDFLAG_POSEFFECT) {
-        float vol[2] = {s->vol[0], s->vol[1]};
+    if (e->flags & EMITTERFLAG_POSEFFECT) {
+        float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
         float pos[3];
-        if (s->flags & SOUNDFLAG_RELPOS) {
-            pos[0] = s->pos[0];
-            pos[1] = s->pos[1];
-            pos[2] = s->pos[2];
+        if (e->flags & EMITTERFLAG_RELPOS) {
+            pos[0] = e->pos[0] + s->pos[0];
+            pos[1] = e->pos[1] + s->pos[1];
+            pos[2] = e->pos[2] + s->pos[2];
         } else {
-            pos[0] = s->pos[0] - audiostate.campos[0];
-            pos[1] = s->pos[1] - audiostate.campos[1];
-            pos[2] = s->pos[2] - audiostate.campos[2];
+            pos[0] = e->pos[0] + s->pos[0] - audiostate.campos[0];
+            pos[1] = e->pos[1] + s->pos[1] - audiostate.campos[1];
+            pos[2] = e->pos[2] + s->pos[2] - audiostate.campos[2];
         }
-        float range = s->range;
+        float range = e->range;
         if (isnormal(range)) {
             float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
             if (isnormal(dist)) {
@@ -126,12 +127,12 @@ static inline void calcSoundFX(struct audiosound* s) {
                     pos[2] /= dist;
                     vol[0] *= loudness;
                     vol[1] *= loudness;
-                    if (s->flags & SOUNDFLAG_NODOPPLER) {
+                    if (e->flags & EMITTERFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
                         s->fx[1].posoff = roundf(dist * -0.0025 * (float)audiostate.freq);
                     }
-                    if (!(s->flags & SOUNDFLAG_RELPOS)) {
+                    if (!(e->flags & EMITTERFLAG_RELPOS)) {
                         // TODO: optimize?
                         float rotradx = audiostate.camrot[0] * M_PI / 180.0;
                         float rotrady = audiostate.camrot[1] * -M_PI / 180.0;
@@ -177,13 +178,33 @@ static inline void calcSoundFX(struct audiosound* s) {
         }
     } else {
         s->fx[1].posoff = 0;
-        s->fx[1].volmul[0] = roundf(s->vol[0] * 65536.0);
-        s->fx[1].volmul[1] = roundf(s->vol[1] * 65536.0);
+        s->fx[1].volmul[0] = roundf(s->vol[0] * e->vol[0] * 65536.0);
+        s->fx[1].volmul[1] = roundf(s->vol[1] * e->vol[1] * 65536.0);
     }
 }
 
+static inline void stopSound_inline(struct audiosound* v) {
+    switch ((uint8_t)v->rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            stb_vorbis_close(v->vorbis);
+            free(v->audbuf.data[0]);
+            free(v->audbuf.data[1]);
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            mp3dec_ex_close(v->mp3);
+            free(v->mp3);
+            free(v->audbuf.data_mp3);
+        } break;
+        #endif
+    }
+    --audiostate.emitters.data[v->emitter].uses;
+    releaseResource(v->rc);
+    v->rc = NULL;
+}
+
 // TODO: optimize?
-#define mixsounds_calcpos() {\
+#define MIXSOUNDS_CALCPOS() {\
     int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
     fxoff = fx.posoff;\
     offset += mul / div;\
@@ -192,31 +213,40 @@ static inline void calcSoundFX(struct audiosound* s) {
     frac %= div;\
     pos = offset;\
 }
-#define mixsounds_body(c) {\
-    if (flags & SOUNDFLAG_FORCEMONO && stereo) {\
-        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
+#define MIXSOUNDS_BODY(c) {\
+    if (e->flags & EMITTERFLAG_FORCEMONO && stereo) {\
+        int i = 0, ii = audiostate.audbuf.len;\
+        while (1) {\
             if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            mixsounds_calcpos();\
+            MIXSOUNDS_CALCPOS();\
             c\
             int tmp = (l + r) / 2;\
             audbuf[0][i] += tmp * fx.volmul[0] / 65536;\
             audbuf[1][i] += tmp * fx.volmul[1] / 65536;\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (pos > len || pos < 0) unload = true; break;}\
+            --ii;\
         }\
     } else {\
-        for (int i = 0, ii = audiostate.audbuf.len; i < audiostate.audbuf.len; ++i, --ii) {\
+        int i = 0, ii = audiostate.audbuf.len;\
+        while (1) {\
             if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            mixsounds_calcpos();\
+            MIXSOUNDS_CALCPOS();\
             c\
             audbuf[0][i] += l * fx.volmul[0] / 65536;\
             audbuf[1][i] += r * fx.volmul[1] / 65536;\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (pos > len || pos < 0) unload = true; break;}\
+            --ii;\
         }\
     }\
+    if (pos > len) unload = true;\
 }
-#define mixsounds_interpbody(c) {\
+#define MIXSOUNDS_INTERPBODY(c) {\
     if (frac) {\
         pos2 = pos + 1;\
         c\
-        uint8_t tmpfrac = frac / 1000 * 255 / outfreq;\
+        uint8_t tmpfrac = frac / 1000 * 255 / audiostate.freq;\
         uint8_t ifrac = 255 - tmpfrac;\
         l = (l * ifrac + l2 * tmpfrac) / 255;\
         r = (r * ifrac + r2 * tmpfrac) / 255;\
@@ -229,10 +259,15 @@ static void mixsounds(int buf) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
-    for (int si = 0; si < audiostate.voicecount; ++si) {
-        struct audiosound* s = &audiostate.voices[si];
-        if (s->id < 0 || s->state.paused) continue;
+    for (int si = 0; si < audiostate.voices.count; ++si) {
+        struct audiosound* s = &audiostate.voices.data[si];
         struct rc_sound* rc = s->rc;
+        if (!rc) continue;
+        int len = rc->len;
+        if (!len) continue;
+        int freq = rc->freq;
+        struct audioemitter* e = &audiostate.emitters.data[s->emitter];
+        if (e->state.paused) continue;
         uint8_t flags = s->flags;
         bool chfx = s->state.fxchanged;
         struct audiosound_fx sfx[2];
@@ -244,16 +279,11 @@ static void mixsounds(int buf) {
             //puts("fxchanged");
             sfx[0] = s->fx[0];
             sfx[1] = s->fx[1];
-            if (!sfx[0].volmul[0] && !sfx[0].volmul[1] && !sfx[1].volmul[0] && !sfx[1].volmul[1]) goto skipmix;
         } else {
             fx = s->fx[1];
-            if (!fx.volmul[0] && !fx.volmul[1]) goto skipmix;
         }
-        int len = rc->len;
-        if (!len) goto skipmix;
-        int outfreq = audiostate.freq;
-        int freq = rc->freq;
         #if 0
+        int outfreq = audiostate.freq;
         {
             int outfreq2 = outfreq, gcd = freq;
             while (outfreq2) {
@@ -265,39 +295,40 @@ static void mixsounds(int buf) {
             freq /= gcd;
         }
         #endif
-        int div = outfreq * 1000;
+        int div = audiostate.freq * 1000;
         long pos;
         long pos2;
         bool stereo = rc->stereo;
         int l, r;
         int l2, r2;
+        bool unload = false;
         switch (rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             pos = ((pos % len) + len) % len;
                             getvorbisat(s, &ab, pos, len, &l, &r);
-                            mixsounds_interpbody (
+                            MIXSOUNDS_INTERPBODY (
                                 pos2 = ((pos2 % len) + len) % len;
                                 getvorbisat(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
                     } else {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             if (pos >= 0) pos %= len;
                             getvorbisat(s, &ab, pos, len, &l, &r);
-                            mixsounds_interpbody (
+                            MIXSOUNDS_INTERPBODY (
                                 if (pos2 >= 0) pos2 %= len;
                                 getvorbisat(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
                     }
                 } else {
-                    mixsounds_body (
+                    MIXSOUNDS_BODY (
                         getvorbisat(s, &ab, pos, len, &l, &r);
-                        mixsounds_interpbody (
+                        MIXSOUNDS_INTERPBODY (
                             getvorbisat(s, &ab, pos2, len, &l2, &r2);
                         )
                     )
@@ -308,28 +339,28 @@ static void mixsounds(int buf) {
                 struct audiosound_audbuf ab = s->audbuf;
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             pos = ((pos % len) + len) % len;
                             getmp3at(s, &ab, pos, len, &l, &r);
-                            mixsounds_interpbody (
+                            MIXSOUNDS_INTERPBODY (
                                 pos2 = ((pos2 % len) + len) % len;
                                 getmp3at(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
                     } else {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             if (pos >= 0) pos %= len;
                             getmp3at(s, &ab, pos, len, &l, &r);
-                            mixsounds_interpbody (
+                            MIXSOUNDS_INTERPBODY (
                                 if (pos2 >= 0) pos2 %= len;
                                 getmp3at(s, &ab, pos2, len, &l2, &r2);
                             )
                         )
                     }
                 } else {
-                    mixsounds_body (
+                    MIXSOUNDS_BODY (
                         getmp3at(s, &ab, pos, len, &l, &r);
-                        mixsounds_interpbody (
+                        MIXSOUNDS_INTERPBODY (
                             getmp3at(s, &ab, pos2, len, &l2, &r2);
                         )
                     )
@@ -348,13 +379,13 @@ static void mixsounds(int buf) {
                 if (flags & SOUNDFLAG_LOOP) {
                     if (flags & SOUNDFLAG_WRAP) {
                         if (is8bit) {
-                            mixsounds_body (
+                            MIXSOUNDS_BODY (
                                 pos = ((pos % len) + len) % len;
                                 l = data.i8[pos * channels] - 128;
                                 l = l * 256 + (l + 128);
                                 r = data.i8[pos * channels + stereo] - 128;
                                 r = r * 256 + (r + 128);
-                                mixsounds_interpbody (
+                                MIXSOUNDS_INTERPBODY (
                                     pos2 = ((pos2 % len) + len) % len;
                                     l2 = data.i8[pos2 * channels] - 128;
                                     l2 = l2 * 256 + (l2 + 128);
@@ -363,11 +394,11 @@ static void mixsounds(int buf) {
                                 )
                             )
                         } else {
-                            mixsounds_body (
+                            MIXSOUNDS_BODY (
                                 pos = ((pos % len) + len) % len;
                                 l = data.i16[pos * channels];
                                 r = data.i16[pos * channels + stereo];
-                                mixsounds_interpbody (
+                                MIXSOUNDS_INTERPBODY (
                                     pos2 = ((pos2 % len) + len) % len;
                                     l2 = data.i16[pos2 * channels];
                                     r2 = data.i16[pos2 * channels + stereo];
@@ -376,14 +407,14 @@ static void mixsounds(int buf) {
                         }
                     } else {
                         if (is8bit) {
-                            mixsounds_body (
+                            MIXSOUNDS_BODY (
                                 if (pos >= 0) {
                                     pos %= len;
                                     l = data.i8[pos * channels] - 128;
                                     l = l * 256 + (l + 128);
                                     r = data.i8[pos * channels + stereo] - 128;
                                     r = r * 256 + (r + 128);
-                                    mixsounds_interpbody (
+                                    MIXSOUNDS_INTERPBODY (
                                         if (pos2 >= 0) {
                                             pos2 %= len;
                                             l2 = data.i8[pos2 * channels] - 128;
@@ -401,12 +432,12 @@ static void mixsounds(int buf) {
                                 }
                             )
                         } else {
-                            mixsounds_body (
+                            MIXSOUNDS_BODY (
                                 if (pos >= 0) {
                                     pos %= len;
                                     l = data.i16[pos * channels];
                                     r = data.i16[pos * channels + stereo];
-                                    mixsounds_interpbody (
+                                    MIXSOUNDS_INTERPBODY (
                                         if (pos2 >= 0) {
                                             pos2 %= len;
                                             l2 = data.i16[pos2 * channels];
@@ -425,13 +456,13 @@ static void mixsounds(int buf) {
                     }
                 } else {
                     if (is8bit) {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             if (pos >= 0 && pos < len) {
                                 l = data.i8[pos * channels] - 128;
                                 l = l * 256 + (l + 128);
                                 r = data.i8[pos * channels + stereo] - 128;
                                 r = r * 256 + (r + 128);
-                                mixsounds_interpbody (
+                                MIXSOUNDS_INTERPBODY (
                                     if (pos2 >= 0 && pos2 < len) {
                                         l2 = data.i8[pos2 * channels] - 128;
                                         l2 = l2 * 256 + (l2 + 128);
@@ -448,11 +479,11 @@ static void mixsounds(int buf) {
                             }
                         )
                     } else {
-                        mixsounds_body (
+                        MIXSOUNDS_BODY (
                             if (pos >= 0 && pos < len) {
                                 l = data.i16[pos * channels];
                                 r = data.i16[pos * channels + stereo];
-                                mixsounds_interpbody (
+                                MIXSOUNDS_INTERPBODY (
                                     if (pos2 >= 0 && pos2 < len) {
                                         l2 = data.i16[pos2 * channels];
                                         r2 = data.i16[pos2 * channels + stereo];
@@ -470,16 +501,13 @@ static void mixsounds(int buf) {
                 }
             } break;
         }
-        skipmix:;
         #ifndef PSRC_NOMT
         readToWriteAccess(&audiostate.lock);
         #endif
-        if (chfx) {
-            s->state.fxchanged = false;
-            s->offset = offset;
-            s->fxoff = fxoff;
-            s->frac = frac;
+        if (unload) {
+            stopSound_inline(s);
         } else {
+            if (chfx) s->state.fxchanged = false;
             s->offset = offset;
             s->fxoff = fxoff;
             s->frac = frac;
@@ -540,13 +568,14 @@ void updateSounds(void) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    for (int si = 0; si < audiostate.voicecount; ++si) {
-        struct audiosound* s = &audiostate.voices[si];
-        if (s->id < 0) continue;
-        if (!s->state.fxchanged && (s->flags & SOUNDFLAG_POSEFFECT) && !(s->flags & SOUNDFLAG_RELPOS)) {
-            s->fx[0] = s->fx[1];
-            s->state.fxchanged = true;
-            calcSoundFX(s);
+    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
+        struct audiosound* v = &audiostate.voices.data[vi];
+        if (!v->rc) continue;
+        struct audioemitter* e = &audiostate.emitters.data[v->emitter];
+        if (!v->state.fxchanged && (e->flags & EMITTERFLAG_POSEFFECT) && !(e->flags & EMITTERFLAG_RELPOS)) {
+            v->fx[0] = v->fx[1];
+            v->state.fxchanged = true;
+            calcSoundFx(v);
             //s->state.updatefx = true;
         }
     }
@@ -579,144 +608,7 @@ void updateSounds(void) {
     }
 }
 
-static inline void stopSound_inline(struct audiosound* v) {
-    v->id = -1;
-    switch ((uint8_t)v->rc->format) {
-        case RC_SOUND_FRMT_VORBIS: {
-            stb_vorbis_close(v->vorbis);
-            free(v->audbuf.data[0]);
-            free(v->audbuf.data[1]);
-        } break;
-        #ifdef PSRC_USEMINIMP3
-        case RC_SOUND_FRMT_MP3: {
-            mp3dec_ex_close(v->mp3);
-            free(v->mp3);
-            free(v->audbuf.data_mp3);
-        } break;
-        #endif
-    }
-    releaseResource(v->rc);
-}
-
-void stopSound(int64_t id) {
-    #ifndef PSRC_NOMT
-    acquireReadAccess(&audiostate.lock);
-    #endif
-    if (!audiostate.valid) {
-        #ifndef PSRC_NOMT
-        releaseReadAccess(&audiostate.lock);
-        #endif
-        return;
-    }
-    if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)audiostate.voicecount);
-        struct audiosound* v = &audiostate.voices[i];
-        if (v->id >= 0 && id == v->id) {
-            #ifndef PSRC_NOMT
-            readToWriteAccess(&audiostate.lock);
-            #endif
-            stopSound_inline(v);
-            #ifndef PSRC_NOMT
-            releaseWriteAccess(&audiostate.lock);
-            #endif
-        } else {
-            #ifndef PSRC_NOMT
-            releaseReadAccess(&audiostate.lock);
-            #endif
-        }
-    }
-}
-
-void changeSoundFX(int64_t id, int immediate, ...) {
-    #ifndef PSRC_NOMT
-    acquireReadAccess(&audiostate.lock);
-    #endif
-    if (!audiostate.valid) {
-        #ifndef PSRC_NOMT
-        releaseReadAccess(&audiostate.lock);
-        #endif
-        return;
-    }
-    if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)audiostate.voicecount);
-        struct audiosound* v = &audiostate.voices[i];
-        if (v->id >= 0 && id == v->id) {
-            #ifndef PSRC_NOMT
-            readToWriteAccess(&audiostate.lock);
-            #endif
-            if (!immediate && !v->state.fxchanged) {
-                v->fx[0] = v->fx[1];
-                v->state.fxchanged = true;
-            }
-            va_list args;
-            va_start(args, immediate);
-            enum soundfx fx;
-            while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
-                switch ((uint8_t)fx) {
-                    case SOUNDFX_VOL:
-                        v->vol[0] = va_arg(args, double);
-                        v->vol[1] = va_arg(args, double);
-                        break;
-                    case SOUNDFX_SPEED:
-                        v->speed = va_arg(args, double);
-                        break;
-                    case SOUNDFX_POS:
-                        v->pos[0] = va_arg(args, double);
-                        v->pos[1] = va_arg(args, double);
-                        v->pos[2] = va_arg(args, double);
-                        break;
-                }
-            }
-            va_end(args);
-            calcSoundFX(v);
-            //v->state.updatefx = true;
-            #ifndef PSRC_NOMT
-            releaseWriteAccess(&audiostate.lock);
-            #endif
-        } else {
-            #ifndef PSRC_NOMT
-            releaseReadAccess(&audiostate.lock);
-            #endif
-        }
-    } else {
-        #ifndef PSRC_NOMT
-        releaseReadAccess(&audiostate.lock);
-        #endif
-    }
-}
-
-void changeSoundFlags(int64_t id, unsigned disable, unsigned enable) {
-    #ifndef PSRC_NOMT
-    acquireReadAccess(&audiostate.lock);
-    #endif
-    if (!audiostate.valid) {
-        #ifndef PSRC_NOMT
-        releaseReadAccess(&audiostate.lock);
-        #endif
-        return;
-    }
-    if (id >= 0) {
-        int i = (int64_t)(id % (int64_t)audiostate.voicecount);
-        struct audiosound* v = &audiostate.voices[i];
-        if (v->id >= 0 && id == v->id) {
-            #ifndef PSRC_NOMT
-            readToWriteAccess(&audiostate.lock);
-            #endif
-            v->flags &= ~(uint8_t)disable;
-            v->flags |= (uint8_t)enable;
-            //v->state.updatefx = true;
-            #ifndef PSRC_NOMT
-            releaseWriteAccess(&audiostate.lock);
-            #endif
-        } else {
-            #ifndef PSRC_NOMT
-            releaseReadAccess(&audiostate.lock);
-            #endif
-        }
-    }
-}
-
-int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
+int newAudioEmitter(int max, uint8_t flags, ... /*soundfx*/) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
@@ -726,43 +618,245 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         #endif
         return -1;
     }
-    int64_t nextid = audiostate.nextid;
-    int64_t stopid = nextid + audiostate.voicecount;
-    int voicecount = audiostate.voicecount;
-    int64_t id = -1;
-    struct audiosound* v = NULL;
-    for (int64_t vi = nextid; vi < stopid; ++vi) {
-        int i = (int64_t)(vi % (int64_t)voicecount);
-        struct audiosound* tmpv = &audiostate.voices[i];
-        if (tmpv->id < 0) {
-            id = vi;
-            v = tmpv;
+    int index = -1;
+    for (int i = 0; i < audiostate.emitters.len; ++i) {
+        if (audiostate.emitters.data[i].max == -1) {
+            index = i;
             break;
         }
     }
+    #ifndef PSRC_NOMT
+    readToWriteAccess(&audiostate.lock);
+    #endif
+    if (index == -1) {
+        if (audiostate.emitters.len == audiostate.emitters.size) {
+            audiostate.emitters.size *= 2;
+            audiostate.emitters.data = realloc(audiostate.emitters.data, audiostate.emitters.size);
+        }
+        index = audiostate.emitters.len++;
+    }
+    struct audioemitter* e = &audiostate.emitters.data[index];
+    *e = (struct audioemitter){
+        .max = max,
+        .flags = flags,
+        .vol[0] = 1.0,
+        .vol[1] = 1.0,
+        .speed = 1.0,
+        .range = 20.0
+    };
+    va_list args;
+    va_start(args, flags);
+    enum soundfx fx;
+    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+        switch ((uint8_t)fx) {
+            case SOUNDFX_VOL:
+                e->vol[0] = va_arg(args, double);
+                e->vol[1] = va_arg(args, double);
+                break;
+            case SOUNDFX_SPEED:
+                e->speed = va_arg(args, double);
+                break;
+            case SOUNDFX_POS:
+                e->pos[0] = va_arg(args, double);
+                e->pos[1] = va_arg(args, double);
+                e->pos[2] = va_arg(args, double);
+                break;
+            case SOUNDFX_RANGE:
+                e->range = va_arg(args, double);
+                break;
+        }
+    }
+    va_end(args);
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+    return index;
+}
+
+void deleteAudioEmitter(int ei) {
+    if (ei < 0) return;
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
+        releaseWriteAccess(&audiostate.lock);
+        #endif
+        return;
+    }
+    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
+        struct audiosound* v = &audiostate.voices.data[vi];
+        if (v->rc && v->emitter == ei) stopSound_inline(v);
+    }
+    struct audioemitter* e = &audiostate.emitters.data[ei];
+    e->max = -1;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+}
+
+void pauseAudioEmitter(int ei, bool p) {
+    if (ei < 0) return;
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
+        releaseWriteAccess(&audiostate.lock);
+        #endif
+        return;
+    }
+    struct audioemitter* e = &audiostate.emitters.data[ei];
+    e->state.paused = p;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+}
+
+void stopAudioEmitter(int ei) {
+    if (ei < 0) return;
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
+        releaseReadAccess(&audiostate.lock);
+        #endif
+        return;
+    }
+    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
+        struct audiosound* v = &audiostate.voices.data[vi];
+        if (v->rc && v->emitter == ei) {
+            #ifndef PSRC_NOMT
+            readToWriteAccess(&audiostate.lock);
+            #endif
+            stopSound_inline(v);
+            #ifndef PSRC_NOMT
+            releaseWriteAccess(&audiostate.lock);
+            #endif
+        }
+    }
+    #ifndef PSRC_NOMT
+    releaseReadAccess(&audiostate.lock);
+    #endif
+}
+
+void editAudioEmitter(int ei, bool immediate, unsigned enable, unsigned disable, ...) {
+    if (ei < 0) return;
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
+        releaseReadAccess(&audiostate.lock);
+        #endif
+        return;
+    }
+    struct audioemitter* e = &audiostate.emitters.data[ei];
+    e->flags |= (uint8_t)enable;
+    e->flags &= ~(uint8_t)disable;
+    va_list args;
+    va_start(args, disable);
+    enum soundfx fx;
+    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+        switch ((uint8_t)fx) {
+            case SOUNDFX_VOL:
+                e->vol[0] = va_arg(args, double);
+                e->vol[1] = va_arg(args, double);
+                break;
+            case SOUNDFX_SPEED:
+                e->speed = va_arg(args, double);
+                break;
+            case SOUNDFX_POS:
+                e->pos[0] = va_arg(args, double);
+                e->pos[1] = va_arg(args, double);
+                e->pos[2] = va_arg(args, double);
+                break;
+            case SOUNDFX_RANGE:
+                e->range = va_arg(args, double);
+                break;
+        }
+    }
+    va_end(args);
+    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
+        struct audiosound* v = &audiostate.voices.data[vi];
+        if (v->rc && v->emitter == ei) {
+            #ifndef PSRC_NOMT
+            readToWriteAccess(&audiostate.lock);
+            #endif
+            if (!immediate && !v->state.fxchanged) {
+                v->fx[0] = v->fx[1];
+                v->state.fxchanged = true;
+            }
+            calcSoundFx(v);
+            #ifndef PSRC_NOMT
+            writeToReadAccess(&audiostate.lock);
+            #endif
+        }
+    }
+    #ifndef PSRC_NOMT
+    releaseReadAccess(&audiostate.lock);
+    #endif
+}
+
+void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
+    if (ei < 0) return;
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) {
+        #ifndef PSRC_NOMT
+        releaseReadAccess(&audiostate.lock);
+        #endif
+        return;
+    }
+    {
+        struct audioemitter* e = &audiostate.emitters.data[ei];
+        if (e->max && e->uses == e->max) {
+            #ifndef PSRC_NOMT
+            releaseReadAccess(&audiostate.lock);
+            #endif
+            return;
+        }
+    }
+    int stop = audiostate.voices.next;
+    struct audiosound* v = NULL;
+    do {
+        struct audiosound* tmpv = &audiostate.voices.data[audiostate.voices.next];
+        audiostate.voices.next = (audiostate.voices.next + 1) % audiostate.voices.count;
+        if (!tmpv->rc) {
+            v = tmpv;
+            break;
+        }
+    } while (audiostate.voices.next != stop);
     if (v) {
         #ifndef PSRC_NOMT
         readToWriteAccess(&audiostate.lock);
         #endif
     } else {
-        for (int64_t vi = nextid; vi < stopid; ++vi) {
-            int i = (int64_t)(vi % (int64_t)voicecount);
-            struct audiosound* tmpv = &audiostate.voices[i];
-            if (!(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
+        do {
+            struct audiosound* tmpv = &audiostate.voices.data[audiostate.voices.next];
+            audiostate.voices.next = (audiostate.voices.next + 1) % audiostate.voices.count;
+            if (tmpv->rc && !(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
                 #ifndef PSRC_NOMT
                 readToWriteAccess(&audiostate.lock);
                 #endif
                 stopSound_inline(tmpv);
-                id = vi;
                 v = tmpv;
                 break;
             }
-        }
+        } while (audiostate.voices.next != stop);
     }
     if (v) {
         grabResource(rc);
-        v->id = id;
-        v->rc = rc;
+        *v = (struct audiosound){
+            .rc = rc,
+            .emitter = ei,
+            .flags = f,
+            .vol[0] = 1.0,
+            .vol[1] = 1.0,
+            .speed = 1.0,
+        };
         switch ((uint8_t)rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
                 v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
@@ -778,27 +872,11 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
                 mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
                 v->audbuf.off = 0;
                 v->audbuf.len = audiostate.audbuflen;
-                v->audbuf.data_mp3 = malloc(v->audbuf.len * v->rc->channels * sizeof(*v->audbuf.data_mp3));
+                v->audbuf.data_mp3 = malloc(v->audbuf.len * rc->channels * sizeof(*v->audbuf.data_mp3));
                 mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
             } break;
             #endif
         }
-        v->offset = 0;
-        v->fxoff = 0;
-        v->frac = 0;
-        v->flags = f;
-        v->state.paused = paused;
-        v->state.fxchanged = false;
-        //v->state.updatefx = false;
-        v->vol[0] = 1.0;
-        v->vol[1] = 1.0;
-        v->speed = 1.0;
-        v->pos[0] = 0.0;
-        v->pos[1] = 0.0;
-        v->pos[2] = 0.0;
-        v->range = 20.0;
-        v->fx[0].posoff = 0;
-        v->fx[1].posoff = 0;
         va_list args;
         va_start(args, f);
         enum soundfx fx;
@@ -817,12 +895,12 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
                     v->pos[2] = va_arg(args, double);
                     break;
                 case SOUNDFX_RANGE:
-                    v->range = va_arg(args, double);
+                    va_arg(args, double); // ignored
                     break;
             }
         }
         va_end(args);
-        calcSoundFX(v);
+        calcSoundFx(v);
         #ifndef PSRC_NOMT
         releaseWriteAccess(&audiostate.lock);
         #endif
@@ -831,7 +909,6 @@ int64_t playSound(bool paused, struct rc_sound* rc, unsigned f, ...) {
         releaseReadAccess(&audiostate.lock);
         #endif
     }
-    return id;
 }
 
 bool initAudio(void) {
@@ -961,12 +1038,15 @@ bool startAudio(void) {
         } else {
             voicecount = 32;
         }
-        if (audiostate.voicecount != voicecount) {
-            audiostate.voicecount = voicecount;
-            audiostate.voices = realloc(audiostate.voices, voicecount * sizeof(*audiostate.voices));
+        if (audiostate.voices.count != voicecount) {
+            audiostate.voices.count = voicecount;
+            audiostate.voices.data = realloc(audiostate.voices.data, voicecount * sizeof(*audiostate.voices.data));
         }
+        audiostate.emitters.len = 0;
+        audiostate.emitters.size = 4;
+        audiostate.emitters.data = realloc(audiostate.emitters.data, audiostate.emitters.size * sizeof(*audiostate.emitters.data));
         for (int i = 0; i < voicecount; ++i) {
-            audiostate.voices[i].id = -1;
+            audiostate.voices.data[i].rc = NULL;
         }
         tmp = cfg_getvar(config, "Sound", "outbufcount");
         if (tmp) {
@@ -997,10 +1077,8 @@ bool startAudio(void) {
             audiostate.soundrcopt.decodewhole = false;
             #endif
         }
-        audiostate.nextid = 0;
         audiostate.audbufindex = 0;
         audiostate.mixaudbufindex = -1;
-        audiostate.buftime = outspec.samples * 1000000 / outspec.freq;
         audiostate.valid = true;
         #ifndef PSRC_USESDL1
         SDL_PauseAudioDevice(output, 0);
@@ -1030,13 +1108,11 @@ void stopAudio(void) {
         SDL_PauseAudio(1);
         SDL_CloseAudio();
         #endif
-        for (int i = 0; i < audiostate.voicecount; ++i) {
-            struct audiosound* v = &audiostate.voices[i];
-            if (v->id >= 0) {
-               stopSound_inline(v);
-            }
+        for (int i = 0; i < audiostate.voices.count; ++i) {
+            struct audiosound* v = &audiostate.voices.data[i];
+            if (v->rc) stopSound_inline(v);
         }
-        free(audiostate.voices);
+        free(audiostate.voices.data);
         free(audiostate.audbuf.data[0][0]);
         free(audiostate.audbuf.data[0][1]);
         if (audiostate.usecallback) {
