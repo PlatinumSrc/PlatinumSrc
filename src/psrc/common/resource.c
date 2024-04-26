@@ -492,10 +492,10 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 } else {
                     d->material.texture = NULL;
                 }
-                d->material.color[0] = 1.0;
-                d->material.color[1] = 1.0;
-                d->material.color[2] = 1.0;
-                d->material.color[3] = 1.0;
+                d->material.color[0] = 1.0f;
+                d->material.color[1] = 1.0f;
+                d->material.color[2] = 1.0f;
+                d->material.color[3] = 1.0f;
                 tmp = cfg_getvar(mat, NULL, "color");
                 if (tmp) {
                     sscanf(tmp, "%f,%f,%f", &d->material.color[0], &d->material.color[1], &d->material.color[2]);

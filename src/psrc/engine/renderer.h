@@ -4,8 +4,6 @@
 #include "../platform.h"
 #include "../common/resource.h"
 
-#include "../../cglm/cglm.h"
-
 #if PLATFORM == PLAT_NXDK
     #include <SDL.h>
 #elif defined(PSRC_USESDL1)

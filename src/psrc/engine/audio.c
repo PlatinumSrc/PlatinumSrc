@@ -7,8 +7,6 @@
 #include "../common.h"
 #include "../debug.h"
 
-#include "../../cglm/cglm.h"
-
 #include <inttypes.h>
 #include <stdarg.h>
 #include <math.h>
@@ -101,7 +99,7 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
 
 static inline void calcSoundFx(struct audiosound* s) {
     struct audioemitter* e = &audiostate.emitters.data[s->emitter];
-    s->fx[1].speedmul = roundf(s->speed * 1000.0);
+    s->fx[1].speedmul = roundf(s->speed * 1000.0f);
     if (e->flags & EMITTERFLAG_POSEFFECT) {
         float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
         float pos[3];
@@ -119,7 +117,7 @@ static inline void calcSoundFx(struct audiosound* s) {
             float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
             if (isnormal(dist)) {
                 if (vol[0] * range >= dist && vol[1] * range >= dist) {
-                    float loudness = 1.0 - (dist / range);
+                    float loudness = 1.0f - (dist / range);
                     loudness *= loudness;
                     loudness *= loudness;
                     pos[0] /= dist;
@@ -130,46 +128,58 @@ static inline void calcSoundFx(struct audiosound* s) {
                     if (e->flags & EMITTERFLAG_NODOPPLER) {
                         s->fx[1].posoff = 0;
                     } else {
-                        s->fx[1].posoff = roundf(dist * -0.0025 * (float)audiostate.freq);
+                        s->fx[1].posoff = roundf(dist * -0.0025f * (float)audiostate.freq);
                     }
                     if (!(e->flags & EMITTERFLAG_RELPOS)) {
-                        // TODO: optimize?
-                        float rotradx = audiostate.camrot[0] * M_PI / 180.0;
-                        float rotrady = audiostate.camrot[1] * -M_PI / 180.0;
-                        float rotradz = audiostate.camrot[2] * M_PI / 180.0;
-                        glm_vec3_rotate(pos, rotrady, (vec3){0.0, 1.0, 0.0});
-                        glm_vec3_rotate(pos, rotradx, (vec3){1.0, 0.0, 0.0});
-                        glm_vec3_rotate(pos, rotradz, (vec3){0.0, 0.0, 1.0});
+                        float tmp[3];
+                        float mul[3][3];
+                        mul[0][0] = audiostate.sinx * audiostate.siny * audiostate.sinz + audiostate.cosy * audiostate.cosz;
+                        mul[0][1] = audiostate.cosx * -audiostate.sinz;
+                        mul[0][2] = audiostate.sinx * audiostate.cosy * audiostate.sinz + audiostate.siny * audiostate.cosz;
+                        mul[1][0] = audiostate.sinx * audiostate.siny * audiostate.cosz + audiostate.cosy * audiostate.sinz;
+                        mul[1][1] = audiostate.cosx * audiostate.cosz;
+                        mul[1][2] = -audiostate.sinx * audiostate.cosy * audiostate.cosz + audiostate.siny * audiostate.sinz;
+                        mul[2][0] = audiostate.cosx * -audiostate.siny;
+                        mul[2][1] = audiostate.sinx;
+                        mul[2][2] = audiostate.cosx * audiostate.cosy;
+                        tmp[0] = pos[0] * mul[0][0] + pos[1] * mul[0][1] + pos[2] * mul[0][2];
+                        tmp[1] = pos[0] * mul[1][0] + pos[1] * mul[1][1] + pos[2] * mul[1][2];
+                        tmp[2] = pos[0] * mul[2][0] + pos[1] * mul[2][1] + pos[2] * mul[2][2];
+                        //printf("ANGLE: {%+.03f, %+.03f, %+.03f} -> ", pos[0], pos[1], pos[2]);
+                        //printf("{%+.03f, %+.03f, %+.03f}\n", tmp[0], tmp[1], tmp[2]);
+                        pos[0] = tmp[0];
+                        pos[1] = tmp[1];
+                        pos[2] = tmp[2];
                     }
-                    if (pos[2] > 0.0) {
-                        pos[0] *= 1.0 - 0.2 * pos[2];
-                    } else if (pos[2] < 0.0) {
-                        pos[0] *= 1.0 - 0.25 * pos[2];
-                        vol[0] *= 1.0 + 0.25 * pos[2];
-                        vol[1] *= 1.0 + 0.25 * pos[2];
+                    if (pos[2] > 0.0f) {
+                        pos[0] *= 1.0f - 0.2f * pos[2];
+                    } else if (pos[2] < 0.0f) {
+                        pos[0] *= 1.0f - 0.25f * pos[2];
+                        vol[0] *= 1.0f + 0.25f * pos[2];
+                        vol[1] *= 1.0f + 0.25f * pos[2];
                     }
-                    if (pos[1] > 0.0) {
-                        pos[0] *= 1.0 - 0.2 * pos[1];
-                        vol[0] *= 1.0 - 0.1 * pos[1];
-                        vol[1] *= 1.0 - 0.1 * pos[1];
-                    } else if (pos[1] < 0.0) {
-                        pos[0] *= 1.0 - 0.2 * pos[1];
+                    if (pos[1] > 0.0f) {
+                        pos[0] *= 1.0f - 0.2f * pos[1];
+                        vol[0] *= 1.0f - 0.1f * pos[1];
+                        vol[1] *= 1.0f - 0.1f * pos[1];
+                    } else if (pos[1] < 0.0f) {
+                        pos[0] *= 1.0f - 0.2f * pos[1];
                     }
-                    if (pos[0] > 0.0) {
-                        vol[0] *= 1.0 - pos[0] * 0.75;
-                    } else if (pos[0] < 0.0) {
-                        vol[1] *= 1.0 + pos[0] * 0.75;
+                    if (pos[0] > 0.0f) {
+                        vol[0] *= 1.0f - pos[0] * 0.75f;
+                    } else if (pos[0] < 0.0f) {
+                        vol[1] *= 1.0f + pos[0] * 0.75f;
                     }
-                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
-                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0f);
+                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0f);
                 } else {
                     s->fx[1].volmul[0] = 0;
                     s->fx[1].volmul[1] = 0;
                 }
             } else {
                 s->fx[1].posoff = 0;
-                s->fx[1].volmul[0] = roundf(vol[0] * 65536.0);
-                s->fx[1].volmul[1] = roundf(vol[1] * 65536.0);
+                s->fx[1].volmul[0] = roundf(vol[0] * 65536.0f);
+                s->fx[1].volmul[1] = roundf(vol[1] * 65536.0f);
             }
         } else {
             s->fx[1].posoff = 0;
@@ -178,8 +188,8 @@ static inline void calcSoundFx(struct audiosound* s) {
         }
     } else {
         s->fx[1].posoff = 0;
-        s->fx[1].volmul[0] = roundf(s->vol[0] * e->vol[0] * 65536.0);
-        s->fx[1].volmul[1] = roundf(s->vol[1] * e->vol[1] * 65536.0);
+        s->fx[1].volmul[0] = roundf(s->vol[0] * e->vol[0] * 65536.0f);
+        s->fx[1].volmul[1] = roundf(s->vol[1] * e->vol[1] * 65536.0f);
     }
 }
 
@@ -568,6 +578,15 @@ void updateSounds(void) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
+    audiostate.rotradx = audiostate.camrot[0] * (float)M_PI / 180.0f;
+    audiostate.rotrady = audiostate.camrot[1] * (float)-M_PI / 180.0f;
+    audiostate.rotradz = audiostate.camrot[2] * (float)M_PI / 180.0f;
+    audiostate.sinx = sin(audiostate.rotradx);
+    audiostate.cosx = cos(audiostate.rotradx);
+    audiostate.siny = sin(audiostate.rotrady);
+    audiostate.cosy = cos(audiostate.rotrady);
+    audiostate.sinz = sin(audiostate.rotradz);
+    audiostate.cosz = cos(audiostate.rotradz);
     for (int vi = 0; vi < audiostate.voices.count; ++vi) {
         struct audiosound* v = &audiostate.voices.data[vi];
         if (!v->rc) continue;
@@ -639,10 +658,10 @@ int newAudioEmitter(int max, uint8_t flags, ... /*soundfx*/) {
     *e = (struct audioemitter){
         .max = max,
         .flags = flags,
-        .vol[0] = 1.0,
-        .vol[1] = 1.0,
-        .speed = 1.0,
-        .range = 20.0
+        .vol[0] = 1.0f,
+        .vol[1] = 1.0f,
+        .speed = 1.0f,
+        .range = 20.0f
     };
     va_list args;
     va_start(args, flags);
@@ -853,9 +872,9 @@ void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
             .rc = rc,
             .emitter = ei,
             .flags = f,
-            .vol[0] = 1.0,
-            .vol[1] = 1.0,
-            .speed = 1.0,
+            .vol[0] = 1.0f,
+            .vol[1] = 1.0f,
+            .speed = 1.0f,
         };
         switch ((uint8_t)rc->format) {
             case RC_SOUND_FRMT_VORBIS: {
@@ -909,6 +928,27 @@ void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
         releaseReadAccess(&audiostate.lock);
         #endif
     }
+}
+
+void updateAudioConfig(enum audioopt opt, ...) {
+    va_list args;
+    va_start(args, opt);
+    while (1) {
+        switch (opt) {
+            case AUDIOOPT_END: {
+                goto ret;
+            } break;
+            case AUDIOOPT_FREQ: {
+                va_arg(args, int); // ignored for now
+            } break;
+            case AUDIOOPT_VOICES: {
+                va_arg(args, int); // ignored for now
+            } break;
+        }
+        opt = va_arg(args, enum audioopt);
+    }
+    ret:;
+    va_end(args);
 }
 
 bool initAudio(void) {

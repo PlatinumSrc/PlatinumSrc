@@ -536,7 +536,7 @@ bool initRenderer(void) {
         rendstate.fov = atof(tmp);
         free(tmp);
     } else {
-        rendstate.fov = 90.0;
+        rendstate.fov = 90.0f;
     }
     testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);
     return true;

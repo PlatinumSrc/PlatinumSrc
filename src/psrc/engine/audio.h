@@ -121,6 +121,10 @@ struct audiostate {
     } cache;
     float campos[3]; // for position effect
     float camrot[3];
+    float rotradx, rotrady, rotradz;
+    float sinx, cosx;
+    float siny, cosy;
+    float sinz, cosz;
 };
 
 extern struct audiostate audiostate;
@@ -133,7 +137,7 @@ enum audioopt {
 
 bool initAudio(void);
 bool startAudio(void);
-//void updateAudioConfig(enum audioopt, ...);
+void updateAudioConfig(enum audioopt, ...);
 void stopAudio(void);
 bool restartAudio(void);
 void quitAudio(void);

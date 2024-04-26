@@ -85,8 +85,8 @@ static struct {
     uint8_t fastclear : 1;
     float nearplane;
     float farplane;
-    mat4 projmat;
-    mat4 viewmat;
+    float projmat[4][4];
+    float viewmat[4][4];
     #if PLATFORM == PLAT_NXDK
     float scale;
     #endif
@@ -122,51 +122,93 @@ static void gl_display(void) {
 }
 
 static void gl_calcProjMat(void) {
-    glm_perspective(
-        rendstate.fov * M_PI / 180.0, -rendstate.aspect,
-        #if PLATFORM != PLAT_NXDK
-        gldata.nearplane, gldata.farplane,
-        #else
-        gldata.nearplane * gldata.scale * gldata.scale,
-        gldata.farplane * gldata.scale * gldata.scale,
-        #endif
-        gldata.projmat
-    );
+    #if PLATFORM != PLAT_NXDK
+        #define gl_cpm_near gldata.nearplane
+        #define gl_cpm_far gldata.farplane
+    #else
+        float gl_cpm_near = gldata.nearplane * gldata.scale * gldata.scale;
+        float gl_cpm_far = gldata.farplane * gldata.scale * gldata.scale;
+    #endif
+    float tmp1 = 1.0f / tanf(rendstate.fov * (float)M_PI / 180.0f * 0.5f);
+    float tmp2 = 1.0f / (gl_cpm_near - gl_cpm_far);
+    gldata.projmat[0][0] = tmp1 / -rendstate.aspect;
+    gldata.projmat[1][0] = 0.0f;
+    gldata.projmat[2][0] = 0.0f;
+    gldata.projmat[3][0] = 0.0f;
+    gldata.projmat[0][1] = 0.0f;
+    gldata.projmat[1][1] = tmp1;
+    gldata.projmat[2][1] = 0.0f;
+    gldata.projmat[3][1] = 0.0f;
+    gldata.projmat[0][2] = 0.0f;
+    gldata.projmat[1][2] = 0.0f;
+    gldata.projmat[2][2] = (gl_cpm_near + gl_cpm_far) * tmp2;
+    gldata.projmat[3][2] = 2.0f * gl_cpm_near * gl_cpm_far * tmp2;
+    gldata.projmat[0][3] = 0.0f;
+    gldata.projmat[1][3] = 0.0f;
+    gldata.projmat[2][3] = -1.0f;
+    gldata.projmat[3][3] = 0.0f;
+    #if PLATFORM != PLAT_NXDK
+        #undef gl_cpm_near
+        #undef gl_cpm_far
+    #endif
 }
 
 static inline void gl_calcViewMat(void) {
-    static float campos[3];
-    static float front[3];
     static float up[3];
+    static float front[3];
     #if PLATFORM != PLAT_NXDK
-    campos[0] = rendstate.campos[0];
-    campos[1] = rendstate.campos[1];
-    campos[2] = rendstate.campos[2];
+        #define gl_cvm_campos rendstate.campos
     #else
-    campos[0] = rendstate.campos[0] * gldata.scale;
-    campos[1] = rendstate.campos[1] * gldata.scale;
-    campos[2] = rendstate.campos[2] * gldata.scale;
+        static float gl_cvm_campos[3];
+        gl_cvm_campos[0] = rendstate.campos[0] * gldata.scale;
+        gl_cvm_campos[1] = rendstate.campos[1] * gldata.scale;
+        gl_cvm_campos[2] = rendstate.campos[2] * gldata.scale;
     #endif
-    static float rotradx, sinx, cosx;
-    static float rotrady, siny, cosy;
-    static float rotradz, sinz, cosz;
-    rotradx = rendstate.camrot[0] * M_PI / 180.0;
-    rotrady = rendstate.camrot[1] * -M_PI / 180.0;
-    rotradz = rendstate.camrot[2] * M_PI / 180.0;
+    static float rotradx, rotrady, rotradz;
+    rotradx = rendstate.camrot[0] * (float)M_PI / 180.0f;
+    rotrady = rendstate.camrot[1] * (float)-M_PI / 180.0f;
+    rotradz = rendstate.camrot[2] * (float)M_PI / 180.0f;
+    static float sinx, cosx;
+    static float siny, cosy;
+    static float sinz, cosz;
     sinx = sin(rotradx);
     cosx = cos(rotradx);
     siny = sin(rotrady);
     cosy = cos(rotrady);
     sinz = sin(rotradz);
     cosz = cos(rotradz);
-    front[0] = (-siny) * cosx;
-    front[1] = sinx;
-    front[2] = cosy * cosx;
-    up[0] = siny * sinx * cosz + sinz * cosy;
+    up[0] = sinx * siny * cosz + cosy * sinz;
     up[1] = cosx * cosz;
-    up[2] = (-cosy) * sinx * cosz + sinz * siny;
-    glm_vec3_add(campos, front, front);
-    glm_lookat(campos, front, up, gldata.viewmat);
+    up[2] = -sinx * cosy * cosz + siny * sinz;
+    front[0] = cosx * -siny;
+    front[1] = sinx;
+    front[2] = cosx * cosy;
+    gldata.viewmat[0][0] = front[1] * up[2] - front[2] * up[1];
+    gldata.viewmat[1][0] = front[2] * up[0] - front[0] * up[2];
+    gldata.viewmat[2][0] = front[0] * up[1] - front[1] * up[0];
+    gldata.viewmat[3][0] = -(gldata.viewmat[0][0] * gl_cvm_campos[0] + gldata.viewmat[1][0] * gl_cvm_campos[1] + gldata.viewmat[2][0] * gl_cvm_campos[2]);
+    gldata.viewmat[0][1] = up[0];
+    gldata.viewmat[1][1] = up[1];
+    gldata.viewmat[2][1] = up[2];
+    gldata.viewmat[3][1] = -(up[0] * gl_cvm_campos[0] + up[1] * gl_cvm_campos[1] + up[2] * gl_cvm_campos[2]);
+    gldata.viewmat[0][2] = -front[0];
+    gldata.viewmat[1][2] = -front[1];
+    gldata.viewmat[2][2] = -front[2];
+    gldata.viewmat[3][2] = front[0] * gl_cvm_campos[0] + front[1] * gl_cvm_campos[1] + front[2] * gl_cvm_campos[2];
+    gldata.viewmat[0][3] = 0.0f;
+    gldata.viewmat[1][3] = 0.0f;
+    gldata.viewmat[2][3] = 0.0f;
+    gldata.viewmat[3][3] = 1.0f;
+    #if 0
+    puts("VIEWMAT: {");
+    for (int i = 0; i < 4; ++i) {
+        printf("    {%+.03f, %+.03f, %+.03f, %+.03f}%s\n", gldata.viewmat[i][0], gldata.viewmat[i][1], gldata.viewmat[i][2], gldata.viewmat[i][3], (i == 3) ? "" : ",");
+    }
+    puts("}");
+    #endif
+    #if PLATFORM != PLAT_NXDK
+        #undef gl_cvm_campos
+    #endif
 }
 
 static void gl_updateFrame(void) {
@@ -206,24 +248,24 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
     int vertct = 0;
     for (int mc = 0; mc < 5; ++mc) {
     #endif
-        double dt = (double)(lt % 1000) / 1000.0;
+        double dt = (double)(lt % 1000) / 1000.0f;
         double t = (double)(lt / 1000) + dt;
-        float tsin = sin(t * 0.179254 * M_PI) * 2.0;
-        float tsin2 = fabs(sin(t * 0.374124 * M_PI));
-        float tcos = cos(t * 0.214682 * M_PI) * 0.5;
+        float tsin = sin(t * 0.179254f * M_PI) * 2.0f;
+        float tsin2 = fabs(sin(t * 0.374124f * M_PI));
+        float tcos = cos(t * 0.214682f * M_PI) * 0.5f;
         for (int ig = 0; ig < m->indexgroupcount; ++ig) {
             uint16_t indcount = m->indexgroups[ig].indexcount;
             uint16_t* inds = m->indexgroups[ig].indices;
             glBegin(GL_TRIANGLES);
-            //glColor3f(1.0, 1.0, 1.0);
+            //glColor3f(1.0f, 1.0f, 1.0f);
             for (uint16_t i = 0; i < indcount; ++i) {
-                float tmp1 = verts[*inds].z * 7.5;
-                if (tmp1 < 0.0) tmp1 = 0.0;
-                else if (tmp1 > 1.0) tmp1 = 1.0;
+                float tmp1 = verts[*inds].z * 7.5f;
+                if (tmp1 < 0.0f) tmp1 = 0.0f;
+                else if (tmp1 > 1.0f) tmp1 = 1.0f;
                 #if 1
                 int ci = (*inds * 0x10492851) ^ *inds;
                 uint8_t c[3] = {ci >> 16, ci >> 8, ci};
-                //glColor3f(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0);
+                //glColor3f(c[0] / 255.0f, c[1] / 255.0f, c[2] / 255.0f);
                 #else
                 //glColor3f(tmp1, tmp1, tmp1);
                 int tmpi = i - (i % 3);
@@ -232,8 +274,8 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
                 ci -= 0x12E23827;
                 uint8_t c[3] = {ci >> 16, ci >> 8, ci};
                 #endif
-                glColor3f(c[0] / 255.0 * tmp1, c[1] / 255.0 * tmp1, c[2] / 255.0 * tmp1);
-                glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8 + tsin2, -verts[*inds].z + 1.75 + tcos);
+                glColor3f(c[0] / 255.0f * tmp1, c[1] / 255.0f * tmp1, c[2] / 255.0f * tmp1);
+                glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8f + tsin2, -verts[*inds].z + 1.75f + tcos);
                 //++vertct;
                 ++inds;
             }
@@ -297,14 +339,14 @@ static void render_gl_legacy(void) {
 #else
 static void render_gl_legacy(void) {
     long lt = SDL_GetTicks();
-    double dt = (double)(lt % 1000) / 1000.0;
+    double dt = (double)(lt % 1000) / 1000.0f;
     double t = (double)(lt / 1000) + dt;
-    float tsin = sin(t * 0.827535 * M_PI);
-    float tsin2 = sin(t * 0.628591 * M_PI);
-    float tsinn = sin(t * M_PI) * 0.5 + 0.5;
-    float tcosn = cos(t * M_PI) * 0.5 + 0.5;
-    float tsini = 1.0 - tsinn;
-    float tcosi = 1.0 - tcosn;
+    float tsin = sin(t * 0.827535f * M_PI);
+    float tsin2 = sin(t * 0.628591f * M_PI);
+    float tsinn = sin(t * M_PI) * 0.5f + 0.5f;
+    float tcosn = cos(t * M_PI) * 0.5f + 0.5f;
+    float tsini = 1.0f - tsinn;
+    float tcosi = 1.0f - tcosn;
 
     glDepthMask(GL_TRUE);
     gl_clearScreen();
@@ -322,51 +364,51 @@ static void render_gl_legacy(void) {
     glScalef(gldata.scale, gldata.scale, gldata.scale);
     #endif
 
-    float z = 2.0;
+    float z = 2.0f;
 
     glBegin(GL_QUADS);
         #if 1
         glColor3f(tsini, tcosn, tsinn);
-        glVertex3f(-1.0, 1.0, z);
+        glVertex3f(-1.0f, 1.0f, z);
         glColor3f(tcosi, tsini, tcosn);
-        glVertex3f(-1.0, -1.0, z);
+        glVertex3f(-1.0f, -1.0f, z);
         glColor3f(tsinn, tcosi, tsini);
-        glVertex3f(1.0, -1.0, z);
+        glVertex3f(1.0f, -1.0f, z);
         glColor3f(tcosn, tsinn, tcosi);
-        glVertex3f(1.0, 1.0, z);
+        glVertex3f(1.0f, 1.0f, z);
         #endif
-        glColor3f(1.0, 0.0, 0.0);
-        glVertex3f(-0.5, 0.5, z);
-        glColor3f(0.5, 1.0, 0.0);
-        glVertex3f(-0.5, -0.5, z);
-        glColor3f(0.0, 1.0, 1.0);
-        glVertex3f(0.5, -0.5, z);
-        glColor3f(0.5, 0.0, 1.0);
-        glVertex3f(0.5, 0.5, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(-1.0, 0.025 + tsin2, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(-1.0, -0.025 + tsin2, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(1.0, -0.025 + tsin2, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(1.0, 0.025 + tsin2, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.025 + tsin, 1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-0.025 + tsin, -1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(0.025 + tsin, -1.0, z);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(0.025 + tsin, 1.0, z);
-        glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(-0.5, -1.0, z);
-        glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(-0.5, -1.0, z - 1.0);
-        glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(0.5, -1.0, z - 1.0);
-        glColor3f(0.0, 0.5, 0.0);
-        glVertex3f(0.5, -1.0, z);
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex3f(-0.5f, 0.5f, z);
+        glColor3f(0.5f, 1.0f, 0.0f);
+        glVertex3f(-0.5f, -0.5f, z);
+        glColor3f(0.0f, 1.0f, 1.0f);
+        glVertex3f(0.5f, -0.5f, z);
+        glColor3f(0.5f, 0.0f, 1.0f);
+        glVertex3f(0.5f, 0.5f, z);
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glVertex3f(-1.0f, 0.025f + tsin2, z);
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glVertex3f(-1.0f, -0.025f + tsin2, z);
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glVertex3f(1.0f, -0.025f + tsin2, z);
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glVertex3f(1.0f, 0.025f + tsin2, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(-0.025f + tsin, 1.0f, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(-0.025f + tsin, -1.0f, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(0.025f + tsin, -1.0f, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(0.025f + tsin, 1.0f, z);
+        glColor3f(0.0f, 0.5f, 0.0f);
+        glVertex3f(-0.5f, -1.0f, z);
+        glColor3f(0.0f, 0.5f, 0.0f);
+        glVertex3f(-0.5f, -1.0f, z - 1.0f);
+        glColor3f(0.0f, 0.5f, 0.0f);
+        glVertex3f(0.5f, -1.0f, z - 1.0f);
+        glColor3f(0.0f, 0.5f, 0.0f);
+        glVertex3f(0.5f, -1.0f, z);
     glEnd();
 
     glEnable(GL_CULL_FACE);
@@ -380,14 +422,14 @@ static void render_gl_legacy(void) {
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 
     glBegin(GL_QUADS);
-        glColor3f(1.0, 1.0, 1.0);
-        glVertex3f(-1.0, 1.0, z);
-        glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(-1.0, -1.0, z);
-        glColor3f(0.0, 0.0, 0.0);
-        glVertex3f(1.0, -1.0, z);
-        glColor3f(0.5, 0.5, 0.5);
-        glVertex3f(1.0, 1.0, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(-1.0f, 1.0f, z);
+        glColor3f(0.5f, 0.5f, 0.5f);
+        glVertex3f(-1.0f, -1.0f, z);
+        glColor3f(0.0f, 0.0f, 0.0f);
+        glVertex3f(1.0f, -1.0f, z);
+        glColor3f(0.5f, 0.5f, 0.5f);
+        glVertex3f(1.0f, 1.0f, z);
     glEnd();
 
     glDepthMask(GL_TRUE);
@@ -654,14 +696,14 @@ static bool gl_afterCreateWindow(void) {
         gldata.nearplane = atof(tmpstr[0]);
         free(tmpstr[0]);
     } else {
-        gldata.nearplane = 0.1;
+        gldata.nearplane = 0.1f;
     }
     tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
     if (tmpstr[0]) {
         gldata.farplane = atof(tmpstr[0]);
         free(tmpstr[0]);
     } else {
-        gldata.farplane = 100.0;
+        gldata.farplane = 100.0f;
     }
     #if PLATFORM == PLAT_NXDK
     tmpstr[0] = cfg_getvar(config, "Renderer", "nxdk.gl.scale");
@@ -669,7 +711,7 @@ static bool gl_afterCreateWindow(void) {
         gldata.scale = atof(tmpstr[0]);
         free(tmpstr[0]);
     } else {
-        gldata.scale = 25.0;
+        gldata.scale = 25.0f;
     }
     #endif
     tmpstr[0] = cfg_getvar(config, "Renderer", "gl.fastclear");
@@ -687,7 +729,7 @@ static bool gl_prepRenderer(void) {
     #if GL_KHR_debug
     if (glDebugMessageCallback) glDebugMessageCallback(gl_dbgcb, NULL);
     #endif
-    glClearColor(0.0, 0.0, 0.1, 1.0);
+    glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
     gl_updateFrame();
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_BLEND);
