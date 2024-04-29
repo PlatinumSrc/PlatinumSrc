@@ -17,6 +17,22 @@ const char* platname[PLAT__COUNT] = {
     "Windows",
     "Xbox (NXDK)"
 };
+const char* platid[PLAT__COUNT] = {
+    "unknown",
+    "android",
+    "dreamcast",
+    "emscr",
+    "freebsd",
+    "haiku",
+    "linux",
+    "macos",
+    "netbsd",
+    "openbsd",
+    "ps2",
+    "unix",
+    "win32",
+    "nxdk"
+};
 const char* platdir[PLAT__COUNT] = {
     "unknown",
     "android",

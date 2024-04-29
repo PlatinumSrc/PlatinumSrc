@@ -90,13 +90,6 @@ static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s,
 }
 #endif
 
-static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
-    fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
-    fx->speedmul = (sfx[0].speedmul * ii + sfx[1].speedmul * i) / samples;
-    fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
-    fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
-}
-
 static inline void calcSoundFx(struct audiosound* s) {
     struct audioemitter* e = &audiostate.emitters.data[s->emitter];
     s->fx[1].speedmul = roundf(s->speed * 1000.0f);
@@ -213,7 +206,12 @@ static inline void stopSound_inline(struct audiosound* v) {
     v->rc = NULL;
 }
 
-// TODO: optimize?
+static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
+    fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
+    fx->speedmul = (sfx[0].speedmul * ii + sfx[1].speedmul * i) / samples;
+    fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
+    fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
+}
 #define MIXSOUNDS_CALCPOS() {\
     int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
     fxoff = fx.posoff;\
@@ -250,7 +248,7 @@ static inline void stopSound_inline(struct audiosound* v) {
             --ii;\
         }\
     }\
-    if (pos > len) unload = true;\
+    if (pos >= len || pos < 0) unload = true;\
 }
 #define MIXSOUNDS_INTERPBODY(c) {\
     if (frac) {\

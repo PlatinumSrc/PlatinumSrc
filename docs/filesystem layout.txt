@@ -1,13 +1,14 @@
 <Main dir>/ - Most likely the directory the engine executable is located.
     engine/
         config/
-            autoexec.sor - (Optional) script to run on startup.
+            autorun.bas - (Optional) script to run on startup.
             config.cfg - Optional. See 'default config.txt' for details.
         fonts/
         shaders/
-    games/ - This layout is optional (except for game.cfg and main.sor) but is highly recommended.
+    games/ - This layout is optional (except for game.cfg and main.bas) but is highly recommended.
         <Game dir>/
             cosmetics/
+            fonts/
             items/
             maps/ - Maps should be named using an [<Abbreviated game name or game mode>_]<Name> scheme and must have the
                     .pmf file extension. See 'pmf.txt' for details.
@@ -20,14 +21,14 @@
             textures/
             weapons/
             game.cfg - Game info/config. See 'game config.txt' for details.
-            main.sor - The script that starts the game (this should typically display a splash screen, set up the game, then
+            main.bas - The script that starts the game (this should typically display a splash screen, set up the game, then
                        load the main menu).
     mods/ - Subfolders act as overlays for <Main dir>.
 
 <User dir>/ - A directory (specified by the 'userdir' variable in 'game.txt') most likely inside of the system/user's
               program data directory.
     config/
-        autoexec.sor - (Optional) script to run after autoexec.sor in <Main dir>/engine/.
+        autorun.bas - (Optional) script to run after autorun.bas in <Main dir>/engine/.
         config.cfg - Optional.
     cosmetics/
     custom/ - Custom content from other users

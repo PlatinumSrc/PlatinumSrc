@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <math.h>
 #if PLATFORM == PLAT_WIN32
     #include <windows.h>
 #elif PLATFORM == PLAT_EMSCR
@@ -275,13 +276,13 @@ int initLoop(void) {
     testemt_obj = newAudioEmitter(1, EMITTERFLAG_POSEFFECT | EMITTERFLAG_FORCEMONO, SOUNDFX_POS, 0.0, 0.0, 4.0, SOUNDFX_END);
 
     test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt);
-    //if (test) playSound(testemt_env, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
+    if (test) playSound(testemt_env, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
     if (test) playSound(testemt_world, test, SOUNDFLAG_LOOP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
     freeResource(test);
     test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
-    //if (test) playSound(testemt_obj, test, SOUNDFLAG_LOOP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
+    if (test) playSound(testemt_obj, test, SOUNDFLAG_LOOP | SOUNDFLAG_UNINTERRUPTIBLE, SOUNDFX_END);
     freeResource(test);
 
     // TODO: cleanup

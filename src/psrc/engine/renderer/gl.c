@@ -131,7 +131,7 @@ static void gl_calcProjMat(void) {
     #endif
     float tmp1 = 1.0f / tanf(rendstate.fov * (float)M_PI / 180.0f * 0.5f);
     float tmp2 = 1.0f / (gl_cpm_near - gl_cpm_far);
-    gldata.projmat[0][0] = tmp1 / -rendstate.aspect;
+    gldata.projmat[0][0] = -(tmp1 / rendstate.aspect);
     gldata.projmat[1][0] = 0.0f;
     gldata.projmat[2][0] = 0.0f;
     gldata.projmat[3][0] = 0.0f;

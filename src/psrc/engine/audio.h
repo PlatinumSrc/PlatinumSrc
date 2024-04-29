@@ -75,12 +75,6 @@ struct audiosound {
     struct audiosound_fx fx[2];
 };
 
-struct audiocachenode {
-    struct audiocachenode* next;
-    struct audiocachenode* prev;
-    struct rc_sound* data;
-};
-
 struct audiostate {
     #ifndef PSRC_NOMT
     struct accesslock lock;
@@ -113,12 +107,6 @@ struct audiostate {
         int count;
         int next;
     } voices;
-    struct {
-        struct audiocachenode* data;
-        struct audiocachenode* head;
-        struct audiocachenode* tail;
-        int size;
-    } cache;
     float campos[3]; // for position effect
     float camrot[3];
     float rotradx, rotrady, rotradz;

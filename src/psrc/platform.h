@@ -140,6 +140,7 @@
 #endif
 
 extern const char* platname[PLAT__COUNT];
+extern const char* platid[PLAT__COUNT];
 extern const char* platdir[PLAT__COUNT];
 extern const char* altplatdir[PLAT__COUNT];
 
