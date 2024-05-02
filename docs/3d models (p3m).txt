@@ -1,7 +1,7 @@
 P3M - PlatinumSrc 3D Model File/Format
 
 - .p3m file extension
-- Current version is 1.0
+- Current version is 1.1
 - All data should be little endian
 
 Format:
@@ -44,9 +44,14 @@ Format:
         <float: Max frame>
         <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
     Action data:
-        <u8: Translation count> [ <float: Frame> <float[3]: Translation> ]...
-        <u8: Rotation count> [ <float: Frame> <float[3]: Rotation> ]...
-        <u8: Scale count> [ <float: Frame> <float[3]: Scale> ]...
+        <u8: Translation count> [ <float: Frame> <float[3]: Translation> ]... [Animation interp type]...
+        <u8: Rotation count> [ <float: Frame> <float[3]: Rotation> ]... [Animation interp type]...
+        <u8: Scale count> [ <float: Frame> <float[3]: Scale> ]... [Animation interp type]...
+    Animation interp type:
+        <u8:
+            { P3M_INTERP_NONE
+            | P3M_INTERP_LINEAR }
+        >
     Animation:
         <<String>: Name>
         <u32: Microseconds per frame>

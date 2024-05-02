@@ -1,7 +1,7 @@
 bl_info = {
     "name": "PlatinumSrc P3M",
     "author": "PQCraft",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (3, 6, 0),
     "location": "File > Import-Export",
     "description": "Import-Export P3M",

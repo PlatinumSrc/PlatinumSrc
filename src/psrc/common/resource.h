@@ -2,7 +2,7 @@
 #define PSRC_COMMON_RESOURCE_H
 
 #include "config.h"
-#include "scripting.h"
+#include "pbasic.h"
 #include "p3m.h"
 
 #ifndef PSRC_MODULE_SERVER

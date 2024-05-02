@@ -104,7 +104,14 @@ static struct {
         } gles30;
         #endif
     };
-} gldata;
+} gldata = {
+    .viewmat = {
+        [3][3] = 1.0f
+    },
+    .projmat = {
+        [2][3] = -1.0f
+    }
+};
 
 static void gl_display(void) {
     #if PLATFORM == PLAT_NXDK
@@ -132,21 +139,9 @@ static void gl_calcProjMat(void) {
     float tmp1 = 1.0f / tanf(rendstate.fov * (float)M_PI / 180.0f * 0.5f);
     float tmp2 = 1.0f / (gl_cpm_near - gl_cpm_far);
     gldata.projmat[0][0] = -(tmp1 / rendstate.aspect);
-    gldata.projmat[1][0] = 0.0f;
-    gldata.projmat[2][0] = 0.0f;
-    gldata.projmat[3][0] = 0.0f;
-    gldata.projmat[0][1] = 0.0f;
     gldata.projmat[1][1] = tmp1;
-    gldata.projmat[2][1] = 0.0f;
-    gldata.projmat[3][1] = 0.0f;
-    gldata.projmat[0][2] = 0.0f;
-    gldata.projmat[1][2] = 0.0f;
     gldata.projmat[2][2] = (gl_cpm_near + gl_cpm_far) * tmp2;
     gldata.projmat[3][2] = 2.0f * gl_cpm_near * gl_cpm_far * tmp2;
-    gldata.projmat[0][3] = 0.0f;
-    gldata.projmat[1][3] = 0.0f;
-    gldata.projmat[2][3] = -1.0f;
-    gldata.projmat[3][3] = 0.0f;
     #if PLATFORM != PLAT_NXDK
         #undef gl_cpm_near
         #undef gl_cpm_far
@@ -195,10 +190,6 @@ static inline void gl_calcViewMat(void) {
     gldata.viewmat[1][2] = -front[1];
     gldata.viewmat[2][2] = -front[2];
     gldata.viewmat[3][2] = front[0] * gl_cvm_campos[0] + front[1] * gl_cvm_campos[1] + front[2] * gl_cvm_campos[2];
-    gldata.viewmat[0][3] = 0.0f;
-    gldata.viewmat[1][3] = 0.0f;
-    gldata.viewmat[2][3] = 0.0f;
-    gldata.viewmat[3][3] = 1.0f;
     #if 0
     puts("VIEWMAT: {");
     for (int i = 0; i < 4; ++i) {

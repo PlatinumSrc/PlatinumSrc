@@ -37,7 +37,7 @@ def save(operator, context, filepath,
     vertices = []
     indexgroups = [] # [[material index, material name], indices]
     bones = [] # [name, deform, head, tail, [index, weight], child count]
-    actions = [] # [name, frames, [bone, [frame, translation], [frame, rotation], [frame, scale]]]
+    actions = [] # [name, frames, [bone, [interp, frame, translation], [interp, frame, rotation], [interp, frame, scale]]]
     animations = [] # [name, frametime, [action, speed, start, end]]
     strtable = b""
 
@@ -136,7 +136,7 @@ def save(operator, context, filepath,
             def getfclist(act, name, count):
                 fclist = []
                 tmp = 0
-                for i in range(0, count):
+                for i in range(count):
                     fc = act.fcurves.find(name, index=i)
                     fclist.append(fc)
                     if fc is not None: tmp += 1
@@ -146,25 +146,27 @@ def save(operator, context, filepath,
                 times = []
                 def addtime(t):
                     nonlocal times
-                    for t2 in times:
-                        if t2 == t: return
+                    for i in range(len(times)):
+                        if times[i][0] == t[0]:
+                            if times[i][1] != t[1]: times[i][1] = 1 # default to linear if mismatch
+                            return
                     times.append(t)
                 for fc in fclist:
                     if fc is None: continue
                     for kp in fc.keyframe_points:
-                        addtime(kp.co.x)
+                        addtime([kp.co.x, 1 if kp.interpolation != 'CONSTANT' else 0])
                 times.sort()
                 return times
             def samplefclist(act, fclist, times, endframe):
                 samples = []
-                for i, t in enumerate(times):
+                for t in times:
                     kp = []
                     for fc in fclist:
                         if fc is None:
                             kp.append(0.0)
                         else:
-                            kp.append(fc.evaluate(t))
-                    samples.append([t - act.frame_start, kp])
+                            kp.append(fc.evaluate(t[0]))
+                    samples.append([t[0] - act.frame_start, kp, t[1]])
                 return samples
             def getsamples(act, path, ch):
                 fclist = getfclist(act, path, ch)
@@ -206,7 +208,7 @@ def save(operator, context, filepath,
                     ])
                 animations.append(animdata)
 
-    ver = [1, 0]
+    ver = [1, 1]
 
     f = open(filepath, "wb")
     f.write(b"P3M\0")
@@ -249,12 +251,18 @@ def save(operator, context, filepath,
                     f.write(struct.pack("<B", len(b[1])))
                     for d in b[1]:
                         f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                    for d in b[1]:
+                        f.write(struct.pack("<B", d[2]))
                     f.write(struct.pack("<B", len(b[2])))
                     for d in b[2]:
                         f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                    for d in b[2]:
+                        f.write(struct.pack("<B", d[2]))
                     f.write(struct.pack("<B", len(b[3])))
                     for d in b[3]:
                         f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                    for d in b[3]:
+                        f.write(struct.pack("<B", d[2]))
             f.write(struct.pack("<B", len(animations)))
             for a in animations:
                 f.write(struct.pack("<H", addtostrtable(a[0])))

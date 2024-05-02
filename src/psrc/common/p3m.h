@@ -4,7 +4,9 @@
 #include <stdint.h>
 
 #define P3M_VER_MAJOR 1
-#define P3M_VER_MINOR 0
+#define P3M_VER_MINOR 1
+
+// TODO: redo and add interpolation types
 
 struct __attribute__((packed)) p3m_vertex {
     float x;

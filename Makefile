@@ -232,7 +232,7 @@ ifneq ($(CROSS),nxdk)
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
         endif
-        _LDFLAGS += --embed-file common/ --embed-file engine/ --embed-file games/ --embed-file mods/
+        _LDFLAGS += --embed-file engine/ --embed-file games/ --embed-file mods/
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)

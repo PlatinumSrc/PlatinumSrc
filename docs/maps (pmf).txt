@@ -40,7 +40,7 @@ Format:
 
     Sector:
         <u8[3]: Load radius>
-        <u8: Lightmap count (must be at least 1)> <Lightmap>...
+        <u8: Lightmap count minus 1> <Lightmap>...
         <u16: Extra lightmap count> [Extra lightmap]...
         <u32: Decompressed <Shared sector data> size>
         <u32: Compressed <Shared sector data> size>
@@ -50,7 +50,7 @@ Format:
         <Compressed <Client sector data>>
     Shared sector data:
         <u16: Prop count> [Prop]...
-        <u24: Cube count (must be at least 1)> <Cube>...
+        <u16: Cube count minus 1> <Cube>...
     Client sector data:
         <u24: Triangle count> [Triangle]...
         <u16: Affecting dynamic light count>
@@ -101,23 +101,23 @@ Format:
         <u8: Visible sectors>
         [
             <u8[3]: Sector>
-            <u24: Visible chunk cubes> <u24: Cube index>...
+            <u16: Visible chunk cubes minus 1> <u16: Cube index>...
         ]...
         <u32: Index in visibility data> <{u16|u32}: # of cubes>
 
     Parent cube data:
-        <u24: (+X, +Y, +Z) child index>
-        <u24: (-X, +Y, +Z) child index>
-        <u24: (+X, +Y, -Z) child index>
-        <u24: (-X, +Y, -Z) child index>
-        <u24: (+X, -Y, +Z) child index>
-        <u24: (-X, -Y, +Z) child index>
-        <u24: (+X, -Y, -Z) child index>
-        <u24: (-X, -Y, -Z) child index>
+        <u16: (+X, +Y, +Z) child index>
+        <u16: (-X, +Y, +Z) child index>
+        <u16: (+X, +Y, -Z) child index>
+        <u16: (-X, +Y, -Z) child index>
+        <u16: (+X, -Y, +Z) child index>
+        <u16: (-X, -Y, +Z) child index>
+        <u16: (+X, -Y, -Z) child index>
+        <u16: (-X, -Y, -Z) child index>
     Solid cube data:
         <u16: Material>
         <u8: Lightmap>
-        <u24: Point index>
+        <u24: Triangle index>
         <u16:
             <4 bits: 0>
             <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
@@ -126,7 +126,7 @@ Format:
     Angled cube data:
         <u16: Material>
         <u8: Lightmap>
-        <u24: Point index>
+        <u24: Triangle index>
         <u16:
             <2 bits: 0>
             <2 bits: Plane # of triangles>
