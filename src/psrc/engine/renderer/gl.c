@@ -250,7 +250,7 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             glBegin(GL_TRIANGLES);
             //glColor3f(1.0f, 1.0f, 1.0f);
             for (uint16_t i = 0; i < indcount; ++i) {
-                float tmp1 = verts[*inds].z * 7.5f;
+                float tmp1 = verts[*inds].z * 5.0f + 0.5f;
                 if (tmp1 < 0.0f) tmp1 = 0.0f;
                 else if (tmp1 > 1.0f) tmp1 = 1.0f;
                 #if 1
@@ -260,13 +260,14 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
                 #else
                 //glColor3f(tmp1, tmp1, tmp1);
                 int tmpi = i - (i % 3);
-                int ci = (tmpi * 0x10632151);
-                ci ^= (tmpi >> 16) * 0x234120B4;
-                ci -= 0x12E23827;
+                ci ^= 0x2875BC92;
+                ci >>= 3;
+                ci -= 0xAE2848BC;
                 uint8_t c[3] = {ci >> 16, ci >> 8, ci};
                 #endif
                 glColor3f(c[0] / 255.0f * tmp1, c[1] / 255.0f * tmp1, c[2] / 255.0f * tmp1);
                 glVertex3f(-verts[*inds].x + tsin, verts[*inds].y - 1.8f + tsin2, -verts[*inds].z + 1.75f + tcos);
+                //glVertex3f(-verts[*inds].x, verts[*inds].y - 1.8f, -verts[*inds].z + 1.75f);
                 //++vertct;
                 ++inds;
             }

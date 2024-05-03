@@ -13,7 +13,7 @@ Format:
         <u8: Major version> <u8: Minor version>
         <u8: <7 bits: 0> <1 bit: Has animations>>
     Data:
-        <u16: Vertex count> [Vertex]... [Texture vertex]...
+        <u16: Vertex count> [Vertex]...
         <u8: Index group count> [Index group]...
         [
             <u8: Bone count> [Bone]...
@@ -26,9 +26,7 @@ Format:
         <u16: Offset in string table>
 
     Vertex:
-        <float: X> <float: Y> <float: Z>
-    Texture vertex:
-        <float: U> <float: V>
+        <float: X> <float: Y> <float: Z> <float: U> <float: V>
 
     Index group:
         <<String>: Texture path>
@@ -41,16 +39,16 @@ Format:
         <u8: Child count>
 
     Action:
-        <float: Max frame>
+        <u16: Max frame>
         <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
     Action data:
-        <u8: Translation count> [ <float: Frame> <float[3]: Translation> ]... [Animation interp type]...
-        <u8: Rotation count> [ <float: Frame> <float[3]: Rotation> ]... [Animation interp type]...
-        <u8: Scale count> [ <float: Frame> <float[3]: Scale> ]... [Animation interp type]...
+        <u8: Translation count> [u16: Frame]... [Animation interp type]... [float[3]: Translation]...
+        <u8: Rotation count> [u16: Frame]... [Animation interp type]... [float[3]: Rotation]...
+        <u8: Scale count> [u16: Frame]... [Animation interp type]... [float[3]: Scale]...
     Animation interp type:
         <u8:
-            { P3M_INTERP_NONE
-            | P3M_INTERP_LINEAR }
+            { P3M_ACTINTERP_NONE
+            | P3M_ACTINTERP_LINEAR }
         >
     Animation:
         <<String>: Name>

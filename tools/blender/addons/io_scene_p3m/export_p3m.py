@@ -37,7 +37,7 @@ def save(operator, context, filepath,
     vertices = []
     indexgroups = [] # [[material index, material name], indices]
     bones = [] # [name, deform, head, tail, [index, weight], child count]
-    actions = [] # [name, frames, [bone, [interp, frame, translation], [interp, frame, rotation], [interp, frame, scale]]]
+    actions = [] # [name, frames, [bone, [frame, interp, translation], [frame, interp, rotation], [frame, interp, scale]]]
     animations = [] # [name, frametime, [action, speed, start, end]]
     strtable = b""
 
@@ -166,7 +166,7 @@ def save(operator, context, filepath,
                             kp.append(0.0)
                         else:
                             kp.append(fc.evaluate(t[0]))
-                    samples.append([t[0] - act.frame_start, kp, t[1]])
+                    samples.append([int(t[0] - act.frame_start), t[1], kp])
                 return samples
             def getsamples(act, path, ch):
                 fclist = getfclist(act, path, ch)
@@ -219,9 +219,7 @@ def save(operator, context, filepath,
     f.write(struct.pack("<B", flags))
     f.write(struct.pack("<H", len(vertices)))
     for v in vertices:
-        f.write(struct.pack("<fff", v.x, v.y, v.z))
-    for v in vertices:
-        f.write(struct.pack("<ff", v.u, v.v))
+        f.write(struct.pack("<fffff", v.x, v.y, v.z, v.u, v.v))
     f.write(struct.pack("<B", len(indexgroups)))
     for g in indexgroups:
         f.write(struct.pack("<H", addtostrtable(g[0][1])))
@@ -250,19 +248,25 @@ def save(operator, context, filepath,
                     f.write(struct.pack("<H", addtostrtable(b[0])))
                     f.write(struct.pack("<B", len(b[1])))
                     for d in b[1]:
-                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                        f.write(struct.pack("<H", d[0]))
                     for d in b[1]:
-                        f.write(struct.pack("<B", d[2]))
+                        f.write(struct.pack("<B", d[1]))
+                    for d in b[1]:
+                        f.write(struct.pack("<fff", d[2][0], d[2][1], d[2][2]))
                     f.write(struct.pack("<B", len(b[2])))
                     for d in b[2]:
-                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                        f.write(struct.pack("<H", d[0]))
                     for d in b[2]:
-                        f.write(struct.pack("<B", d[2]))
+                        f.write(struct.pack("<B", d[1]))
+                    for d in b[2]:
+                        f.write(struct.pack("<fff", d[2][0], d[2][1], d[2][2]))
                     f.write(struct.pack("<B", len(b[3])))
                     for d in b[3]:
-                        f.write(struct.pack("<ffff", d[0], d[1][0], d[1][1], d[1][2]))
+                        f.write(struct.pack("<H", d[0]))
                     for d in b[3]:
-                        f.write(struct.pack("<B", d[2]))
+                        f.write(struct.pack("<B", d[1]))
+                    for d in b[3]:
+                        f.write(struct.pack("<fff", d[2][0], d[2][1], d[2][2]))
             f.write(struct.pack("<B", len(animations)))
             for a in animations:
                 f.write(struct.pack("<H", addtostrtable(a[0])))
