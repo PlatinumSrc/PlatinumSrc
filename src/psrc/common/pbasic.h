@@ -86,9 +86,10 @@ struct pb_subref {
     char* name;
     uint32_t namecrc;
 };
-struct script {
+struct pb_script {
     void* ops;
     void* consts;
+    char* names;
     unsigned constcount;
     unsigned varcount;
     unsigned subcount;
@@ -112,13 +113,21 @@ struct pbc_opt {
 };
 struct pbc_stream { // TODO: add pb_compilemem() later if needed
     FILE* f;
-    int line;
-    int col;
-    int lastc;
+    unsigned line;
+    unsigned col;
+    unsigned lastline;
+    unsigned lastcol;
+    int last;
+    bool undo;
 };
 struct pbc_name {
     char* name;
     uint32_t namecrc;
+};
+struct pbc_label {
+    char* name;
+    uint32_t namecrc;
+    int location;
 };
 struct pbc_scope {
     struct {
@@ -126,9 +135,14 @@ struct pbc_scope {
         int len;
         int size;
     } locals;
+    struct {
+        struct pbc_label* data;
+        int len;
+        int size;
+    } labels;
 };
 struct pbc {
-    struct pbc_stream* input;
+    struct pbc_stream input;
     struct {
         struct pbc_scope* data;
         int current;
@@ -159,14 +173,9 @@ struct pbc {
         int len;
         int size;
     } subs;
-    struct {
-        int* data;
-        int len;
-        int size;
-    } labels;
 };
 
-bool pb_compilefile(const char*, struct pbc_opt*, struct script* out, struct charbuf* err);
-bool pb_cleanscript(struct script* err);
+bool pb_compilefile(const char*, struct pbc_opt*, struct pb_script* out, struct charbuf* err);
+void pb_deletescript(struct pb_script*);
 
 #endif

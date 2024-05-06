@@ -144,8 +144,7 @@ struct pbvm_stackelem {
     unsigned index;
 };
 struct pbvm_script {
-    unsigned uses; // number of subs using this program (global state counts as one)
-    struct script script;
+    struct rc_script* script;
     int* varmap; // -1 for unmapped/deleted
     int* submap; // -1 for unmapped/deleted
 };
@@ -166,7 +165,7 @@ struct pbvm_state {
 };
 struct pbvm {
     struct {
-        struct rc_script* data;
+        struct pbvm_script* data;
         unsigned len;
         unsigned size;
         unsigned current;

@@ -1,3 +1,5 @@
+// TODO: rewrite? (too much crust)
+
 #include "resource.h"
 
 #include "../common.h"
@@ -36,15 +38,9 @@
 #undef freeResource
 #undef grabResource
 #undef releaseResource
-//#undef setRcAtt
-//#undef setRcAttData
-//#undef setRcAttCallback
-//#undef getRcAtt
-//#undef delRcAtt
 
 #ifndef PSRC_NOMT
-static mutex_t rclock; // TODO: turn into an access lock
-//static mutex_t rcattidlock;
+static mutex_t rclock;
 #endif
 
 union __attribute__((packed)) resource {
@@ -75,49 +71,49 @@ union __attribute__((packed)) rcopt {
     //struct rcopt_values* values;
 };
 
-struct __attribute__((packed)) rcdata {
+struct rcdata {
     struct rcheader header;
-    union __attribute__((packed)) {
-        struct __attribute__((packed)) {
-            struct rc_config config;
-            //struct rcopt_config configopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_font font;
-            //struct rcopt_font fontopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_map map;
-            struct rcopt_map mapopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_material material;
-            struct rcopt_material materialopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_model model;
-            struct rcopt_model modelopt;
-        };
-        struct __attribute__((packed)) {
-            //struct rc_playermodel playermodel;
-            //struct rcopt_playermodel playermodelopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_script script;
-            struct rcopt_script scriptopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_sound sound;
-            struct rcopt_sound soundopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_texture texture;
-            struct rcopt_texture textureopt;
-        };
-        struct __attribute__((packed)) {
-            struct rc_values values;
-            //struct rcopt_values valuesopt;
-        };
+    union {
+        struct {
+            struct rc_config data;
+            //struct rcopt_config opt;
+        } config;
+        struct {
+            struct rc_font data;
+            //struct rcopt_font opt;
+        } font;
+        struct {
+            struct rc_map data;
+            struct rcopt_map opt;
+        } map;
+        struct {
+            struct rc_material data;
+            struct rcopt_material opt;
+        } material;
+        struct {
+            struct rc_model data;
+            struct rcopt_model opt;
+        } model;
+        struct {
+            //struct rc_playermodel data;
+            //struct rcopt_playermodel opt;
+        } playermodel;
+        struct {
+            struct rc_script data;
+            struct rcopt_script opt;
+        } script;
+        struct {
+            struct rc_sound data;
+            struct rcopt_sound opt;
+        } sound;
+        struct {
+            struct rc_texture data;
+            struct rcopt_texture opt;
+        } texture;
+        struct {
+            struct rc_values data;
+            //struct rcopt_values opt;
+        } values;
     };
 };
 
@@ -137,7 +133,7 @@ struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
 struct rcopt_script scriptopt_default = {
-    //NULL
+    (struct pbc_opt){NULL, false}
 };
 struct rcopt_sound soundopt_default = {
     true
@@ -177,7 +173,7 @@ static struct {
     int size;
     char** paths;
     #ifndef PSRC_NOMT
-    mutex_t lock;
+    struct accesslock lock;
     #endif
 } modinfo;
 
@@ -188,7 +184,7 @@ static char** extlist[RC__COUNT] = {
     (char*[]){".txt", NULL},
     (char*[]){".p3m", NULL},
     (char*[]){".txt", NULL},
-    (char*[]){".psc", NULL},
+    (char*[]){".bas", NULL},
     (char*[]){".ogg", ".mp3", ".wav", NULL},
     (char*[]){".png", ".jpg", ".tga", ".bmp", NULL},
     (char*[]){".txt", NULL}
@@ -347,36 +343,40 @@ char* getRcPath(const char* uri, enum rctype type, char** ext) {
 
 static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, const char* p, uint32_t pcrc) {
     struct rcdata* ptr = NULL;
-    size_t size = sizeof(struct rcheader);
+    size_t size;
     switch (t) {
         case RC_CONFIG:
-            size += sizeof(struct rc_config);
+            size = offsetof(struct rcdata, config) + sizeof(ptr->config);
             break;
         case RC_FONT:
-            size += sizeof(struct rc_font);
+            size = offsetof(struct rcdata, font) + sizeof(ptr->font);
             break;
         case RC_MAP:
-            size += sizeof(struct rc_map) + sizeof(struct rcopt_map);
+            size = offsetof(struct rcdata, map) + sizeof(ptr->map);
             break;
         case RC_MATERIAL:
-            size += sizeof(struct rc_material) + sizeof(struct rcopt_material);
+            size = offsetof(struct rcdata, material) + sizeof(ptr->material);
             break;
         case RC_MODEL:
-            size += sizeof(struct rc_model) + sizeof(struct rcopt_model);
+            size = offsetof(struct rcdata, model) + sizeof(ptr->model);
+            break;
+        case RC_PLAYERMODEL:
+            size = offsetof(struct rcdata, playermodel) + sizeof(ptr->playermodel);
             break;
         case RC_SCRIPT:
-            size += sizeof(struct rc_script) + sizeof(struct rcopt_script);
+            size = offsetof(struct rcdata, script) + sizeof(ptr->script);
             break;
         case RC_SOUND:
-            size += sizeof(struct rc_sound) + sizeof(struct rcopt_sound);
+            size = offsetof(struct rcdata, sound) + sizeof(ptr->sound);
             break;
         case RC_TEXTURE:
-            size += sizeof(struct rc_texture) + sizeof(struct rcopt_texture);
+            size = offsetof(struct rcdata, texture) + sizeof(ptr->texture);
             break;
         case RC_VALUES:
-            size += sizeof(struct rc_values);
+            size = offsetof(struct rcdata, values) + sizeof(ptr->values);
             break;
-        default:
+        default: // never happens but this is to silence some warnings
+            size = 0;
             break;
     }
     for (int i = 0; i < g->len; ++i) {
@@ -389,7 +389,12 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     }
     if (!ptr) {
         if (g->len == g->size) {
-            g->size *= 2;
+            if (g->size == 1) {
+                ++g->size;
+            } else {
+                g->size *= 3;
+                g->size /= 2;
+            }
             g->data = realloc(g->data, g->size * sizeof(*g->data));
         }
         ptr = malloc(size);
@@ -399,14 +404,14 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     ptr->header.type = t;
     ptr->header.path = strdup(p);
     ptr->header.pathcrc = pcrc;
+    ptr->header.hasdatacrc = false;
     ptr->header.refs = 1;
-    //ptr->header.att.data = NULL;
     return ptr;
 }
 
 static struct rcdata* loadResource_internal(enum rctype, const char*, union rcopt);
 
-static void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o) {
+static inline void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o) {
     struct rcdata* r = loadResource_internal(t, uri, o);
     if (!r) return NULL;
     return (void*)r + sizeof(struct rcheader);
@@ -429,22 +434,21 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
             switch (t) {
                 case RC_MATERIAL: {
-                    if (o.material->quality != d->materialopt.quality) goto nomatch;
+                    if (o.material->quality != d->material.opt.quality) goto nomatch;
                 } break;
                 case RC_MODEL: {
-                    if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREVERTS) ||
-                        (o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREBONES) ||
-                        (o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->modelopt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
-                    if (o.model->texture_quality != d->modelopt.texture_quality) goto nomatch;
+                    if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREVERTS)) goto nomatch;
+                    if ((o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREBONES)) goto nomatch;
+                    if ((o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
+                    if (o.model->texture_quality != d->model.opt.texture_quality) goto nomatch;
                 } break;
                 case RC_SCRIPT: {
-                    #if 0 // TODO
-                    if (o.script->findcmd != d->scriptopt.findcmd) goto nomatch;
-                    #endif
+                    if (o.script->compileropt.findext != d->script.opt.compileropt.findext) goto nomatch;
+                    if (o.script->compileropt.fakedata != d->script.opt.compileropt.fakedata) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
-                    if (o.texture->needsalpha && d->texture.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
-                    if (o.texture->quality != d->textureopt.quality) goto nomatch;
+                    if (o.texture->needsalpha && d->texture.data.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
+                    if (o.texture->quality != d->texture.opt.quality) goto nomatch;
                 } break;
                 default: break;
             }
@@ -460,7 +464,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             struct cfg* config = cfg_open(p);
             if (config) {
                 d = loadResource_newptr(t, g, p, pcrc);
-                d->config.config = config;
+                d->config.data.config = config;
             }
         } break;
         #ifndef PSRC_MODULE_SERVER
@@ -468,7 +472,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             SFT_Font* font = sft_loadfile(p);
             if (font) {
                 d = loadResource_newptr(t, g, p, pcrc);
-                d->font.font = font;
+                d->font.data.font = font;
             }
         } break;
         case RC_MATERIAL: {
@@ -487,24 +491,24 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 tmp = cfg_getvar(mat, NULL, "texture");
                 if (tmp) {
                     struct rcopt_texture texopt = {false, o.material->quality};
-                    d->material.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt);
+                    d->material.data.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt);
                     free(tmp);
                 } else {
-                    d->material.texture = NULL;
+                    d->material.data.texture = NULL;
                 }
-                d->material.color[0] = 1.0f;
-                d->material.color[1] = 1.0f;
-                d->material.color[2] = 1.0f;
-                d->material.color[3] = 1.0f;
+                d->material.data.color[0] = 1.0f;
+                d->material.data.color[1] = 1.0f;
+                d->material.data.color[2] = 1.0f;
+                d->material.data.color[3] = 1.0f;
                 tmp = cfg_getvar(mat, NULL, "color");
                 if (tmp) {
-                    sscanf(tmp, "%f,%f,%f", &d->material.color[0], &d->material.color[1], &d->material.color[2]);
+                    sscanf(tmp, "%f,%f,%f", &d->material.data.color[0], &d->material.data.color[1], &d->material.data.color[2]);
                 }
                 tmp = cfg_getvar(mat, NULL, "alpha");
                 if (tmp) {
-                    sscanf(tmp, "%f", &d->material.color[3]);
+                    sscanf(tmp, "%f", &d->material.data.color[3]);
                 }
-                d->materialopt = *o.material;
+                d->material.opt = *o.material;
             }
         } break;
         #endif
@@ -512,31 +516,29 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             struct p3m* m = p3m_loadfile(p, o.model->flags);
             if (m) {
                 d = loadResource_newptr(t, g, p, pcrc);
-                d->model.model = m;
-                d->model.textures = malloc(m->indexgroupcount * sizeof(*d->model.textures));
+                d->model.data.model = m;
+                d->model.data.textures = malloc(m->indexgroupcount * sizeof(*d->model.data.textures));
                 //struct rcopt_texture texopt = {false, o.model->texture_quality};
                 for (int i = 0; i < m->indexgroupcount; ++i) {
-                    //d->model.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt);
-                    d->model.textures[i] = NULL;
+                    //d->model.data.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt);
+                    d->model.data.textures[i] = NULL;
                 }
-                d->modelopt = *o.model;
+                d->model.opt = *o.model;
             }
         } break;
         case RC_SCRIPT: {
-            #if 0 // TODO
-            struct script s;
+            struct pb_script s;
             struct charbuf e;
             cb_init(&e, 128);
-            if (compileScript(p, o.script->findcmd, &s, &e)) {
+            if (pb_compilefile(p, &o.script->compileropt, &s, &e)) {
                 cb_dump(&e);
                 d = loadResource_newptr(t, g, p, pcrc);
-                d->script.script = s;
-                d->scriptopt = *o.script;
+                d->script.data.script = s;
+                d->script.opt = *o.script;
             } else {
                 plog(LL_ERROR, "Failed to compile script %s: %s", uri, cb_peek(&e));
                 cb_dump(&e);
             }
-            #endif
         } break;
         #ifndef PSRC_MODULE_SERVER
         case RC_SOUND: {
@@ -553,32 +555,32 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         if (v) {
                             d = loadResource_newptr(t, g, p, pcrc);
                             if (o.sound->decodewhole) {
-                                d->sound.format = RC_SOUND_FRMT_WAV;
+                                d->sound.data.format = RC_SOUND_FRMT_WAV;
                                 stb_vorbis_info info = stb_vorbis_get_info(v);
                                 int len = stb_vorbis_stream_length_in_samples(v);
                                 int ch = (info.channels > 1) + 1;
                                 int size = len * ch * sizeof(int16_t);
-                                d->sound.len = len;
-                                d->sound.size = size;
-                                d->sound.data = malloc(size);
-                                d->sound.freq = info.sample_rate;
-                                d->sound.channels = info.channels;
-                                d->sound.is8bit = false;
-                                d->sound.stereo = (info.channels > 1);
-                                d->soundopt = *o.sound;
-                                stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)d->sound.data, len * ch);
+                                d->sound.data.len = len;
+                                d->sound.data.size = size;
+                                d->sound.data.data = malloc(size);
+                                d->sound.data.freq = info.sample_rate;
+                                d->sound.data.channels = info.channels;
+                                d->sound.data.is8bit = false;
+                                d->sound.data.stereo = (info.channels > 1);
+                                d->sound.opt = *o.sound;
+                                stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)d->sound.data.data, len * ch);
                                 stb_vorbis_close(v);
                                 free(data);
                             } else {
-                                d->sound.format = RC_SOUND_FRMT_VORBIS;
-                                d->sound.size = sz;
-                                d->sound.data = data;
-                                d->sound.len = stb_vorbis_stream_length_in_samples(v);
+                                d->sound.data.format = RC_SOUND_FRMT_VORBIS;
+                                d->sound.data.size = sz;
+                                d->sound.data.data = data;
+                                d->sound.data.len = stb_vorbis_stream_length_in_samples(v);
                                 stb_vorbis_info info = stb_vorbis_get_info(v);
-                                d->sound.freq = info.sample_rate;
-                                d->sound.channels = info.channels;
-                                d->sound.stereo = (info.channels > 1);
-                                d->soundopt = *o.sound;
+                                d->sound.data.freq = info.sample_rate;
+                                d->sound.data.channels = info.channels;
+                                d->sound.data.stereo = (info.channels > 1);
+                                d->sound.opt = *o.sound;
                                 stb_vorbis_close(v);
                             }
                         } else {
@@ -600,29 +602,29 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         } else {
                             d = loadResource_newptr(t, g, p, pcrc);
                             if (o.sound->decodewhole) {
-                                d->sound.format = RC_SOUND_FRMT_WAV;
+                                d->sound.data.format = RC_SOUND_FRMT_WAV;
                                 int len = m->samples / m->info.channels;
                                 int size = m->samples * sizeof(mp3d_sample_t);
-                                d->sound.len = len;
-                                d->sound.size = size;
-                                d->sound.data = malloc(size);
-                                d->sound.freq = m->info.hz;
-                                d->sound.channels = m->info.channels;
-                                d->sound.is8bit = false;
-                                d->sound.stereo = (m->info.channels > 1);
-                                d->soundopt = *o.sound;
-                                mp3dec_ex_read(m, (mp3d_sample_t*)d->sound.data, m->samples);
+                                d->sound.data.len = len;
+                                d->sound.data.size = size;
+                                d->sound.data.data = malloc(size);
+                                d->sound.data.freq = m->info.hz;
+                                d->sound.data.channels = m->info.channels;
+                                d->sound.data.is8bit = false;
+                                d->sound.data.stereo = (m->info.channels > 1);
+                                d->sound.opt = *o.sound;
+                                mp3dec_ex_read(m, (mp3d_sample_t*)d->sound.data.data, m->samples);
                                 mp3dec_ex_close(m);
                                 free(data);
                             } else {
-                                d->sound.format = RC_SOUND_FRMT_MP3;
-                                d->sound.size = sz;
-                                d->sound.data = data;
-                                d->sound.len = m->samples / m->info.channels;
-                                d->sound.freq = m->info.hz;
-                                d->sound.channels = m->info.channels;
-                                d->sound.stereo = (m->info.channels > 1);
-                                d->soundopt = *o.sound;
+                                d->sound.data.format = RC_SOUND_FRMT_MP3;
+                                d->sound.data.size = sz;
+                                d->sound.data.data = data;
+                                d->sound.data.len = m->samples / m->info.channels;
+                                d->sound.data.freq = m->info.hz;
+                                d->sound.data.channels = m->info.channels;
+                                d->sound.data.stereo = (m->info.channels > 1);
+                                d->sound.opt = *o.sound;
                                 mp3dec_ex_close(m);
                             }
                         }
@@ -667,27 +669,27 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                         data = SDL_realloc(data, cvt.len_cvt);
                                         sz = cvt.len_cvt;
                                         d = loadResource_newptr(t, g, p, pcrc);
-                                        d->sound.format = RC_SOUND_FRMT_WAV;
-                                        d->sound.size = sz;
-                                        d->sound.data = data;
-                                        d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                                        d->sound.freq = spec.freq;
-                                        d->sound.channels = spec.channels;
-                                        d->sound.is8bit = (destfrmt == AUDIO_U8);
-                                        d->sound.stereo = (spec.channels > 1);
-                                        d->soundopt = *o.sound;
+                                        d->sound.data.format = RC_SOUND_FRMT_WAV;
+                                        d->sound.data.size = sz;
+                                        d->sound.data.data = data;
+                                        d->sound.data.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
+                                        d->sound.data.freq = spec.freq;
+                                        d->sound.data.channels = spec.channels;
+                                        d->sound.data.is8bit = (destfrmt == AUDIO_U8);
+                                        d->sound.data.stereo = (spec.channels > 1);
+                                        d->sound.opt = *o.sound;
                                     }
                                 } else {
                                     d = loadResource_newptr(t, g, p, pcrc);
-                                    d->sound.format = RC_SOUND_FRMT_WAV;
-                                    d->sound.size = sz;
-                                    d->sound.data = data;
-                                    d->sound.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                                    d->sound.freq = spec.freq;
-                                    d->sound.channels = spec.channels;
-                                    d->sound.is8bit = (destfrmt == AUDIO_U8);
-                                    d->sound.stereo = (spec.channels > 1);
-                                    d->soundopt = *o.sound;
+                                    d->sound.data.format = RC_SOUND_FRMT_WAV;
+                                    d->sound.data.size = sz;
+                                    d->sound.data.data = data;
+                                    d->sound.data.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
+                                    d->sound.data.freq = spec.freq;
+                                    d->sound.data.channels = spec.channels;
+                                    d->sound.data.is8bit = (destfrmt == AUDIO_U8);
+                                    d->sound.data.stereo = (spec.channels > 1);
+                                    d->sound.opt = *o.sound;
                                 }
                             } else {
                                 free(data);
@@ -740,11 +742,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         }
                     }
                     d = loadResource_newptr(t, g, p, pcrc);
-                    d->texture.width = w;
-                    d->texture.height = h;
-                    d->texture.channels = c;
-                    d->texture.data = data;
-                    d->textureopt = *o.texture;
+                    d->texture.data.width = w;
+                    d->texture.data.height = h;
+                    d->texture.data.channels = c;
+                    d->texture.data.data = data;
+                    d->texture.opt = *o.texture;
                 }
             }
         } break;
@@ -753,13 +755,13 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             struct cfg* values = cfg_open(p);
             if (values) {
                 d = loadResource_newptr(t, g, p, pcrc);
-                d->values.values = values;
+                d->values.data.values = values;
             }
         } break;
         default: break;
     }
     free(p);
-    if (!d) plog(LL_WARN, "Failed to load %s at resource path %s", typenames[t], uri);
+    if (!d) plog(LL_ERROR, "Failed to load %s at resource path %s", typenames[t], uri);
     return d;
 }
 
@@ -783,26 +785,23 @@ static inline void freeResource_wrapper(void* r) {
 static inline void freeResource_force(enum rctype type, struct rcdata* r) {
     switch (type) {
         case RC_MATERIAL: {
-            freeResource_wrapper(r->material.texture);
+            freeResource_wrapper(r->material.data.texture);
         } break;
         case RC_MODEL: {
-            for (unsigned i = 0; i < r->model.model->indexgroupcount; ++i) {
-                freeResource_wrapper(r->model.textures[i]);
+            for (unsigned i = 0; i < r->model.data.model->indexgroupcount; ++i) {
+                freeResource_wrapper(r->model.data.textures[i]);
             }
-            p3m_free(r->model.model);
-            free(r->model.textures);
+            p3m_free(r->model.data.model);
+            free(r->model.data.textures);
         } break;
         case RC_SCRIPT: {
-            #if 0 // TODO
-            struct script s = r->script.script;
-            cleanUpScript(&s);
-            #endif
+            pb_deletescript(&r->script.data.script);
         } break;
         case RC_SOUND: {
-            free(r->sound.data);
+            free(r->sound.data.data);
         } break;
         case RC_TEXTURE: {
-            free(r->texture.data);
+            free(r->texture.data.data);
         } break;
         default: break;
     }
@@ -846,94 +845,6 @@ void grabResource(void* _r) {
     }
 }
 
-#if 0
-int8_t genRcAttKey(void) {
-    #ifndef PSRC_NOMT
-    lockMutex(&rcattidlock);
-    #endif
-    static int8_t key = 0;
-    return key++;
-    #ifndef PSRC_NOMT
-    unlockMutex(&rcattidlock);
-    #endif
-}
-
-static inline struct rcatt* setRcAtt_getptr(struct rcheader* rh, int8_t key) {
-    struct rcatt* d;
-    if (!rh->att.data) {
-        rh->att.len = 1;
-        rh->att.size = 1;
-        d = malloc(rh->att.size * sizeof(*rh->att.data));
-        rh->att.data = d;
-        d->key = key;
-        return d;
-    }
-    int index = -1;
-    for (int i = 0; i < rh->att.len; ++i) {
-        d = &rh->att.data[i];
-        if (d->key < 0 || d->key == key) {
-            index = i;
-            break;
-        }
-    }
-    if (index == -1) {
-        if (rh->att.len == rh->att.size) {
-            rh->att.size *= 2;
-            rh->att.data = realloc(rh->att.data, rh->att.size * sizeof(*rh->att.data));
-        }
-        d = &rh->att.data[rh->att.len++];
-        d->key = key;
-    }
-    return d;
-}
-
-void setRcAtt(void* r, int8_t key, void* data, void (*cb)(void*)) {
-    struct rcheader* rh = r - sizeof(struct rcheader);
-    struct rcatt* d = setRcAtt_getptr(rh, key);
-    d->data = data;
-    d->cb = cb;
-}
-
-void setRcAttData(void* r, int8_t key, void* data) {
-    struct rcheader* rh = r - sizeof(struct rcheader);
-    struct rcatt* d = setRcAtt_getptr(rh, key);
-    d->data = data;
-}
-
-void setRcAttCallback(void* r, int8_t key, void (*cb)(void*)) {
-    struct rcheader* rh = r - sizeof(struct rcheader);
-    struct rcatt* d = setRcAtt_getptr(rh, key);
-    d->cb = cb;
-}
-
-bool getRcAtt(void* r, int8_t key, void** out) {
-    struct rcheader* rh = r - sizeof(struct rcheader);
-    if (rh->att.data) {
-        for (int i = 0; i < rh->att.len; ++i) {
-            struct rcatt* d = &rh->att.data[i];
-            if (d->key == key) {
-                *out = d->data;
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-void delRcAtt(void* r, int8_t key) {
-    struct rcheader* rh = r - sizeof(struct rcheader);
-    if (rh->att.data) {
-        for (int i = 0; i < rh->att.len; ++i) {
-            struct rcatt* d = &rh->att.data[i];
-            if (d->key == key) {
-                if (d->cb) d->cb(d->data);
-                d->key = -1;
-            }
-        }
-    }
-}
-#endif
-
 static inline void loadMods_addpath(char* p) {
     ++modinfo.len;
     if (modinfo.len == modinfo.size) {
@@ -945,7 +856,7 @@ static inline void loadMods_addpath(char* p) {
 
 void loadMods(const char* const* modnames, int modcount) {
     #ifndef PSRC_NOMT
-    lockMutex(&modinfo.lock);
+    acquireWriteAccess(&modinfo.lock);
     #endif
     for (int i = 0; i < modinfo.len; ++i) {
         free(modinfo.paths[i]);
@@ -1006,7 +917,7 @@ void loadMods(const char* const* modnames, int modcount) {
                 loadMods_addpath(tmp);
             }
             if (notfound) {
-                plog(LL_WARN, "Unable to locate mod: %s", modnames[i]);
+                plog(LL_ERROR, "Unable to locate mod: %s", modnames[i]);
             }
         }
         #if DEBUG(1)
@@ -1048,13 +959,13 @@ void loadMods(const char* const* modnames, int modcount) {
         modinfo.paths = NULL;
     }
     #ifndef PSRC_NOMT
-    unlockMutex(&modinfo.lock);
+    releaseWriteAccess(&modinfo.lock);
     #endif
 }
 
 char** queryModInfo(int* len) {
     #ifndef PSRC_NOMT
-    lockMutex(&modinfo.lock);
+    acquireReadAccess(&modinfo.lock);
     #endif
     if (modinfo.len > 0) {
         if (len) *len = modinfo.len;
@@ -1064,12 +975,12 @@ char** queryModInfo(int* len) {
         }
         data[modinfo.len] = NULL;
         #ifndef PSRC_NOMT
-        unlockMutex(&modinfo.lock);
+        releaseReadAccess(&modinfo.lock);
         #endif
         return data;
     }
     #ifndef PSRC_NOMT
-    unlockMutex(&modinfo.lock);
+    releaseReadAccess(&modinfo.lock);
     #endif
     return NULL;
 }
@@ -1077,8 +988,7 @@ char** queryModInfo(int* len) {
 bool initResource(void) {
     #ifndef PSRC_NOMT
     if (!createMutex(&rclock)) return false;
-    //if (!createMutex(&rcattidlock)) return false;
-    if (!createMutex(&modinfo.lock)) return false;
+    if (!createAccessLock(&modinfo.lock)) return false;
     #endif
 
     for (int i = 0; i < RC__COUNT; ++i) {
@@ -1118,7 +1028,6 @@ void quitResource(void) {
 
     #ifndef PSRC_NOMT
     destroyMutex(&rclock);
-    //destroyMutex(&rcattidlock);
-    destroyMutex(&modinfo.lock);
+    destroyAccessLock(&modinfo.lock);
     #endif
 }

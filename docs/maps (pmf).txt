@@ -69,10 +69,10 @@ Format:
 
     Lightmap:
         <u8: 2^(n) size>
-        <u24: Compressed data size> <Compressed <u16: Luxel (RGB565)>...>
+        <u32: Compressed data size> <Compressed <u16: Luxel (RGB565)>...>
     Extra lightmap:
         <u8: Base lightmap>
-        <u24: Compressed data size> <Compressed <u16: Luxel (RGB565)>...>
+        <u32: Compressed data size> <Compressed <u16: Luxel (RGB565)>...>
 
     Triangle:
         <<Point>[3]>
@@ -86,11 +86,11 @@ Format:
                    <2 bits: 0>
                    <1 bit: Is chunk>
                    <1 bit: Has lighting>
-                   <4 bits: { CUBE_EMPTY | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLED }>
+                   <4 bits: { CUBE_EMPTY | CUBE_PARENT | CUBE_SOLID | CUBE_ANGLED | CUBE_EXTSOLID | CUBE_EXTANGLED }>
                >
     Cube data: [Cube lighting data]
                [Cube chunk data]
-               [ { <Parent cube data> | <Solid cube data> | <Angled cube data> } ]
+               [ { <Parent cube data> | <Solid cube data> | <Angled cube data> | <Extended solid cube data> | <Extended angled cube data> } ]
 
     Cube lighting data:
         <u8[3]: Base light>
@@ -118,10 +118,10 @@ Format:
         <u16: Material>
         <u8: Lightmap>
         <u24: Triangle index>
-        <u16:
-            <4 bits: 0>
-            <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
-            <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
+        <u8:
+            <2 bits: 0>
+            <1 bit: +X has face> <1 bit: +Y has face> <1 bit: +Z has face>
+            <1 bit: -X has face> <1 bit: -Y has face> <1 bit: -Z has face>
         >
     Angled cube data:
         <u16: Material>
@@ -133,6 +133,24 @@ Format:
             <2 bits: +X # of triangles> <2 bits: +Y # of triangles> <2 bits: +Z # of triangles>
             <2 bits: -X # of triangles> <2 bits: -Y # of triangles> <2 bits: -Z # of triangles>
         >
+        <float: Fill (0 is empty, 1 is full)>
+        <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
+        <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes counterclockwise)>
+    Extended solid cube data:
+        <u16: +X material> <u16: +Y material> <u16: +Z material>
+        <u16: -X material> <u16: -Y material> <u16: -Z material>
+        <u8: Lightmap>
+        <u24: Triangle index>
+        <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
+        <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
+    Extended angled cube data:
+        <u16: +X material> <u16: +Y material> <u16: +Z material>
+        <u16: -X material> <u16: -Y material> <u16: -Z material>
+        <u8: Lightmap>
+        <u24: Triangle index>
+        <u8: +X # of triangles>
+        <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
+        <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
         <float: Fill (0 is empty, 1 is full)>
         <float: Pitch (0 points up, 1 and -1 point down, positive rolls forward, negative rolls backward)>
         <float: Yaw (0 aims forward, 1 and -1 aim backward, positive goes clockwise, negative goes counterclockwise)>

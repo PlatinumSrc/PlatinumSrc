@@ -1,6 +1,8 @@
 #ifndef PSRC_COMMON_RESOURCE_H
 #define PSRC_COMMON_RESOURCE_H
 
+// TODO: rewrite? (too much crust)
+
 #include "config.h"
 #include "pbasic.h"
 #include "p3m.h"
@@ -46,11 +48,11 @@ struct __attribute__((packed)) rc_values {
 };
 
 // RC_SCRIPT
-struct __attribute__((packed)) rc_script {
-    struct script script;
+struct rc_script {
+    struct pb_script script;
 };
-struct __attribute__((packed)) rcopt_script {
-    //scriptfunc_t (*findcmd)(char*);
+struct rcopt_script {
+    struct pbc_opt compileropt;
 };
 
 // RC_FONT
@@ -140,25 +142,14 @@ struct __attribute__((packed)) rcopt_map {
     enum rcopt_texture_qlt texture_quality;
 };
 
-#if 0
-struct __attribute__((packed)) rcatt {
-    int8_t key;
-    void* data;
-    void (*cb)(void*);
-};
-#endif
-
-struct __attribute__((packed)) rcheader {
+struct rcheader {
     enum rctype type;
     char* path; // full file path
     uint32_t pathcrc;
+    bool hasdatacrc;
+    uint64_t datacrc;
     int refs;
     int index;
-    struct {
-        //struct rcatt* data;
-        int8_t len;
-        int8_t size;
-    } att;
 };
 
 bool initResource(void);
@@ -167,14 +158,6 @@ void* loadResource(enum rctype type, const char* path, void* opt);
 void freeResource(void*);
 void grabResource(void*);
 char* getRcPath(const char* uri, enum rctype type, char** ext);
-#if 0
-int8_t genRcAttKey(void);
-void setRcAtt(void*, int8_t key, void* data, void (*cb)(void*));
-void setRcAttData(void*, int8_t key, void*);
-void setRcAttCallback(void*, int8_t key, void (*)(void*));
-bool getRcAtt(void*, int8_t key, void** out);
-void delRcAtt(void*, int8_t key);
-#endif
 
 #define releaseResource freeResource
 
