@@ -152,13 +152,20 @@ struct rcheader {
     int index;
 };
 
+struct customfile {
+    char* path;
+    uint64_t crc;
+};
+
 bool initResource(void);
 void quitResource(void);
 void* loadResource(enum rctype type, const char* path, void* opt);
 void freeResource(void*);
 void grabResource(void*);
-char* getRcPath(const char* uri, enum rctype type, char** ext);
-
 #define releaseResource freeResource
+char* getRcPath(const char* uri, enum rctype type, char** ext);
+void loadMods(const char* const* names, int count);
+char** queryMods(int* count);
+void setCustomFiles(struct customfile*, int count);
 
 #endif

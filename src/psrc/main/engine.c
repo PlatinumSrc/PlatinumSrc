@@ -547,7 +547,9 @@ void quitLoop(void) {
 static int bootstrap(void) {
     puts(verstr);
     puts(platstr);
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_LINUX
+    setenv("SDL_VIDEODRIVER", "wayland", false);
+    #elif PLATFORM == PLAT_NXDK
     pb_print("%s\n", verstr);
     pb_print("%s\n", platstr);
     pbgl_swap_buffers();

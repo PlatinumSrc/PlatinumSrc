@@ -544,7 +544,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_SOUND: {
             FILE* f = fopen(p, "rb");
             if (f) {
-                if (!strcmp(ext, ".ogg")) {
+                if (ext == extlist[RC_SOUND][0]) {
                     fseek(f, 0, SEEK_END);
                     long sz = ftell(f);
                     if (sz > 0) {
@@ -588,7 +588,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         }
                     }
                 #ifdef PSRC_USEMINIMP3
-                } else if (!strcmp(ext, ".mp3")) {
+                } else if (ext == extlist[RC_SOUND][1]) {
                     fseek(f, 0, SEEK_END);
                     long sz = ftell(f);
                     if (sz > 0) {
@@ -631,7 +631,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         free(m);
                     }
                 #endif
-                } else if (!strcmp(ext, ".wav")) {
+                } else if (ext == extlist[RC_SOUND][2]) {
                     SDL_RWops* rwops = SDL_RWFromFP(f, false);
                     if (rwops) {
                         SDL_AudioSpec spec;
@@ -963,7 +963,7 @@ void loadMods(const char* const* modnames, int modcount) {
     #endif
 }
 
-char** queryModInfo(int* len) {
+char** queryMods(int* len) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&modinfo.lock);
     #endif

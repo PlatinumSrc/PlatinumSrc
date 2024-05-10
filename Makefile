@@ -27,6 +27,7 @@ ifeq ($(CROSS),)
     else
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell i386 uname -o 2> $(null) || i386 uname -s; i386 uname -m)))
     endif
+    USESR := y
     USEGL := y
     USEWEAKGL := y
 else ifeq ($(CROSS),win32)
@@ -52,6 +53,7 @@ else ifeq ($(CROSS),win32)
     OBJCOPY := $(PREFIX)$(OBJCOPY)
     WINDRES ?= windres
     WINDRES := $(PREFIX)$(WINDRES)
+    USESR := y
     USEGL := y
     USEGLAD := y
 else ifeq ($(CROSS),emscr)
@@ -284,6 +286,9 @@ ifeq ($(NOMT),y)
 endif
 ifeq ($(USEMINIMP3),y)
     _CPPFLAGS += -DPSRC_USEMINIMP3
+endif
+ifeq ($(USESR),y)
+    _CPPFLAGS += -DPSRC_USESR
 endif
 ifeq ($(USEGL),y)
     _CPPFLAGS += -DPSRC_USEGL

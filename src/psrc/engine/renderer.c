@@ -23,6 +23,9 @@
 struct rendstate rendstate;
 
 const char* rendapi_ids[] = {
+    #ifdef PSRC_USESR
+    "sw",
+    #endif
     #ifdef PSRC_USEGL
     #ifdef PSRC_USEGL11
     "gl11",
@@ -36,6 +39,9 @@ const char* rendapi_ids[] = {
     #endif
 };
 const char* rendapi_names[] = {
+    #ifdef PSRC_USESR
+    "Software rendering",
+    #endif
     #ifdef PSRC_USEGL
     #ifdef PSRC_USEGL11
     "OpenGL 1.1",
@@ -51,9 +57,29 @@ const char* rendapi_names[] = {
 
 static struct rc_model* testmodel;
 
+#ifdef PSRC_USESR
+    #include "renderer/sw.c"
+#endif
 #ifdef PSRC_USEGL
     #include "renderer/gl.c"
 #endif
+
+static enum rendapi apilist[] = {
+    #ifdef PSRC_USEGL
+    #ifdef PSRC_USEGL33
+    RENDAPI_GL33,
+    #endif
+    #ifdef PSRC_USEGLES30
+    RENDAPI_GLES30,
+    #endif
+    #ifdef PSRC_USEGL11
+    RENDAPI_GL11,
+    #endif
+    #endif
+    #ifdef PSRC_USESR
+    RENDAPI_SW,
+    #endif
+};
 
 void (*render)(void);
 void (*display)(void);
@@ -186,7 +212,6 @@ static bool createWindow(void) {
         plog(LL_CRIT, "Invalid rendering API (%d)", (int)rendstate.api);
         return false;
     }
-    plog(LL_INFO, "Creating window for %s...", rendapi_names[rendstate.api]);
     #ifndef PSRC_USESDL1
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
@@ -282,20 +307,37 @@ static bool createWindow(void) {
 
 static bool startRenderer_internal(void) {
     switch (rendstate.api) {
+        #ifdef PSRC_USESR
+        case RENDAPI_SW: rendstate.apigroup = RENDAPIGROUP_SW; break;
+        #endif
         #ifdef PSRC_USEGL
         #ifdef PSRC_USEGL11
         case RENDAPI_GL11: rendstate.apigroup = RENDAPIGROUP_GL; break;
         #endif
+        // TODO: implement
         #ifdef PSRC_USEGL33
-        case RENDAPI_GL33: rendstate.apigroup = RENDAPIGROUP_GL; break;
+        case RENDAPI_GL33: return false; //rendstate.apigroup = RENDAPIGROUP_GL; break;
         #endif
         #ifdef PSRC_USEGLES30
-        case RENDAPI_GLES30: rendstate.apigroup = RENDAPIGROUP_GL; break;
+        case RENDAPI_GLES30: return false; //rendstate.apigroup = RENDAPIGROUP_GL; break;
         #endif
         #endif
         default: return false;
     }
     switch (rendstate.apigroup) {
+        #ifdef PSRC_USESR
+        case RENDAPIGROUP_SW:
+            //render = sw_render;
+            //display = sw_display;
+            //takeScreenshot = sw_takeScreenshot;
+            //beforeCreateWindow = sw_beforeCreateWindow;
+            //afterCreateWindow = sw_afterCreateWindow;
+            //prepRenderer = sw_prepRenderer;
+            //beforeDestroyWindow = sw_beforeDestroyWindow;
+            //calcProjMat = sw_calcProjMat;
+            //updateFrame = sw_updateFrame;
+            //updateVSync = sw_updateVSync;
+        #endif
         #ifdef PSRC_USEGL
         case RENDAPIGROUP_GL:
             render = gl_render;
@@ -332,7 +374,11 @@ bool reloadRenderer(void) {
 }
 
 bool startRenderer(void) {
-    return startRenderer_internal();
+    for (int i = 0; (rendstate.api = apilist[i]) != RENDAPI__INVAL; ++i) {
+        if (startRenderer_internal()) return true;
+    }
+    plog(LL_CRIT, "Could not use any available rendering APIs");
+    return false;
 }
 
 void stopRenderer(void) {
@@ -444,11 +490,10 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 }
 
 bool initRenderer(void) {
-    #if PLATFORM == PLAT_LINUX && defined(SDL_HINT_VIDEODRIVER)
-    SDL_SetHint(SDL_HINT_VIDEODRIVER, "wayland");
+    #if PLATFORM == PLAT_LINUX
     if (SDL_Init(SDL_INIT_VIDEO)) {
         plog(LL_WARN | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
-        SDL_SetHint(SDL_HINT_VIDEODRIVER, "");
+        unsetenv("SDL_VIDEODRIVER");
         if (SDL_Init(SDL_INIT_VIDEO)) {
             plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
             return false;
@@ -459,17 +504,6 @@ bool initRenderer(void) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
         return false;
     }
-    #endif
-    #if defined(PSRC_USEGL)
-    #if defined(PSRC_USEGL11)
-    rendstate.api = RENDAPI_GL11;
-    #elif defined(PSRC_USEGLES30)
-    rendstate.api = RENDAPI_GLES30;
-    #else
-    rendstate.api = RENDAPI_GL33;
-    #endif
-    #else
-    rendstate.api = RENDAPI__INVAL;
     #endif
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR

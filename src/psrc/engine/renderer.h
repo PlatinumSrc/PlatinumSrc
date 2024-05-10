@@ -17,6 +17,9 @@
 
 enum rendapi {
     RENDAPI__INVAL = -1,
+    #ifdef PSRC_USESR
+    RENDAPI_SW,
+    #endif
     #ifdef PSRC_USEGL
     #ifdef PSRC_USEGL11
     RENDAPI_GL11,
@@ -33,6 +36,9 @@ enum rendapi {
 
 enum rendapigroup {
     RENDAPIGROUP__INVAL = -1,
+    #ifdef PSRC_USESR
+    RENDAPIGROUP_SW,
+    #endif
     #ifdef PSRC_USEGL
     RENDAPIGROUP_GL,
     #endif
