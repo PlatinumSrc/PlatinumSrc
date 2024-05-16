@@ -4,6 +4,8 @@ static inline bool pbc_open(const char* p, struct pbc_stream* s) {
     if (!(s->f = fopen(p, "r"))) return false;
     s->line = 1;
     s->col = 1;
+    s->lastline = 1;
+    s->lastcol = 1;
     s->undo = false;
     return true;
 }
@@ -64,6 +66,7 @@ static inline int pbc_getkw_inline(struct pbc* ctx, struct charbuf* cb) {
 static inline int pbc_getsep_inline(struct pbc* ctx, const char* chars) {
     
 }
+static bool pbc_getcmd(struct pbc*, struct charbuf*, char*, bool, bool);
 static int pbc_getexpr(struct pbc*);
 static inline int pbc_getexpr_inline(struct pbc* ctx) {
     
@@ -77,6 +80,13 @@ static inline int pbc_getcond_inline(struct pbc* ctx) {
 }
 static int pbc_getcond(struct pbc* ctx) {
     pbc_getcond_inline(ctx);
+}
+static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, char* name, bool func, bool useret) {
+    if (func) {
+    
+    } else {
+        
+    }
 }
 
 bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, struct charbuf* err) {
@@ -116,36 +126,40 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 //pbc_put8(ctx, PBVM_OP_SET);
                 //pbc_put32(ctx, pbc_getvar(ctx, cb_peek(&cb)));
                 c = pbc_getc(&ctx->input);
-                if (c != '\n' && c != ':') {
-                    pbc_mkerr(ctx, err, "Syntax error");
+                if (c == EOF) {
+                    break;
+                } else if (c != '\n' && c != ':') {
+                    pbc_mkerr(ctx, err, "Syntax error (expected ':' or '\\n')");
                     retval = false;
                     goto ret;
                 }
             } else {
-                if (c == '\\') {
-                    c = pbc_getc(&ctx->input);
-                    if (c != '\n') {
-                        pbc_mkerr(ctx, err, "Syntax error");
-                        retval = false;
-                        goto ret;
-                    }
-                    do {
-                        c = pbc_getc(&ctx->input);
-                    } while (c == ' ' || c == '\t');
-                }
                 bool func = (c == '(');
-                
+                if (!func) pbc_ungetc(&ctx->input);
+                //if (!pbc_getcmd(ctx, err, cb_peek(&cb), func, false)) {
+                //    retval = false;
+                //    goto ret;
+                //}
+                c = pbc_getc(&ctx->input);
+                if (c == EOF) {
+                    break;
+                } else if (c != '\n' && c != ':') {
+                    pbc_mkerr(ctx, err, "Syntax error (expected ':' or '\\n')");
+                    retval = false;
+                    goto ret;
+                }
             }
         } else if (c == EOF) {
             break;
         } else {
-            pbc_mkerr(ctx, err, "Syntax error");
+            pbc_mkerr(ctx, err, "Syntax error (unexpected char)");
             retval = false;
             goto ret;
         }
     }
     //longbreak:;
     ret:;
+    cb_dump(&cb);
     free(ctx);
     return retval;
 }

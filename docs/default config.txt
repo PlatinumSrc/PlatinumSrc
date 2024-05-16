@@ -21,12 +21,14 @@ mods =
 [ UI ]
   scale = 0 # 0 = auto
 
-[ Sound ]
+[ Audio ]
   disable = false
   callback = false
   freq = 44100
   buffer = 1024
-  voices = 32
+  worldvoices = 32
+  worldbgvoices = 32
+  alertvoices = 16
   outbufcount = 2
   decodewhole = true
   decodebuf = 4096

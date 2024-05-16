@@ -105,7 +105,7 @@ struct pbvm_ccall_ret;
 struct pbc;
 
 typedef void (*pb_cfunc)(struct pbvm*, void*, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
-typedef bool (*pb_findext)(struct pbc*, char*);
+typedef bool (*pb_findext)(struct pbc*, char*, bool);
 
 struct pbc_opt {
     pb_findext findext;
@@ -129,6 +129,11 @@ struct pbc_label {
     uint32_t namecrc;
     int location;
 };
+struct pbc_databuf {
+    void* data;
+    int len;
+    int size;
+};
 struct pbc_scope {
     struct {
         struct pbc_name* data;
@@ -148,16 +153,8 @@ struct pbc {
         int current;
         int size;
     } scopes;
-    struct {
-        void* data;
-        int len;
-        int size;
-    } ops;
-    struct {
-        void* data;
-        int len;
-        int size;
-    } constdata;
+    struct pbc_databuf ops;
+    struct pbc_databuf constdata;
     struct {
         struct pbc_name* data;
         int len;

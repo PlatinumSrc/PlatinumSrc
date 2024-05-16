@@ -90,120 +90,114 @@ static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s,
 }
 #endif
 
-static inline void calcSoundFx(struct audiosound* s) {
+static inline void calc3DSoundFx(struct audiosound_3d* s) {
     struct audioemitter* e = &audiostate.emitters.data[s->emitter];
-    s->fx[1].speedmul = roundf(s->speed * 1000.0f);
-    if (e->flags & EMITTERFLAG_POSEFFECT) {
-        float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
-        float pos[3];
-        if (e->flags & EMITTERFLAG_RELPOS) {
-            pos[0] = e->pos[0] + s->pos[0];
-            pos[1] = e->pos[1] + s->pos[1];
-            pos[2] = e->pos[2] + s->pos[2];
-        } else {
-            pos[0] = e->pos[0] + s->pos[0] - audiostate.campos[0];
-            pos[1] = e->pos[1] + s->pos[1] - audiostate.campos[1];
-            pos[2] = e->pos[2] + s->pos[2] - audiostate.campos[2];
-        }
-        float range = e->range;
-        if (isnormal(range)) {
-            float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-            if (isnormal(dist)) {
-                if (vol[0] * range >= dist && vol[1] * range >= dist) {
-                    float loudness = 1.0f - (dist / range);
-                    loudness *= loudness;
-                    loudness *= loudness;
-                    pos[0] /= dist;
-                    pos[1] /= dist;
-                    pos[2] /= dist;
-                    vol[0] *= loudness;
-                    vol[1] *= loudness;
-                    if (e->flags & EMITTERFLAG_NODOPPLER) {
-                        s->fx[1].posoff = 0;
-                    } else {
-                        s->fx[1].posoff = roundf(dist * -0.0025f * (float)audiostate.freq);
-                    }
-                    if (!(e->flags & EMITTERFLAG_RELPOS)) {
-                        float tmp[3];
-                        float mul[3][3];
-                        mul[0][0] = audiostate.sinx * audiostate.siny * audiostate.sinz + audiostate.cosy * audiostate.cosz;
-                        mul[0][1] = audiostate.cosx * -audiostate.sinz;
-                        mul[0][2] = audiostate.sinx * audiostate.cosy * audiostate.sinz + audiostate.siny * audiostate.cosz;
-                        mul[1][0] = audiostate.sinx * audiostate.siny * audiostate.cosz + audiostate.cosy * audiostate.sinz;
-                        mul[1][1] = audiostate.cosx * audiostate.cosz;
-                        mul[1][2] = -audiostate.sinx * audiostate.cosy * audiostate.cosz + audiostate.siny * audiostate.sinz;
-                        mul[2][0] = audiostate.cosx * -audiostate.siny;
-                        mul[2][1] = audiostate.sinx;
-                        mul[2][2] = audiostate.cosx * audiostate.cosy;
-                        tmp[0] = pos[0] * mul[0][0] + pos[1] * mul[0][1] + pos[2] * mul[0][2];
-                        tmp[1] = pos[0] * mul[1][0] + pos[1] * mul[1][1] + pos[2] * mul[1][2];
-                        tmp[2] = pos[0] * mul[2][0] + pos[1] * mul[2][1] + pos[2] * mul[2][2];
-                        //printf("ANGLE: {%+.03f, %+.03f, %+.03f} -> ", pos[0], pos[1], pos[2]);
-                        //printf("{%+.03f, %+.03f, %+.03f}\n", tmp[0], tmp[1], tmp[2]);
-                        pos[0] = tmp[0];
-                        pos[1] = tmp[1];
-                        pos[2] = tmp[2];
-                    }
-                    if (pos[2] > 0.0f) {
-                        pos[0] *= 1.0f - 0.2f * pos[2];
-                    } else if (pos[2] < 0.0f) {
-                        pos[0] *= 1.0f - 0.25f * pos[2];
-                        vol[0] *= 1.0f + 0.25f * pos[2];
-                        vol[1] *= 1.0f + 0.25f * pos[2];
-                    }
-                    if (pos[1] > 0.0f) {
-                        pos[0] *= 1.0f - 0.2f * pos[1];
-                        vol[0] *= 1.0f - 0.1f * pos[1];
-                        vol[1] *= 1.0f - 0.1f * pos[1];
-                    } else if (pos[1] < 0.0f) {
-                        pos[0] *= 1.0f - 0.2f * pos[1];
-                    }
-                    if (pos[0] > 0.0f) {
-                        vol[0] *= 1.0f - pos[0] * 0.75f;
-                    } else if (pos[0] < 0.0f) {
-                        vol[1] *= 1.0f + pos[0] * 0.75f;
-                    }
-                    s->fx[1].volmul[0] = roundf(vol[0] * 65536.0f);
-                    s->fx[1].volmul[1] = roundf(vol[1] * 65536.0f);
+    s->fx[1].speedmul = roundf(s->speed * 256.0f);
+    float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
+    float pos[3];
+    pos[0] = e->pos[0] + s->pos[0] - audiostate.cam.pos[0];
+    pos[1] = e->pos[1] + s->pos[1] - audiostate.cam.pos[1];
+    pos[2] = e->pos[2] + s->pos[2] - audiostate.cam.pos[2];
+    float range = e->range * s->range;
+    if (isnormal(range)) {
+        float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        if (isnormal(dist)) {
+            if (dist < range) {
+                float loudness = 1.0f - (dist / range);
+                loudness *= loudness;
+                loudness *= loudness;
+                pos[0] /= dist;
+                pos[1] /= dist;
+                pos[2] /= dist;
+                vol[0] *= loudness;
+                vol[1] *= loudness;
+                if (s->flags & SOUNDFLAG_NODOPPLER) {
+                    s->fx[1].posoff = 0;
                 } else {
-                    s->fx[1].volmul[0] = 0;
-                    s->fx[1].volmul[1] = 0;
+                    s->fx[1].posoff = roundf(dist * -0.0025f * (float)audiostate.freq);
                 }
-            } else {
-                s->fx[1].posoff = 0;
+                float tmp[3];
+                float mul[3][3];
+                mul[0][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.sinz + audiostate.cam.cosy * audiostate.cam.cosz;
+                mul[0][1] = audiostate.cam.cosx * -audiostate.cam.sinz;
+                mul[0][2] = audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.sinz + audiostate.cam.siny * audiostate.cam.cosz;
+                mul[1][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.cosz + audiostate.cam.cosy * audiostate.cam.sinz;
+                mul[1][1] = audiostate.cam.cosx * audiostate.cam.cosz;
+                mul[1][2] = -audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.cosz + audiostate.cam.siny * audiostate.cam.sinz;
+                mul[2][0] = audiostate.cam.cosx * -audiostate.cam.siny;
+                mul[2][1] = audiostate.cam.sinx;
+                mul[2][2] = audiostate.cam.cosx * audiostate.cam.cosy;
+                tmp[0] = pos[0] * mul[0][0] + pos[1] * mul[0][1] + pos[2] * mul[0][2];
+                tmp[1] = pos[0] * mul[1][0] + pos[1] * mul[1][1] + pos[2] * mul[1][2];
+                tmp[2] = pos[0] * mul[2][0] + pos[1] * mul[2][1] + pos[2] * mul[2][2];
+                //printf("ANGLE: {%+.03f, %+.03f, %+.03f} -> ", pos[0], pos[1], pos[2]);
+                //printf("{%+.03f, %+.03f, %+.03f}\n", tmp[0], tmp[1], tmp[2]);
+                pos[0] = tmp[0];
+                pos[1] = tmp[1];
+                pos[2] = tmp[2];
+                if (pos[2] > 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[2];
+                } else if (pos[2] < 0.0f) {
+                    pos[0] *= 1.0f - 0.25f * pos[2];
+                    vol[0] *= 1.0f + 0.25f * pos[2];
+                    vol[1] *= 1.0f + 0.25f * pos[2];
+                }
+                if (pos[1] > 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[1];
+                    vol[0] *= 1.0f - 0.1f * pos[1];
+                    vol[1] *= 1.0f - 0.1f * pos[1];
+                } else if (pos[1] < 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[1];
+                }
+                if (pos[0] > 0.0f) {
+                    vol[0] *= 1.0f - pos[0] * 0.75f;
+                } else if (pos[0] < 0.0f) {
+                    vol[1] *= 1.0f + pos[0] * 0.75f;
+                }
                 s->fx[1].volmul[0] = roundf(vol[0] * 65536.0f);
                 s->fx[1].volmul[1] = roundf(vol[1] * 65536.0f);
+                s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
+            } else {
+                s->fx[1].volmul[0] = 0;
+                s->fx[1].volmul[1] = 0;
+                s->fx[1].volmul[2] = 0;
             }
         } else {
             s->fx[1].posoff = 0;
-            s->fx[1].volmul[0] = 0;
-            s->fx[1].volmul[1] = 0;
+            s->fx[1].volmul[0] = roundf(vol[0] * 65536.0f);
+            s->fx[1].volmul[1] = roundf(vol[1] * 65536.0f);
+            s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
         }
     } else {
         s->fx[1].posoff = 0;
-        s->fx[1].volmul[0] = roundf(s->vol[0] * e->vol[0] * 65536.0f);
-        s->fx[1].volmul[1] = roundf(s->vol[1] * e->vol[1] * 65536.0f);
+        s->fx[1].volmul[0] = 0;
+        s->fx[1].volmul[1] = 0;
+        s->fx[1].volmul[2] = 0;
     }
+    s->fx[1].volmul[3] = (s->fx[0].volmul[2] > s->fx[1].volmul[2]) ? s->fx[0].volmul[2] : s->fx[1].volmul[2];
 }
 
-static inline void stopSound_inline(struct audiosound* v) {
-    switch ((uint8_t)v->rc->format) {
+static inline void stopSound_inline(struct audiosound* s) {
+    switch ((uint8_t)s->rc->format) {
         case RC_SOUND_FRMT_VORBIS: {
-            stb_vorbis_close(v->vorbis);
-            free(v->audbuf.data[0]);
-            free(v->audbuf.data[1]);
+            stb_vorbis_close(s->vorbis);
+            free(s->audbuf.data[0]);
+            free(s->audbuf.data[1]);
         } break;
         #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3: {
-            mp3dec_ex_close(v->mp3);
-            free(v->mp3);
-            free(v->audbuf.data_mp3);
+            mp3dec_ex_close(s->mp3);
+            free(s->mp3);
+            free(s->audbuf.data_mp3);
         } break;
         #endif
     }
-    --audiostate.emitters.data[v->emitter].uses;
-    releaseResource(v->rc);
-    v->rc = NULL;
+    releaseResource(s->rc);
+    s->rc = NULL;
+}
+static inline void stop3DSound_inline(struct audiosound_3d* s) {
+    stopSound_inline(&s->data);
+    --audiostate.emitters.data[s->emitter].uses;
 }
 
 static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
@@ -212,7 +206,7 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
     fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
-#define MIXSOUNDS_CALCPOS() {\
+#define MIXSOUND3D_CALCPOS() {\
     int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
     fxoff = fx.posoff;\
     offset += mul / div;\
@@ -221,257 +215,238 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     frac %= div;\
     pos = offset;\
 }
-#define MIXSOUNDS_BODY(c) {\
-    if (e->flags & EMITTERFLAG_FORCEMONO && stereo) {\
-        int i = 0, ii = audiostate.audbuf.len;\
-        while (1) {\
-            if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            MIXSOUNDS_CALCPOS();\
-            c\
-            int tmp = (l + r) / 2;\
-            audbuf[0][i] += tmp * fx.volmul[0] / 65536;\
-            audbuf[1][i] += tmp * fx.volmul[1] / 65536;\
-            ++i;\
-            if (i == audiostate.audbuf.len) {if (pos > len || pos < 0) unload = true; break;}\
-            --ii;\
+#define MIXSOUND3D_BODY(c) {\
+    if (s->fxchanged) {\
+        if (stereo) {\
+            int i = 0, ii = audiostate.audbuf.len;\
+            while (1) {\
+                interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+                MIXSOUND3D_CALCPOS();\
+                c\
+                int tmp = (l + r) / 2;\
+                audbuf[0][i] += tmp * fx.volmul[0] / 65536;\
+                audbuf[1][i] += tmp * fx.volmul[1] / 65536;\
+                ++i;\
+                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
+                --ii;\
+            }\
+        } else {\
+            int i = 0, ii = audiostate.audbuf.len;\
+            while (1) {\
+                interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+                MIXSOUND3D_CALCPOS();\
+                c\
+                audbuf[0][i] += l * fx.volmul[0] / 65536;\
+                audbuf[1][i] += r * fx.volmul[1] / 65536;\
+                ++i;\
+                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
+                --ii;\
+            }\
         }\
     } else {\
-        int i = 0, ii = audiostate.audbuf.len;\
-        while (1) {\
-            if (chfx) interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-            MIXSOUNDS_CALCPOS();\
-            c\
-            audbuf[0][i] += l * fx.volmul[0] / 65536;\
-            audbuf[1][i] += r * fx.volmul[1] / 65536;\
-            ++i;\
-            if (i == audiostate.audbuf.len) {if (pos > len || pos < 0) unload = true; break;}\
-            --ii;\
+        if (stereo) {\
+            int i = 0;\
+            while (1) {\
+                MIXSOUND3D_CALCPOS();\
+                c\
+                int tmp = (l + r) / 2;\
+                audbuf[0][i] += tmp * fx.volmul[0] / 65536;\
+                audbuf[1][i] += tmp * fx.volmul[1] / 65536;\
+                ++i;\
+                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
+            }\
+        } else {\
+            int i = 0;\
+            while (1) {\
+                MIXSOUND3D_CALCPOS();\
+                c\
+                audbuf[0][i] += l * fx.volmul[0] / 65536;\
+                audbuf[1][i] += r * fx.volmul[1] / 65536;\
+                ++i;\
+                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+            }\
         }\
     }\
-    if (pos >= len || pos < 0) unload = true;\
 }
-#define MIXSOUNDS_INTERPBODY(c) {\
+#define MIXSOUND3D_INTERPBODY(c) {\
     if (frac) {\
         pos2 = pos + 1;\
         c\
-        uint8_t tmpfrac = frac / 1000 * 255 / audiostate.freq;\
-        uint8_t ifrac = 255 - tmpfrac;\
-        l = (l * ifrac + l2 * tmpfrac) / 255;\
-        r = (r * ifrac + r2 * tmpfrac) / 255;\
+        uint8_t tmpfrac = frac / audiostate.freq;\
+        uint8_t ifrac = 256 - tmpfrac;\
+        l = (l * ifrac + l2 * tmpfrac) / 256;\
+        r = (r * ifrac + r2 * tmpfrac) / 256;\
     }\
 }
-static void mixsounds(int buf) {
-    int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
-    memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
-    memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
-    #ifndef PSRC_NOMT
-    acquireReadAccess(&audiostate.lock);
+static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
+    struct rc_sound* rc = s->data.rc;
+    if (!rc) return true;
+    int len = rc->len;
+    if (!len) return true;
+    int freq = rc->freq;
+    struct audioemitter* e = &audiostate.emitters.data[s->emitter];
+    if (e->paused) return true;
+    uint8_t flags = s->flags;
+    struct audiosound_fx fx, sfx[2];
+    long offset = s->offset;
+    int fxoff = s->fxoff;
+    int frac = s->frac;
+    if (s->fxchanged) {
+        //puts("fxchanged");
+        sfx[0] = s->fx[0];
+        sfx[1] = s->fx[1];
+    } else {
+        fx = s->fx[1];
+    }
+    #if 0
+    int outfreq = audiostate.freq;
+    {
+        int outfreq2 = outfreq, gcd = freq;
+        while (outfreq2) {
+            int tmp = gcd % outfreq2;
+            gcd = outfreq2;
+            outfreq2 = tmp;
+        }
+        outfreq /= gcd;
+        freq /= gcd;
+    }
     #endif
-    for (int si = 0; si < audiostate.voices.count; ++si) {
-        struct audiosound* s = &audiostate.voices.data[si];
-        struct rc_sound* rc = s->rc;
-        if (!rc) continue;
-        int len = rc->len;
-        if (!len) continue;
-        int freq = rc->freq;
-        struct audioemitter* e = &audiostate.emitters.data[s->emitter];
-        if (e->state.paused) continue;
-        uint8_t flags = s->flags;
-        bool chfx = s->state.fxchanged;
-        struct audiosound_fx sfx[2];
-        struct audiosound_fx fx;
-        long offset = s->offset;
-        int fxoff = s->fxoff;
-        int frac = s->frac;
-        if (chfx) {
-            //puts("fxchanged");
-            sfx[0] = s->fx[0];
-            sfx[1] = s->fx[1];
-        } else {
-            fx = s->fx[1];
-        }
-        #if 0
-        int outfreq = audiostate.freq;
-        {
-            int outfreq2 = outfreq, gcd = freq;
-            while (outfreq2) {
-                int tmp = gcd % outfreq2;
-                gcd = outfreq2;
-                outfreq2 = tmp;
+    int div = audiostate.freq * 256;
+    long pos;
+    long pos2;
+    bool stereo = rc->stereo;
+    int l, r;
+    int l2, r2;
+    switch (rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            struct audiosound_audbuf ab = s->data.audbuf;
+            if (flags & SOUNDFLAG_LOOP) {
+                if (flags & SOUNDFLAG_WRAP) {
+                    #define MIXSOUND_POSCHECK 0
+                    MIXSOUND3D_BODY (
+                        pos = ((pos % len) + len) % len;
+                        getvorbisat(&s->data, &ab, pos, len, &l, &r);
+                        MIXSOUND3D_INTERPBODY (
+                            pos2 = ((pos2 % len) + len) % len;
+                            getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
+                    #undef MIXSOUND_POSCHECK
+                } else {
+                    #define MIXSOUND_POSCHECK (pos < 0)
+                    MIXSOUND3D_BODY (
+                        if (pos >= 0) pos %= len;
+                        getvorbisat(&s->data, &ab, pos, len, &l, &r);
+                        MIXSOUND3D_INTERPBODY (
+                            if (pos2 >= 0) pos2 %= len;
+                            getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
+                    #undef MIXSOUND_POSCHECK
+                }
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
+                MIXSOUND3D_BODY (
+                    getvorbisat(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND3D_INTERPBODY (
+                        getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
             }
-            outfreq /= gcd;
-            freq /= gcd;
-        }
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            struct audiosound_audbuf ab = s->data.audbuf;
+            if (flags & SOUNDFLAG_LOOP) {
+                if (flags & SOUNDFLAG_WRAP) {
+                    #define MIXSOUND_POSCHECK 0
+                    MIXSOUND3D_BODY (
+                        pos = ((pos % len) + len) % len;
+                        getmp3at(&s->data, &ab, pos, len, &l, &r);
+                        MIXSOUND3D_INTERPBODY (
+                            pos2 = ((pos2 % len) + len) % len;
+                            getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
+                    #undef MIXSOUND_POSCHECK
+                } else {
+                    #define MIXSOUND_POSCHECK (pos < 0)
+                    MIXSOUND3D_BODY (
+                        if (pos >= 0) pos %= len;
+                        getmp3at(&s->data, &ab, pos, len, &l, &r);
+                        MIXSOUND3D_INTERPBODY (
+                            if (pos2 >= 0) pos2 %= len;
+                            getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
+                        )
+                    )
+                    #undef MIXSOUND_POSCHECK
+                }
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
+                MIXSOUND3D_BODY (
+                    getmp3at(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND3D_INTERPBODY (
+                        getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
+            }
+        } break;
         #endif
-        int div = audiostate.freq * 1000;
-        long pos;
-        long pos2;
-        bool stereo = rc->stereo;
-        int l, r;
-        int l2, r2;
-        bool unload = false;
-        switch (rc->format) {
-            case RC_SOUND_FRMT_VORBIS: {
-                struct audiosound_audbuf ab = s->audbuf;
-                if (flags & SOUNDFLAG_LOOP) {
-                    if (flags & SOUNDFLAG_WRAP) {
-                        MIXSOUNDS_BODY (
-                            pos = ((pos % len) + len) % len;
-                            getvorbisat(s, &ab, pos, len, &l, &r);
-                            MIXSOUNDS_INTERPBODY (
-                                pos2 = ((pos2 % len) + len) % len;
-                                getvorbisat(s, &ab, pos2, len, &l2, &r2);
-                            )
-                        )
-                    } else {
-                        MIXSOUNDS_BODY (
-                            if (pos >= 0) pos %= len;
-                            getvorbisat(s, &ab, pos, len, &l, &r);
-                            MIXSOUNDS_INTERPBODY (
-                                if (pos2 >= 0) pos2 %= len;
-                                getvorbisat(s, &ab, pos2, len, &l2, &r2);
-                            )
-                        )
-                    }
-                } else {
-                    MIXSOUNDS_BODY (
-                        getvorbisat(s, &ab, pos, len, &l, &r);
-                        MIXSOUNDS_INTERPBODY (
-                            getvorbisat(s, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                }
-            } break;
-            #ifdef PSRC_USEMINIMP3
-            case RC_SOUND_FRMT_MP3: {
-                struct audiosound_audbuf ab = s->audbuf;
-                if (flags & SOUNDFLAG_LOOP) {
-                    if (flags & SOUNDFLAG_WRAP) {
-                        MIXSOUNDS_BODY (
-                            pos = ((pos % len) + len) % len;
-                            getmp3at(s, &ab, pos, len, &l, &r);
-                            MIXSOUNDS_INTERPBODY (
-                                pos2 = ((pos2 % len) + len) % len;
-                                getmp3at(s, &ab, pos2, len, &l2, &r2);
-                            )
-                        )
-                    } else {
-                        MIXSOUNDS_BODY (
-                            if (pos >= 0) pos %= len;
-                            getmp3at(s, &ab, pos, len, &l, &r);
-                            MIXSOUNDS_INTERPBODY (
-                                if (pos2 >= 0) pos2 %= len;
-                                getmp3at(s, &ab, pos2, len, &l2, &r2);
-                            )
-                        )
-                    }
-                } else {
-                    MIXSOUNDS_BODY (
-                        getmp3at(s, &ab, pos, len, &l, &r);
-                        MIXSOUNDS_INTERPBODY (
-                            getmp3at(s, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                }
-            } break;
-            #endif
-            case RC_SOUND_FRMT_WAV: {
-                union {
-                    uint8_t* ptr;
-                    uint8_t* i8;
-                    int16_t* i16;
-                } data;
-                data.ptr = rc->data;
-                bool is8bit = rc->is8bit;
-                int channels = rc->channels;
-                if (flags & SOUNDFLAG_LOOP) {
-                    if (flags & SOUNDFLAG_WRAP) {
-                        if (is8bit) {
-                            MIXSOUNDS_BODY (
-                                pos = ((pos % len) + len) % len;
-                                l = data.i8[pos * channels] - 128;
-                                l = l * 256 + (l + 128);
-                                r = data.i8[pos * channels + stereo] - 128;
-                                r = r * 256 + (r + 128);
-                                MIXSOUNDS_INTERPBODY (
-                                    pos2 = ((pos2 % len) + len) % len;
-                                    l2 = data.i8[pos2 * channels] - 128;
-                                    l2 = l2 * 256 + (l2 + 128);
-                                    r2 = data.i8[pos2 * channels + stereo] - 128;
-                                    r2 = r2 * 256 + (r2 + 128);
-                                )
-                            )
-                        } else {
-                            MIXSOUNDS_BODY (
-                                pos = ((pos % len) + len) % len;
-                                l = data.i16[pos * channels];
-                                r = data.i16[pos * channels + stereo];
-                                MIXSOUNDS_INTERPBODY (
-                                    pos2 = ((pos2 % len) + len) % len;
-                                    l2 = data.i16[pos2 * channels];
-                                    r2 = data.i16[pos2 * channels + stereo];
-                                )
-                            )
-                        }
-                    } else {
-                        if (is8bit) {
-                            MIXSOUNDS_BODY (
-                                if (pos >= 0) {
-                                    pos %= len;
-                                    l = data.i8[pos * channels] - 128;
-                                    l = l * 256 + (l + 128);
-                                    r = data.i8[pos * channels + stereo] - 128;
-                                    r = r * 256 + (r + 128);
-                                    MIXSOUNDS_INTERPBODY (
-                                        if (pos2 >= 0) {
-                                            pos2 %= len;
-                                            l2 = data.i8[pos2 * channels] - 128;
-                                            l2 = l2 * 256 + (l2 + 128);
-                                            r2 = data.i8[pos2 * channels + stereo] - 128;
-                                            r2 = r2 * 256 + (r2 + 128);
-                                        } else {
-                                            l2 = 0;
-                                            r2 = 0;
-                                        }
-                                    )
-                                } else {
-                                    l = 0;
-                                    r = 0;
-                                }
-                            )
-                        } else {
-                            MIXSOUNDS_BODY (
-                                if (pos >= 0) {
-                                    pos %= len;
-                                    l = data.i16[pos * channels];
-                                    r = data.i16[pos * channels + stereo];
-                                    MIXSOUNDS_INTERPBODY (
-                                        if (pos2 >= 0) {
-                                            pos2 %= len;
-                                            l2 = data.i16[pos2 * channels];
-                                            r2 = data.i16[pos2 * channels + stereo];
-                                        } else {
-                                            l2 = 0;
-                                            r2 = 0;
-                                        }
-                                    )
-                                } else {
-                                    l = 0;
-                                    r = 0;
-                                }
-                            )
-                        }
-                    }
-                } else {
+        case RC_SOUND_FRMT_WAV: {
+            union {
+                uint8_t* ptr;
+                uint8_t* i8;
+                int16_t* i16;
+            } data;
+            data.ptr = rc->data;
+            bool is8bit = rc->is8bit;
+            int channels = rc->channels;
+            if (flags & SOUNDFLAG_LOOP) {
+                if (flags & SOUNDFLAG_WRAP) {
+                    #define MIXSOUND_POSCHECK 0
                     if (is8bit) {
-                        MIXSOUNDS_BODY (
-                            if (pos >= 0 && pos < len) {
+                        MIXSOUND3D_BODY (
+                            pos = ((pos % len) + len) % len;
+                            l = data.i8[pos * channels] - 128;
+                            l = l * 256 + (l + 128);
+                            r = data.i8[pos * channels + stereo] - 128;
+                            r = r * 256 + (r + 128);
+                            MIXSOUND3D_INTERPBODY (
+                                pos2 = ((pos2 % len) + len) % len;
+                                l2 = data.i8[pos2 * channels] - 128;
+                                l2 = l2 * 256 + (l2 + 128);
+                                r2 = data.i8[pos2 * channels + stereo] - 128;
+                                r2 = r2 * 256 + (r2 + 128);
+                            )
+                        )
+                    } else {
+                        MIXSOUND3D_BODY (
+                            pos = ((pos % len) + len) % len;
+                            l = data.i16[pos * channels];
+                            r = data.i16[pos * channels + stereo];
+                            MIXSOUND3D_INTERPBODY (
+                                pos2 = ((pos2 % len) + len) % len;
+                                l2 = data.i16[pos2 * channels];
+                                r2 = data.i16[pos2 * channels + stereo];
+                            )
+                        )
+                    }
+                    #undef MIXSOUND_POSCHECK
+                } else {
+                    #define MIXSOUND_POSCHECK (pos < 0)
+                    if (is8bit) {
+                        MIXSOUND3D_BODY (
+                            if (pos >= 0) {
+                                pos %= len;
                                 l = data.i8[pos * channels] - 128;
                                 l = l * 256 + (l + 128);
                                 r = data.i8[pos * channels + stereo] - 128;
                                 r = r * 256 + (r + 128);
-                                MIXSOUNDS_INTERPBODY (
-                                    if (pos2 >= 0 && pos2 < len) {
+                                MIXSOUND3D_INTERPBODY (
+                                    if (pos2 >= 0) {
+                                        pos2 %= len;
                                         l2 = data.i8[pos2 * channels] - 128;
                                         l2 = l2 * 256 + (l2 + 128);
                                         r2 = data.i8[pos2 * channels + stereo] - 128;
@@ -487,12 +462,14 @@ static void mixsounds(int buf) {
                             }
                         )
                     } else {
-                        MIXSOUNDS_BODY (
-                            if (pos >= 0 && pos < len) {
+                        MIXSOUND3D_BODY (
+                            if (pos >= 0) {
+                                pos %= len;
                                 l = data.i16[pos * channels];
                                 r = data.i16[pos * channels + stereo];
-                                MIXSOUNDS_INTERPBODY (
-                                    if (pos2 >= 0 && pos2 < len) {
+                                MIXSOUND3D_INTERPBODY (
+                                    if (pos2 >= 0) {
+                                        pos2 %= len;
                                         l2 = data.i16[pos2 * channels];
                                         r2 = data.i16[pos2 * channels + stereo];
                                     } else {
@@ -506,24 +483,464 @@ static void mixsounds(int buf) {
                             }
                         )
                     }
+                    #undef MIXSOUND_POSCHECK
                 }
-            } break;
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
+                if (is8bit) {
+                    MIXSOUND3D_BODY (
+                        if (pos >= 0 && pos < len) {
+                            l = data.i8[pos * channels] - 128;
+                            l = l * 256 + (l + 128);
+                            r = data.i8[pos * channels + stereo] - 128;
+                            r = r * 256 + (r + 128);
+                            MIXSOUND3D_INTERPBODY (
+                                if (pos2 >= 0 && pos2 < len) {
+                                    l2 = data.i8[pos2 * channels] - 128;
+                                    l2 = l2 * 256 + (l2 + 128);
+                                    r2 = data.i8[pos2 * channels + stereo] - 128;
+                                    r2 = r2 * 256 + (r2 + 128);
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                } else {
+                    MIXSOUND3D_BODY (
+                        if (pos >= 0 && pos < len) {
+                            l = data.i16[pos * channels];
+                            r = data.i16[pos * channels + stereo];
+                            MIXSOUND3D_INTERPBODY (
+                                if (pos2 >= 0 && pos2 < len) {
+                                    l2 = data.i16[pos2 * channels];
+                                    r2 = data.i16[pos2 * channels + stereo];
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                }
+                #undef MIXSOUND_POSCHECK
+            }
+        } break;
+    }
+    #ifndef PSRC_NOMT
+    readToWriteAccess(&audiostate.lock);
+    #endif
+    if (s->fxchanged) s->fxchanged = false;
+    s->offset = offset;
+    s->fxoff = fxoff;
+    s->frac = frac;
+    #ifndef PSRC_NOMT
+    writeToReadAccess(&audiostate.lock);
+    #endif
+    return true;
+}
+#define MIXSOUND3DFAKE_BODY(c) {\
+    if (s->fxchanged) {\
+        int i = 0, ii = audiostate.audbuf.len;\
+        while (1) {\
+            interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+            MIXSOUND3D_CALCPOS();\
+            c\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+            --ii;\
+        }\
+    } else {\
+        int i = 0;\
+        while (1) {\
+            MIXSOUND3D_CALCPOS();\
+            c\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+        }\
+    }\
+}
+static bool mixsound_3d_fake(struct audiosound_3d* s) {
+    struct rc_sound* rc = s->data.rc;
+    if (!rc) return true;
+    int len = rc->len;
+    if (!len) return true;
+    int freq = rc->freq;
+    struct audioemitter* e = &audiostate.emitters.data[s->emitter];
+    if (e->paused) return true;
+    uint8_t flags = s->flags;
+    struct audiosound_fx fx, sfx[2];
+    long offset = s->offset;
+    int fxoff = s->fxoff;
+    int frac = s->frac;
+    if (s->fxchanged) {
+        //puts("fxchanged");
+        sfx[0] = s->fx[0];
+        sfx[1] = s->fx[1];
+    } else {
+        fx = s->fx[1];
+    }
+    int div = audiostate.freq * 256;
+    long pos;
+    if (flags & SOUNDFLAG_LOOP) {
+        if (flags & SOUNDFLAG_WRAP) {
+            #define MIXSOUND_POSCHECK 0
+            MIXSOUND3DFAKE_BODY (
+                pos = ((pos % len) + len) % len;
+            )
+            #undef MIXSOUND_POSCHECK
+        } else {
+            #define MIXSOUND_POSCHECK (pos < 0)
+            MIXSOUND3DFAKE_BODY (
+                if (pos >= 0) pos %= len;
+            )
+            #undef MIXSOUND_POSCHECK
         }
+    } else {
+        #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
+        MIXSOUND3DFAKE_BODY (
+            MIXSOUND3D_CALCPOS();
+        )
+        #undef MIXSOUND_POSCHECK
+    }
+    #ifndef PSRC_NOMT
+    readToWriteAccess(&audiostate.lock);
+    #endif
+    if (s->fxchanged) s->fxchanged = false;
+    s->offset = offset;
+    s->fxoff = fxoff;
+    s->frac = frac;
+    #ifndef PSRC_NOMT
+    writeToReadAccess(&audiostate.lock);
+    #endif
+    return true;
+}
+#define MIXSOUND2D_CALCPOS() {\
+    offset += freq / audiostate.freq;\
+    frac += freq % audiostate.freq;\
+    offset += frac / audiostate.freq;\
+    frac %= audiostate.freq;\
+    pos = offset;\
+}
+#define MIXSOUND2D_BODY(c) {\
+    int i = 0, ii = audiostate.audbuf.len;\
+    while (1) {\
+        vol = (oldvol * ii + newvol * i) / audiostate.audbuf.len;\
+        MIXSOUND2D_CALCPOS();\
+        c\
+        audbuf[0][i] += l * vol / 65536;\
+        audbuf[1][i] += r * vol / 65536;\
+        ++i;\
+        if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+        --ii;\
+    }\
+}
+#define MIXSOUND2D_INTERPBODY(c) {\
+    if (frac) {\
+        pos2 = pos + 1;\
+        c\
+        uint8_t tmpfrac = frac * 256 / audiostate.freq;\
+        uint8_t ifrac = 256 - tmpfrac;\
+        l = (l * ifrac + l2 * tmpfrac) / 256;\
+        r = (r * ifrac + r2 * tmpfrac) / 256;\
+    }\
+}
+static bool mixsound_2d(struct audiosound_2d* s, int** audbuf, uint8_t flags, int oldvol, int newvol, int volmul) {
+    struct rc_sound* rc = s->data.rc;
+    if (!rc) return true;
+    int len = rc->len;
+    if (!len) return true;
+    int freq = rc->freq;
+    long offset = s->offset;
+    int frac = s->frac;
+    long pos;
+    long pos2;
+    bool stereo = rc->stereo;
+    int l, r;
+    int l2, r2;
+    oldvol = oldvol * volmul / 65536;
+    newvol = newvol * volmul / 65536;
+    int vol;
+    switch (rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            struct audiosound_audbuf ab = s->data.audbuf;
+            if (flags & SOUNDFLAG_LOOP) {
+                #define MIXSOUND_POSCHECK 0
+                MIXSOUND2D_BODY (
+                    if (pos >= 0) pos %= len;
+                    getvorbisat(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND2D_INTERPBODY (
+                        if (pos2 >= 0) pos2 %= len;
+                        getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len)
+                MIXSOUND2D_BODY (
+                    getvorbisat(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND2D_INTERPBODY (
+                        getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
+            }
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            struct audiosound_audbuf ab = s->data.audbuf;
+            if (flags & SOUNDFLAG_LOOP) {
+                #define MIXSOUND_POSCHECK 0
+                MIXSOUND2D_BODY (
+                    if (pos >= 0) pos %= len;
+                    getmp3at(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND2D_INTERPBODY (
+                        if (pos2 >= 0) pos2 %= len;
+                        getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len)
+                MIXSOUND2D_BODY (
+                    getmp3at(&s->data, &ab, pos, len, &l, &r);
+                    MIXSOUND2D_INTERPBODY (
+                        getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
+                    )
+                )
+                #undef MIXSOUND_POSCHECK
+            }
+        } break;
+        #endif
+        case RC_SOUND_FRMT_WAV: {
+            union {
+                uint8_t* ptr;
+                uint8_t* i8;
+                int16_t* i16;
+            } data;
+            data.ptr = rc->data;
+            bool is8bit = rc->is8bit;
+            int channels = rc->channels;
+            if (flags & SOUNDFLAG_LOOP) {
+                #define MIXSOUND_POSCHECK 0
+                if (is8bit) {
+                    MIXSOUND2D_BODY (
+                        if (pos >= 0) {
+                            pos %= len;
+                            l = data.i8[pos * channels] - 128;
+                            l = l * 256 + (l + 128);
+                            r = data.i8[pos * channels + stereo] - 128;
+                            r = r * 256 + (r + 128);
+                            MIXSOUND2D_INTERPBODY (
+                                if (pos2 >= 0) {
+                                    pos2 %= len;
+                                    l2 = data.i8[pos2 * channels] - 128;
+                                    l2 = l2 * 256 + (l2 + 128);
+                                    r2 = data.i8[pos2 * channels + stereo] - 128;
+                                    r2 = r2 * 256 + (r2 + 128);
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                } else {
+                    MIXSOUND2D_BODY (
+                        if (pos >= 0) {
+                            pos %= len;
+                            l = data.i16[pos * channels];
+                            r = data.i16[pos * channels + stereo];
+                            MIXSOUND2D_INTERPBODY (
+                                if (pos2 >= 0) {
+                                    pos2 %= len;
+                                    l2 = data.i16[pos2 * channels];
+                                    r2 = data.i16[pos2 * channels + stereo];
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                }
+                #undef MIXSOUND_POSCHECK
+            } else {
+                #define MIXSOUND_POSCHECK (pos >= len)
+                if (is8bit) {
+                    MIXSOUND2D_BODY (
+                        if (pos >= 0 && pos < len) {
+                            l = data.i8[pos * channels] - 128;
+                            l = l * 256 + (l + 128);
+                            r = data.i8[pos * channels + stereo] - 128;
+                            r = r * 256 + (r + 128);
+                            MIXSOUND2D_INTERPBODY (
+                                if (pos2 >= 0 && pos2 < len) {
+                                    l2 = data.i8[pos2 * channels] - 128;
+                                    l2 = l2 * 256 + (l2 + 128);
+                                    r2 = data.i8[pos2 * channels + stereo] - 128;
+                                    r2 = r2 * 256 + (r2 + 128);
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                } else {
+                    MIXSOUND2D_BODY (
+                        if (pos >= 0 && pos < len) {
+                            l = data.i16[pos * channels];
+                            r = data.i16[pos * channels + stereo];
+                            MIXSOUND2D_INTERPBODY (
+                                if (pos2 >= 0 && pos2 < len) {
+                                    l2 = data.i16[pos2 * channels];
+                                    r2 = data.i16[pos2 * channels + stereo];
+                                } else {
+                                    l2 = 0;
+                                    r2 = 0;
+                                }
+                            )
+                        } else {
+                            l = 0;
+                            r = 0;
+                        }
+                    )
+                }
+                #undef MIXSOUND_POSCHECK
+            }
+        } break;
+    }
+    #ifndef PSRC_NOMT
+    readToWriteAccess(&audiostate.lock);
+    #endif
+    s->offset = offset;
+    s->frac = frac;
+    #ifndef PSRC_NOMT
+    writeToReadAccess(&audiostate.lock);
+    #endif
+    return true;
+}
+static void mixsounds(int buf) {
+    int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
+    memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
+    memset(audbuf[1], 0, audiostate.audbuf.len * sizeof(*audbuf[1]));
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&audiostate.lock);
+    #endif
+    // 3D mixing
+    {
+        int playcount = audiostate.voices.world.playcount;
+        if (playcount > audiostate.voices.world.len) {
+            playcount = audiostate.voices.world.len;
+        } else if (playcount < audiostate.voices.world.len) {
+            int si = playcount;
+            do {
+                struct audiosound_3d* s = &audiostate.voices.world.data[audiostate.voices.world.sortdata[si++]];
+                if (!mixsound_3d_fake(s)) {
+                    #ifndef PSRC_NOMT
+                    readToWriteAccess(&audiostate.lock);
+                    #endif
+                    stop3DSound_inline(s);
+                    #ifndef PSRC_NOMT
+                    writeToReadAccess(&audiostate.lock);
+                    #endif
+                }
+            } while (si < audiostate.voices.world.len);
+        }
+        for (int si = 0; si < playcount; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.world.data[audiostate.voices.world.sortdata[si]];
+            if (!mixsound_3d(s, audbuf)) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                stop3DSound_inline(s);
+                #ifndef PSRC_NOMT
+                writeToReadAccess(&audiostate.lock);
+                #endif
+            }
+        }
+        playcount = audiostate.voices.worldbg.playcount;
+        if (playcount > audiostate.voices.worldbg.len) {
+            playcount = audiostate.voices.worldbg.len;
+        } else if (playcount < audiostate.voices.worldbg.len) {
+            int si = playcount;
+            do {
+                struct audiosound_3d* s = &audiostate.voices.worldbg.data[audiostate.voices.worldbg.sortdata[si++]];
+                if (!mixsound_3d_fake(s)) {
+                    #ifndef PSRC_NOMT
+                    readToWriteAccess(&audiostate.lock);
+                    #endif
+                    stop3DSound_inline(s);
+                    #ifndef PSRC_NOMT
+                    writeToReadAccess(&audiostate.lock);
+                    #endif
+                }
+            } while (si < audiostate.voices.worldbg.len);
+        }
+        for (int si = 0; si < playcount; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.worldbg.data[audiostate.voices.worldbg.sortdata[si]];
+            if (!mixsound_3d(s, audbuf)) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                stop3DSound_inline(s);
+                #ifndef PSRC_NOMT
+                writeToReadAccess(&audiostate.lock);
+                #endif
+            }
+        }
+    }
+    // TODO: proximity voice chat
+    // TODO: apply effects to 3D mix output
+    // 2D mixing
+    if (!mixsound_2d(&audiostate.voices.ui, audbuf, 0, 65536, 65536, 65536)) {
         #ifndef PSRC_NOMT
         readToWriteAccess(&audiostate.lock);
         #endif
-        if (unload) {
-            stopSound_inline(s);
-        } else {
-            if (chfx) s->state.fxchanged = false;
-            s->offset = offset;
-            s->fxoff = fxoff;
-            s->frac = frac;
-        }
+        stopSound_inline(&audiostate.voices.ui.data);
         #ifndef PSRC_NOMT
         writeToReadAccess(&audiostate.lock);
         #endif
     }
+    if (!mixsound_2d(&audiostate.voices.ambience.data[0], audbuf, SOUNDFLAG_LOOP,
+    audiostate.voices.ambience.oldvol[0] * 65536.0, audiostate.voices.ambience.vol[0] * 65536.0, 65536)) {
+        #ifndef PSRC_NOMT
+        readToWriteAccess(&audiostate.lock);
+        #endif
+        stopSound_inline(&audiostate.voices.ambience.data[0].data);
+        #ifndef PSRC_NOMT
+        writeToReadAccess(&audiostate.lock);
+        #endif
+    }
+    if (!mixsound_2d(&audiostate.voices.ambience.data[1], audbuf, SOUNDFLAG_LOOP,
+    audiostate.voices.ambience.oldvol[1] * 65536.0, audiostate.voices.ambience.vol[1] * 65536.0, 65536)) {
+        #ifndef PSRC_NOMT
+        readToWriteAccess(&audiostate.lock);
+        #endif
+        stopSound_inline(&audiostate.voices.ambience.data[1].data);
+        #ifndef PSRC_NOMT
+        writeToReadAccess(&audiostate.lock);
+        #endif
+    }
+    // TODO: music
+    // TODO: voice chat
     #ifndef PSRC_NOMT
     releaseReadAccess(&audiostate.lock);
     #endif
@@ -572,30 +989,114 @@ static void callback(void* data, uint16_t* stream, int len) {
     }
 }
 
+static inline int updsnds_cmp(struct audiosound_3d* s1, struct audiosound_3d* s2) {
+    if (!s1->data.rc) {
+        if (!s2->data.rc) return 0;
+        return 1;
+    }
+    if (!s2->data.rc) return -1;
+    return s2->fx[1].volmul[3] - s1->fx[1].volmul[3];
+}
+static void updsnds_world(struct audiovoicegroup_world* g) {
+    int glen = g->len;
+    if (!glen) return;
+    struct audiosound_3d* s = g->data;
+    int* sortdata = g->sortdata;
+    {
+        int si = 0;
+        while (1) {
+            if (s->data.rc && !s->fxchanged) {
+                s->fx[0] = s->fx[1];
+                s->fxchanged = true;
+                calc3DSoundFx(s);
+            }
+            ++si;
+            if (si == glen) break;
+            ++s;
+        }
+    }
+    s = g->data;
+    if (glen == 1) {
+        sortdata[0] = 0;
+    } else {
+        struct qssi {
+            int l, r;
+        };
+        int sp = 0;
+        struct qssi sdata[16];
+        #define qs_swap(a, b) {\
+            int qs_swap_tmp = sortdata[(a)];\
+            sortdata[(a)] = sortdata[(b)];\
+            sortdata[(b)] = qs_swap_tmp;\
+        }
+        const int lim = 7;
+        while (1) {
+            struct qssi d = {0, glen};
+            struct qssi t;
+            if (d.l - d.r > lim) {
+                t.l = d.l + 1;
+                t.r = d.r - 1;
+                {
+                    int m = (d.l + d.r) / 2;
+                    qs_swap(m, d.l);
+                }
+                if (updsnds_cmp(&s[sortdata[t.l]], &s[sortdata[t.r]]) > 0) {
+                    qs_swap(t.l, t.r);
+                }
+                if (updsnds_cmp(&s[sortdata[d.l]], &s[sortdata[t.r]]) > 0) {
+                    qs_swap(d.l, t.r);
+                }
+                if (updsnds_cmp(&s[sortdata[t.l]], &s[sortdata[d.l]]) > 0) {
+                    qs_swap(t.l, d.l);
+                }
+                while (1) {
+                    do {
+                        ++t.l;
+                    } while (updsnds_cmp(&s[sortdata[t.l]], &s[sortdata[d.l]]) < 0);
+                    do {
+                        --t.r;
+                    } while (updsnds_cmp(&s[sortdata[t.r]], &s[sortdata[d.l]]) > 0);
+                    if (t.l > t.r) break;
+                    qs_swap(t.l, t.r);
+                }
+                qs_swap(d.l, t.r);
+                if (t.r - d.l > d.r - t.l) {
+                    sdata[sp++] = (struct qssi){d.l, t.r};
+                    d.l = t.l;
+                } else {
+                    sdata[sp++] = (struct qssi){t.l, d.r};
+                    d.r = t.r;
+                }
+            } else {
+                for (t.r = d.l, t.l = t.r + 1; t.l < d.r; t.r = t.l, ++t.l) {
+                    while (updsnds_cmp(&s[sortdata[t.r]], &s[sortdata[t.r + 1]]) > 0) {
+                        qs_swap(t.r, t.r + 1);
+                        if (t.r == d.l) break;
+                        --t.r;
+                    }
+                }
+                if (sp > 0) d = sdata[--sp];
+                else break;
+            }
+        }
+        #undef qs_swap
+    }
+}
 void updateSounds(void) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    audiostate.rotradx = audiostate.camrot[0] * (float)M_PI / 180.0f;
-    audiostate.rotrady = audiostate.camrot[1] * (float)-M_PI / 180.0f;
-    audiostate.rotradz = audiostate.camrot[2] * (float)M_PI / 180.0f;
-    audiostate.sinx = sin(audiostate.rotradx);
-    audiostate.cosx = cos(audiostate.rotradx);
-    audiostate.siny = sin(audiostate.rotrady);
-    audiostate.cosy = cos(audiostate.rotrady);
-    audiostate.sinz = sin(audiostate.rotradz);
-    audiostate.cosz = cos(audiostate.rotradz);
-    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
-        struct audiosound* v = &audiostate.voices.data[vi];
-        if (!v->rc) continue;
-        struct audioemitter* e = &audiostate.emitters.data[v->emitter];
-        if (!v->state.fxchanged && (e->flags & EMITTERFLAG_POSEFFECT) && !(e->flags & EMITTERFLAG_RELPOS)) {
-            v->fx[0] = v->fx[1];
-            v->state.fxchanged = true;
-            calcSoundFx(v);
-            //s->state.updatefx = true;
-        }
-    }
+    audiostate.cam.rotradx = audiostate.cam.rot[0] * (float)M_PI / 180.0f;
+    audiostate.cam.rotrady = audiostate.cam.rot[1] * (float)-M_PI / 180.0f;
+    audiostate.cam.rotradz = audiostate.cam.rot[2] * (float)M_PI / 180.0f;
+    audiostate.cam.sinx = sin(audiostate.cam.rotradx);
+    audiostate.cam.cosx = cos(audiostate.cam.rotradx);
+    audiostate.cam.siny = sin(audiostate.cam.rotrady);
+    audiostate.cam.cosy = cos(audiostate.cam.rotrady);
+    audiostate.cam.sinz = sin(audiostate.cam.rotradz);
+    audiostate.cam.cosz = cos(audiostate.cam.rotradz);
+    updsnds_world(&audiostate.voices.world);
+    updsnds_world(&audiostate.voices.worldbg);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -625,7 +1126,7 @@ void updateSounds(void) {
     }
 }
 
-int newAudioEmitter(int max, uint8_t flags, ... /*soundfx*/) {
+int newAudioEmitter(int max, bool bg, ... /*soundfx*/) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
@@ -655,14 +1156,14 @@ int newAudioEmitter(int max, uint8_t flags, ... /*soundfx*/) {
     struct audioemitter* e = &audiostate.emitters.data[index];
     *e = (struct audioemitter){
         .max = max,
-        .flags = flags,
+        .bg = bg,
         .vol[0] = 1.0f,
         .vol[1] = 1.0f,
         .speed = 1.0f,
         .range = 20.0f
     };
     va_list args;
-    va_start(args, flags);
+    va_start(args, bg);
     enum soundfx fx;
     while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
         switch ((uint8_t)fx) {
@@ -701,11 +1202,18 @@ void deleteAudioEmitter(int ei) {
         #endif
         return;
     }
-    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
-        struct audiosound* v = &audiostate.voices.data[vi];
-        if (v->rc && v->emitter == ei) stopSound_inline(v);
-    }
     struct audioemitter* e = &audiostate.emitters.data[ei];
+    if (e->bg) {
+        for (int si = 0; si < audiostate.voices.worldbg.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.worldbg.data[si];
+            if (s->data.rc && s->emitter == ei) stop3DSound_inline(s);
+        }
+    } else {
+        for (int si = 0; si < audiostate.voices.world.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.world.data[si];
+            if (s->data.rc && s->emitter == ei) stop3DSound_inline(s);
+        }
+    }
     e->max = -1;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
@@ -723,8 +1231,7 @@ void pauseAudioEmitter(int ei, bool p) {
         #endif
         return;
     }
-    struct audioemitter* e = &audiostate.emitters.data[ei];
-    e->state.paused = p;
+    audiostate.emitters.data[ei].paused = p;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -741,16 +1248,32 @@ void stopAudioEmitter(int ei) {
         #endif
         return;
     }
-    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
-        struct audiosound* v = &audiostate.voices.data[vi];
-        if (v->rc && v->emitter == ei) {
-            #ifndef PSRC_NOMT
-            readToWriteAccess(&audiostate.lock);
-            #endif
-            stopSound_inline(v);
-            #ifndef PSRC_NOMT
-            releaseWriteAccess(&audiostate.lock);
-            #endif
+    struct audioemitter* e = &audiostate.emitters.data[ei];
+    if (e->bg) {
+        for (int si = 0; si < audiostate.voices.worldbg.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.worldbg.data[si];
+            if (s->data.rc && s->emitter == ei) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                stop3DSound_inline(s);
+                #ifndef PSRC_NOMT
+                releaseWriteAccess(&audiostate.lock);
+                #endif
+            }
+        }
+    } else {
+        for (int si = 0; si < audiostate.voices.world.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.world.data[si];
+            if (s->data.rc && s->emitter == ei) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                stop3DSound_inline(s);
+                #ifndef PSRC_NOMT
+                releaseWriteAccess(&audiostate.lock);
+                #endif
+            }
         }
     }
     #ifndef PSRC_NOMT
@@ -758,7 +1281,7 @@ void stopAudioEmitter(int ei) {
     #endif
 }
 
-void editAudioEmitter(int ei, bool immediate, unsigned enable, unsigned disable, ...) {
+void editAudioEmitter(int ei, bool immediate, ...) {
     if (ei < 0) return;
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
@@ -770,10 +1293,8 @@ void editAudioEmitter(int ei, bool immediate, unsigned enable, unsigned disable,
         return;
     }
     struct audioemitter* e = &audiostate.emitters.data[ei];
-    e->flags |= (uint8_t)enable;
-    e->flags &= ~(uint8_t)disable;
     va_list args;
-    va_start(args, disable);
+    va_start(args, immediate);
     enum soundfx fx;
     while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
         switch ((uint8_t)fx) {
@@ -795,20 +1316,39 @@ void editAudioEmitter(int ei, bool immediate, unsigned enable, unsigned disable,
         }
     }
     va_end(args);
-    for (int vi = 0; vi < audiostate.voices.count; ++vi) {
-        struct audiosound* v = &audiostate.voices.data[vi];
-        if (v->rc && v->emitter == ei) {
-            #ifndef PSRC_NOMT
-            readToWriteAccess(&audiostate.lock);
-            #endif
-            if (!immediate && !v->state.fxchanged) {
-                v->fx[0] = v->fx[1];
-                v->state.fxchanged = true;
+    if (e->bg) {
+        for (int si = 0; si < audiostate.voices.worldbg.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.worldbg.data[si];
+            if (s->data.rc && s->emitter == ei) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                if (!immediate && !s->fxchanged) {
+                    s->fx[0] = s->fx[1];
+                    s->fxchanged = true;
+                }
+                calc3DSoundFx(s);
+                #ifndef PSRC_NOMT
+                writeToReadAccess(&audiostate.lock);
+                #endif
             }
-            calcSoundFx(v);
-            #ifndef PSRC_NOMT
-            writeToReadAccess(&audiostate.lock);
-            #endif
+        }
+    } else {
+        for (int si = 0; si < audiostate.voices.world.len; ++si) {
+            struct audiosound_3d* s = &audiostate.voices.world.data[si];
+            if (s->data.rc && s->emitter == ei) {
+                #ifndef PSRC_NOMT
+                readToWriteAccess(&audiostate.lock);
+                #endif
+                if (!immediate && !s->fxchanged) {
+                    s->fx[0] = s->fx[1];
+                    s->fxchanged = true;
+                }
+                calc3DSoundFx(s);
+                #ifndef PSRC_NOMT
+                writeToReadAccess(&audiostate.lock);
+                #endif
+            }
         }
     }
     #ifndef PSRC_NOMT
@@ -827,7 +1367,9 @@ void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
         #endif
         return;
     }
+    struct audiosound_3d* s;
     {
+        struct audiovoicegroup_world* g;
         struct audioemitter* e = &audiostate.emitters.data[ei];
         if (e->max && e->uses == e->max) {
             #ifndef PSRC_NOMT
@@ -835,97 +1377,90 @@ void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
             #endif
             return;
         }
-    }
-    int stop = audiostate.voices.next;
-    struct audiosound* v = NULL;
-    do {
-        struct audiosound* tmpv = &audiostate.voices.data[audiostate.voices.next];
-        audiostate.voices.next = (audiostate.voices.next + 1) % audiostate.voices.count;
-        if (!tmpv->rc) {
-            v = tmpv;
-            break;
-        }
-    } while (audiostate.voices.next != stop);
-    if (v) {
-        #ifndef PSRC_NOMT
-        readToWriteAccess(&audiostate.lock);
-        #endif
-    } else {
-        do {
-            struct audiosound* tmpv = &audiostate.voices.data[audiostate.voices.next];
-            audiostate.voices.next = (audiostate.voices.next + 1) % audiostate.voices.count;
-            if (tmpv->rc && !(tmpv->flags & SOUNDFLAG_UNINTERRUPTIBLE)) {
+        s = NULL;
+        g = (e->bg) ? &audiostate.voices.worldbg : &audiostate.voices.world;
+        int glen = g->len;
+        for (int i = 0; i < glen; ++i) {
+            struct audiosound_3d* tmps = &g->data[i];
+            if (!tmps->data.rc) {
+                s = tmps;
                 #ifndef PSRC_NOMT
                 readToWriteAccess(&audiostate.lock);
                 #endif
-                stopSound_inline(tmpv);
-                v = tmpv;
+                goto found;
+            }
+        }
+        #ifndef PSRC_NOMT
+        readToWriteAccess(&audiostate.lock);
+        #endif
+        if (glen == g->size) {
+            g->size = g->size * 3 / 2;
+            g->data = realloc(g->data, g->size * sizeof(*g->data));
+        }
+        s = &g->data[glen];
+        ++g->len;
+    }
+    found:;
+    grabResource(rc);
+    *s = (struct audiosound_3d){
+        .data.rc = rc,
+        .emitter = ei,
+        .flags = f,
+        .vol[0] = 1.0f,
+        .vol[1] = 1.0f,
+        .speed = 1.0f,
+        .range = 1.0f
+    };
+    switch ((uint8_t)rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            s->data.vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
+            s->data.audbuf.off = 0;
+            s->data.audbuf.len = audiostate.audbuflen;
+            s->data.audbuf.data[0] = malloc(s->data.audbuf.len * sizeof(*s->data.audbuf.data[0]));
+            s->data.audbuf.data[1] = malloc(s->data.audbuf.len * sizeof(*s->data.audbuf.data[1]));
+            stb_vorbis_get_samples_short(s->data.vorbis, 2, s->data.audbuf.data, s->data.audbuf.len);
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            s->data.mp3 = malloc(sizeof(*s->data.mp3));
+            mp3dec_ex_open_buf(s->data.mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
+            s->data.audbuf.off = 0;
+            s->data.audbuf.len = audiostate.audbuflen;
+            s->data.audbuf.data_mp3 = malloc(s->data.audbuf.len * rc->channels * sizeof(*s->data.audbuf.data_mp3));
+            mp3dec_ex_read(s->data.mp3, s->data.audbuf.data_mp3, s->data.audbuf.len);
+        } break;
+        #endif
+    }
+    va_list args;
+    va_start(args, f);
+    enum soundfx fx;
+    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+        switch ((uint8_t)fx) {
+            case SOUNDFX_VOL:
+                s->vol[0] = va_arg(args, double);
+                s->vol[1] = va_arg(args, double);
                 break;
-            }
-        } while (audiostate.voices.next != stop);
-    }
-    if (v) {
-        grabResource(rc);
-        *v = (struct audiosound){
-            .rc = rc,
-            .emitter = ei,
-            .flags = f,
-            .vol[0] = 1.0f,
-            .vol[1] = 1.0f,
-            .speed = 1.0f,
-        };
-        switch ((uint8_t)rc->format) {
-            case RC_SOUND_FRMT_VORBIS: {
-                v->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
-                v->audbuf.off = 0;
-                v->audbuf.len = audiostate.audbuflen;
-                v->audbuf.data[0] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[0]));
-                v->audbuf.data[1] = malloc(v->audbuf.len * sizeof(*v->audbuf.data[1]));
-                stb_vorbis_get_samples_short(v->vorbis, 2, v->audbuf.data, v->audbuf.len);
-            } break;
-            #ifdef PSRC_USEMINIMP3
-            case RC_SOUND_FRMT_MP3: {
-                v->mp3 = malloc(sizeof(*v->mp3));
-                mp3dec_ex_open_buf(v->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
-                v->audbuf.off = 0;
-                v->audbuf.len = audiostate.audbuflen;
-                v->audbuf.data_mp3 = malloc(v->audbuf.len * rc->channels * sizeof(*v->audbuf.data_mp3));
-                mp3dec_ex_read(v->mp3, v->audbuf.data_mp3, v->audbuf.len);
-            } break;
-            #endif
+            case SOUNDFX_SPEED:
+                s->speed = va_arg(args, double);
+                break;
+            case SOUNDFX_POS:
+                s->pos[0] = va_arg(args, double);
+                s->pos[1] = va_arg(args, double);
+                s->pos[2] = va_arg(args, double);
+                break;
+            case SOUNDFX_RANGE:
+                s->range = va_arg(args, double);
+                break;
         }
-        va_list args;
-        va_start(args, f);
-        enum soundfx fx;
-        while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
-            switch ((uint8_t)fx) {
-                case SOUNDFX_VOL:
-                    v->vol[0] = va_arg(args, double);
-                    v->vol[1] = va_arg(args, double);
-                    break;
-                case SOUNDFX_SPEED:
-                    v->speed = va_arg(args, double);
-                    break;
-                case SOUNDFX_POS:
-                    v->pos[0] = va_arg(args, double);
-                    v->pos[1] = va_arg(args, double);
-                    v->pos[2] = va_arg(args, double);
-                    break;
-                case SOUNDFX_RANGE:
-                    va_arg(args, double); // ignored
-                    break;
-            }
-        }
-        va_end(args);
-        calcSoundFx(v);
-        #ifndef PSRC_NOMT
-        releaseWriteAccess(&audiostate.lock);
-        #endif
-    } else {
-        #ifndef PSRC_NOMT
-        releaseReadAccess(&audiostate.lock);
-        #endif
     }
+    va_end(args);
+    calc3DSoundFx(s);
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+}
+void setAmbientSound(struct rc_sound* rc) {
+    
 }
 
 void updateAudioConfig(enum audioopt opt, ...) {
@@ -964,7 +1499,7 @@ bool startAudio(void) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    char* tmp = cfg_getvar(config, "Sound", "disable");
+    char* tmp = cfg_getvar(config, "Audio", "disable");
     if (tmp) {
         bool disable = strbool(tmp, false);
         free(tmp);
@@ -983,7 +1518,7 @@ bool startAudio(void) {
     inspec.channels = 2;
     #ifndef PSRC_USESDL1
     #ifndef PSRC_NOMT
-    tmp = cfg_getvar(config, "Sound", "callback");
+    tmp = cfg_getvar(config, "Audio", "callback");
     if (tmp) {
         audiostate.usecallback = strbool(tmp, false);
         free(tmp);
@@ -999,7 +1534,7 @@ bool startAudio(void) {
     #ifndef PSRC_USESDL1
     int flags = 0;
     #endif
-    tmp = cfg_getvar(config, "Sound", "freq");
+    tmp = cfg_getvar(config, "Audio", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
         free(tmp);
@@ -1013,7 +1548,7 @@ bool startAudio(void) {
         inspec.freq = 22050;
         #endif
     }
-    tmp = cfg_getvar(config, "Sound", "buffer");
+    tmp = cfg_getvar(config, "Audio", "buffer");
     if (tmp) {
         inspec.samples = atoi(tmp);
         free(tmp);
@@ -1068,39 +1603,64 @@ bool startAudio(void) {
         if (audiostate.usecallback) {
             audiostate.audbuf.out[1] = malloc(audiostate.audbuf.outsize);
         }
-        int voicecount;
-        tmp = cfg_getvar(config, "Sound", "voices");
-        if (tmp) {
-            voicecount = atoi(tmp);
-            free(tmp);
-        } else {
-            voicecount = 32;
-        }
-        if (audiostate.voices.count != voicecount) {
-            audiostate.voices.count = voicecount;
-            audiostate.voices.data = realloc(audiostate.voices.data, voicecount * sizeof(*audiostate.voices.data));
+        {
+            int voicecount;
+            tmp = cfg_getvar(config, "Audio", "worldvoices");
+            if (tmp) {
+                voicecount = atoi(tmp);
+                free(tmp);
+            } else {
+                voicecount = 32;
+            }
+            audiostate.voices.world.len = 0;
+            audiostate.voices.world.size = 16;
+            audiostate.voices.world.playcount = voicecount;
+            audiostate.voices.world.data = malloc(audiostate.voices.world.size * sizeof(*audiostate.voices.world.data));
+            audiostate.voices.world.sortdata = malloc(audiostate.voices.world.size * sizeof(*audiostate.voices.world.sortdata));
+            tmp = cfg_getvar(config, "Audio", "worldbgvoices");
+            if (tmp) {
+                voicecount = atoi(tmp);
+                free(tmp);
+            } else {
+                voicecount = 32;
+            }
+            audiostate.voices.worldbg.len = 0;
+            audiostate.voices.worldbg.size = 16;
+            audiostate.voices.worldbg.playcount = voicecount;
+            audiostate.voices.worldbg.data = malloc(audiostate.voices.worldbg.size * sizeof(*audiostate.voices.worldbg.data));
+            audiostate.voices.worldbg.sortdata = malloc(audiostate.voices.worldbg.size * sizeof(*audiostate.voices.worldbg.sortdata));
+            tmp = cfg_getvar(config, "Audio", "alertvoices");
+            if (tmp) {
+                voicecount = atoi(tmp);
+                free(tmp);
+            } else {
+                voicecount = 16;
+            }
+            audiostate.voices.alerts.next = 0;
+            audiostate.voices.alerts.count = voicecount;
+            audiostate.voices.alerts.data = malloc(voicecount * sizeof(*audiostate.voices.alerts.data));
+            for (int i = 0; i < voicecount; ++i) {
+                audiostate.voices.alerts.data[i].data.rc = NULL;
+            }
         }
         audiostate.emitters.len = 0;
         audiostate.emitters.size = 4;
-        audiostate.emitters.data = realloc(audiostate.emitters.data, audiostate.emitters.size * sizeof(*audiostate.emitters.data));
-        for (int i = 0; i < voicecount; ++i) {
-            audiostate.voices.data[i].rc = NULL;
-        }
-        tmp = cfg_getvar(config, "Sound", "outbufcount");
+        audiostate.emitters.data = malloc(audiostate.emitters.size * sizeof(*audiostate.emitters.data));
+        tmp = cfg_getvar(config, "Audio", "outbufcount");
         if (tmp) {
             audiostate.outbufcount = atoi(tmp);
             free(tmp);
         } else {
             audiostate.outbufcount = 2;
         }
-        tmp = cfg_getvar(config, "Sound", "decodebuf");
+        tmp = cfg_getvar(config, "Audio", "decodebuf");
         if (tmp) {
             audiostate.audbuflen = atoi(tmp);
             free(tmp);
         } else {
             audiostate.audbuflen = 4096;
         }
-        tmp = cfg_getvar(config, "Sound", "decodewhole");
+        tmp = cfg_getvar(config, "Audio", "decodewhole");
         if (tmp) {
             #if PLATFORM != PLAT_NXDK
             audiostate.soundrcopt.decodewhole = strbool(tmp, true);
@@ -1146,11 +1706,26 @@ void stopAudio(void) {
         SDL_PauseAudio(1);
         SDL_CloseAudio();
         #endif
-        for (int i = 0; i < audiostate.voices.count; ++i) {
-            struct audiosound* v = &audiostate.voices.data[i];
-            if (v->rc) stopSound_inline(v);
+        if (audiostate.voices.ui.data.rc) stopSound_inline(&audiostate.voices.ui.data);
+        for (int i = 0; i < audiostate.voices.alerts.count; ++i) {
+            struct audiosound* s = &audiostate.voices.alerts.data[i].data;
+            if (s->rc) stopSound_inline(s);
         }
-        free(audiostate.voices.data);
+        free(audiostate.voices.alerts.data);
+        for (int i = 0; i < audiostate.voices.world.len; ++i) {
+            struct audiosound* s = &audiostate.voices.world.data[i].data;
+            if (s->rc) stopSound_inline(s);
+        }
+        free(audiostate.voices.world.data);
+        for (int i = 0; i < audiostate.voices.worldbg.len; ++i) {
+            struct audiosound* s = &audiostate.voices.worldbg.data[i].data;
+            if (s->rc) stopSound_inline(s);
+        }
+        free(audiostate.voices.worldbg.data);
+        if (audiostate.voices.ambience.data[0].data.rc) stopSound_inline(&audiostate.voices.ambience.data[0].data);
+        if (audiostate.voices.ambience.data[1].data.rc) stopSound_inline(&audiostate.voices.ambience.data[1].data);
+        if (audiostate.voices.music.data[0].data.rc) stopSound_inline(&audiostate.voices.music.data[0].data);
+        if (audiostate.voices.music.data[1].data.rc) stopSound_inline(&audiostate.voices.music.data[1].data);
         free(audiostate.audbuf.data[0][0]);
         free(audiostate.audbuf.data[0][1]);
         if (audiostate.usecallback) {

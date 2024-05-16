@@ -40,6 +40,7 @@
 - Tools
     - Blender P3M plugin
         - Importing
+    - PTM music tracker
 
 ---
 ### Done
@@ -52,3 +53,4 @@
 - Tools
     - Blender P3M plugin
         - Exporting
+    - GTKSourceView file for PBASIC
