@@ -274,7 +274,7 @@ int initLoop(void) {
     testemt_obj = newAudioEmitter(1, false, 0.0, 0.0, 4.0, SOUNDFX_END);
 
     test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt);
-    //if (test) setAmbientSound(test);
+    if (test) setAmbientSound(test);
     freeResource(test);
     test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
     if (test) playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
@@ -475,7 +475,7 @@ void doLoop(void) {
     audiostate.cam.rot[1] = rendstate.camrot[1];
     audiostate.cam.rot[2] = rendstate.camrot[2];
 
-    updateSounds();
+    updateSounds(framemult);
     render();
     display();
 
@@ -1015,6 +1015,7 @@ int main(int argc, char** argv) {
     #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     #endif
+    #if !DEBUG(0)
     signal(SIGSEGV, sigh);
     #ifdef SIGABRT
     signal(SIGABRT, sigh);
@@ -1027,6 +1028,7 @@ int main(int argc, char** argv) {
     #endif
     #ifdef SIGILL
     signal(SIGILL, sigh);
+    #endif
     #endif
     #else
     (void)argc; (void)argv;

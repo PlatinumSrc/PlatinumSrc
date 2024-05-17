@@ -48,7 +48,7 @@ struct audiosound_audbuf {
 struct __attribute__((packed)) audiosound_fx {
     int posoff; // position offset in output freq samples (based on the dist between campos and pos)
     int speedmul; // position mult in units of 256 (based on speed)
-    int volmul[4]; // volume mult in units of 65536 (based on vol, camrot, and the dist between campos and pos)
+    int volmul[3]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
 };
 struct audiosound {
     struct rc_sound* rc;
@@ -73,6 +73,7 @@ struct audiosound_3d {
     float pos[3];
     float range;
     struct audiosound_fx fx[2];
+    int maxvol;
 };
 struct audiosound_2d {
     struct audiosound data;
@@ -124,16 +125,17 @@ struct audiostate {
         struct audiovoicegroup_world world;
         struct audiovoicegroup_world worldbg;
         struct {
-            uint8_t index;
+            struct rc_sound* queue;
             struct audiosound_2d data[2];
-            float vol[2];
-            float oldvol[2];
+            float fade;
+            float oldfade;
+            uint8_t index;
         } ambience;
         struct {
-            uint8_t index;
             struct audiosound_2d data[2];
             float vol[2];
             float oldvol[2];
+            uint8_t index;
         } music;
     } voices;
     struct {
@@ -186,6 +188,6 @@ void setAmbientSound(struct rc_sound* rc);
 void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
 void setMusicStyle(const char*);
 
-void updateSounds(void);
+void updateSounds(float framemult);
 
 #endif
