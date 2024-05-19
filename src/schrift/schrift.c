@@ -74,7 +74,7 @@
 /* Allocate values on the stack if they are small enough, else spill to heap. */
 #define STACK_ALLOC(var, type, thresh, count) \
 	type var##_stack_[thresh]; \
-	var = (count) <= (thresh) ? var##_stack_ : calloc(sizeof(type), count);
+	var = (count) <= (thresh) ? var##_stack_ : calloc(count, sizeof(type));
 #define STACK_FREE(var) \
 	if (var != var##_stack_) free(var);
 

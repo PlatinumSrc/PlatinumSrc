@@ -10,10 +10,10 @@ rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
 [[ ${#} -eq 0 ]] && modules=(engine server editor) || modules=("${@}")
 
 pkgrel() {
-    if [ ! -z "${1}" ]; then
+    if [ -z "${1}" ]; then
         "${ARCHIVER[@]}" "${OUTPUT}" "${FILES[@]}"
-    elif
-        "${ARCHIVER[@]}" "${OUTPUT}${1}" "${FILES[@]}"
+    else
+        "${ARCHIVER[@]}" "${OUTPUT} ${1}" "${FILES[@]}"
     fi
 }
 

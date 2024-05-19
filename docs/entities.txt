@@ -33,7 +33,7 @@ Entity data:
         | ENT_HEALTHSTATION
         | ENT_SHIELDSTATION }
     Entity data:
-        <u8: Min difficulty level>
+        <u8: Difficulties>
         <u16: Gamemodes>
         { <Headless entity data>
         | <Generic entity data>

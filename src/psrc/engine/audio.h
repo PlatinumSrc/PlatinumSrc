@@ -59,26 +59,25 @@ struct audiosound {
         #endif
     };
     struct audiosound_audbuf audbuf;
+    long offset;
+    int frac;
+};
+struct audiosound_alert {
+    struct audiosound data;
+    int8_t prio;
 };
 struct audiosound_3d {
     struct audiosound data;
     int emitter;
     uint8_t fxchanged : 1;
     uint8_t flags : 7;
-    long offset;
     int fxoff;
-    int frac;
     float vol[2];
     float speed;
     float pos[3];
     float range;
     struct audiosound_fx fx[2];
     int maxvol;
-};
-struct audiosound_2d {
-    struct audiosound data;
-    long offset;
-    int frac;
 };
 
 struct audiovoicegroup_world {
@@ -116,9 +115,9 @@ struct audiostate {
         int size;
     } emitters;
     struct {
-        struct audiosound_2d ui;
+        struct audiosound ui;
         struct {
-            struct audiosound_2d* data;
+            struct audiosound_alert* data;
             int count;
             int next;
         } alerts;
@@ -126,18 +125,28 @@ struct audiostate {
         struct audiovoicegroup_world worldbg;
         struct {
             struct rc_sound* queue;
-            struct audiosound_2d data[2];
+            struct audiosound data[2];
             float fade;
             float oldfade;
             uint8_t index;
         } ambience;
         struct {
-            struct audiosound_2d data[2];
-            float vol[2];
-            float oldvol[2];
-            uint8_t index;
+            struct rc_sound* queue;
+            struct audiosound data;
+            float vol;
+            float oldvol;
         } music;
     } voices;
+    struct {
+        uint8_t master;
+        uint8_t ui;
+        uint8_t alerts;
+        uint8_t world;
+        uint8_t worldbg;
+        uint8_t ambience;
+        uint8_t music;
+        uint8_t voice;
+    } vol;
     struct {
         float pos[3];
         float rot[3];
@@ -181,9 +190,9 @@ void pauseAudioEmitter(int, bool);
 void stopAudioEmitter(int);
 void deleteAudioEmitter(int);
 
+void playSound(int emitter, struct rc_sound* rc, uint8_t flags, ... /*soundfx*/);
 void playUISound(struct rc_sound* rc);
 void playAlertSound(struct rc_sound* rc); // TODO: maybe add speed?
-void playSound(int emitter, struct rc_sound* rc, uint8_t flags, ... /*soundfx*/);
 void setAmbientSound(struct rc_sound* rc);
 void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
 void setMusicStyle(const char*);

@@ -47,10 +47,11 @@ char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            char* tmp = strdup(ptr->data);
             #ifndef PSRC_NOMT
             unlockMutex(&cfg->lock);
             #endif
-            return strdup(ptr->data);
+            return tmp;
         }
     }
     #ifndef PSRC_NOMT
@@ -93,15 +94,18 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            char* from = ptr->data;
+            --size;
+            for (size_t j = 0; j < size; ++j) {
+                char c = *from;
+                if (!c) break;
+                *data++ = c;
+                ++from;
+            }
+            *data = 0;
             #ifndef PSRC_NOMT
             unlockMutex(&cfg->lock);
             #endif
-            char* from = ptr->data;
-            for (size_t j = 0; j < size; ++j) {
-                if (!(*data = *from)) break;
-                ++data;
-                ++from;
-            }
             return true;
         }
     }

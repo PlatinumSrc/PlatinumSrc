@@ -660,6 +660,7 @@ distclean: clean
 ifeq ($(CROSS),nxdk)
 	@$(call rm,$(XISODIR)/default.xbe)
 	@$(call rm,$(BINPATH))
+	@$(call rm,$(BINPATH:.exe=.pdb))
 else ifeq ($(CROSS),emscr)
 	@$(call rm,$(basename $(OUTDIR)/$(BIN)).js)
 	@$(call rm,$(basename $(OUTDIR)/$(BIN)).wasm)
