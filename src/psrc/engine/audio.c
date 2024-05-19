@@ -295,8 +295,14 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
         //puts("fxchanged");
         sfx[0] = s->fx[0];
         sfx[1] = s->fx[1];
+        sfx[0].volmul[0] = sfx[0].volmul[0] * audiostate.vol.master / 100;
+        sfx[0].volmul[1] = sfx[0].volmul[1] * audiostate.vol.master / 100;
+        sfx[1].volmul[0] = sfx[1].volmul[0] * audiostate.vol.master / 100;
+        sfx[1].volmul[1] = sfx[1].volmul[1] * audiostate.vol.master / 100;
     } else {
         fx = s->fx[1];
+        fx.volmul[0] = fx.volmul[0] * audiostate.vol.master / 100;
+        fx.volmul[1] = fx.volmul[1] * audiostate.vol.master / 100;
     }
     #if 0
     int outfreq = audiostate.freq;
@@ -675,8 +681,8 @@ static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int o
     bool stereo = rc->stereo;
     int l, r;
     int l2, r2;
-    oldvol = oldvol * volmul / 100;
-    newvol = newvol * volmul / 100;
+    oldvol = oldvol * volmul * audiostate.vol.master / 10000;
+    newvol = newvol * volmul * audiostate.vol.master / 10000;
     int vol;
     switch (rc->format) {
         case RC_SOUND_FRMT_VORBIS: {

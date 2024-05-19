@@ -14,14 +14,15 @@ endif
 
 ifeq ($(CROSS),)
     CC ?= gcc
-    CC := $(PREFIX)$(CC)
     LD := $(CC)
     AR ?= ar
-    AR := $(PREFIX)$(AR)
     STRIP ?= strip
-    STRIP := $(PREFIX)$(STRIP)
     OBJCOPY ?= objcopy
-    OBJCOPY := $(PREFIX)$(OBJCOPY)
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    _OBJCOPY := $(PREFIX)$(OBJCOPY)
     ifneq ($(M32),y)
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o 2> $(null) || uname -s; uname -m)))
     else
@@ -42,17 +43,18 @@ else ifeq ($(CROSS),win32)
         endif
         PLATFORM := Windows_i686
     endif
-    CC ?= gcc
-    CC := $(PREFIX)$(CC)
+    CC := gcc
     LD := $(CC)
-    AR ?= ar
-    AR := $(PREFIX)$(AR)
-    STRIP ?= strip
-    STRIP := $(PREFIX)$(STRIP)
-    OBJCOPY ?= objcopy
-    OBJCOPY := $(PREFIX)$(OBJCOPY)
-    WINDRES ?= windres
-    WINDRES := $(PREFIX)$(WINDRES)
+    AR := ar
+    STRIP := strip
+    OBJCOPY := objcopy
+    WINDRES := windres
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    _OBJCOPY := $(PREFIX)$(OBJCOPY)
+    _WINDRES := $(PREFIX)$(WINDRES)
     USESR := y
     USEGL := y
     USEGLAD := y
@@ -62,9 +64,9 @@ else ifeq ($(CROSS),emscr)
         $(error Invalid module: $(MODULE))
     endif
     PLATFORM := Emscripten
-    CC := emcc
-    LD := $(CC)
-    AR := emar
+    _CC := emcc
+    _LD := $(CC)
+    _AR := emar
     EMULATOR := emrun
     EMUPATHFLAG := --
     NOSTRIP := y
@@ -77,25 +79,17 @@ else ifeq ($(CROSS),nxdk)
     ifneq ($(MODULE),engine)
         $(error Invalid module: $(MODULE))
     endif
-    ifdef CC
-        _CC := $(CC)
-    else
-        _CC := gcc
-    endif
-    _CC := $(PREFIX)$(_CC)
-    ifdef LD
-        _LD := $(LD)
-    else
-        _LD := ld
-    endif
     PLATFORM := NXDK
-    _LD := $(PREFIX)$(_LD)
     CC := nxdk-cc
     LD := nxdk-link
-    AR ?= ar
-    AR := $(PREFIX)$(AR)
-    OBJCOPY ?= objcopy
-    OBJCOPY := $(PREFIX)$(OBJCOPY)
+    AR := ar
+    STRIP := strip
+    OBJCOPY := objcopy
+    _CC := $(CC)
+    _LD := $(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    _OBJCOPY := $(PREFIX)$(OBJCOPY)
     EMULATOR := xemu
     EMUPATHFLAG := -dvd_path
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
@@ -133,13 +127,14 @@ else ifeq ($(CROSS),ps2)
         $(error Please define the GSKIT environment variable)
     endif
     PREFIX := mips64r5900el-ps2-elf-
-    CC ?= gcc
-    CC := $(PREFIX)$(CC)
+    CC := gcc
     LD := $(CC)
-    AR ?= ar
-    AR := $(PREFIX)$(AR)
-    STRIP ?= strip
-    STRIP := $(PREFIX)$(STRIP)
+    AR := ar
+    STRIP := strip
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
     EMULATOR := pcsx2
     EMUPATHFLAG := --
     USEGSKIT := y
@@ -153,6 +148,11 @@ else ifeq ($(CROSS),dc)
     AR := $(KOS_AR)
     STRIP := $(KOS_STRIP)
     OBJCOPY := $(KOS_OBJCOPY)
+    _CC := $(CC)
+    _LD := $(LD)
+    _AR := $(AR)
+    _STRIP := $(STRIP)
+    _OBJCOPY := $(OBJCOPY)
     EMULATOR := flycast
     SCRAMBLE := $(KOS_BASE)/utils/scramble/scramble
     MAKEIP := $(KOS_BASE)/utils/makeip/makeip
@@ -483,7 +483,7 @@ endif
 BINPATH := $(OUTDIR)/$(BINPATH)
 
 ifeq ($(CROSS),win32)
-    ifneq ($(WINDRES),)
+    ifneq ($(_WINDRES),)
         WRSRC := $(SRCDIR)/psrc/winver.rc
         WROBJ := $(_OBJDIR)/psrc/winver.o
         _WROBJ = $$(test -f $(WROBJ) && echo $(WROBJ))
@@ -513,8 +513,8 @@ OBJECTS := $(patsubst $(SRCDIR)/%.c,$(_OBJDIR)/%.o,$(SOURCES))
 export MODULE
 export CROSS
 
-export CC
-export AR
+export _CC
+export _AR
 
 export _CFLAGS
 export _CPPFLAGS
@@ -550,7 +550,7 @@ $(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).
 endef
 inc.null := $(null)
 define inc
-$$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
+$$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
 endef
 
 default: build
@@ -571,7 +571,7 @@ $(_OBJDIR):
 
 $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 	@echo Compiling $(patsubst $(__SRCDIR)/%,%,$<)...
-	@$(CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
+	@$(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
 	@echo Compiled $(patsubst $(__SRCDIR)/%,%,$<)
 
 ifneq ($(MKSUB),y)
@@ -613,26 +613,26 @@ ifeq ($(CROSS),nxdk)
 endif
 	@echo Linking $@...
 ifeq ($(CROSS),win32)
-ifneq ($(WINDRES),)
-	@$(WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
+ifneq ($(_WINDRES),)
+	@$(_WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
 endif
 endif
 ifeq ($(CROSS),emscr)
-	@$(LD) $(_LDFLAGS) $^ $(_LDLIBS) -o $(OUTDIR)/$(BIN).html
+	@$(_LD) $(_LDFLAGS) $^ $(_LDLIBS) -o $(OUTDIR)/$(BIN).html
 	@mv -f $(OUTDIR)/$(BIN).html $(BINPATH)
 else ifeq ($(CROSS),nxdk)
-	@$(LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
+	@$(_LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
-	@$(OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
+	@$(_OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
 endif
-	@$(OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
+	@$(_OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 else
-	@$(LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
+	@$(_LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
-	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
+	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
 ifeq ($(USEWEAKGL),y)
-	@$(OBJCOPY) -w -W 'gl[A-Z]*' $@
+	@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@
 endif
 endif
 	@echo Linked $@
@@ -641,7 +641,7 @@ else
 
 $(BINPATH): $(OBJECTS) | $(OUTDIR)
 	@echo Building $(patsubst $(__OBJDIR)/%,%,$@)...
-	@$(AR) rcs $@ $^
+	@$(_AR) rcs $@ $^
 	@echo Built $(patsubst $(__OBJDIR)/%,%,$@)
 
 endif
@@ -682,19 +682,11 @@ ifeq ($(CROSS),nxdk)
 $(XISODIR):
 	@$(call mkdir,$@)
 
-$(CXBE):
-	@echo Making NXDK Cxbe tool...
-	@'$(MAKE)' CC='$(_CC)' LD='$(_LD)' --no-print-directory -C '$(NXDK_DIR)' cxbe > $(null)
-
-$(EXTRACT_XISO):
-	@echo Making NXDK extract-xiso tool...
-	@'$(MAKE)' CC='$(_CC)' LD='$(_LD)' --no-print-directory -C '$(NXDK_DIR)' extract-xiso > $(null)
-
 $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 	@echo Relinking $@ from $<...
 	@'$(CXBE)' -OUT:$@ -TITLE:'$(XBE_TITLE)' -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
 
-$(XISO): $(XISODIR)/default.xbe $(EXTRACT_XISO) | $(XISODIR)
+$(XISO): $(XISODIR)/default.xbe | $(XISODIR)
 	@echo Creating $@...
 	@'$(EXTRACT_XISO)' -c $(XISODIR) "$@" > $(null)
 
@@ -705,7 +697,7 @@ $(CDIDIR):
 
 $(CDIDIR)/1ST_READ.bin: $(BINPATH) | $(CDIDIR)
 	@echo Creating $@ from $<...
-	@$(OBJCOPY) -R .stack -O binary $< $<.bin
+	@$(_OBJCOPY) -R .stack -O binary $< $<.bin
 	@'$(SCRAMBLE)' $<.bin $@
 	@$(call rm,$<.bin)
 
