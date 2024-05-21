@@ -2,20 +2,21 @@
 #define PSRC_PLATFORM_H
 
 #define PLAT_UNKNOWN   0
-#define PLAT_ANDROID   1
-#define PLAT_DREAMCAST 2
-#define PLAT_EMSCR     3
-#define PLAT_FREEBSD   4
-#define PLAT_HAIKU     5
-#define PLAT_LINUX     6
-#define PLAT_MACOS     7
-#define PLAT_NETBSD    8
-#define PLAT_OPENBSD   9
-#define PLAT_PS2       10
-#define PLAT_UNIX      11
-#define PLAT_WIN32     12
-#define PLAT_NXDK      13
-#define PLAT__COUNT    14
+#define PLAT_3DS       1
+#define PLAT_ANDROID   2
+#define PLAT_DREAMCAST 3
+#define PLAT_EMSCR     4
+#define PLAT_FREEBSD   5
+#define PLAT_HAIKU     6
+#define PLAT_LINUX     7
+#define PLAT_MACOS     8
+#define PLAT_NETBSD    9
+#define PLAT_OPENBSD   10
+#define PLAT_PS2       11
+#define PLAT_UNIX      12
+#define PLAT_WIN32     13
+#define PLAT_NXDK      14
+#define PLAT__COUNT    15
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -30,7 +31,9 @@
 #define BO_LE 1234
 #define BO_BE 4321
 
-#if defined(__ANDROID__)
+#if defined(__3DS__)
+    #define PLATFORM PLAT_3DS
+#elif defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
 #elif defined(_arch_dreamcast)
     #define PLATFORM PLAT_DREAMCAST

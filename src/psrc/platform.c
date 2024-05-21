@@ -3,6 +3,7 @@
 
 const char* platname[PLAT__COUNT] = {
     "Unknown",
+    "3DS",
     "Android",
     "Dreamcast (KallistiOS)",
     "Emscripten",
@@ -19,6 +20,7 @@ const char* platname[PLAT__COUNT] = {
 };
 const char* platid[PLAT__COUNT] = {
     "unknown",
+    "3ds",
     "android",
     "dreamcast",
     "emscr",
@@ -35,6 +37,7 @@ const char* platid[PLAT__COUNT] = {
 };
 const char* platdir[PLAT__COUNT] = {
     "unknown",
+    "3ds",
     "android",
     "dreamcast",
     "emscripten",
@@ -50,6 +53,7 @@ const char* platdir[PLAT__COUNT] = {
     "nxdk"
 };
 const char* altplatdir[PLAT__COUNT] = {
+    NULL,
     NULL,
     NULL,
     "dc",

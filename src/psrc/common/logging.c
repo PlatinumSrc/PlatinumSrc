@@ -139,7 +139,7 @@ static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* f
     }
     vfprintf(f, s, v);
     fputc('\n', f);
-    #if PLATFORM == PLAT_NXDK
+    #if DEBUG(0) && (PLATFORM == PLAT_NXDK || PLATFORM == PLAT_3DS)
     fflush(f);
     #endif
 }

@@ -100,7 +100,7 @@ static inline void calc3DSoundFx(struct audiosound_3d* s) {
     pos[2] = e->pos[2] + s->pos[2] - audiostate.cam.pos[2];
     float range = e->range * s->range;
     if (isnormal(range)) {
-        float dist = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        float dist = sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
         if (isnormal(dist)) {
             if (dist < range) {
                 float loudness = 1.0f - (dist / range);
@@ -1245,12 +1245,12 @@ void updateSounds(float framemult) {
     audiostate.cam.rotradx = audiostate.cam.rot[0] * (float)M_PI / 180.0f;
     audiostate.cam.rotrady = audiostate.cam.rot[1] * (float)-M_PI / 180.0f;
     audiostate.cam.rotradz = audiostate.cam.rot[2] * (float)M_PI / 180.0f;
-    audiostate.cam.sinx = sin(audiostate.cam.rotradx);
-    audiostate.cam.cosx = cos(audiostate.cam.rotradx);
-    audiostate.cam.siny = sin(audiostate.cam.rotrady);
-    audiostate.cam.cosy = cos(audiostate.cam.rotrady);
-    audiostate.cam.sinz = sin(audiostate.cam.rotradz);
-    audiostate.cam.cosz = cos(audiostate.cam.rotradz);
+    audiostate.cam.sinx = sinf(audiostate.cam.rotradx);
+    audiostate.cam.cosx = cosf(audiostate.cam.rotradx);
+    audiostate.cam.siny = sinf(audiostate.cam.rotrady);
+    audiostate.cam.cosy = cosf(audiostate.cam.rotrady);
+    audiostate.cam.sinz = sinf(audiostate.cam.rotradz);
+    audiostate.cam.cosz = cosf(audiostate.cam.rotradz);
     updsnds_world(&audiostate.voices.world);
     updsnds_world(&audiostate.voices.worldbg);
     #ifndef PSRC_NOMT
@@ -1321,7 +1321,7 @@ int newAudioEmitter(int max, bool bg, ... /*soundfx*/) {
     va_list args;
     va_start(args, bg);
     enum soundfx fx;
-    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 e->vol[0] = va_arg(args, double);
@@ -1452,7 +1452,7 @@ void editAudioEmitter(int ei, bool immediate, ...) {
     va_list args;
     va_start(args, immediate);
     enum soundfx fx;
-    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 e->vol[0] = va_arg(args, double);
@@ -1570,7 +1570,7 @@ void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
     va_list args;
     va_start(args, f);
     enum soundfx fx;
-    while ((fx = va_arg(args, enum soundfx)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 s->vol[0] = va_arg(args, double);
@@ -1633,7 +1633,7 @@ void updateAudioConfig(enum audioopt opt, ...) {
                 va_arg(args, int); // ignored for now
             } break;
         }
-        opt = va_arg(args, enum audioopt);
+        opt = va_arg(args, int);
     }
     ret:;
     va_end(args);
@@ -1694,7 +1694,7 @@ bool startAudio(void) {
         inspec.freq = atoi(tmp);
         free(tmp);
     } else {
-        #if PLATFORM != PLAT_NXDK
+        #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_3DS
         inspec.freq = 44100;
         #ifndef PSRC_USESDL1
         flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE;
@@ -1708,11 +1708,13 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
+        #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_3DS
         inspec.samples = 1024;
-        #ifndef PSRC_USESDL1
-        #if PLATFORM != PLAT_NXDK
+        #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_NXDK
         flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
         #endif
+        #else
+        inspec.samples = 512;
         #endif
     }
     #ifndef PSRC_USESDL1

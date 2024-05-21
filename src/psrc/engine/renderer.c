@@ -403,7 +403,7 @@ bool updateRendererConfig(enum rendopt opt, ...) {
             case RENDOPT_API: {
                 enum rendapi oldapi = rendstate.api;
                 stopRenderer_internal();
-                rendstate.api = va_arg(args, enum rendapi);
+                rendstate.api = va_arg(args, int);
                 if (!startRenderer_internal()) {
                     plog(
                         LL_WARN,
@@ -473,13 +473,13 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 }
             } break;
             case RENDOPT_LIGHTING: {
-                rendstate.lighting = va_arg(args, enum rendlighting);
+                rendstate.lighting = va_arg(args, int);
             } break;
             case RENDOPT_TEXTUREQLT: {
-                rendstate.texqlt = va_arg(args, enum rcopt_texture_qlt);
+                rendstate.texqlt = va_arg(args, int);
             } break;
         }
-        opt = va_arg(args, enum rendopt);
+        opt = va_arg(args, int);
     }
     rettrue:;
     va_end(args);

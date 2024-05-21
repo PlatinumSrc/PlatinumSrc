@@ -44,11 +44,13 @@
     #include <kos.h>
     #include <dirent.h>
     KOS_INIT_FLAGS(INIT_IRQ | INIT_THD_PREEMPT | INIT_CONTROLLER | INIT_VMU | INIT_NO_DCLOAD);
+#elif PLATFORM == PLAT_3DS
+    #include <3ds.h>
 #endif
 
 #include "../glue.h"
 
-#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST
+#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_3DS
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
         plog(l, "Received signal: %s; %s", name, msg);
@@ -254,7 +256,7 @@ int initLoop(void) {
     plog(LL_INFO, "Starting renderer...");
     if (!startRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
-        return 1;
+        //return 1;
     }
     plog(LL_INFO, "Starting audio manager...");
     if (!startAudio()) {
@@ -404,6 +406,9 @@ void doLoop(void) {
     static double framemult = 0.0;
 
     pollInput();
+    #if PLATFORM == PLAT_3DS
+    if (!aptMainLoop()) ++quitreq;
+    #endif
     if (quitreq) return;
 
     // TODO: run scripts here
@@ -448,8 +453,8 @@ void doLoop(void) {
 
     {
         // this can probably be optimized
-        float mul = atan2(fabs(movex), fabs(movez));
-        mul = fabs(1 / (cos(mul) + sin(mul)));
+        float mul = atan2f(fabs(movex), fabs(movez));
+        mul = fabs(1 / (cosf(mul) + sinf(mul)));
         movex *= mul;
         movez *= mul;
         float yrotrad = rendstate.camrot[1] * (float)M_PI / 180.0f;
@@ -558,8 +563,8 @@ static int bootstrap(void) {
         return 1;
     }
     #if PLATFORM == PLAT_NXDK
-    plog_setfile("D:\\log.txt");
     maindir = mkpath("D:\\", NULL);
+    plog_setfile("D:\\log.txt");
     #elif PLATFORM == PLAT_DREAMCAST
     {
         DIR* d = opendir("/cd");
@@ -581,6 +586,24 @@ static int bootstrap(void) {
                 }
             }
         }
+    }
+    #elif PLATFORM == PLAT_3DS
+    if (options.maindir) {
+        maindir = mkpath(options.maindir, NULL);
+        free(options.maindir);
+    } else {
+        DIR* d = opendir("sdmc:/3ds/PlatinumSrc");
+        if (d) {
+            closedir(d);
+            maindir = mkpath("sdmc:/3ds/PlatinumSrc", NULL);
+        } else {
+            maindir = mkpath("sdmc:/3ds/psrc", NULL);
+        }
+    }
+    {
+        char* l = mkpath(maindir, "log.txt", NULL);
+        plog_setfile(l);
+        free(l);
     }
     #else
     if (options.maindir) {
@@ -656,18 +679,29 @@ static int bootstrap(void) {
         sprintf(titleidstr, "%08x", (unsigned)titleid);
         tmp = cfg_getvar(gameconfig, NULL, "userdir");
         if (tmp) {
-            char* tmp2 = mkpath(NULL, tmp, NULL);
+            userdir = mkpath("E:\\TDATA", titleidstr, "data", tmp, NULL);
             free(tmp);
-            tmp = tmp2;
         } else {
-            tmp = strdup(gamedir);
+            userdir = mkpath("E:\\TDATA", titleidstr, "data", gamedir, NULL);
         }
-        userdir = mkpath("E:\\TDATA", titleidstr, "userdata", tmp, NULL);
-        free(tmp);
         savedir = mkpath("E:\\UDATA", titleidstr, NULL);
     }
     #elif PLATFORM == PLAT_DREAMCAST
     userdir = mkpath("/rd", NULL);
+    #elif PLATFORM == PLAT_3DS
+    if (options.userdir) {
+        userdir = mkpath(options.userdir, NULL);
+        free(options.userdir);
+    } else {
+        tmp = cfg_getvar(gameconfig, NULL, "userdir");
+        if (tmp) {
+            userdir = mkpath(maindir, "data", tmp, NULL);
+            free(tmp);
+        } else {
+            userdir = mkpath(maindir, "data", gamedir, NULL);
+        }
+    }
+    savedir = mkpath(userdir, "saves", NULL);
     #else
     if (options.userdir) {
         userdir = mkpath(options.userdir, NULL);
@@ -816,7 +850,7 @@ int main(int argc, char** argv) {
     makeVerStrs();
     static int ret;
     #if PLATFORM != PLAT_EMSCR
-    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_DREAMCAST
+    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_3DS
     ret = -1;
     {
         struct args a;

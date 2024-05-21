@@ -140,7 +140,7 @@ else ifeq ($(CROSS),ps2)
     USEGSKIT := y
 else ifeq ($(CROSS),dc)
     ifndef KOS_BASE
-        $(error Please run KallistiOS' environment.sh)
+        $(error Please source KallistiOS' environment.sh for the KOS_BASE environment variable)
     endif
     PLATFORM := Dreamcast
     CC := $(KOS_CC)
@@ -167,6 +167,35 @@ else ifeq ($(CROSS),dc)
     USEGL11 := y
     USEPVR := y
     USESDL1 := y
+else ifeq ($(CROSS),3ds)
+    ifndef DEVKITPRO
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITPRO environment variable)
+    endif
+    ifndef DEVKITARM
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITARM environment variable)
+    endif
+    PLATFORM := 3DS
+    PREFIX := $(DEVKITARM)/bin/arm-none-eabi-
+    CC := gcc
+    LD := $(CC)
+    AR := ar
+    STRIP := strip
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    EMULATOR := lime3ds
+    SMDHTOOL := smdhtool
+    3DSXTOOL := 3dsxtool
+    MAKEROM := makerom
+    SMDH_TITLE := PlatinumSrc
+    SMDH_DESC := PlatinumSrc engine
+    SMDH_AUTHOR := PQCraft
+    SMDH_ICON := icons/engine.png
+    SMDH := $(OUTDIR)/$(SMDH_TITLE).smdh
+    3DSX := $(OUTDIR)/$(SMDH_TITLE).3dsx
+    NOMT := y
+    USEC3D := y
 else
     $(error Invalid cross-compilation target: $(CROSS))
 endif
@@ -224,7 +253,6 @@ ifneq ($(CROSS),nxdk)
         _CFLAGS += -ffast-math
     endif
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
-    _LDLIBS += -lm
     ifeq ($(CROSS),win32)
         _LDFLAGS += -static -static-libgcc
     else ifeq ($(CROSS),emscr)
@@ -235,6 +263,11 @@ ifneq ($(CROSS),nxdk)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
         endif
         _LDFLAGS += --embed-file engine/ --embed-file games/ --embed-file mods/
+    else ifeq ($(CROSS),3ds)
+        _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
+        _CPPFLAGS += -D__3DS__
+        _LDFLAGS += -specs=3dsx.specs -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -L$(DEVKITPRO)/libctru/lib -L$(DEVKITPRO)/portlibs/3ds/lib
+        _LDLIBS += -lcitro2d -lcitro3d
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
@@ -275,6 +308,7 @@ ifneq ($(CROSS),nxdk)
             _CFLAGS += -march=native -mtune=native
         endif
     endif
+    _LDLIBS += -lm
 else
     _CPPFLAGS += -DPB_HAL_FONT
 endif
@@ -370,6 +404,8 @@ ifeq ($(CROSS),nxdk)
     CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
 else ifeq ($(CROSS),dc)
     CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
+else ifeq ($(CROSS),3ds)
+    CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
 endif
 
 CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY_BMP
@@ -395,6 +431,9 @@ ifneq ($(USESDL1),y)
     else ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL=2
         LDLIBS.lib.SDL += -sUSE_SDL=2
+    else ifeq ($(CROSS),3ds)
+        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
+        LDLIBS.lib.SDL += -lSDL2 -lm
     else ifneq ($(CROSS),nxdk)
         LDLIBS.lib.SDL += -lSDL2
     endif
@@ -406,8 +445,6 @@ else
     else ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL
         LDLIBS.lib.SDL += -sUSE_SDL
-    else ifneq ($(CROSS),nxdk)
-        LDLIBS.lib.SDL += -lSDL
     endif
 endif
 
@@ -454,6 +491,8 @@ else ifeq ($(CROSS),dc)
     _CFLAGS += $(KOS_CFLAGS) $(KOS_INC_PATHS)
     _LDFLAGS += $(KOS_LDFLAGS) $(KOS_LIB_PATHS)
     _LDLIBS += $(KOS_START) $(KOS_LIBS)
+else ifeq ($(CROSS),3ds)
+    _LDLIBS += -lctru
 endif
 
 ifeq ($(MODULE),server)
@@ -477,6 +516,8 @@ else ifeq ($(CROSS),nxdk)
     BINPATH := $(BIN).exe
 else ifeq ($(CROSS),dc)
     BINPATH := $(BIN).elf
+else ifeq ($(CROSS),3ds)
+    BINPATH := $(BIN).elf
 else
     BINPATH := $(BIN)
 endif
@@ -494,6 +535,8 @@ ifeq ($(CROSS),nxdk)
 TARGET = $(XISO)
 else ifeq ($(CROSS),dc)
 TARGET = $(CDI)
+else ifeq ($(CROSS),3ds)
+TARGET = $(3DSX)
 else
 TARGET = $(BINPATH)
 endif
@@ -684,7 +727,7 @@ $(XISODIR):
 
 $(XISODIR)/default.xbe: $(BINPATH) | $(XISODIR)
 	@echo Relinking $@ from $<...
-	@'$(CXBE)' -OUT:$@ -TITLE:'$(XBE_TITLE)' -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
+	@'$(CXBE)' -OUT:$@ -TITLE:"$(XBE_TITLE)" -TITLEID:$(XBE_TITLEID) -VERSION:$(XBE_VERSION) $< > $(null)
 
 $(XISO): $(XISODIR)/default.xbe | $(XISODIR)
 	@echo Creating $@...
@@ -703,9 +746,9 @@ $(CDIDIR)/1ST_READ.bin: $(BINPATH) | $(CDIDIR)
 
 $(OUTDIR)/IP.BIN:
 ifneq ($(IP_MRIMAGE),)
-	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)' -l $(IP_MRIMAGE) $@
+	@'$(MAKEIP)' -g "$(IP_TITLE)" -c "$(IP_COMPANY)" -l $(IP_MRIMAGE) $@
 else
-	@'$(MAKEIP)' -g '$(IP_TITLE)' -c '$(IP_COMPANY)' $@
+	@'$(MAKEIP)' -g "$(IP_TITLE)" -c "$(IP_COMPANY)" $@
 endif
 
 $(CDI): $(CDIDIR)/1ST_READ.bin $(OUTDIR)/IP.BIN
@@ -713,5 +756,15 @@ $(CDI): $(CDIDIR)/1ST_READ.bin $(OUTDIR)/IP.BIN
 	@$(MKISOFS) -f -C 0,11702 -V '$(IP_TITLE)' -G $(OUTDIR)/IP.BIN -rJl -o $(patsubst %.cdi,%.iso,$@) $(CDIDIR)
 	@$(CDI4DC) $(patsubst %.cdi,%.iso,$@) $@
 	@$(call rm,$(patsubst %.cdi,%.iso,$@))
+
+else ifeq ($(CROSS),3ds)
+
+$(SMDH):
+	@echo Creating $@
+	@$(SMDHTOOL) --create "$(SMDH_TITLE)" "$(SMDH_DESC)" "$(SMDH_AUTHOR)" $(SMDH_ICON) $@
+
+$(3DSX): $(BINPATH) $(SMDH)
+	@echo Creating $@ from $<...
+	@$(3DSXTOOL) $< $@ --smdh=$(SMDH)
 
 endif
