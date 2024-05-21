@@ -216,6 +216,12 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - NetBSD
     - OpenBSD
     - Windows 9x no KernelEx
+- In progress
+    - 3DS
+    - GameCube
+        - Needs OpenGX renderer
+    - Wii
+        - Needs OpenGX renderer
 - Wanted
     - Android
         - Need to finish the touch UI
@@ -229,12 +235,5 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - ps2gl is not OpenGL
     - PSP
     - PS Vita
-    - 3DS
-    - GameCube?
-        - SDL 1.2 instead of 2.x
-        - OpenGX is not OpenGL and gl2gx is unmaintained
-    - Wii?
-        - SDL 1.2 instead of 2.x
-        - OpenGX is not OpenGL and gl2gx is unmaintained
     - MSDOS?
         - Requires low-level tomfoolery

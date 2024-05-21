@@ -8,6 +8,7 @@ const char* platname[PLAT__COUNT] = {
     "Dreamcast (KallistiOS)",
     "Emscripten",
     "FreeBSD",
+    "GameCube",
     "Haiku",
     "Linux",
     "MacOS",
@@ -15,6 +16,7 @@ const char* platname[PLAT__COUNT] = {
     "OpenBSD",
     "PlayStation 2 (PS2Dev)",
     "Unix",
+    "Wii",
     "Windows",
     "Xbox (NXDK)"
 };
@@ -25,6 +27,7 @@ const char* platid[PLAT__COUNT] = {
     "dreamcast",
     "emscr",
     "freebsd",
+    "gamecube",
     "haiku",
     "linux",
     "macos",
@@ -32,6 +35,7 @@ const char* platid[PLAT__COUNT] = {
     "openbsd",
     "ps2",
     "unix",
+    "wii",
     "win32",
     "nxdk"
 };
@@ -42,6 +46,7 @@ const char* platdir[PLAT__COUNT] = {
     "dreamcast",
     "emscripten",
     "freebsd",
+    "gamecube",
     "haiku",
     "linux",
     "macos",
@@ -49,6 +54,7 @@ const char* platdir[PLAT__COUNT] = {
     "openbsd",
     "ps2",
     "unix",
+    "wii",
     "windows",
     "nxdk"
 };
@@ -59,6 +65,7 @@ const char* altplatdir[PLAT__COUNT] = {
     "dc",
     "emscr",
     "bsd",
+    "gc",
     NULL,
     NULL,
     NULL,
@@ -66,6 +73,7 @@ const char* altplatdir[PLAT__COUNT] = {
     "bsd",
     NULL,
     "unix",
+    NULL,
     "win32",
     "xbox"
 };

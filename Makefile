@@ -196,6 +196,50 @@ else ifeq ($(CROSS),3ds)
     3DSX := $(OUTDIR)/$(SMDH_TITLE).3dsx
     NOMT := y
     USEC3D := y
+else ifeq ($(CROSS),wii)
+    ifndef DEVKITPRO
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITPRO environment variable)
+    endif
+    ifndef DEVKITPPC
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITPPC environment variable)
+    endif
+    PLATFORM := Wii
+    PREFIX := $(DEVKITPPC)/bin/powerpc-eabi-
+    CC := gcc
+    LD := $(CC)
+    AR := ar
+    STRIP := strip
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    EMULATOR := dolphin-emu
+    EMUPATHFLAG := --
+    ELF2DOL := elf2dol
+    NOMT := y
+    USEGX := y
+else ifeq ($(CROSS),gc)
+    ifndef DEVKITPRO
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITPRO environment variable)
+    endif
+    ifndef DEVKITPPC
+        $(error Please source DevkitPro's devkit-env.sh for the DEVKITPPC environment variable)
+    endif
+    PLATFORM := GameCube
+    PREFIX := $(DEVKITPPC)/bin/powerpc-eabi-
+    CC := gcc
+    LD := $(CC)
+    AR := ar
+    STRIP := strip
+    _CC := $(PREFIX)$(CC)
+    _LD := $(PREFIX)$(LD)
+    _AR := $(PREFIX)$(AR)
+    _STRIP := $(PREFIX)$(STRIP)
+    EMULATOR := dolphin-emu
+    EMUPATHFLAG := --
+    ELF2DOL := elf2dol
+    NOMT := y
+    USEGX := y
 else
     $(error Invalid cross-compilation target: $(CROSS))
 endif
@@ -268,6 +312,15 @@ ifneq ($(CROSS),nxdk)
         _CPPFLAGS += -D__3DS__
         _LDFLAGS += -specs=3dsx.specs -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -L$(DEVKITPRO)/libctru/lib -L$(DEVKITPRO)/portlibs/3ds/lib
         _LDLIBS += -lcitro2d -lcitro3d
+    else ifeq ($(CROSS),wii)
+        _CFLAGS += -mrvl -mcpu=750 -meabi -mhard-float -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/wii/include
+        _CPPFLAGS += -DGEKKO -D__wii__
+        _LDFLAGS += -mrvl -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/wii -L$(DEVKITPRO)/portlibs/wii/lib
+        _LDLIBS += -lfat
+    else ifeq ($(CROSS),gc)
+        _CFLAGS += -mogc -mcpu=750 -meabi -mhard-float -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/gamecube/include
+        _CPPFLAGS += -DGEKKO -D__gamecube__
+        _LDFLAGS += -mogc -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/gamecube/lib
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
@@ -400,11 +453,9 @@ ifeq ($(USEMINIMP3),y)
     endif
 endif
 
-ifeq ($(CROSS),nxdk)
-    CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
-else ifeq ($(CROSS),dc)
-    CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
-else ifeq ($(CROSS),3ds)
+ifeq ($(CROSS),)
+else ifeq ($(CROSS),win32)
+else
     CPPFLAGS.dir.schrift := -DSCHRIFT_NO_FILE_MAPPING
 endif
 
@@ -422,25 +473,26 @@ ifeq ($(USEDISCORDGAMESDK),y)
 endif
 
 CFLAGS.lib.SDL := 
-CPPFLAGS.lib.SDL := 
+CPPFLAGS.lib.SDL := -DSDL_MAIN_HANDLED
 LDLIBS.lib.SDL := 
 ifneq ($(USESDL1),y)
     ifeq ($(CROSS),win32)
-        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
         LDLIBS.lib.SDL += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
     else ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL=2
         LDLIBS.lib.SDL += -sUSE_SDL=2
     else ifeq ($(CROSS),3ds)
-        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
         LDLIBS.lib.SDL += -lSDL2 -lm
+    else ifeq ($(CROSS),wii)
+        LDLIBS.lib.SDL += -lSDL2 -lwiiuse -lwiikeyboard -lbte -laesnd -lm
+    else ifeq ($(CROSS),gc)
+        LDLIBS.lib.SDL += -lSDL2 -laesnd -lm
     else ifneq ($(CROSS),nxdk)
         LDLIBS.lib.SDL += -lSDL2
     endif
 else
     CPPFLAGS.lib.SDL += -DPSRC_USESDL1
     ifeq ($(CROSS),win32)
-        CPPFLAGS.lib.SDL += -DSDL_MAIN_HANDLED
         LDLIBS.lib.SDL += -l:libSDL.a -liconv -luser32 -lgdi32 -lwinmm -ldxguid
     else ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL
@@ -493,6 +545,10 @@ else ifeq ($(CROSS),dc)
     _LDLIBS += $(KOS_START) $(KOS_LIBS)
 else ifeq ($(CROSS),3ds)
     _LDLIBS += -lctru
+else ifeq ($(CROSS),wii)
+    _LDLIBS += -logc
+else ifeq ($(CROSS),gc)
+    _LDLIBS += -logc
 endif
 
 ifeq ($(MODULE),server)
@@ -518,6 +574,10 @@ else ifeq ($(CROSS),dc)
     BINPATH := $(BIN).elf
 else ifeq ($(CROSS),3ds)
     BINPATH := $(BIN).elf
+else ifeq ($(CROSS),wii)
+    BINPATH := $(BIN).elf
+else ifeq ($(CROSS),gc)
+    BINPATH := $(BIN).elf
 else
     BINPATH := $(BIN)
 endif
@@ -537,6 +597,10 @@ else ifeq ($(CROSS),dc)
 TARGET = $(CDI)
 else ifeq ($(CROSS),3ds)
 TARGET = $(3DSX)
+else ifeq ($(CROSS),wii)
+TARGET = $(OUTDIR)/boot.dol
+else ifeq ($(CROSS),gc)
+TARGET = $(OUTDIR)/boot.dol
 else
 TARGET = $(BINPATH)
 endif
@@ -766,5 +830,17 @@ $(SMDH):
 $(3DSX): $(BINPATH) $(SMDH)
 	@echo Creating $@ from $<...
 	@$(3DSXTOOL) $< $@ --smdh=$(SMDH)
+
+else ifeq ($(CROSS),wii)
+
+$(OUTDIR)/boot.dol: $(BINPATH)
+	@echo Creating $@ from $<...
+	@$(ELF2DOL) -- $< $@
+
+else ifeq ($(CROSS),gc)
+
+$(OUTDIR)/boot.dol: $(BINPATH)
+	@echo Creating $@ from $<...
+	@$(ELF2DOL) -- $< $@
 
 endif

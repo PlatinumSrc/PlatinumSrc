@@ -7,16 +7,18 @@
 #define PLAT_DREAMCAST 3
 #define PLAT_EMSCR     4
 #define PLAT_FREEBSD   5
-#define PLAT_HAIKU     6
-#define PLAT_LINUX     7
-#define PLAT_MACOS     8
-#define PLAT_NETBSD    9
-#define PLAT_OPENBSD   10
-#define PLAT_PS2       11
-#define PLAT_UNIX      12
-#define PLAT_WIN32     13
-#define PLAT_NXDK      14
-#define PLAT__COUNT    15
+#define PLAT_GAMECUBE  6
+#define PLAT_HAIKU     7
+#define PLAT_LINUX     8
+#define PLAT_MACOS     9
+#define PLAT_NETBSD    10
+#define PLAT_OPENBSD   11
+#define PLAT_PS2       12
+#define PLAT_UNIX      13
+#define PLAT_WII       14
+#define PLAT_WIN32     15
+#define PLAT_NXDK      16
+#define PLAT__COUNT    17
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -24,43 +26,67 @@
 #define ARCH_ARM64   3
 #define ARCH_I386    4
 #define ARCH_MIPS    5
-#define ARCH_SUPERH  6
-#define ARCH_WASM    7
-#define ARCH__COUNT  8
+#define ARCH_PPC     6
+#define ARCH_SUPERH  7
+#define ARCH_WASM    8
+#define ARCH__COUNT  9
 
 #define BO_LE 1234
 #define BO_BE 4321
 
+#define PLATFLAG_UNIXLIKE (1 << 0)
+
 #if defined(__3DS__)
     #define PLATFORM PLAT_3DS
+    #define PLATFLAGS (0)
 #elif defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(_arch_dreamcast)
     #define PLATFORM PLAT_DREAMCAST
+    #define PLATFLAGS (0)
 #elif defined(__EMSCRIPTEN__)
     #define PLATFORM PLAT_EMSCR
+    #define PLATFLAGS (0)
 #elif defined(__FreeBSD__)
     #define PLATFORM PLAT_FREEBSD
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
+#elif defined(__gamecube__)
+    #define PLATFORM PLAT_GAMECUBE
+    #define PLATFLAGS (0)
 #elif defined(__HAIKU__)
     #define PLATFORM PLAT_HAIKU
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(__linux__)
     #define PLATFORM PLAT_LINUX
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(macintosh) || defined(Macintosh) || (defined(__APPLE__) && defined(__MACH__))
     #define PLATFORM PLAT_MACOS
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(__NetBSD__)
     #define PLATFORM PLAT_NETBSD
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(__OpenBSD__)
     #define PLATFORM PLAT_OPENBSD
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(_EE)
     #define PLATFORM PLAT_PS2
+    #define PLATFLAGS (0)
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
+#elif defined(__wii__)
+    #define PLATFORM PLAT_WII
+    #define PLATFLAGS (0)
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
     #define PLATFORM PLAT_WIN32
+    #define PLATFLAGS (0)
 #elif defined(NXDK)
     #define PLATFORM PLAT_NXDK
+    #define PLATFLAGS (0)
 #else
     #define PLATFORM PLAT_UNKNOWN
+    #define PLATFLAGS (0)
     #warning Unknown or unsupported platform. \
     This will probably result in a broken build.
 #endif
@@ -100,6 +126,9 @@
 #elif defined(mips) || defined(__mips) || defined(__mips__)
     #define ARCH ARCH_MIPS
     #define ARCHSTR "MIPS"
+#elif defined(__powerpc) || defined(__powerpc__) || defined(__POWERPC__) || defined(__ppc__) || defined(__PPC__)
+    #define ARCH ARCH_PPC
+    #define ARCHSTR "PowerPC"
 #elif defined(__sh__) || defined(__SH__)
     #define ARCH ARCH_SUPERH
     #define ARCHSTR "SuperH"

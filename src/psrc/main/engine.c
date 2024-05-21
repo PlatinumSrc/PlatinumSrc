@@ -23,7 +23,9 @@
     #include <SDL2/SDL.h>
 #endif
 
-#include <signal.h>
+#if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
+    #include <signal.h>
+#endif
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -46,11 +48,15 @@
     KOS_INIT_FLAGS(INIT_IRQ | INIT_THD_PREEMPT | INIT_CONTROLLER | INIT_VMU | INIT_NO_DCLOAD);
 #elif PLATFORM == PLAT_3DS
     #include <3ds.h>
+    #include <dirent.h>
+#elif PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
+    #include <fat.h>
+    #include <dirent.h>
 #endif
 
 #include "../glue.h"
 
-#if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_EMSCR && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_3DS
+#if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
 static void sigh_log(int l, char* name, char* msg) {
     if (msg) {
         plog(l, "Received signal: %s; %s", name, msg);
@@ -144,12 +150,13 @@ static void sigh(int sig) {
                     sigh_cb_addstr(&cb, "` HERE AND DELETE THIS TEXT !!!***");
                 }
                 puts(cb_peek(&cb));
-                #if PLATFORM == PLAT_MACOS
-                execlp("open", "open", cb_peek(&cb), NULL);
-                #elif PLATFORM == PLAT_WIN32
+                #if PLATFORM == PLAT_WIN32
                 ShellExecute(NULL, NULL, cb_peek(&cb), NULL, NULL, SW_NORMAL);
+                #elif PLATFORM == PLAT_ANDROID
+                execlp("am", "am", "start", "-a", "android.intent.action.VIEW", "-d", cb_peek(&cb), NULL);
                 #else
                 execlp("xdg-open", "xdg-open", cb_peek(&cb), NULL);
+                execlp("open", "open", cb_peek(&cb), NULL);
                 #endif
             }
             exit(1);
@@ -605,6 +612,26 @@ static int bootstrap(void) {
         plog_setfile(l);
         free(l);
     }
+    #elif PLATFORM == PLAT_WII
+    if (options.maindir) {
+        maindir = mkpath(options.maindir, NULL);
+        free(options.maindir);
+    } else {
+        DIR* d = opendir("/apps/PlatinumSrc");
+        if (d) {
+            closedir(d);
+            maindir = mkpath("/apps/PlatinumSrc", NULL);
+        } else {
+            maindir = mkpath("/apps/psrc", NULL);
+        }
+    }
+    {
+        char* l = mkpath(maindir, "log.txt", NULL);
+        plog_setfile(l);
+        free(l);
+    }
+    #elif PLATFORM == PLAT_GAMECUBE
+    maindir = strdup("/");
     #else
     if (options.maindir) {
         maindir = mkpath(options.maindir, NULL);
@@ -688,7 +715,7 @@ static int bootstrap(void) {
     }
     #elif PLATFORM == PLAT_DREAMCAST
     userdir = mkpath("/rd", NULL);
-    #elif PLATFORM == PLAT_3DS
+    #elif PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
     if (options.userdir) {
         userdir = mkpath(options.userdir, NULL);
         free(options.userdir);
@@ -850,7 +877,7 @@ int main(int argc, char** argv) {
     makeVerStrs();
     static int ret;
     #if PLATFORM != PLAT_EMSCR
-    #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_3DS
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
     ret = -1;
     {
         struct args a;
@@ -1066,6 +1093,9 @@ int main(int argc, char** argv) {
     #endif
     #else
     (void)argc; (void)argv;
+    #if PLATFORM == PLAT_WII
+    fatInitDefault();
+    #endif
     #endif
     #if PLATFORM == PLAT_WIN32
     TIMECAPS tc;
