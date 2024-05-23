@@ -38,7 +38,7 @@ git push --tags || _exit
 gh release create "${VER}" --title "Build ${VER}" --notes "${RELTEXT}" PlatinumSrc*.tar.gz PlatinumSrc*.zip || _exit
 
 tsk "Cleaning up..."
-rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
+./cleanrelease.sh
 
 tsk "Done"
 exit

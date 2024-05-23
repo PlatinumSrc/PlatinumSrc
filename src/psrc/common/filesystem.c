@@ -1,11 +1,20 @@
 #include "filesystem.h"
 #include "string.h"
+#include "logging.h"
 
 #include <stddef.h>
-#if PLATFORM != PLAT_NXDK
-    #include <sys/stat.h>
-#else
+#if PLATFORM == PLAT_NXDK
     #include <windows.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <dirent.h>
+#else
+    #include <sys/stat.h>
+    #if PLATFORM == PLAT_WIN32
+        #include <windows.h>
+    #endif
+    #ifndef PSRC_USESDL1
+        #include <SDL2/SDL.h>
+    #endif
 #endif
 #include <stdio.h>
 #include <stdbool.h>
@@ -115,4 +124,93 @@ char* strrelpath(const char* s) {
     cb_init(&b, 256);
     replsep(&b, s, false);
     return cb_finalize(&b);
+}
+
+char* mkmaindir(void) {
+    #if PLATFORM == PLAT_NXDK
+    return strdup("D:\\");
+    #elif PLATFORM == PLAT_DREAMCAST
+    DIR* d = opendir("/cd");
+    if (d) {
+        closedir(d);
+        return strdup("/cd");
+    } else {
+        return strdup("/sd/psrc");
+    }
+    #elif PLATFORM == PLAT_3DS
+    return strdup("sdmc:/3ds/psrc");
+    #elif PLATFORM == PLAT_WII
+    return strdup("/apps/psrc");
+    #elif PLATFORM == PLAT_GAMECUBE
+    return strdup("/");
+    #elif !defined(PSRC_USESDL1)
+    char* tmp = SDL_GetBasePath();
+    if (tmp) {
+        char* tmp2 = tmp;
+        tmp = mkpath(tmp, NULL);
+        SDL_free(tmp2);
+        return tmp;
+    } else {
+        plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
+        return strdup(".");
+    }
+    #elif PLATFORM == PLAT_WIN32
+    char* tmp = malloc(MAX_PATH + 1);
+    tmp[MAX_PATH] = 0;
+    DWORD r = GetModuleFileName(NULL, s, MAX_PATH);
+    if (r) {
+        for (int i = r - 1; i > 0; --i) {
+            if (tmp[r] == '\\' || tmp[r] == '/') {
+                tmp[r] = 0;
+                tmp = realloc(tmp, r + 1);
+                break;
+            }
+        }
+        return tmp;
+    } else {
+        free(tmp);
+        plog(LL_WARN, "Failed to get main directory");
+        return strdup(".");
+    }
+    #else // TODO: implement more platforms
+    plog(LL_WARN, "Failed to get main directory");
+    return strdup(".");
+    #endif
+}
+char* mkuserdir(const char* m, const char* n) {
+    #if PLATFORM == PLAT_NXDK
+    (void)m;
+    uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
+    char titleidstr[9];
+    sprintf(titleidstr, "%08x", (unsigned)titleid);
+    return mkpath("E:\\TDATA", titleidstr, "data", n, NULL);
+    #elif PLATFORM == PLAT_DREAMCAST
+    (void)m;
+    return mkpath("/rd", n, NULL);
+    #elif PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
+    return mkpath(m, "data", n, NULL);
+    #elif !defined(PSRC_USESDL1)
+    (void)m;
+    char* tmp = SDL_GetPrefPath(NULL, n);
+    if (tmp) {
+        char* tmp2 = tmp;
+        tmp = mkpath(tmp, NULL);
+        SDL_free(tmp2);
+        return tmp;
+    } else {
+        plog(LL_WARN, "Failed to get user directory: %s", SDL_GetError());
+        return mkpath(m, "data", n, NULL);
+    }
+    #elif PLATFORM == PLAT_WIN32
+    char* tmp = getenv("AppData");
+    if (tmp) {
+        return mkpath(tmp, n, NULL);
+    } else {
+        plog(LL_WARN, LP_WARN "Failed to get user directory");
+        return mkpath(m, "data", n, NULL);
+    }
+    #else
+    plog(LL_WARN, LP_WARN "Failed to get user directory");
+    return mkpath(m, "data", n, NULL);
+    #endif
 }

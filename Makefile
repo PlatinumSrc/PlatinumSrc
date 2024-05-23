@@ -18,11 +18,11 @@ ifeq ($(CROSS),)
     AR ?= ar
     STRIP ?= strip
     OBJCOPY ?= objcopy
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
-    _OBJCOPY := $(PREFIX)$(OBJCOPY)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
+    _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
     ifneq ($(M32),y)
         PLATFORM := $(subst $() $(),_,$(subst /,_,$(shell uname -o 2> $(null) || uname -s; uname -m)))
     else
@@ -34,12 +34,12 @@ ifeq ($(CROSS),)
 else ifeq ($(CROSS),win32)
     ifneq ($(M32),y)
         ifneq ($(OS),Windows_NT)
-            PREFIX := x86_64-w64-mingw32-
+            TOOLCHAIN := x86_64-w64-mingw32-
         endif
         PLATFORM := Windows_x86_64
     else
         ifneq ($(OS),Windows_NT)
-            PREFIX := i686-w64-mingw32-
+            TOOLCHAIN := i686-w64-mingw32-
         endif
         PLATFORM := Windows_i686
     endif
@@ -49,12 +49,12 @@ else ifeq ($(CROSS),win32)
     STRIP := strip
     OBJCOPY := objcopy
     WINDRES := windres
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
-    _OBJCOPY := $(PREFIX)$(OBJCOPY)
-    _WINDRES := $(PREFIX)$(WINDRES)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
+    _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
+    _WINDRES := $(TOOLCHAIN)$(WINDRES)
     USESR := y
     USEGL := y
     USEGLAD := y
@@ -87,9 +87,9 @@ else ifeq ($(CROSS),nxdk)
     OBJCOPY := objcopy
     _CC := $(CC)
     _LD := $(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
-    _OBJCOPY := $(PREFIX)$(OBJCOPY)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
+    _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
     EMULATOR := xemu
     EMUPATHFLAG := -dvd_path
     CXBE := $(NXDK_DIR)/tools/cxbe/cxbe
@@ -126,15 +126,15 @@ else ifeq ($(CROSS),ps2)
     ifndef GSKIT
         $(error Please define the GSKIT environment variable)
     endif
-    PREFIX := mips64r5900el-ps2-elf-
+    TOOLCHAIN := mips64r5900el-ps2-elf-
     CC := gcc
     LD := $(CC)
     AR := ar
     STRIP := strip
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := pcsx2
     EMUPATHFLAG := --
     USEGSKIT := y
@@ -175,15 +175,15 @@ else ifeq ($(CROSS),3ds)
         $(error Please source DevkitPro's devkit-env.sh for the DEVKITARM environment variable)
     endif
     PLATFORM := 3DS
-    PREFIX := $(DEVKITARM)/bin/arm-none-eabi-
+    TOOLCHAIN := $(DEVKITARM)/bin/arm-none-eabi-
     CC := gcc
     LD := $(CC)
     AR := ar
     STRIP := strip
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := lime3ds
     SMDHTOOL := smdhtool
     3DSXTOOL := 3dsxtool
@@ -204,15 +204,15 @@ else ifeq ($(CROSS),wii)
         $(error Please source DevkitPro's devkit-env.sh for the DEVKITPPC environment variable)
     endif
     PLATFORM := Wii
-    PREFIX := $(DEVKITPPC)/bin/powerpc-eabi-
+    TOOLCHAIN := $(DEVKITPPC)/bin/powerpc-eabi-
     CC := gcc
     LD := $(CC)
     AR := ar
     STRIP := strip
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
     ELF2DOL := elf2dol
@@ -226,15 +226,15 @@ else ifeq ($(CROSS),gc)
         $(error Please source DevkitPro's devkit-env.sh for the DEVKITPPC environment variable)
     endif
     PLATFORM := GameCube
-    PREFIX := $(DEVKITPPC)/bin/powerpc-eabi-
+    TOOLCHAIN := $(DEVKITPPC)/bin/powerpc-eabi-
     CC := gcc
     LD := $(CC)
     AR := ar
     STRIP := strip
-    _CC := $(PREFIX)$(CC)
-    _LD := $(PREFIX)$(LD)
-    _AR := $(PREFIX)$(AR)
-    _STRIP := $(PREFIX)$(STRIP)
+    _CC := $(TOOLCHAIN)$(CC)
+    _LD := $(TOOLCHAIN)$(LD)
+    _AR := $(TOOLCHAIN)$(AR)
+    _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
     ELF2DOL := elf2dol

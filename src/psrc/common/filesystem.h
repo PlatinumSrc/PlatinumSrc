@@ -23,4 +23,7 @@ char* strrelpath(const char*);
 bool md(const char*);
 bool rm(const char*);
 
+char* mkmaindir(void);
+char* mkuserdir(const char* maindir, const char* name);
+
 #endif

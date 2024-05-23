@@ -569,90 +569,13 @@ static int bootstrap(void) {
         fputs(LP_ERROR "Failed to init logging\n", stderr);
         return 1;
     }
-    #if PLATFORM == PLAT_NXDK
-    maindir = mkpath("D:\\", NULL);
-    plog_setfile("D:\\log.txt");
-    #elif PLATFORM == PLAT_DREAMCAST
-    {
-        DIR* d = opendir("/cd");
-        if (d) {
-            closedir(d);
-            maindir = mkpath("/cd", NULL);
-        } else {
-            d = opendir("/sd/psrc");
-            if (d) {
-                closedir(d);
-                maindir = mkpath("/sd/psrc", NULL);
-            } else {
-                d = opendir("/sd/PlatinumSrc");
-                if (d) {
-                    closedir(d);
-                    maindir = mkpath("/sd/PlatinumSrc", NULL);
-                } else {
-                    maindir = mkpath("/sd", NULL);
-                }
-            }
-        }
-    }
-    #elif PLATFORM == PLAT_3DS
+
     if (options.maindir) {
         maindir = mkpath(options.maindir, NULL);
         free(options.maindir);
     } else {
-        DIR* d = opendir("sdmc:/3ds/PlatinumSrc");
-        if (d) {
-            closedir(d);
-            maindir = mkpath("sdmc:/3ds/PlatinumSrc", NULL);
-        } else {
-            maindir = mkpath("sdmc:/3ds/psrc", NULL);
-        }
+        maindir = mkmaindir();
     }
-    {
-        char* l = mkpath(maindir, "log.txt", NULL);
-        plog_setfile(l);
-        free(l);
-    }
-    #elif PLATFORM == PLAT_WII
-    if (options.maindir) {
-        maindir = mkpath(options.maindir, NULL);
-        free(options.maindir);
-    } else {
-        DIR* d = opendir("/apps/PlatinumSrc");
-        if (d) {
-            closedir(d);
-            maindir = mkpath("/apps/PlatinumSrc", NULL);
-        } else {
-            maindir = mkpath("/apps/psrc", NULL);
-        }
-    }
-    {
-        char* l = mkpath(maindir, "log.txt", NULL);
-        plog_setfile(l);
-        free(l);
-    }
-    #elif PLATFORM == PLAT_GAMECUBE
-    maindir = strdup("/");
-    #else
-    if (options.maindir) {
-        maindir = mkpath(options.maindir, NULL);
-        free(options.maindir);
-    } else {
-        #ifndef PSRC_USESDL1
-        maindir = SDL_GetBasePath();
-        #else
-        // TODO: get the dir where the executable is located
-        maindir = NULL;
-        #endif
-        if (maindir) {
-            char* tmp = maindir;
-            maindir = mkpath(tmp, NULL);
-            SDL_free(tmp);
-        } else {
-            plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
-            maindir = strdup(".");
-        }
-    }
-    #endif
 
     char* tmp;
 
@@ -699,65 +622,28 @@ static int bootstrap(void) {
         return 1;
     }
 
+    if (options.userdir) {
+        userdir = mkpath(options.userdir, NULL);
+        free(options.userdir);
+    } else {
+        char* tmp = cfg_getvar(gameconfig, NULL, "userdir");
+        if (tmp) {
+            userdir = mkuserdir(maindir, tmp);
+            free(tmp);
+        } else {
+            userdir = mkuserdir(maindir, gamedir);
+        }
+    }
     #if PLATFORM == PLAT_NXDK
     {
         uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
         char titleidstr[9];
         sprintf(titleidstr, "%08x", (unsigned)titleid);
-        tmp = cfg_getvar(gameconfig, NULL, "userdir");
-        if (tmp) {
-            userdir = mkpath("E:\\TDATA", titleidstr, "data", tmp, NULL);
-            free(tmp);
-        } else {
-            userdir = mkpath("E:\\TDATA", titleidstr, "data", gamedir, NULL);
-        }
         savedir = mkpath("E:\\UDATA", titleidstr, NULL);
     }
     #elif PLATFORM == PLAT_DREAMCAST
     userdir = mkpath("/rd", NULL);
-    #elif PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
-    if (options.userdir) {
-        userdir = mkpath(options.userdir, NULL);
-        free(options.userdir);
-    } else {
-        tmp = cfg_getvar(gameconfig, NULL, "userdir");
-        if (tmp) {
-            userdir = mkpath(maindir, "data", tmp, NULL);
-            free(tmp);
-        } else {
-            userdir = mkpath(maindir, "data", gamedir, NULL);
-        }
-    }
-    savedir = mkpath(userdir, "saves", NULL);
-    #else
-    if (options.userdir) {
-        userdir = mkpath(options.userdir, NULL);
-        free(options.userdir);
-    } else {
-        tmp = cfg_getvar(gameconfig, NULL, "userdir");
-        if (tmp) {
-            char* tmp2 = mkpath(NULL, tmp, NULL);
-            free(tmp);
-            tmp = tmp2;
-        } else {
-            tmp = strdup(gamedir);
-        }
-        // TODO: make a function in common/filesystem.c to replace SDL_GetPrefPath
-        #ifndef PSRC_USESDL1
-        userdir = SDL_GetPrefPath(NULL, tmp);
-        #else
-        userdir = NULL;
-        #endif
-        free(tmp);
-        if (userdir) {
-            char* tmp = userdir;
-            userdir = mkpath(tmp, NULL);
-            SDL_free(tmp);
-        } else {
-            plog(LL_WARN, LP_WARN "Failed to get user directory: %s", SDL_GetError());
-            userdir = strdup("." PATHSEPSTR "data");
-        }
-    }
+    #elif PLATFORM != PLAT_DREAMCAST
     savedir = mkpath(userdir, "saves", NULL);
     #endif
 

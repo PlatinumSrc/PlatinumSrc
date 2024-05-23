@@ -19,7 +19,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Compiling natively on Unix-like systems
         - GNU Make
         - GCC with GNU Binutils or Clang with LLVM
-            - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+            - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
             - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
         - SDL 2.x or 1.2.x
     - Compiling for Windows
@@ -27,7 +27,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - MSYS2
             - GNU Make
             - GCC with GNU Binutils or Clang with LLVM
-                - Pass `PREFIX=llvm- CC=clang` to the Makefile to use Clang
+                - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
             - MinGW SDL 2.x or 1.2.x
         - Compiling on Windows without MSYS2
             - Git bash
@@ -90,8 +90,8 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - On Windows, add MinGW's bin folder to the `PATH` \(can be done using the environment variable editor\)
         2. Download the [MinGW 7.1.0 build of psrc-sdl2](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip), and extract it to `external/Windows_i686`
         3. When using the Makefile, ensure that it uses the correct tools
-            - On Linux, pass `M32=y PREFIX='wine ' CC='wine i686-w64-mingw32-gcc' inc.null=NUL` to the Makefile
-            - On Windows, pass `M32=y PREFIX= CC=i686-w64-mingw32-gcc` to the Makefile
+            - On Linux, pass `M32=y TOOLCHAIN='wine ' CC='wine i686-w64-mingw32-gcc' inc.null=NUL` to the Makefile
+            - On Windows, pass `M32=y TOOLCHAIN= CC=i686-w64-mingw32-gcc` to the Makefile
 
 - Using the Makefile
     - Makefile rules
@@ -146,7 +146,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - `AR` - Archiver
             - `STRIP` - Symbol remover
             - `OBJCOPY` - Executable editor
-            - `PREFIX` - Text to prepend to tool names
+            - `TOOLCHAIN` - Text to prepend to tool names
             - `CFLAGS` - Extra C compiler flags
             - `CPPFLAGS` - Extra C preprocessor flags
             - `LDFLAGS` - Extra linker flags
@@ -218,10 +218,13 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Windows 9x no KernelEx
 - In progress
     - 3DS
+        - Needs a Citro3D renderer
     - GameCube
-        - Needs OpenGX renderer
+        - Needs an OpenGX renderer
     - Wii
-        - Needs OpenGX renderer
+        - Needs an OpenGX renderer
+    - PS2
+        - Needs a GSKit renderer
 - Wanted
     - Android
         - Need to finish the touch UI
@@ -231,8 +234,6 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Xbox \(XDK\)?
         - No OpenGL
         - Uses MSVC
-    - PS2
-        - ps2gl is not OpenGL
     - PSP
     - PS Vita
     - MSDOS?
