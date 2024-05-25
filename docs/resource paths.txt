@@ -12,7 +12,7 @@ custom prefix: "custom:" (Access resources in <user dir>/custom/????/????/??????
 path: Path to the resource to access. Extensions are added automatically. For configs, the extension is .cfg. For maps,
       the extension is .pmf. For materials, the extension is .txt. For models, the extension is .p3m. For playermodels,
       the extension is .txt. For scripts, the extension is .bas. For sounds, the extensions are .ogg, .mp3, then .wav.
-      For textures, the extensions are .png, .jpg, .tga, then .bmp. For values, the extension is .txt.
+      For textures, the extensions are .ptf, .png, .jpg, .tga, then .bmp. For values, the extension is .txt.
 
 game dir: A directory in <base dir>/games/.
 current game dir: The directory in <base dir>/games/ where the current game resides.

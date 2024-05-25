@@ -1,0 +1,19 @@
+P3M - PlatinumSrc Texture File/Format
+
+- .ptf file extension
+- Current revision is 0
+- All data should be little endian
+- LZ4 should be used for compression
+
+Format:
+
+    <Header> <Data>
+
+    Header:
+        <char[3]: {'P', 'T', 'F'}>
+        <u8: Revision>
+        <u8: <3 bits: 0> <1 bit: Has alpha> <4 bits: Resolution (2^n)>>
+    Data:
+        <Compressed <u8: Red>... <u8: Green>... <u8: Blue>... [< u8: Alpha>...]>
+
+

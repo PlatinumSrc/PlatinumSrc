@@ -18,6 +18,7 @@
     #ifdef PSRC_USEMINIMP3
         #include "../../minimp3/minimp3_ex.h"
     #endif
+    #include "../engine/ptf.h"
 #endif
 
 #if PLATFORM == PLAT_NXDK
@@ -186,7 +187,7 @@ static char** extlist[RC__COUNT] = {
     (char*[]){".txt", NULL},
     (char*[]){".bas", NULL},
     (char*[]){".ogg", ".mp3", ".wav", NULL},
-    (char*[]){".png", ".jpg", ".tga", ".bmp", NULL},
+    (char*[]){".ptf", ".png", ".jpg", ".tga", ".bmp", NULL},
     (char*[]){".txt", NULL}
 };
 
@@ -702,51 +703,102 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             }
         } break;
         case RC_TEXTURE: {
-            int w, h, c;
-            if (stbi_info(p, &w, &h, &c)) {
-                if (o.texture->needsalpha) {
-                    c = 4;
-                } else {
-                    if (c < 3) c += 2;
-                }
-                int c2;
-                unsigned char* data = stbi_load(p, &w, &h, &c2, c);
+            if (ext == extlist[RC_TEXTURE][0]) {
+                unsigned r, c;
+                uint8_t* data = ptf_loadfile(p, &r, &c);
                 if (data) {
+                    if (o.texture->needsalpha && c == 3) {
+                        c = 4;
+                        data = realloc(data, r * r * 4);
+                        for (int y = r - 1; y >= 0; --y) {
+                            int b1 = y * r * 4, b2 = y * r * 3;
+                            for (int x = r - 1; x >= 0; --x) {
+                                data[b1 + x * 4 + 3] = 255;
+                                data[b1 + x * 4 + 2] = data[b2 + x * 3 + 2];
+                                data[b1 + x * 4 + 1] = data[b2 + x * 3 + 1];
+                                data[b1 + x * 4] = data[b2 + x * 3];
+                            }
+                        }
+                    }
                     if (o.texture->quality != RCOPT_TEXTURE_QLT_HIGH) {
-                        int w2 = w, h2 = h;
+                        int r2 = r;
                         switch ((uint8_t)o.texture->quality) {
                             case RCOPT_TEXTURE_QLT_MED: {
-                                w2 /= 2;
-                                h2 /= 2;
+                                r2 /= 2;
                             } break;
                             case RCOPT_TEXTURE_QLT_LOW: {
-                                w2 /= 4;
-                                h2 /= 4;
+                                r2 /= 4;
                             } break;
                         }
-                        if (w2 < 1) w2 = 1;
-                        if (h2 < 1) h2 = 1;
-                        unsigned char* data2 = malloc(w * h * c);
+                        if (r2 < 1) r2 = 1;
+                        unsigned char* data2 = malloc(r * r * c);
                         int status = stbir_resize_uint8_generic(
-                            data, w, h, 0,
-                            data2, w2, h2, 0,
+                            data, r, r, 0,
+                            data2, r2, r2, 0,
                             c, -1, 0,
-                            STBIR_EDGE_WRAP, STBIR_FILTER_BOX, STBIR_COLORSPACE_LINEAR,
+                            STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
                             NULL
                         );
                         if (status) {
                             free(data);
-                            w = w2;
-                            h = h2;
+                            r = r2;
                             data = data2;
                         }
                     }
                     d = loadResource_newptr(t, g, p, pcrc);
-                    d->texture.data.width = w;
-                    d->texture.data.height = h;
+                    d->texture.data.width = r;
+                    d->texture.data.height = r;
                     d->texture.data.channels = c;
                     d->texture.data.data = data;
                     d->texture.opt = *o.texture;
+                }
+            } else {
+                int w, h, c;
+                if (stbi_info(p, &w, &h, &c)) {
+                    if (o.texture->needsalpha) {
+                        c = 4;
+                    } else {
+                        if (c < 3) c += 2;
+                    }
+                    int c2;
+                    unsigned char* data = stbi_load(p, &w, &h, &c2, c);
+                    if (data) {
+                        if (o.texture->quality != RCOPT_TEXTURE_QLT_HIGH) {
+                            int w2 = w, h2 = h;
+                            switch ((uint8_t)o.texture->quality) {
+                                case RCOPT_TEXTURE_QLT_MED: {
+                                    w2 /= 2;
+                                    h2 /= 2;
+                                } break;
+                                case RCOPT_TEXTURE_QLT_LOW: {
+                                    w2 /= 4;
+                                    h2 /= 4;
+                                } break;
+                            }
+                            if (w2 < 1) w2 = 1;
+                            if (h2 < 1) h2 = 1;
+                            unsigned char* data2 = malloc(w * h * c);
+                            int status = stbir_resize_uint8_generic(
+                                data, w, h, 0,
+                                data2, w2, h2, 0,
+                                c, -1, 0,
+                                STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
+                                NULL
+                            );
+                            if (status) {
+                                free(data);
+                                w = w2;
+                                h = h2;
+                                data = data2;
+                            }
+                        }
+                        d = loadResource_newptr(t, g, p, pcrc);
+                        d->texture.data.width = w;
+                        d->texture.data.height = h;
+                        d->texture.data.channels = c;
+                        d->texture.data.data = data;
+                        d->texture.opt = *o.texture;
+                    }
                 }
             }
         } break;

@@ -432,6 +432,8 @@ define so
 $(1)$(SOSUF)
 endef
 
+CPPFLAGS.dir.lz4 := -DXXH_NAMESPACE=LZ4_ -DLZ4_STATIC_LINKING_ONLY_ENDIANNESS_INDEPENDENT_OUTPUT
+
 CPPFLAGS.dir.psrc_common := 
 ifeq ($(USESTDTHREAD),y)
     CPPFLAGS.dir.psrc_common += -DPSRC_USESTDTHREAD
@@ -504,20 +506,21 @@ ifeq ($(MODULE),engine)
     _CPPFLAGS += -DPSRC_MODULE_ENGINE
     _WRFLAGS += -DPSRC_MODULE_ENGINE
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DPSRC_MODULE_SERVER
     _WRFLAGS += -DPSRC_MODULE_SERVER
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4)
     _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_common) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DPSRC_MODULE_EDITOR
     _WRFLAGS += -DPSRC_MODULE_EDITOR
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
@@ -683,7 +686,7 @@ $(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
 
 ifneq ($(MKSUB),y)
 
-a.dir.psrc_common = $(call a,psrc/common)
+a.dir.psrc_common = $(call a,psrc/common) $(call a,lz4)
 ifneq ($(MODULE),server)
 a.dir.psrc_common += $(call a,stb) $(call a,schrift)
 ifeq ($(USEMINIMP3),y)

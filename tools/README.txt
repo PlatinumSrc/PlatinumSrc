@@ -19,4 +19,12 @@ Platinum:
     2. Run 'make'.
     3. Run the 'platinum' executable.
 
+PTFTool:
+
+    A utility to convert images into the PTF format.
+
+    1. Enter the 'ptftool' folder.
+    2. Run 'make'.
+    3. Run the 'ptftool' executable (pass --help for instructions).
+
 
