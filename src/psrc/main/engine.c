@@ -237,11 +237,6 @@ int initLoop(void) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
         return 1;
     }
-    plog(LL_INFO, "Initializing UI manager...");
-    if (!initUI()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init UI manager");
-        return 1;
-    }
     plog(LL_INFO, "Initializing audio manager...");
     if (!initAudio()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
@@ -546,8 +541,6 @@ void quitLoop(void) {
 
     plog(LL_INFO, "Quitting audio manager...");
     quitAudio();
-    plog(LL_INFO, "Quitting UI manager...");
-    quitUI();
     plog(LL_INFO, "Quitting input manager...");
     quitInput();
     plog(LL_INFO, "Quitting renderer...");

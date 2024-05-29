@@ -295,7 +295,7 @@ bool getNextInputAction(struct inputaction* a) {
     if (inputstate.curaction >= inputstate.actions.len) return false;
     int index = inputstate.curaction++;
     actdata = &inputstate.actions.data[index];
-    if (actdata->type == INPUTACTIONTYPE_INVALID) goto trynext;
+    if (actdata->type == INPUTACTIONTYPE__INVALID) goto trynext;
     if (inputstate.activeaction >= 0 &&
         (actdata->type == INPUTACTIONTYPE_ONCE || actdata->type == INPUTACTIONTYPE_SINGLE) &&
         index != inputstate.activeaction) goto trynext;
@@ -405,7 +405,7 @@ bool getNextInputAction(struct inputaction* a) {
 int newInputAction(enum inputactiontype type, const char* name, struct inputkey* keys, void* userdata) {
     int index = -1;
     for (int i = 0; i < inputstate.actions.len; ++i) {
-        if (inputstate.actions.data[i].type == INPUTACTIONTYPE_INVALID) {
+        if (inputstate.actions.data[i].type == INPUTACTIONTYPE__INVALID) {
             index = i;
             break;
         }

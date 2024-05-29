@@ -6,19 +6,24 @@
 #include <stdarg.h>
 
 #include "../common/threading.h"
+#include "../common/string.h"
 
 enum __attribute__((packed)) uielemtype {
+    UIELEMTYPE__INVALID,
     UIELEMTYPE_CONTAINER,
     UIELEMTYPE_BOX,
     UIELEMTYPE_TEXT,
     UIELEMTYPE_LINK,
     UIELEMTYPE_BUTTON,
     UIELEMTYPE_TEXTBOX,
+    UIELEMTYPE_MULTITEXTBOX,
     UIELEMTYPE_CHECKBOX,
     UIELEMTYPE_SLIDER,
     UIELEMTYPE_PROGRESSBAR,
+    UIELEMTYPE_IMAGE,
     UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
+    UIELEMTYPE__COUNT
 };
 
 enum uiattr {
@@ -29,6 +34,12 @@ enum uiattr {
     UIATTR_CALLBACK, // void (*)(enum uievent, struct uievent_data*), void*
     UIATTR_PARENT, // struct uielemptr*
     UIATTR_ANCHOR, // struct uielemptr*
+    UIATTR_X, // char*
+    UIATTR_Y, // char*
+    UIATTR_WIDTH, // char*
+    UIATTR_HEIGHT, // char*
+    UIATTR_MAXWIDTH, // char*
+    UIATTR_MAXHEIGHT, // char*
     // element-specific
     UIATTR_CONTAINER_FORCESCROLLBAR, // unsigned
     UIATTR_BOX_COLOR, // struct uidata_color*
@@ -37,7 +48,7 @@ enum uiattr {
     UIATTR_TEXT_FONT, // char*
     UIATTR_TEXT_SIZE, // unsigned
     UIATTR_TEXT_BORDER, // enum uiborder
-    UIATTR_LINK_TEXT, // char*, struct uidata_textfrmt*, struct uidata_textfrmt*, struct uidata_textfrmt*
+    UIATTR_LINK_TEXT, // char*, struct uidata_textfrmt*, struct uidata_textfrmt* click, struct uidata_textfrmt* hover
     UIATTR_LINK_FONT, // char*
     UIATTR_LINK_SIZE, // unsigned
     UIATTR_LINK_BORDER, // enum uiborder
@@ -45,26 +56,30 @@ enum uiattr {
     UIATTR_TEXTBOX_TEXT, // char*
     UIATTR_TEXTBOX_EDITABLE, // unsigned
     UIATTR_TEXTBOX_SHADOWTEXT, // char*
-    UIATTR_TEXTBOX_MULTILINE, // unsigned
     UIATTR_TEXTBOX_PASSWORD, // unsigned
+    UIATTR_MULTITEXTBOX_TEXT, // char*
+    UIATTR_MULTITEXTBOX_EDITABLE, // unsigned
+    UIATTR_MULTITEXTBOX_SHADOWTEXT, // char*
     UIATTR_CHECKBOX_CHECKED, // unsigned
-    UIATTR_SLIDER_AMOUNT, // double
+    UIATTR_SLIDER_SEGMENTS, // int
     UIATTR_SLIDER_FLUID, // unsigned
     UIATTR_PROGRESSBAR_PERCENTAGE, // double
-    UIATTR_DROPDOWN_ITEMS, // int, char**
-    UIATTR_LIST_ITEMS, // int, char**, int, char***
+    UIATTR_IMAGE_RCPATH, // char*
+    UIATTR_DROPDOWN_ITEMS, // int, char**, int start
+    UIATTR_LIST_ITEMS, // int cols, char** colnames, float* seppos, int rows, char**
     UIATTR_LIST_ROW, // int, char**
     UIATTR_LIST_NEWROW, // char**
-    UIATTR_LIST_ITEM, // int, int, char*
-    UIATTR_LIST_SORTBY, // int, unsigned
-    UIATTR_LIST_HIDECOLNAMES, // unsigned
+    UIATTR_LIST_ITEM, // int col, int row, char*
+    UIATTR_LIST_COLSIZE, // int, float*
+    UIATTR_LIST_SORTBY, // int col, unsigned rev
+    UIATTR_LIST_HIDECOLNAMES // unsigned
 };
 
 enum uiborder {
     UIBORDER_NONE,
     UIBORDER_RAISED,
     UIBORDER_SUNKEN,
-    UIBORDER_HIGHLIGHT,
+    UIBORDER_HIGHLIGHT
 };
 
 struct uidata_color {
@@ -83,12 +98,8 @@ struct uidata_textfrmt {
     };
 };
 
-struct uielemptr {
-    int index;
-    uint64_t id;
-};
-
 struct uielem_container {
+    int scroll;
     uint8_t forcescrollbar : 1;
 };
 struct uielem_box {
@@ -114,57 +125,78 @@ struct uielem_button {
     struct uidata_textfrmt frmt;
 };
 struct uielem_textbox {
-    char* text;
+    struct charbuf text;
+    char* shadowtext;
     uint8_t editable : 1;
-    unsigned len;
-    unsigned size;
+    uint8_t password : 1;
     unsigned curstart;
     unsigned curend;
+};
+struct uielem_multitextbox {
+    struct charbuf* text;
+    char* shadowtext;
+    unsigned len;
+    unsigned size;
+    uint8_t editable : 1;
+    unsigned curstart;
+    unsigned curend;
+    int scroll;
 };
 struct uielem_checkbox {
     uint8_t checked : 1;
 };
 struct uielem_slider {
     float amount;
+    int steps;
 };
 struct uielem_progressbar {
     float amount;
 };
+struct uielem_image {
+    char* rcpath;
+};
+struct uielem_dropdown {
+    int items;
+    char* itemdata;
+    int curitem;
+    int hoveritem;
+    uint8_t open : 1;
+};
 struct uielem_list {
-    int columns;
     int rows;
+    int columns;
+    int currow;
+    int hoverrow;
     int sortcolumn;
     uint8_t sortreversed : 1;
     uint8_t hidecolnames : 1;
     float* seppos; // # of cols - 1
-    float* rowpos; // # of rows - 1
     char** colnames;
-    char*** data;
+    char** data;
+    int scroll;
 };
 
 enum uievent {
-    UIEVENT_BOUNDSREQ,
-    UIEVENT_BUTTON_USE, // May happen on RELEASE instead of PRESS
-    UIEVENT_BUTTON_PRESS,
-    UIEVENT_BUTTON_RELEASE,
+    UIEVENT_SIZEREQ,
+    UIEVENT_BUTTON_USE,
     UIEVENT_LINK_USE,
-    UIEVENT_LINK_PRESS,
-    UIEVENT_LINK_RELEASE,
-    UIEVENT_TEXTBOX_ENTER, // Does not fire if multiline is enabled
+    UIEVENT_TEXTBOX_ENTER,
     UIEVENT_CHECKBOX_CHECK,
     UIEVENT_CHECKBOX_UNCHECK,
     UIEVENT_SLIDER_MOVE, // Fires only when released if UIATTR_SLIDER_FLUID is disabled
-    UIEVENT_LIST_SEPPOSREQ,
-    UIEVENT_LIST_SORT, // Fires when the list is changed
+    UIEVENT_DROPDOWN_SELECT,
+    UIEVENT_LIST_SELECTROW,
+    UIEVENT_LIST_SORT // Fires when the list is changed
 };
 
 struct uievent_data {
-    struct uielemptr element;
+    int element;
     union {
         struct {
-            float elem[2][2];
-            float parent[2][2];
-        } boundsreq;
+            int anchor[2];
+            int parent[2];
+            int elem[2];
+        } sizereq;
         union {
             struct {
                 char* text; // dup to use outside of callback
@@ -172,7 +204,7 @@ struct uievent_data {
         } textbox;
         union {
             struct {
-                float amount;
+                float to;
             } move;
         } slider;
         union {
@@ -182,70 +214,59 @@ struct uievent_data {
         } dropdown;
         union {
             struct {
-                float* seppos;
-            } sepposreq;
+                int row;
+                char** data;
+            } selectrow;
             struct {
                 int column;
                 uint8_t reversed : 1;
                 int columns;
                 int rows;
-                char*** data;
+                char** data;
             } sort;
         } list;
     };
 };
 
 struct uielem {
-    uint64_t id;
+    enum uielemtype type;
+    int refs;
     uint8_t hidden : 1;
     uint8_t disabled : 1;
     void (*callback)(enum uievent, struct uievent_data*, void*);
     void* userdata;
-    struct uielemptr anchor;
+    char* size[2];
+    char* maxsize[2];
+    int calcsize[2];
+    int calcmaxsize[2];
+    int anchor;
+    int parent;
     struct {
+        int* data;
         unsigned len;
         unsigned size;
-        struct uielemptr* data;
     } children;
-    float coords[2][2];
-    union {
-        struct uielem_container container;
-        struct uielem_box box;
-        struct uielem_text text;
-        struct uielem_link link;
-        struct uielem_button button;
-        struct uielem_textbox textbox;
-        struct uielem_checkbox checkbox;
-        struct uielem_slider slider;
-        struct uielem_progressbar progressbar;
-        struct uielem_list list;
-    } data[];
 };
 
 struct uistate {
     #ifndef PSRC_NOMT
     struct accesslock lock;
     #endif
+    int activeelem;
+    int hoverelem;
     struct {
         unsigned len;
         unsigned size;
         struct uielem* data;
     } elems;
-    struct {
-        unsigned len;
-        unsigned size;
-        struct uielemptr* data;
-    } orphans;
 };
 
-extern struct uistate uistate;
-
-bool initUI(void);
-bool newUIElem(struct uielemptr*, enum uielemtype, enum uiattr, ...);
-void editUIElem(struct uielemptr*, enum uiattr, ...);
-void deleteUIElem(struct uielemptr*);
-void clearUIElems(void);
-void doUIEvents(void);
-void quitUI(void);
+bool createUI(struct uistate*);
+int newUIElem(struct uistate*, enum uielemtype, enum uiattr, ...);
+void editUIElem(struct uistate*, int, enum uiattr, ...);
+void deleteUIElem(struct uistate*, int);
+void clearUIElems(struct uistate*);
+void doUIEvents(struct uistate*);
+void destroyUI(struct uistate*);
 
 #endif

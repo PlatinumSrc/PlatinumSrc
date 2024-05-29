@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 enum rendapi {
-    RENDAPI__INVAL = -1,
+    RENDAPI__INVALID = -1,
     #ifdef PSRC_USESR
     RENDAPI_SW,
     #endif
@@ -35,7 +35,7 @@ enum rendapi {
 };
 
 enum rendapigroup {
-    RENDAPIGROUP__INVAL = -1,
+    RENDAPIGROUP__INVALID = -1,
     #ifdef PSRC_USESR
     RENDAPIGROUP_SW,
     #endif

@@ -208,7 +208,7 @@ static void updateWindowIcon(void) {
 #define SDL_SetHintWithPriority(n, v, p) if (!SDL_SetHintWithPriority((n), (v), (p))) plog(LL_WARN, "Failed to set " #n " to %s using " #p ": %s", (char*)(v), SDL_GetError())
 #endif
 static bool createWindow(void) {
-    if (rendstate.api <= RENDAPI__INVAL || rendstate.api >= RENDAPI__COUNT) {
+    if (rendstate.api <= RENDAPI__INVALID || rendstate.api >= RENDAPI__COUNT) {
         plog(LL_CRIT, "Invalid rendering API (%d)", (int)rendstate.api);
         return false;
     }
@@ -246,7 +246,7 @@ static bool createWindow(void) {
             break;
     }
     if (!beforeCreateWindow(&flags)) {
-        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        rendstate.apigroup = RENDAPIGROUP__INVALID;
         return false;
     }
     #else
@@ -266,7 +266,7 @@ static bool createWindow(void) {
             break;
     }
     if (!beforeCreateWindow(&rendstate.flags)) {
-        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        rendstate.apigroup = RENDAPIGROUP__INVALID;
         return false;
     }
     #endif
@@ -298,7 +298,7 @@ static bool createWindow(void) {
     updateWindowIcon();
     #endif
     if (!afterCreateWindow()) {
-        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        rendstate.apigroup = RENDAPIGROUP__INVALID;
         destroyWindow();
         return false;
     }
@@ -357,7 +357,7 @@ static bool startRenderer_internal(void) {
     }
     if (!createWindow()) return false;
     if (!prepRenderer()) {
-        rendstate.apigroup = RENDAPIGROUP__INVAL;
+        rendstate.apigroup = RENDAPIGROUP__INVALID;
         destroyWindow();
         return false;
     }
@@ -374,7 +374,7 @@ bool reloadRenderer(void) {
 }
 
 bool startRenderer(void) {
-    for (int i = 0; (rendstate.api = apilist[i]) != RENDAPI__INVAL; ++i) {
+    for (int i = 0; (rendstate.api = apilist[i]) != RENDAPI__INVALID; ++i) {
         if (startRenderer_internal()) return true;
     }
     plog(LL_CRIT, "Could not use any available rendering APIs");

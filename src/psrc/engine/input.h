@@ -114,7 +114,7 @@ struct inputaction {
 };
 
 enum __attribute__((packed)) inputactiontype {
-    INPUTACTIONTYPE_INVALID = -1,
+    INPUTACTIONTYPE__INVALID = -1,
     INPUTACTIONTYPE_ONCE,
     INPUTACTIONTYPE_SINGLE,
     INPUTACTIONTYPE_MULTI,
