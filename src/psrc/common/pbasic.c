@@ -90,61 +90,61 @@ static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, char* name, bool fu
 }
 
 bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, struct charbuf* err) {
-    struct pbc* ctx = malloc(sizeof(*ctx));
-    ctx->scopes.size = 4;
-    ctx->ops.size = 256;
-    ctx->constdata.size = 32;
-    ctx->consts.size = 4;
-    ctx->vars.size = 4;
-    ctx->subs.size = 4;
+    struct pbc ctx;
+    ctx.scopes.size = 4;
+    ctx.ops.size = 256;
+    ctx.constdata.size = 32;
+    ctx.consts.size = 4;
+    ctx.vars.size = 4;
+    ctx.subs.size = 4;
     bool retval = false;
-    if (!pbc_open(p, &ctx->input)) {retval = false; goto ret;}
+    if (!pbc_open(p, &ctx.input)) {retval = false; goto ret;}
     struct charbuf cb;
     cb_init(&cb, 256);
     while (1) {
         int c;
         do {
-            c = pbc_getc(&ctx->input);
+            c = pbc_getc(&ctx.input);
         } while (c == ' ' || c == '\t' || c == '\n' || c == ':');
         if (c == '\'') {
             do {
-                c = pbc_getc(&ctx->input);
+                c = pbc_getc(&ctx.input);
             } while (c != '\n');
         } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
             do {
                 cb_add(&cb, c);
-                c = pbc_getc_escnl(&ctx->input, ' ');
+                c = pbc_getc_escnl(&ctx.input, ' ');
             } while ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_');
             while (c == ' ' || c == '\t') {
-                c = pbc_getc_escnl(&ctx->input, 0);
+                c = pbc_getc_escnl(&ctx.input, 0);
             }
             if (c == '=') {
                 do {
-                    c = pbc_getc_escnl(&ctx->input, 0);
+                    c = pbc_getc_escnl(&ctx.input, 0);
                 } while (c == ' ' || c == '\t');
-                //pbc_getexpr(ctx);
-                //pbc_put8(ctx, PBVM_OP_SET);
-                //pbc_put32(ctx, pbc_getvar(ctx, cb_peek(&cb)));
-                c = pbc_getc(&ctx->input);
+                //pbc_getexpr(&ctx);
+                //pbc_put8(&ctx, PBVM_OP_SET);
+                //pbc_put32(&ctx, pbc_getvar(&ctx, cb_peek(&cb)));
+                c = pbc_getc(&ctx.input);
                 if (c == EOF) {
                     break;
                 } else if (c != '\n' && c != ':') {
-                    pbc_mkerr(ctx, err, "Syntax error (expected ':' or '\\n')");
+                    pbc_mkerr(&ctx, err, "Syntax error (expected ':' or '\\n')");
                     retval = false;
                     goto ret;
                 }
             } else {
                 bool func = (c == '(');
-                if (!func) pbc_ungetc(&ctx->input);
-                //if (!pbc_getcmd(ctx, err, cb_peek(&cb), func, false)) {
+                if (!func) pbc_ungetc(&ctx.input);
+                //if (!pbc_getcmd(&ctx, err, cb_peek(&cb), func, false)) {
                 //    retval = false;
                 //    goto ret;
                 //}
-                c = pbc_getc(&ctx->input);
+                c = pbc_getc(&ctx.input);
                 if (c == EOF) {
                     break;
                 } else if (c != '\n' && c != ':') {
-                    pbc_mkerr(ctx, err, "Syntax error (expected ':' or '\\n')");
+                    pbc_mkerr(&ctx, err, "Syntax error (expected ':' or '\\n')");
                     retval = false;
                     goto ret;
                 }
@@ -152,7 +152,7 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
         } else if (c == EOF) {
             break;
         } else {
-            pbc_mkerr(ctx, err, "Syntax error (unexpected char)");
+            pbc_mkerr(&ctx, err, "Syntax error (unexpected char)");
             retval = false;
             goto ret;
         }
@@ -160,7 +160,6 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
     //longbreak:;
     ret:;
     cb_dump(&cb);
-    free(ctx);
     return retval;
 }
 

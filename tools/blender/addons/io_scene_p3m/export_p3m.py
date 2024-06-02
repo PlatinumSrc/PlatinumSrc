@@ -203,8 +203,8 @@ def save(operator, context, filepath,
                     animdata[2].append([
                         act,
                         1.0 / s.scale,
-                        s.action_frame_start - s.action.frame_start,
-                        s.action_frame_end - s.action.frame_start
+                        int(s.action_frame_start) - int(s.action.frame_start),
+                        int(s.action_frame_end) - int(s.action.frame_start)
                     ])
                 animations.append(animdata)
 
@@ -273,7 +273,7 @@ def save(operator, context, filepath,
                 f.write(struct.pack("<I", a[1]))
                 f.write(struct.pack("<B", len(a[2])))
                 for d in a[2]:
-                    f.write(struct.pack("<Bfff", d[0], d[1], d[2], d[3]))
+                    f.write(struct.pack("<BfHH", d[0], d[1], d[2], d[3]))
         else:
             f.write(struct.pack("<BB", 0, 0))
     f.write(strtable)

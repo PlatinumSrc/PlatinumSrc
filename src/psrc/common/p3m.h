@@ -20,7 +20,7 @@ struct __attribute__((packed)) p3m_indexgroup {
 };
 struct __attribute__((packed)) p3m_bonevertex {
     uint16_t index;
-    float weight;
+    uint16_t weight;
 };
 struct __attribute__((packed)) p3m_bone {
     char* name;
@@ -79,6 +79,9 @@ struct __attribute__((packed)) p3m_animation {
     uint32_t frametime;
     uint8_t actioncount;
     uint8_t* actions;
+    float* actionspeeds;
+    uint16_t* actionstarts;
+    uint16_t* actionends;
 };
 
 struct p3m {
@@ -105,6 +108,8 @@ struct p3m {
     struct p3m_action* actions;
 
     uint8_t* animactions;
+    float* animactionspeeds;
+    uint16_t* animactionbounds;
     struct p3m_animation* animations;
 
     char* strings;

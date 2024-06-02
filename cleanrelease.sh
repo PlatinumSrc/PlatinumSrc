@@ -1,2 +1,2 @@
 #!/bin/bash
-rm -rf PlatinumSrc*.tar.gz PlatinumSrc*.zip
+rm -rf psrc_*.tar.gz psrc_*.zip

@@ -21,10 +21,10 @@ pause
 
 tsk "Building..."
 ./buildrelease.sh || _exit
-inf "Making PlatinumSrc_Assets.zip..."
-_zip_r "PlatinumSrc_Assets.zip" engine/ icons/
-inf "Making PlatinumSrc_Extras.zip..."
-_zip_r "PlatinumSrc_Extras.zip" docs/ tools/
+inf "Making psrc_assets.zip..."
+_zip_r "psrc_assets.zip" engine/ icons/
+inf "Making psrc_extras.zip..."
+_zip_r "psrc_extras.zip" docs/ tools/
 pause
 
 tsk "Pushing..."
@@ -35,7 +35,7 @@ git push || _exit
 tsk "Making release..."
 git tag -s "${VER}" -m "${CNGTEXT}" || _exit
 git push --tags || _exit
-gh release create "${VER}" --title "Build ${VER}" --notes "${RELTEXT}" PlatinumSrc*.tar.gz PlatinumSrc*.zip || _exit
+gh release create "${VER}" --title "Build ${VER}" --notes "${RELTEXT}" psrc_*.tar.gz psrc_*.zip || _exit
 
 tsk "Cleaning up..."
 ./cleanrelease.sh

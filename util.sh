@@ -67,9 +67,7 @@ _zip_r() {
 }
 
 buildrel() {
-    local PLATFORM="${2}"
-    if [ ! -z "${PLATFORM}" ]; then PLATFORM=" for ${PLATFORM}"; fi
-    inf "Building ${1}${PLATFORM}..."
+    [ -z "${PLATFORM}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
     make "${@:3}" distclean 1> /dev/null || _exit
     RESPONSE=""
     while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do
@@ -101,7 +99,7 @@ buildrel() {
                 ;;
         esac
     done
-    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel "$(echo "${2}" | sed 's/\//_/g')" || _exit
+    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
     make "${@:3}" distclean 1> /dev/null || _exit
     [[ ! "${RESPONSE}" == "n" ]] || _exit 1
 }

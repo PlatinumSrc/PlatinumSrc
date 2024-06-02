@@ -53,5 +53,5 @@ Format:
     Animation:
         <<String>: Name>
         <u32: Microseconds per frame>
-        <u8: Action count> [ <u8: Action index> <float: Speed> <float: Start> <float: End> ]...
+        <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
 
