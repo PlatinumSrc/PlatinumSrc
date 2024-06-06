@@ -68,9 +68,10 @@ union pbdata {
 };
 
 struct pb_constref {
-    unsigned pos;
-    char* name;
-    uint32_t namecrc;
+    union {
+        uintptr_t pos;
+        union pbdata* data;
+    };
     enum pbtype type;
     unsigned dim;
     union {
@@ -78,25 +79,12 @@ struct pb_constref {
         unsigned sizeindex;
     };
 };
-struct pb_varref {
-    char* name;
-    uint32_t namecrc;
-};
-struct pb_subref {
-    char* name;
-    uint32_t namecrc;
-};
 struct pb_script {
     void* ops;
-    void* consts;
-    char* names;
-    unsigned constcount;
-    unsigned varcount;
+    void* data;
+    struct pb_constref* consts;
     unsigned subcount;
-    struct pb_constref* constrefs;
-    unsigned* constsizes;
-    struct pb_varref* varrefs;
-    struct pb_subref* subrefs;
+    unsigned varcount;
 };
 
 struct pbvm;
@@ -104,12 +92,13 @@ struct pbvm_ccall_arg;
 struct pbvm_ccall_ret;
 struct pbc;
 
-typedef void (*pb_cfunc)(struct pbvm*, void*, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
-typedef bool (*pb_findext)(struct pbc*, char*, bool);
+typedef void (*pb_cfunc)(struct pbvm*, void* data, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
+typedef bool (*pb_findcmd)(struct pbc*, char*, bool isfunc);
+typedef bool (*pb_findpv)(char*, int**);
 
 struct pbc_opt {
-    pb_findext findext;
-    bool fakedata; // turn DATA statements into vars
+    pb_findcmd findcmd;
+    pb_findpv findpv;
 };
 struct pbc_stream { // TODO: add pb_compilemem() later if needed
     FILE* f;

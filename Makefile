@@ -638,7 +638,7 @@ define mkdir
 if [ ! -d '$(1)' ]; then echo 'Creating $(1)/...'; mkdir -p '$(1)'; fi; true
 endef
 define rm
-if [ -f '$(1)' ]; then echo 'Removing $(1)/...'; rm -f '$(1)'; fi; true
+if [ -f '$(1)' ]; then echo 'Removing $(1)...'; rm -f '$(1)'; fi; true
 endef
 define rmdir
 if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
@@ -673,15 +673,27 @@ $(_OBJDIR)/%.a: $$(wildcard $(SRCDIR)/$(call a_path,%)/*.c) $(call inc,$(SRCDIR)
 	@'$(MAKE)' --no-print-directory MKSUB=y __SRCDIR=$(__SRCDIR) __OBJDIR=$(__OBJDIR) SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
 endif
 
+ifeq ($(TR),y)
+    TR_FILE := timereport.txt
+    _TR_BEFORE := T="$$(mktemp)";env time -f%e --output="$$T" --
+    _TR_AFTER = ;R=$$?;printf '%s: %ss\n' $< $$(cat "$$T") >> $(TR_FILE);rm "$$T";exit "$$R"
+ifneq ($(MKSUB),y)
+    export _TR_STFILE := $(shell mktemp)
+endif
+$(TR_FILE):
+	@printf '%s\n' '--------- BUILD TIME REPORT ---------' > $(TR_FILE)
+	@date +%s%N > $(_TR_STFILE)
+endif
+
 $(OUTDIR):
 	@$(call mkdir,$@)
 
 $(_OBJDIR):
 	@$(call mkdir,$@)
 
-$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR)
+$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR) $(TR_FILE)
 	@echo Compiling $(patsubst $(__SRCDIR)/%,%,$<)...
-	@$(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
+	@$(_TR_BEFORE) $(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@ $(_TR_AFTER)
 	@echo Compiled $(patsubst $(__SRCDIR)/%,%,$<)
 
 ifneq ($(MKSUB),y)
@@ -716,6 +728,12 @@ endif
 a.list += $(a.dir.psrc_common) $(call a,psrc)
 
 $(BINPATH): $(OBJECTS) $(a.list)
+ifeq ($(TR),y)
+	@sort -r -k2 $(TR_FILE) -o $(TR_FILE)
+	@printf '%s\n' '-------------------------------------' >> $(TR_FILE)
+	@printf 'Total time spent compiling: %ss\n' $$(sed 's/.\{2\}$$/.&/' <<< $$((($$(date +%s%N)-$$(cat $(_TR_STFILE)))/10000000))) >> $(TR_FILE)
+	@rm $(_TR_STFILE)
+endif
 ifeq ($(CROSS),nxdk)
 	@echo Making NXDK libs...
 	@export CFLAGS='$(__CFLAGS)'; export LDFLAGS='$(__LDFLAGS)'; '$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} main.exe
@@ -764,6 +782,10 @@ run: build
 	@$(call exec,$(TARGET))
 
 clean:
+ifeq ($(TR),y)
+	@$(call rm,$(TR_FILE))
+	@$(call rm,$(_TR_STFILE))
+endif
 	@$(call rmdir,$(_OBJDIR))
 
 distclean: clean

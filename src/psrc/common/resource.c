@@ -410,16 +410,16 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
     return ptr;
 }
 
-static struct rcdata* loadResource_internal(enum rctype, const char*, union rcopt);
+static struct rcdata* loadResource_internal(enum rctype, const char*, union rcopt, struct charbuf* e);
 
-static inline void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o) {
-    struct rcdata* r = loadResource_internal(t, uri, o);
+static inline void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o, struct charbuf* e) {
+    struct rcdata* r = loadResource_internal(t, uri, o, e);
     if (!r) return NULL;
     return (void*)r + sizeof(struct rcheader);
 }
-#define loadResource_wrapper(t, p, o) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)})
+#define loadResource_wrapper(t, p, o, e) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)}, e)
 
-static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o) {
+static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o, struct charbuf* e) {
     char* ext;
     char* p = getRcPath(uri, t, &ext);
     if (!p) {
@@ -444,8 +444,8 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     if (o.model->texture_quality != d->model.opt.texture_quality) goto nomatch;
                 } break;
                 case RC_SCRIPT: {
-                    if (o.script->compileropt.findext != d->script.opt.compileropt.findext) goto nomatch;
-                    if (o.script->compileropt.fakedata != d->script.opt.compileropt.fakedata) goto nomatch;
+                    if (o.script->compileropt.findcmd != d->script.opt.compileropt.findcmd) goto nomatch;
+                    if (o.script->compileropt.findpv != d->script.opt.compileropt.findpv) goto nomatch;
                 } break;
                 case RC_TEXTURE: {
                     if (o.texture->needsalpha && d->texture.data.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
@@ -492,7 +492,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 tmp = cfg_getvar(mat, NULL, "texture");
                 if (tmp) {
                     struct rcopt_texture texopt = {false, o.material->quality};
-                    d->material.data.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt);
+                    d->material.data.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt, NULL);
                     free(tmp);
                 } else {
                     d->material.data.texture = NULL;
@@ -521,7 +521,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 d->model.data.textures = malloc(m->indexgroupcount * sizeof(*d->model.data.textures));
                 //struct rcopt_texture texopt = {false, o.model->texture_quality};
                 for (int i = 0; i < m->indexgroupcount; ++i) {
-                    //d->model.data.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt);
+                    //d->model.data.textures[i] = loadResource_wrapper(RC_TEXTURE, m->indexgroups[i].texture, &texopt, NULL);
                     d->model.data.textures[i] = NULL;
                 }
                 d->model.opt = *o.model;
@@ -529,16 +529,10 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         } break;
         case RC_SCRIPT: {
             struct pb_script s;
-            struct charbuf e;
-            cb_init(&e, 128);
-            if (pb_compilefile(p, &o.script->compileropt, &s, &e)) {
-                cb_dump(&e);
+            if (pb_compilefile(p, &o.script->compileropt, &s, e)) {
                 d = loadResource_newptr(t, g, p, pcrc);
                 d->script.data.script = s;
                 d->script.opt = *o.script;
-            } else {
-                plog(LL_ERROR, "Failed to compile script %s: %s", uri, cb_peek(&e));
-                cb_dump(&e);
             }
         } break;
         #ifndef PSRC_MODULE_SERVER
@@ -817,11 +811,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     return d;
 }
 
-void* loadResource(enum rctype t, const char* uri, void* o) {
+void* loadResource(enum rctype t, const char* uri, void* o, struct charbuf* e) {
     #ifndef PSRC_NOMT
     lockMutex(&rclock);
     #endif
-    void* r = loadResource_wrapper(t, uri, o);
+    void* r = loadResource_wrapper(t, uri, o, e);
     #ifndef PSRC_NOMT
     unlockMutex(&rclock);
     #endif

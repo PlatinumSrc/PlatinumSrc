@@ -268,22 +268,27 @@ int initLoop(void) {
 
     plog(LL_INFO, "Almost there...");
 
-    mainscript = loadResource(RC_SCRIPT, "main", NULL);
-    if (!mainscript) {
-        plog(LL_CRIT | LF_MSGBOX, "Could not start main script");
-        //return 1;
+    {
+        struct charbuf e;
+        cb_init(&e, 128);
+        mainscript = loadResource(RC_SCRIPT, "main", NULL, &e);
+        if (!mainscript) {
+            plog(LL_CRIT | LF_MSGBOX, "Could not start main script: %s", cb_peek(&e));
+            //return 1;
+        }
+        cb_dump(&e);
     }
 
     testemt_map = newAudioEmitter(1, true, SOUNDFX_END);
     testemt_obj = newAudioEmitter(1, false, 0.0, 0.0, 4.0, SOUNDFX_END);
 
-    test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, NULL);
     if (test) setAmbientSound(test);
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, NULL);
     if (test) playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
     freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt);
+    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, NULL);
     if (test) playSound(testemt_obj, test, SOUNDFLAG_LOOP, SOUNDFX_END);
     freeResource(test);
 

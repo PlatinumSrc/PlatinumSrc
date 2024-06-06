@@ -10,6 +10,7 @@
   <styles>
     <style id="escaped-character" name="Escaped Character" map-to="def:special-char"/>
     <style id="comment" name="Comment" map-to="def:comment"/>
+    <style id="preprocessor" name="Preprocessor" map-to="def:preprocessor"/>
     <style id="keyword" name="Keyword" map-to="def:keyword"/>
     <style id="type" name="Data Type" map-to="def:type"/>
     <style id="storage-class" name="Storage Class" map-to="def:type"/>
@@ -31,6 +32,13 @@
 
     <context id="line-comment" style-ref="comment" end-at-line-end="true" class="comment" class-disabled="no-spell-check">
       <start>'</start>
+    </context>
+
+    <context id="preprocessor" style-ref="preprocessor" end-at-line-end="true">
+      <start extended="true">^\s*\#\s*(if|elif|else|endif)\b</start>
+      <include>
+          <context ref="def:line-continue"/>
+      </include>
     </context>
 
     <context id="keywords" style-ref="keyword">
@@ -126,6 +134,7 @@
     <context id="pbasic" class="no-spell-check">
       <include>
         <context ref="line-comment"/>
+        <context ref="preprocessor"/>
         <context ref="keywords"/>
         <context ref="types"/>
         <context ref="storage-class"/>

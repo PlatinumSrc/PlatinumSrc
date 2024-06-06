@@ -6,6 +6,7 @@
 #include "config.h"
 #include "pbasic.h"
 #include "p3m.h"
+#include "string.h"
 
 #ifndef PSRC_MODULE_SERVER
     #include "../../schrift/schrift.h"
@@ -159,7 +160,7 @@ struct customfile {
 
 bool initResource(void);
 void quitResource(void);
-void* loadResource(enum rctype type, const char* path, void* opt);
+void* loadResource(enum rctype type, const char* path, void* opt, struct charbuf* err);
 void freeResource(void*);
 void grabResource(void*);
 #define releaseResource freeResource

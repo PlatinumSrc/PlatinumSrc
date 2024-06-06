@@ -572,7 +572,7 @@ bool initRenderer(void) {
     } else {
         rendstate.fov = 90.0f;
     }
-    testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL);
+    testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL, NULL);
     return true;
 }
 
