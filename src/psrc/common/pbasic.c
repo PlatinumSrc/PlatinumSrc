@@ -135,82 +135,159 @@ struct pbc_preproc {
 };
 
 enum __attribute__((packed)) pbc_peop {
-    PBC_PEOP_ADD,
-    PBC_PEOP_SUB,
-    PBC_PEOP_MUL,
+    PBC_PEOP__INVAL = -1,
+    PBC_PEOP_LP, // 0
+    PBC_PEOP_RP,
+    PBC_PEOP_NEG, // 1
+    PBC_PEOP_NOT,
+    PBC_PEOP_BNOT,
+    PBC_PEOP_MUL, // 2
     PBC_PEOP_DIV,
     PBC_PEOP_REM,
-    PBC_PEOP_GT,
+    PBC_PEOP_ADD, // 3
+    PBC_PEOP_SUB,
+    PBC_PEOP_BLS, // 4
+    PBC_PEOP_BRS,
+    PBC_PEOP_GT, // 5
     PBC_PEOP_GE,
-    PBC_PEOP_EQ,
     PBC_PEOP_LE,
     PBC_PEOP_LT,
-    PBC_PEOP_AND,
-    PBC_PEOP_OR,
-    PBC_PEOP_NOT,
-    PBC_PEOP_NEG,
-    PBC_PEOP_BAND,
-    PBC_PEOP_BOR,
-    PBC_PEOP_BXOR,
-    PBC_PEOP_BNOT,
-    PBC_PEOP_LP,
-    PBC_PEOP_RP,
-    PBC_PEOP__COUNT,
+    PBC_PEOP_EQ, // 6
+    PBC_PEOP_NE,
+    PBC_PEOP_BAND, // 7
+    PBC_PEOP_BXOR, // 8
+    PBC_PEOP_BOR, // 9
+    PBC_PEOP_AND, // 10
+    PBC_PEOP_OR, // 11
+    PBC_PEOP__COUNT
 };
-static struct {
-    uint8_t l : 1; // is left-to-right
+static const struct pbc_peopinfo {
+    uint8_t r : 1; // is right-to-left
     uint8_t p : 7; // precedence (lower val = higher place)
-} pbc_peop_info[PBC_PEOP__COUNT] = {
-    {.p = 0, .l = 1}
+} peop_info[PBC_PEOP__COUNT] = {
+    {.p = 0},
+    {.p = 0},
+    {.p = 1, .r = 1},
+    {.p = 1, .r = 1},
+    {.p = 1, .r = 1},
+    {.p = 2},
+    {.p = 2},
+    {.p = 2},
+    {.p = 3},
+    {.p = 3},
+    {.p = 4},
+    {.p = 4},
+    {.p = 5},
+    {.p = 5},
+    {.p = 5},
+    {.p = 5},
+    {.p = 6},
+    {.p = 6},
+    {.p = 7},
+    {.p = 8},
+    {.p = 9},
+    {.p = 10},
+    {.p = 11}
+};
+struct pbc_pedata {
+    bool isop;
+    int data;
 };
 struct pbc_pexpr {
     struct {
-        int* data;
-        int index;
-        int size;
-    } data;
-    struct {
-        char* data;
+        enum pbc_peop* data;
         int index;
         int size;
     } ops;
-    int parenct;
+    struct {
+        struct pbc_pedata* data;
+        int index;
+        int size;
+    } out;
 };
+static inline void pbc_pexpr_pushout(struct pbc_pexpr* e, bool isop, int v) {
+    //printf("PUSH %d: %d\n", isop, v);
+    if (e->out.index == e->out.size) {
+        e->out.size = e->out.size * 3 / 2;
+        //if (e->out.size < 2) e->out.size = 2;
+        e->out.data = realloc(e->out.data, e->out.size * sizeof(*e->out.data));
+    }
+    e->out.data[e->out.index++] = (struct pbc_pedata){.isop = isop, .data = v};
+}
+static inline void pbc_pexpr_pushop(struct pbc_pexpr* e, enum pbc_peop o) {
+    if (e->ops.index == e->ops.size) {
+        e->ops.size = e->ops.size * 3 / 2;
+        //if (e->ops.size < 2) e->ops.size = 2;
+        e->ops.data = realloc(e->ops.data, e->ops.size * sizeof(*e->ops.data));
+    }
+    e->ops.data[e->ops.index++] = o;
+}
+static void pbc_pexpr_op(struct pbc_pexpr* e, enum pbc_peop o) {
+    if (o == PBC_PEOP_LP) {
+        pbc_pexpr_pushop(e, PBC_PEOP_LP);
+    } else if (o == PBC_PEOP_RP) {
+        while (e->ops.index) {
+            --e->ops.index;
+            enum pbc_peop tmp = e->ops.data[e->ops.index];
+            if (tmp == PBC_PEOP_LP) break;
+            pbc_pexpr_pushout(e, true, tmp);
+        }
+    } else {
+        struct pbc_peopinfo inf = peop_info[o];
+        while (e->ops.index) {
+            int i = e->ops.index - 1;
+            enum pbc_peop o2 = e->ops.data[i];
+            struct pbc_peopinfo inf2 = peop_info[o2];
+            if (inf2.p < inf.p || (!inf.r && inf2.p == inf.p)) {
+                pbc_pexpr_pushout(e, true, o2);
+                e->ops.index = i;
+            } else {
+                break;
+            }
+        }
+        pbc_pexpr_pushop(e, o);
+    }
+}
+#define pbc_pexpr_data(e, d) pbc_pexpr_pushout(e, false, d)
 static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
     int retval;
     struct pbc_pexpr expr;
-    expr.data.size = 16;
-    expr.data.index = 0;
-    expr.data.data = malloc(expr.data.size * sizeof(*expr.data.data));
+    expr.out.size = 16;
+    expr.out.index = 0;
+    expr.out.data = malloc(expr.out.size * sizeof(*expr.out.data));
     expr.ops.size = 16;
     expr.ops.index = 0;
     expr.ops.data = malloc(expr.ops.size * sizeof(*expr.ops.data));
+    int parenct = 0;
     struct charbuf cb;
     cb_init(&cb, 256);
     int c = pbc_getc_escnl(&ctx->input, 0);
     while (1) {
+        while (c == ' ' || c == '\t') {
+            c = pbc_getc_escnl(&ctx->input, 0);
+        }
         bool isnum;
         if (c >= '0' && c <= '9') {
             isnum = true;
         } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
             isnum = false;
-        } else if (c == '(') {
-            ++expr.parenct;
-//            pbc_pexpr_pushop(&expr, '(');
-            goto again;
-        } else if (c == '-') {
-//            pbc_pexpr_pushop(&expr, 'n');
-            goto again;
-        } else if (c == '!' || c == '-' || c == '~') {
-//            pbc_pexpr_pushop(&expr, c);
-            goto again;
         } else {
-            if (err) {
-                if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error (expected name or value)");
-                else pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+            switch (c) {
+                case '(': pbc_pexpr_op(&expr, PBC_PEOP_LP); ++parenct; break;
+                case '!': pbc_pexpr_op(&expr, PBC_PEOP_NOT); break;
+                case '-': pbc_pexpr_op(&expr, PBC_PEOP_NEG); break;
+                case '~': pbc_pexpr_op(&expr, PBC_PEOP_BNOT); break;
+                default: {
+                    if (err) {
+                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error (expected name or value)");
+                        else pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+                    }
+                    retval = -1;
+                    goto ret;
+                };
             }
-            retval = -1;
-            goto ret;
+            c = pbc_getc_escnl(&ctx->input, 0);
+            continue;
         }
         int nl = ctx->input.line, nc = ctx->input.col;
         int d;
@@ -229,7 +306,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
             while (c == ' ' || c == '\t') {
                 c = pbc_getc_escnl(&ctx->input, 0);
             }
-            printf("number: {%s}\n", cb_peek(&cb));
+            //printf("number: {%s}\n", cb_peek(&cb));
             d = atoi(cb_peek(&cb));
         } else {
             change:;
@@ -242,7 +319,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
             }
             if (c == '(') {
                 cb_nullterm(&cb);
-                printf("func: {%s}\n", cb.data);
+                //printf("func: {%s}\n", cb.data);
                 // TODO: decrust
                 if (!strcasecmp(cb.data, "defined")) {
                     do {
@@ -277,7 +354,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         goto ret;
                     }
                     cb_nullterm(&cb);
-                    printf("defined: {%s}\n", cb.data);
+                    //printf("defined: {%s}\n", cb.data);
                     d = (ctx->opt->findpv && ctx->opt->findpv(cb.data, &d));
                 } else {
                     if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (unknown preprocessor function '");
@@ -286,11 +363,12 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     retval = -1;
                     goto ret;
                 }
+                c = pbc_getc_escnl(&ctx->input, 0);
             } else {
-                printf("var: {%s}\n", cb_peek(&cb));
+                //printf("var: {%s}\n", cb_peek(&cb));
                 cb_nullterm(&cb);
                 if (!ctx->opt->findpv || !ctx->opt->findpv(cb.data, &d)) {
-                    if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error ('");
+                    if (err) pbc_mkerr(ctx, err, nl, nc, "Preprocessor error ('");
                     cb_addstr(err, cb.data);
                     cb_addstr(err, "' is not defined)");
                     retval = -1;
@@ -298,23 +376,150 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 }
             }
         }
-//        pbc_pexpr_pushdata(&expr, d);
+        pbc_pexpr_data(&expr, d);
         cb_clear(&cb);
-        again:;
-        c = pbc_getc_escnl(&ctx->input, 0);
-        while (c == ' ' || c == '\t') {
-            c = pbc_getc_escnl(&ctx->input, 0);
+        opagain:;
+        switch (c) {
+            case '\n':
+                goto longbreak;
+            case ')':
+                if (!parenct) {
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (')' without matching '(')");
+                    retval = -1;
+                    goto ret;
+                }
+                pbc_pexpr_op(&expr, PBC_PEOP_RP);
+                --parenct;
+                do {
+                    c = pbc_getc_escnl(&ctx->input, 0);
+                } while (c == ' ' || c == '\t');
+                goto opagain;
+                break;
+            case '+': pbc_pexpr_op(&expr, PBC_PEOP_ADD); break;
+            case '-': pbc_pexpr_op(&expr, PBC_PEOP_SUB); break;
+            case '*': pbc_pexpr_op(&expr, PBC_PEOP_MUL); break;
+            case '/': pbc_pexpr_op(&expr, PBC_PEOP_DIV); break;
+            case '%': pbc_pexpr_op(&expr, PBC_PEOP_REM); break;
+            case '^': pbc_pexpr_op(&expr, PBC_PEOP_BXOR); break;
+            case '=':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '=') {
+                    pbc_pexpr_op(&expr, PBC_PEOP_EQ);
+                } else {
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (expected '=')");
+                    retval = -1;
+                    goto ret;
+                }
+                break;
+            case '!':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '=') {
+                    pbc_pexpr_op(&expr, PBC_PEOP_NE);
+                } else {
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (expected '=')");
+                    retval = -1;
+                    goto ret;
+                }
+                break;
+            case '>':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '=') pbc_pexpr_op(&expr, PBC_PEOP_GE);
+                else if (c == '>') pbc_pexpr_op(&expr, PBC_PEOP_BRS);
+                else {pbc_pexpr_op(&expr, PBC_PEOP_GT); continue;}
+                break;
+            case '<':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '=') pbc_pexpr_op(&expr, PBC_PEOP_LE);
+                else if (c == '<') pbc_pexpr_op(&expr, PBC_PEOP_BLS);
+                else {pbc_pexpr_op(&expr, PBC_PEOP_LT); continue;}
+                break;
+            case '&':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '&') pbc_pexpr_op(&expr, PBC_PEOP_AND);
+                else {pbc_pexpr_op(&expr, PBC_PEOP_BAND); continue;}
+                break;
+            case '|':
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == '|') pbc_pexpr_op(&expr, PBC_PEOP_OR);
+                else {pbc_pexpr_op(&expr, PBC_PEOP_BOR); continue;}
+                break;
+            default:
+                if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+                retval = -1;
+                goto ret;
+                break;
         }
+        c = pbc_getc_escnl(&ctx->input, 0);
     }
+    longbreak:;
+    if (parenct) {
+        if (err) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error (unterminated '(')");
+        retval = -1;
+        goto ret;
+    }
+    while (expr.ops.index) pbc_pexpr_pushout(&expr, true, expr.ops.data[--expr.ops.index]);
+    free(expr.ops.data);
+    struct {
+        int* data;
+        int index;
+        int size;
+    } stack;
+    stack.size = 16;
+    stack.index = 0;
+    stack.data = malloc(stack.size * sizeof(*stack.data));
+    for (int i = 0; i < expr.out.index; ++i) {
+        struct pbc_pedata d = expr.out.data[i];
+        //printf("READ %d: %d\n", d.isop, d.data);
+        if (d.isop) {
+            switch (d.data) {
+                case PBC_PEOP_NEG: stack.data[stack.index - 1] *= -1; break;
+                case PBC_PEOP_NOT: stack.data[stack.index - 1] = !stack.data[stack.index - 1]; break;
+                case PBC_PEOP_BNOT: stack.data[stack.index - 1] = ~stack.data[stack.index - 1]; break;
+                case PBC_PEOP_MUL: --stack.index; stack.data[stack.index - 1] *= stack.data[stack.index]; break;
+                case PBC_PEOP_DIV: --stack.index; stack.data[stack.index - 1] /= stack.data[stack.index]; break;
+                case PBC_PEOP_REM: --stack.index; stack.data[stack.index - 1] %= stack.data[stack.index]; break;
+                case PBC_PEOP_ADD: --stack.index; stack.data[stack.index - 1] += stack.data[stack.index]; break;
+                case PBC_PEOP_SUB: --stack.index; stack.data[stack.index - 1] -= stack.data[stack.index]; break;
+                case PBC_PEOP_BLS: --stack.index; stack.data[stack.index - 1] <<= stack.data[stack.index]; break;
+                case PBC_PEOP_BRS: --stack.index; stack.data[stack.index - 1] >>= stack.data[stack.index]; break;
+                case PBC_PEOP_GT: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] > stack.data[stack.index]); break;
+                case PBC_PEOP_GE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] >= stack.data[stack.index]); break;
+                case PBC_PEOP_LE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] <= stack.data[stack.index]); break;
+                case PBC_PEOP_LT: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] < stack.data[stack.index]); break;
+                case PBC_PEOP_EQ: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] == stack.data[stack.index]); break;
+                case PBC_PEOP_NE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] != stack.data[stack.index]); break;
+                case PBC_PEOP_BAND: --stack.index; stack.data[stack.index - 1] &= stack.data[stack.index]; break;
+                case PBC_PEOP_BXOR: --stack.index; stack.data[stack.index - 1] ^= stack.data[stack.index]; break;
+                case PBC_PEOP_BOR: --stack.index; stack.data[stack.index - 1] |= stack.data[stack.index]; break;
+                case PBC_PEOP_AND: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] && stack.data[stack.index]); break;
+                case PBC_PEOP_OR: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] || stack.data[stack.index]); break;
+            }
+        } else {
+            if (stack.index == stack.size) {
+                stack.size *= 2;
+                stack.data = realloc(stack.data, stack.size * sizeof(*stack.data));
+            }
+            stack.data[stack.index++] = d.data;
+        }
+        #if 0
+        printf("STACK:");
+        for (int j = 0; j < stack.index; ++j) {
+            printf(" %d", stack.data[j]);
+        }
+        putchar('\n');
+        #endif
+    }
+    //puts("DONE");
+    retval = stack.data[0];
+    free(stack.data);
     ret:;
     cb_dump(&cb);
-    free(expr.data.data);
-    free(expr.ops.data);
+    free(expr.out.data);
     return retval;
 }
 
 static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct charbuf* err, const char* name, unsigned nl, unsigned nc) {
-    printf("pbc_getpcmd: {%s}\n", name);
+    //printf("pbc_getpcmd: {%s}\n", name);
     if (!strcasecmp(name, "if")) {
         if (pctx->data[pctx->index].read) {
             int r = pbc_getpexpr(ctx, err);
