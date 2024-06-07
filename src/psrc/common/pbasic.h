@@ -94,7 +94,7 @@ struct pbc;
 
 typedef void (*pb_cfunc)(struct pbvm*, void* data, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
 typedef bool (*pb_findcmd)(struct pbc*, char*, bool isfunc);
-typedef bool (*pb_findpv)(char*, int**);
+typedef bool (*pb_findpv)(char*, int*);
 
 struct pbc_opt {
     pb_findcmd findcmd;
@@ -137,6 +137,7 @@ struct pbc_scope {
 };
 struct pbc {
     struct pbc_stream input;
+    struct pbc_opt* opt;
     struct {
         struct pbc_scope* data;
         int current;

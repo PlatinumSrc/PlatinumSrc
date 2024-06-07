@@ -65,7 +65,7 @@ else ifeq ($(CROSS),emscr)
     endif
     PLATFORM := Emscripten
     _CC := emcc
-    _LD := $(CC)
+    _LD := $(_CC)
     _AR := emar
     EMULATOR := emrun
     EMUPATHFLAG := --
