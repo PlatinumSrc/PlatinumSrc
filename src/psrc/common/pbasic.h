@@ -93,8 +93,8 @@ struct pbvm_ccall_ret;
 struct pbc;
 
 typedef void (*pb_cfunc)(struct pbvm*, void* data, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
-typedef bool (*pb_findcmd)(struct pbc*, char*, bool isfunc);
-typedef bool (*pb_findpv)(char*, int*);
+typedef bool (*pb_findcmd)(struct pbc*, const char*, bool isfunc);
+typedef bool (*pb_findpv)(const char*, int*);
 
 struct pbc_opt {
     pb_findcmd findcmd;

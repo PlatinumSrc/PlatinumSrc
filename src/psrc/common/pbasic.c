@@ -66,61 +66,6 @@ static inline bool pbc_iskwchar(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-static inline int pbc_getkw_inline(struct pbc* ctx, struct charbuf* cb) {
-    
-}
-static inline int pbc_getsep_inline(struct pbc* ctx, const char* chars) {
-    
-}
-
-static int pbc_getcmd(struct pbc*, struct charbuf*, const char*, unsigned, unsigned, bool, bool);
-
-static int pbc_getexpr(struct pbc*, struct charbuf*);
-static inline int pbc_getexpr_inline(struct pbc* ctx, struct charbuf* err) {
-    
-}
-static int pbc_getexpr(struct pbc* ctx, struct charbuf* err) {
-    pbc_getexpr_inline(ctx, err);
-}
-
-static int pbc_getcond(struct pbc*, struct charbuf*);
-static inline int pbc_getcond_inline(struct pbc* ctx, struct charbuf* err) {
-    
-}
-static int pbc_getcond(struct pbc* ctx, struct charbuf* err) {
-    pbc_getcond_inline(ctx, err);
-}
-
-static int pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, unsigned nl, unsigned nc, bool func, bool useret) {
-    int c = name[0];
-    if (c >= 'A' || c <= 'Z') c |= 0x20;
-    const char* rname = name + 1;
-    if (func) {
-        
-    } else {
-        switch (name[0]) {
-            case 'i': {
-                if (!strcasecmp(rname, "f")) {
-                    if (pbc_getcond_inline(ctx, err)) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-            } break;
-        }
-    }
-    if (err) {
-        pbc_mkerr(ctx, err, nl, nc, "Could not find ");
-        cb_addstr(err, (func) ? "function" : "command");
-        cb_add(err, ' ');
-        cb_add(err, '\'');
-        cb_addstr(err, name);
-        cb_add(err, '\'');
-    }
-    return 0;
-}
-
 struct pbc_preproc_cond {
     int l, c;
     uint8_t read : 1;
@@ -215,6 +160,7 @@ static inline void pbc_pexpr_pushout(struct pbc_pexpr* e, bool isop, int v) {
     e->out.data[e->out.index++] = (struct pbc_pedata){.isop = isop, .data = v};
 }
 static inline void pbc_pexpr_pushop(struct pbc_pexpr* e, enum pbc_peop o) {
+    //printf("OPPUSH: %d\n", o);
     if (e->ops.index == e->ops.size) {
         e->ops.size = e->ops.size * 3 / 2;
         //if (e->ops.size < 2) e->ops.size = 2;
@@ -237,6 +183,7 @@ static void pbc_pexpr_op(struct pbc_pexpr* e, enum pbc_peop o) {
         while (e->ops.index) {
             int i = e->ops.index - 1;
             enum pbc_peop o2 = e->ops.data[i];
+            if (o2 == PBC_PEOP_LP) break;
             struct pbc_peopinfo inf2 = peop_info[o2];
             if (inf2.p < inf.p || (!inf.r && inf2.p == inf.p)) {
                 pbc_pexpr_pushout(e, true, o2);
@@ -279,8 +226,8 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 case '~': pbc_pexpr_op(&expr, PBC_PEOP_BNOT); break;
                 default: {
                     if (err) {
-                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error (expected name or value)");
-                        else pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error: expected name or value");
+                        else pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected char");
                     }
                     retval = -1;
                     goto ret;
@@ -341,7 +288,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         c = pbc_getc_escnl(&ctx->input, ' ');
                     }
                     if (isnum) {
-                        if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (expected name)");
+                        if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: expected name, given number");
                         retval = -1;
                         goto ret;
                     }
@@ -349,7 +296,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         c = pbc_getc_escnl(&ctx->input, 0);
                     }
                     if (c != ')') {
-                        if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+                        if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected char");
                         retval = -1;
                         goto ret;
                     }
@@ -357,9 +304,9 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     //printf("defined: {%s}\n", cb.data);
                     d = (ctx->opt->findpv && ctx->opt->findpv(cb.data, &d));
                 } else {
-                    if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (unknown preprocessor function '");
+                    if (err) pbc_mkerr(ctx, err, nl, nc, "Unknown preprocessor function '");
                     cb_addstr(err, cb.data);
-                    cb_addstr(err, "')");
+                    cb_add(err, '\'');
                     retval = -1;
                     goto ret;
                 }
@@ -368,9 +315,9 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 //printf("var: {%s}\n", cb_peek(&cb));
                 cb_nullterm(&cb);
                 if (!ctx->opt->findpv || !ctx->opt->findpv(cb.data, &d)) {
-                    if (err) pbc_mkerr(ctx, err, nl, nc, "Preprocessor error ('");
+                    if (err) pbc_mkerr(ctx, err, nl, nc, "Preprocessor variable '");
                     cb_addstr(err, cb.data);
-                    cb_addstr(err, "' is not defined)");
+                    cb_addstr(err, "' is not defined");
                     retval = -1;
                     goto ret;
                 }
@@ -384,7 +331,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 goto longbreak;
             case ')':
                 if (!parenct) {
-                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (')' without matching '(')");
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: ')' without matching '('");
                     retval = -1;
                     goto ret;
                 }
@@ -406,7 +353,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 if (c == '=') {
                     pbc_pexpr_op(&expr, PBC_PEOP_EQ);
                 } else {
-                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (expected '=')");
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: expected '='");
                     retval = -1;
                     goto ret;
                 }
@@ -416,7 +363,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 if (c == '=') {
                     pbc_pexpr_op(&expr, PBC_PEOP_NE);
                 } else {
-                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (expected '=')");
+                    if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: expected '='");
                     retval = -1;
                     goto ret;
                 }
@@ -444,7 +391,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 else {pbc_pexpr_op(&expr, PBC_PEOP_BOR); continue;}
                 break;
             default:
-                if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected char)");
+                if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected char");
                 retval = -1;
                 goto ret;
                 break;
@@ -453,7 +400,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
     }
     longbreak:;
     if (parenct) {
-        if (err) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error (unterminated '(')");
+        if (err) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error: unterminated '('");
         retval = -1;
         goto ret;
     }
@@ -467,33 +414,47 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
     stack.size = 16;
     stack.index = 0;
     stack.data = malloc(stack.size * sizeof(*stack.data));
+    #if 0
+    for (int i = 0; i < expr.out.index; ++i) {
+        struct pbc_pedata d = expr.out.data[i];
+        printf("OUT %d: %d\n", d.isop, d.data);
+    }
+    #endif
     for (int i = 0; i < expr.out.index; ++i) {
         struct pbc_pedata d = expr.out.data[i];
         //printf("READ %d: %d\n", d.isop, d.data);
         if (d.isop) {
+            --stack.index;
             switch (d.data) {
-                case PBC_PEOP_NEG: stack.data[stack.index - 1] *= -1; break;
-                case PBC_PEOP_NOT: stack.data[stack.index - 1] = !stack.data[stack.index - 1]; break;
-                case PBC_PEOP_BNOT: stack.data[stack.index - 1] = ~stack.data[stack.index - 1]; break;
-                case PBC_PEOP_MUL: --stack.index; stack.data[stack.index - 1] *= stack.data[stack.index]; break;
-                case PBC_PEOP_DIV: --stack.index; stack.data[stack.index - 1] /= stack.data[stack.index]; break;
-                case PBC_PEOP_REM: --stack.index; stack.data[stack.index - 1] %= stack.data[stack.index]; break;
-                case PBC_PEOP_ADD: --stack.index; stack.data[stack.index - 1] += stack.data[stack.index]; break;
-                case PBC_PEOP_SUB: --stack.index; stack.data[stack.index - 1] -= stack.data[stack.index]; break;
-                case PBC_PEOP_BLS: --stack.index; stack.data[stack.index - 1] <<= stack.data[stack.index]; break;
-                case PBC_PEOP_BRS: --stack.index; stack.data[stack.index - 1] >>= stack.data[stack.index]; break;
-                case PBC_PEOP_GT: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] > stack.data[stack.index]); break;
-                case PBC_PEOP_GE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] >= stack.data[stack.index]); break;
-                case PBC_PEOP_LE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] <= stack.data[stack.index]); break;
-                case PBC_PEOP_LT: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] < stack.data[stack.index]); break;
-                case PBC_PEOP_EQ: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] == stack.data[stack.index]); break;
-                case PBC_PEOP_NE: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] != stack.data[stack.index]); break;
-                case PBC_PEOP_BAND: --stack.index; stack.data[stack.index - 1] &= stack.data[stack.index]; break;
-                case PBC_PEOP_BXOR: --stack.index; stack.data[stack.index - 1] ^= stack.data[stack.index]; break;
-                case PBC_PEOP_BOR: --stack.index; stack.data[stack.index - 1] |= stack.data[stack.index]; break;
-                case PBC_PEOP_AND: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] && stack.data[stack.index]); break;
-                case PBC_PEOP_OR: --stack.index; stack.data[stack.index - 1] = (stack.data[stack.index - 1] || stack.data[stack.index]); break;
+                case PBC_PEOP_NEG: stack.data[stack.index] *= -stack.data[stack.index]; break;
+                case PBC_PEOP_NOT: stack.data[stack.index] = !stack.data[stack.index]; break;
+                case PBC_PEOP_BNOT: stack.data[stack.index] = ~stack.data[stack.index]; break;
+                default:
+                    int tmp = stack.data[stack.index];
+                    --stack.index;
+                    switch (d.data) {
+                        case PBC_PEOP_MUL: stack.data[stack.index] *= tmp; break;
+                        case PBC_PEOP_DIV: stack.data[stack.index] /= tmp; break;
+                        case PBC_PEOP_REM: stack.data[stack.index] %= tmp; break;
+                        case PBC_PEOP_ADD: stack.data[stack.index] += tmp; break;
+                        case PBC_PEOP_SUB: stack.data[stack.index] -= tmp; break;
+                        case PBC_PEOP_BLS: stack.data[stack.index] <<= tmp; break;
+                        case PBC_PEOP_BRS: stack.data[stack.index] >>= tmp; break;
+                        case PBC_PEOP_GT: stack.data[stack.index] = (stack.data[stack.index] > tmp); break;
+                        case PBC_PEOP_GE: stack.data[stack.index] = (stack.data[stack.index] >= tmp); break;
+                        case PBC_PEOP_LE: stack.data[stack.index] = (stack.data[stack.index] <= tmp); break;
+                        case PBC_PEOP_LT: stack.data[stack.index] = (stack.data[stack.index] < tmp); break;
+                        case PBC_PEOP_EQ: stack.data[stack.index] = (stack.data[stack.index] == tmp); break;
+                        case PBC_PEOP_NE: stack.data[stack.index] = (stack.data[stack.index] != tmp); break;
+                        case PBC_PEOP_BAND: stack.data[stack.index] &= tmp; break;
+                        case PBC_PEOP_BXOR: stack.data[stack.index] ^= tmp; break;
+                        case PBC_PEOP_BOR: stack.data[stack.index] |= tmp; break;
+                        case PBC_PEOP_AND: stack.data[stack.index] = (stack.data[stack.index] && tmp); break;
+                        case PBC_PEOP_OR: stack.data[stack.index] = (stack.data[stack.index] || tmp); break;
+                    }
+                    break;
             }
+            ++stack.index;
         } else {
             if (stack.index == stack.size) {
                 stack.size *= 2;
@@ -510,7 +471,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
         #endif
     }
     //puts("DONE");
-    retval = stack.data[0];
+    retval = (stack.data[0] != 0);
     free(stack.data);
     ret:;
     cb_dump(&cb);
@@ -549,11 +510,11 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
             if (c == EOF) pbc_ungetc(&ctx->input);
         } else {
             if (pctx->index < 1) {
-                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (#else without #if)");
+                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: #else without #if");
                 return false;
             }
             if (pctx->data[pctx->index].iselse) {
-                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (#elif after #else)");
+                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: #elif after #else");
                 return false;
             }
             if (pctx->data[pctx->index].done) {
@@ -579,16 +540,16 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
             c = pbc_getc_escnl(&ctx->input, 0);
         } while (c == ' ' || c == '\t');
         if (c != '\n' && c != EOF) {
-            if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected character)");
+            if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected character");
             return false;
         }
         if (!pctx->fakedepth) {
             if (pctx->index < 1) {
-                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (#else without #if)");
+                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: #else without #if");
                 return false;
             }
             if (pctx->data[pctx->index].iselse) {
-                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (extra #else)");
+                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: unexpected #else");
                 return false;
             }
             if (pctx->data[pctx->index].done) {
@@ -605,7 +566,7 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
             c = pbc_getc_escnl(&ctx->input, 0);
         } while (c == ' ' || c == '\t');
         if (c != '\n' && c != EOF) {
-            if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error (unexpected character)");
+            if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected character");
             return false;
         }
         if (pctx->fakedepth) {
@@ -613,7 +574,7 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
         } else {
             --pctx->index;
             if (pctx->index < 0) {
-                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error (#endif without matching #if)");
+                if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: #endif without matching #if");
                 return false;
             }
         }
@@ -631,6 +592,61 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
         cb_add(err, '\'');
     }
     return false;
+}
+
+static inline int pbc_getkw_inline(struct pbc* ctx, struct charbuf* cb) {
+    
+}
+static inline int pbc_getsep_inline(struct pbc* ctx, const char* chars) {
+    
+}
+
+static int pbc_getcmd(struct pbc*, struct charbuf*, const char*, unsigned, unsigned, bool, bool);
+
+static int pbc_getexpr(struct pbc*, struct charbuf*);
+static inline int pbc_getexpr_inline(struct pbc* ctx, struct charbuf* err) {
+    
+}
+static int pbc_getexpr(struct pbc* ctx, struct charbuf* err) {
+    pbc_getexpr_inline(ctx, err);
+}
+
+static int pbc_getcond(struct pbc*, struct charbuf*);
+static inline int pbc_getcond_inline(struct pbc* ctx, struct charbuf* err) {
+    
+}
+static int pbc_getcond(struct pbc* ctx, struct charbuf* err) {
+    pbc_getcond_inline(ctx, err);
+}
+
+static int pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, unsigned nl, unsigned nc, bool func, bool useret) {
+    int c = name[0];
+    if (c >= 'A' || c <= 'Z') c |= 0x20;
+    const char* rname = name + 1;
+    if (func) {
+        
+    } else {
+        switch (name[0]) {
+            case 'i': {
+                if (!strcasecmp(rname, "f")) {
+                    if (pbc_getcond_inline(ctx, err)) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                }
+            } break;
+        }
+    }
+    if (err) {
+        pbc_mkerr(ctx, err, nl, nc, "Could not find ");
+        cb_addstr(err, (func) ? "function" : "command");
+        cb_add(err, ' ');
+        cb_add(err, '\'');
+        cb_addstr(err, name);
+        cb_add(err, '\'');
+    }
+    return 0;
 }
 
 bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, struct charbuf* err) {
@@ -669,7 +685,7 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 c = pbc_getc_escnl(&ctx.input, 0);
             } while (c == ' ' || c == '\t');
             if (!pbc_iskwchar(c)) {
-                if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error (unexpected char)");
+                if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error: unexpected char");
                 retval = false;
                 goto ret;
             }
@@ -690,9 +706,8 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 cb_clear(&cb);
             } else {
                 if (err) {
-                    pbc_mkerr(&ctx, err, 0, 0, "Syntax error (");
+                    pbc_mkerr(&ctx, err, 0, 0, "Syntax error: ");
                     cb_addstr(err, (c == EOF) ? "expected preprocessor command" : "unexpected char");
-                    cb_add(err, ')');
                 }
                 retval = false;
                 goto ret;
@@ -724,7 +739,7 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 if (c == EOF) {
                     break;
                 } else if (c != '\n' && c != ':') {
-                    if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error (expected ':' or '\\n')");
+                    if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error: expected ':' or '\\n'");
                     retval = false;
                     goto ret;
                 }
@@ -745,7 +760,7 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 if (c == EOF) {
                     break;
                 } else if (c != '\n' && c != ':') {
-                    if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error (expected ':' or '\\n')");
+                    if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error: expected ':' or '\\n'");
                     retval = false;
                     goto ret;
                 }
@@ -753,14 +768,14 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
         } else if (c == EOF) {
             break;
         } else {
-            if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error (unexpected char)");
+            if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error: unexpected char");
             retval = false;
             goto ret;
         }
     }
     //longbreak:;
     if (pctx.index) {
-        if (err) pbc_mkerr(&ctx, err, pctx.data[pctx.index].l, pctx.data[pctx.index].c, "Syntax error (#if without #endif)");
+        if (err) pbc_mkerr(&ctx, err, pctx.data[pctx.index].l, pctx.data[pctx.index].c, "Syntax error: #if without #endif");
         retval = false;
         //goto ret;
     }

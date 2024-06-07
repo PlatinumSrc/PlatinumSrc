@@ -18,7 +18,7 @@ char* savedir = NULL;
 struct cfg* config = NULL;
 struct cfg* gameconfig = NULL;
 
-bool common_findpv(char* n, int* d) {
+bool common_findpv(const char* n, int* d) {
     if (*n) {
         if (*n == 'm' || *n == 'M') {
             ++n;

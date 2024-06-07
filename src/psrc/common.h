@@ -27,6 +27,6 @@ extern char* savedir;
 extern struct cfg* config;
 extern struct cfg* gameconfig;
 
-bool common_findpv(char*, int*);
+bool common_findpv(const char*, int*);
 
 #endif
