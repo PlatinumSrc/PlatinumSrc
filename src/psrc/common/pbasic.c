@@ -151,7 +151,7 @@ struct pbc_pexpr {
     } out;
 };
 static inline void pbc_pexpr_pushout(struct pbc_pexpr* e, bool isop, int v) {
-    //printf("PUSH %d: %d\n", isop, v);
+    printf("PUSH %d: %d\n", isop, v);
     if (e->out.index == e->out.size) {
         e->out.size = e->out.size * 3 / 2;
         //if (e->out.size < 2) e->out.size = 2;
@@ -160,7 +160,7 @@ static inline void pbc_pexpr_pushout(struct pbc_pexpr* e, bool isop, int v) {
     e->out.data[e->out.index++] = (struct pbc_pedata){.isop = isop, .data = v};
 }
 static inline void pbc_pexpr_pushop(struct pbc_pexpr* e, enum pbc_peop o) {
-    //printf("OPPUSH: %d\n", o);
+    printf("OPPUSH: %d\n", o);
     if (e->ops.index == e->ops.size) {
         e->ops.size = e->ops.size * 3 / 2;
         //if (e->ops.size < 2) e->ops.size = 2;
@@ -213,50 +213,65 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
         while (c == ' ' || c == '\t') {
             c = pbc_getc_escnl(&ctx->input, 0);
         }
-        bool isnum;
         if (c >= '0' && c <= '9') {
-            isnum = true;
-        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-            isnum = false;
-        } else {
-            switch (c) {
-                case '(': pbc_pexpr_op(&expr, PBC_PEOP_LP); ++parenct; break;
-                case '!': pbc_pexpr_op(&expr, PBC_PEOP_NOT); break;
-                case '-': pbc_pexpr_op(&expr, PBC_PEOP_NEG); break;
-                case '~': pbc_pexpr_op(&expr, PBC_PEOP_BNOT); break;
-                default: {
-                    if (err) {
-                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error: expected name or value");
-                        else pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected char");
-                    }
-                    retval = -1;
-                    goto ret;
-                };
-            }
-            c = pbc_getc_escnl(&ctx->input, 0);
-            continue;
-        }
-        int nl = ctx->input.line, nc = ctx->input.col;
-        int d;
-        if (isnum) {
-            cb_add(&cb, c);
-            c = pbc_getc_escnl(&ctx->input, ' ');
-            while (1) {
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {isnum = false; goto change;}
-                if (c >= '0' && c <= '9') {
-                    cb_add(&cb, c);
+            if (c == '0') {
+                c = pbc_getc_escnl(&ctx->input, ' ');
+                if (c == 'x' || c == 'X') {
+                    int d;
                     c = pbc_getc_escnl(&ctx->input, ' ');
+                    if (c >= '0' && c <= '9') d = c - '0';
+                    else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
+                    else if (c >= 'A' && c <= 'F') d = c - 'A' + 10;
+                    else goto readhex_skip;
+                    while (1) {
+                        c = pbc_getc_escnl(&ctx->input, ' ');
+                        if (c >= '0' && c <= '9') {d <<= 4; d |= c - '0';}
+                        else if (c >= 'a' && c <= 'f') {d <<= 4; d |= c - 'a' + 10;}
+                        else if (c >= 'A' && c <= 'F') {d <<= 4; d |= c - 'A' + 10;}
+                        else break;
+                    }
+                    pbc_pexpr_data(&expr, d);
+                    readhex_skip:;
+                } else if (c == 'b' || c == 'B') {
+                    c = pbc_getc_escnl(&ctx->input, ' ');
+                    if (c == '0' || c == '1') {
+                        int d = c - '0';
+                        while (1) {
+                            c = pbc_getc_escnl(&ctx->input, ' ');
+                            if (c == '0') {d <<= 4;}
+                            else if (c == '1') {d <<= 4; d |= 1;}
+                            else break;
+                        }
+                        pbc_pexpr_data(&expr, d);
+                    }
+                } else if (c >= '0' && c <= '7') {
+                    int d = c - '0';
+                    while (1) {
+                        c = pbc_getc_escnl(&ctx->input, ' ');
+                        if (c < '0' || c > '7') break;
+                        d <<= 3;
+                        d |= c - '0';
+                    }
+                    pbc_pexpr_data(&expr, d);
                 } else {
-                    break;
+                    pbc_pexpr_data(&expr, 0);
                 }
+            } else {
+                int d = c - '0';
+                while (1) {
+                    c = pbc_getc_escnl(&ctx->input, ' ');
+                    if (c < '0' || c > '9') break;
+                    d *= 10;
+                    d += c - '0';
+                }
+                pbc_pexpr_data(&expr, d);
             }
             while (c == ' ' || c == '\t') {
                 c = pbc_getc_escnl(&ctx->input, 0);
             }
-            //printf("number: {%s}\n", cb_peek(&cb));
-            d = atoi(cb_peek(&cb));
-        } else {
-            change:;
+        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+            int nl = ctx->input.line, nc = ctx->input.col;
+            int d;
             do {
                 cb_add(&cb, c);
                 c = pbc_getc_escnl(&ctx->input, ' ');
@@ -275,23 +290,19 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     nl = ctx->input.line;
                     nc = ctx->input.col;
                     cb_clear(&cb);
-                    isnum = true;
-                    while (1) {
-                        if (c >= '0' && c <= '9') {
-                            cb_add(&cb, c);
-                        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-                            isnum = false;
-                            cb_add(&cb, c);
-                        } else {
-                            break;
-                        }
-                        c = pbc_getc_escnl(&ctx->input, ' ');
-                    }
-                    if (isnum) {
+                    if (c >= '0' && c <= '9') {
                         if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: expected name, given number");
                         retval = -1;
                         goto ret;
+                    } else if ((c < 'a' || c > 'z') && (c < 'A' && c > 'Z') && c != '_') {
+                        if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error: expected name");
+                        retval = -1;
+                        goto ret;
                     }
+                    do {
+                        cb_add(&cb, c);
+                        c = pbc_getc_escnl(&ctx->input, ' ');
+                    } while (pbc_iskwchar(c));
                     while (c == ' ' || c == '\t') {
                         c = pbc_getc_escnl(&ctx->input, 0);
                     }
@@ -301,7 +312,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         goto ret;
                     }
                     cb_nullterm(&cb);
-                    //printf("defined: {%s}\n", cb.data);
+                    printf("defined: {%s}\n", cb.data);
                     d = (ctx->opt->findpv && ctx->opt->findpv(cb.data, &d));
                 } else {
                     if (err) pbc_mkerr(ctx, err, nl, nc, "Unknown preprocessor function '");
@@ -322,9 +333,26 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     goto ret;
                 }
             }
+            cb_clear(&cb);
+            pbc_pexpr_data(&expr, d);
+        } else {
+            switch (c) {
+                case '(': pbc_pexpr_op(&expr, PBC_PEOP_LP); ++parenct; break;
+                case '!': pbc_pexpr_op(&expr, PBC_PEOP_NOT); break;
+                case '-': pbc_pexpr_op(&expr, PBC_PEOP_NEG); break;
+                case '~': pbc_pexpr_op(&expr, PBC_PEOP_BNOT); break;
+                default: {
+                    if (err) {
+                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error: expected name or value");
+                        else pbc_mkerr(ctx, err, 0, 0, "Syntax error: unexpected char");
+                    }
+                    retval = -1;
+                    goto ret;
+                };
+            }
+            c = pbc_getc_escnl(&ctx->input, 0);
+            continue;
         }
-        pbc_pexpr_data(&expr, d);
-        cb_clear(&cb);
         opagain:;
         switch (c) {
             case '\n':
