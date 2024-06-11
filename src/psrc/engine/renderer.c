@@ -490,21 +490,18 @@ bool updateRendererConfig(enum rendopt opt, ...) {
 }
 
 bool initRenderer(void) {
-    #if PLATFORM == PLAT_LINUX
     if (SDL_Init(SDL_INIT_VIDEO)) {
         plog(LL_WARN | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
+        #if PLATFORM == PLAT_LINUX
         unsetenv("SDL_VIDEODRIVER");
         if (SDL_Init(SDL_INIT_VIDEO)) {
             plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
             return false;
         }
-    }
-    #else
-    if (SDL_Init(SDL_INIT_VIDEO)) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init video: %s", SDL_GetError());
+        #else
         return false;
+        #endif
     }
-    #endif
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
     rendstate.res.windowed = (struct rendres){1024, 768};
