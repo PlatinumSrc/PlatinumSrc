@@ -157,6 +157,8 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             - `EMUPATHFLAG` - Flag used to specify the executable or ROM path
             - Windows
                 - `WINDRES` - Windows resource compiler
+            - Emscripten
+                - `EMSCR_SHELL` - Path to the shell file
             - NXDK
                 - `XBE_TITLE` - XBE title and XISO name \(default is `PlatinumSrc`\)
                 - `XBE_TITLEID` - XBE title ID \(default is `PQ-001`\)

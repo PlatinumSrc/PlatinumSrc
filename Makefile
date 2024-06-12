@@ -300,8 +300,12 @@ ifneq ($(CROSS),nxdk)
     ifeq ($(CROSS),win32)
         _LDFLAGS += -static -static-libgcc
     else ifeq ($(CROSS),emscr)
-        _LDFLAGS += -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall
-        _LDFLAGS += --shell-file $(SRCDIR)/psrc/emscr_shell.html
+        _LDFLAGS += -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall -sWASM_BIGINT
+        ifndef EMSCR_SHELL
+            _LDFLAGS += --shell-file $(SRCDIR)/psrc/emscr_shell.html
+        else
+            _LDFLAGS += --shell-file $(EMSCR_SHELL)
+        endif
         _LDLIBS += -lidbfs.js
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
