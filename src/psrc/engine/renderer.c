@@ -145,6 +145,7 @@ static void updateWindowMode(enum rendmode newmode) {
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
                 SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
+                rendstate.mode = RENDMODE_BORDERLESS;
             } else {
                 plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
                 rendstate.mode = RENDMODE_WINDOWED;
@@ -171,6 +172,7 @@ static void updateWindowMode(enum rendmode newmode) {
             if (emscripten_request_fullscreen("#canvas", false) == EMSCRIPTEN_RESULT_SUCCESS) {
                 rendstate.res.current = rendstate.res.fullscr;
                 SDL_SetWindowSize(rendstate.window, rendstate.res.current.width, rendstate.res.current.height);
+                rendstate.mode = RENDMODE_FULLSCREEN;
             } else {
                 plog(LL_WARN, "Failed to go to fullscreen (canvas has probably not acquired an input lock)");
                 rendstate.mode = RENDMODE_WINDOWED;
@@ -504,7 +506,7 @@ bool initRenderer(void) {
     }
     char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
-    rendstate.res.windowed = (struct rendres){1024, 768};
+    rendstate.res.windowed = (struct rendres){960, 720};
     #elif PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST
     rendstate.res.windowed = (struct rendres){640, 480};
     #else
