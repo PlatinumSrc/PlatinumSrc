@@ -366,7 +366,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 case '~': pbc_pexpr_op(&expr, PBC_PEOP_BNOT); break;
                 default: {
                     if (err) {
-                        if (c == '\n' || c == EOF) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error", "Expected name or value");
+                        if (c == '\n' || c == '\'' || c == EOF)  pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected name or value");
                         else pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
                     }
                     retval = -1;
@@ -379,7 +379,9 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
         opagain:;
         switch (c) {
             case '\n':
+            case '\'':
             case EOF:
+                pbc_ungetc(&ctx->input);
                 goto longbreak;
             case ')':
                 if (!parenct) {
@@ -452,7 +454,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
     }
     longbreak:;
     if (parenct) {
-        if (err) pbc_mkerr(ctx, err, ctx->input.lastline, ctx->input.lastcol + 1, "Syntax error", "Expected ')'");
+        if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected ')'");
         retval = -1;
         goto ret;
     }
@@ -548,8 +550,8 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
             int c;
             do {
                 c = pbc_getc_escnl(&ctx->input, 0);
-            } while (c != '\n' && c != EOF);
-            if (c == EOF) pbc_ungetc(&ctx->input);
+            } while (c != '\n' && c != '\'' && c != EOF);
+            pbc_ungetc(&ctx->input);
             ++pctx->fakedepth;
         }
         return true;
@@ -558,8 +560,8 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
             int c;
             do {
                 c = pbc_getc_escnl(&ctx->input, 0);
-            } while (c != '\n' && c != EOF);
-            if (c == EOF) pbc_ungetc(&ctx->input);
+            } while (c != '\n' && c != '\'' && c != EOF);
+            pbc_ungetc(&ctx->input);
         } else {
             if (pctx->index < 1) {
                 if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error", "#else without #if");
@@ -574,8 +576,8 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
                 int c;
                 do {
                     c = pbc_getc_escnl(&ctx->input, 0);
-                } while (c != '\n' && c != EOF);
-                if (c == EOF) pbc_ungetc(&ctx->input);
+                } while (c != '\n' && c != '\'' && c != EOF);
+                pbc_ungetc(&ctx->input);
             } else {
                 int r = pbc_getpexpr(ctx, err);
                 if (r == -1) return false;
@@ -591,10 +593,11 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
         do {
             c = pbc_getc_escnl(&ctx->input, 0);
         } while (pbc_isspace(c));
-        if (c != '\n' && c != EOF) {
+        if (c != '\n' && c != '\'' && c != EOF) {
             if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
             return false;
         }
+        pbc_ungetc(&ctx->input);
         if (!pctx->fakedepth) {
             if (pctx->index < 1) {
                 if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error", "#else without #if");
@@ -617,10 +620,11 @@ static inline bool pbc_getpcmd(struct pbc* ctx, struct pbc_preproc* pctx, struct
         do {
             c = pbc_getc_escnl(&ctx->input, 0);
         } while (pbc_isspace(c));
-        if (c != '\n' && c != EOF) {
+        if (c != '\n' && c != '\'' && c != EOF) {
             if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
             return false;
         }
+        pbc_ungetc(&ctx->input);
         if (pctx->fakedepth) {
             --pctx->fakedepth;
         } else {
@@ -749,7 +753,7 @@ static inline int pbc_getsep_inline(struct pbc* ctx, bool needed, struct charbuf
         c = pbc_getc_escnl(&ctx->input, 0);
     } while (pbc_isspace(c));
     if (c == ',') return 1;
-    if (c == '\n' || c == ':' || c == EOF) {
+    if (c == '\n' || c == ':' || c == '\'' || c == EOF) {
         if (needed) {
             if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected end of statement");
             return -1;
@@ -772,7 +776,7 @@ static inline int pbc_getanysep_inline(struct pbc* ctx, bool needed, const char*
         if (c == c2) return c2;
         ++chars;
     }
-    if (c == '\n' || c == ':' || c == EOF) {
+    if (c == '\n' || c == ':' || c == '\'' || c == EOF) {
         if (needed) {
             if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected end of statement");
             return -1;
@@ -790,7 +794,7 @@ static inline bool pbc_geteos_inline(struct pbc* ctx, bool needed, struct charbu
     do {
         c = pbc_getc_escnl(&ctx->input, 0);
     } while (pbc_isspace(c));
-    if (c == '\n' || c == ':' || c == EOF) {
+    if (c == '\n' || c == ':' || c == '\'' || c == EOF) {
         pbc_ungetc(&ctx->input);
         return true;
     } else {
@@ -805,12 +809,8 @@ static inline bool pbc_geteos_inline(struct pbc* ctx, bool needed, struct charbu
 
 static bool pbc_getcmd(struct pbc*, struct charbuf*, const char*, unsigned, unsigned, bool, bool, struct pbc_databuf*);
 
-static int pbc_getexpr(struct pbc*, struct charbuf*, struct pbc_databuf*);
-static inline int pbc_getexpr_inline(struct pbc* ctx, struct charbuf* err, struct pbc_databuf* db) {
-    
-}
-static int pbc_getexpr(struct pbc* ctx, struct charbuf* err, struct pbc_databuf* db) {
-    pbc_getexpr_inline(ctx, err, db);
+static bool pbc_getexpr(struct pbc* ctx, struct pbc_databuf* ops, struct charbuf* err) {
+    if (!ops) ops = &ctx->ops;
 }
 
 static int pbc_getcond(struct pbc*, struct charbuf*);
@@ -862,6 +862,7 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
             do {
                 c = pbc_getc(&ctx.input);
             } while (c != '\n' && c != EOF);
+            pbc_ungetc(&ctx.input);
         } else if (preproc && c == '#') {
             do {
                 c = pbc_getc_escnl(&ctx.input, 0);
@@ -894,24 +895,40 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
                 cb_add(&cb, c);
                 c = pbc_getc_escnl(&ctx.input, ' ');
             } while (pbc_iskwchar(c));
-            while (pbc_isspace(c)) {
-                c = pbc_getc_escnl(&ctx.input, 0);
+            bool cmd;
+            if (pbc_isspace(c)) {
+                cmd = true;
+                do {
+                    c = pbc_getc_escnl(&ctx.input, 0);
+                } while (pbc_isspace(c));
+            } else if (c == '\n' || c == ':' || c == '\'' || c == EOF) {
+                cmd = true;
+            } else {
+                cmd = false;
             }
             if (c == '=') {
                 do {
                     c = pbc_getc_escnl(&ctx.input, 0);
                 } while (pbc_isspace(c));
-                //pbc_getexpr(&ctx, NULL);
+                pbc_ungetc(&ctx.input);
+                if (!pbc_getexpr(&ctx, NULL, err)) {
+                    retval = false;
+                    goto ret;
+                }
                 //pbc_db_put8(&ctx, PBVM_OP_SET);
                 //pbc_db_put32(&ctx, pbc_getvar(&ctx, cb_peek(&cb)));
                 cb_clear(&cb);
-            } else {
+            } else if (cmd) {
                 pbc_ungetc(&ctx.input);
                 if (!pbc_getcmd(&ctx, err, cb_peek(&cb), nl, nc, false, false, &ctx.ops)) {
                     retval = false;
                     goto ret;
                 }
                 cb_clear(&cb);
+            } else {
+                if (err) pbc_mkerr(&ctx, err, 0, 0, "Syntax error", "Unexpected character");
+                retval = false;
+                goto ret;
             }
         } else if (c == EOF) {
             break;

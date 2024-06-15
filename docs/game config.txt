@@ -1,5 +1,5 @@
 name = # game title
 icon = # default icon resource path
-vertype = # { 32 | 16.16 | 8.8.16 | 8.16.8 | 16.8.8 | 8.8.8.8 }
+vertype = # { 32 | 16.16 | 8.8.16 | 8.16.8 | 16.8.8 | 8.8.8.8 } (defaults to 8.8.16)
 version = # current version
 minver = # minimum compatible version (used for multiplayer) (defaults to the current version)

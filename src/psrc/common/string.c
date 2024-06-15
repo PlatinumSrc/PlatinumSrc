@@ -97,9 +97,9 @@ char* makestrlist(const char* const* s, int l, char delim) {
 
 int strbool(const char* s, int d) {
     if (!s) return d;
-    if (!strcasecmp(s, "true") || !strcasecmp(s, "yes")) {
+    if (!strcasecmp(s, "true") || !strcasecmp(s, "yes") || !strcasecmp(s, "y") || !strcasecmp(s, "on")) {
         return 1;
-    } else if (!strcasecmp(s, "false") || !strcasecmp(s, "no")) {
+    } else if (!strcasecmp(s, "false") || !strcasecmp(s, "no") || !strcasecmp(s, "n") || !strcasecmp(s, "off")) {
         return 0;
     }
     return d;

@@ -29,7 +29,7 @@ Format:
         <float: X> <float: Y> <float: Z> <float: U> <float: V>
 
     Index group:
-        <<String>: Texture path>
+        <<String>: Material path>
         <u16: Index count> [u16: Index]...
 
     Bone:

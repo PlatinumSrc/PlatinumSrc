@@ -1,10 +1,12 @@
-<Main dir>/ - Most likely the directory the engine executable is located.
+<Main dir>/ - Usually the directory the engine executable is located.
     engine/
-        config/
-            autorun.bas - (Optional) script to run on startup.
-            config.cfg - Optional. See 'default config.txt' for details.
         fonts/
+        scripts/
         shaders/
+        textures/
+        themes/
+        autorun.bas - (Optional) script to run on startup.
+        config.cfg - Optional. See 'default config.txt' for details.
     games/ - This layout is optional (except for game.cfg and main.bas) but is highly recommended.
         <Game dir>/
             cosmetics/
@@ -21,15 +23,12 @@
             textures/
             weapons/
             game.cfg - Game info/config. See 'game config.txt' for details.
-            main.bas - The script that starts the game (this should typically display a splash screen, set up the game, then
-                       load the main menu).
+            main.bas - The script that starts the game (this should typically display a splash screen, set up the game,
+                       then load the main menu).
     mods/ - Subfolders act as overlays for <Main dir>.
 
-<User dir>/ - A directory (specified by the 'userdir' variable in 'game.txt') most likely inside of the system/user's
+<User dir>/ - A directory (specified by the 'userdir' variable in game.cfg) most likely inside of the system/user's
               program data directory.
-    config/
-        autorun.bas - (Optional) script to run after autorun.bas in <Main dir>/engine/.
-        config.cfg - Optional.
     cosmetics/
     custom/ - Custom content from other users
         <First 4 hex digits of %016x CRC64>/
@@ -41,11 +40,11 @@
                 <Last 8 hex digits of %016x CRC64>/ - Files overlay <Game dir>.
     mods/
     playermodels/
+    autorun.bas - Optional script to run after autorun.bas in <Main dir>/engine/.
+    config.cfg - Optional config loaded after config.cfg in <Main dir>/engine/.
 
 <Server dir>/ - The location the server executable was started in.
-    content/ - Subfolders overlay <Game dir>.
-        all/ - Content for all platforms.
-        <platform>/ - Override files when sending to a client using a specific platform.
-    games/
-    mods/ - Mod files are not downloaded to clients
+    content/ - Overlays <Game dir>.
+    games/ - Identical to games/ in <Main dir>
+    mods/ - Identical to mods/ in <Main dir>
     server.cfg - See 'default server config.txt'

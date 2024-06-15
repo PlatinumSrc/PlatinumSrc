@@ -38,6 +38,7 @@
       <start extended="true">^\s*\#\s*(if|elif|else|endif)\b</start>
       <include>
           <context ref="def:line-continue"/>
+          <context ref="line-comment"/>
       </include>
     </context>
 

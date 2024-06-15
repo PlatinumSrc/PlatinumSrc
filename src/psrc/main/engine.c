@@ -581,7 +581,7 @@ static int bootstrap(void) {
         tmp = mkpath(options.config, NULL);
         free(options.config);
     } else {
-        tmp = mkpath(maindir, "engine/config/config.cfg", NULL);
+        tmp = mkpath(maindir, "engine/config.cfg", NULL);
     }
     config = cfg_open(tmp);
     free(tmp);
@@ -658,7 +658,7 @@ static int bootstrap(void) {
     free(logfile);
 
     if (!options.nouserconfig) {
-        tmp = mkpath(userdir, "config", "config.cfg", NULL);
+        tmp = mkpath(userdir, "config.cfg", NULL);
         if (!cfg_merge(config, tmp, true)) {
             plog(LL_WARN, "Failed to load user config");
         }
@@ -684,7 +684,7 @@ static void unstrap(void) {
     quitResource();
 
     cfg_close(gameconfig);
-    char* tmp = mkpath(userdir, "config", "config.cfg", NULL);
+    char* tmp = mkpath(userdir, "config.cfg", NULL);
     //cfg_write(config, tmp);
     free(tmp);
     cfg_close(config);
