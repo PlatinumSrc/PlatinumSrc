@@ -16,7 +16,6 @@ char* makestrlist(const char* const* str, int len, char delim);
 int strbool(const char*, int);
 
 static inline void cb_init(struct charbuf* b, int sz) {
-    if (sz < 1) sz = 1;
     b->data = malloc(sz);
     b->size = sz;
     b->len = 0;

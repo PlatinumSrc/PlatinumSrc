@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
         puts("    C, convert-back [ARGUMENT]... <FILE>...");
         puts("    Convert from PTF to an existing image format (using stb_image_write)");
         puts("        -o, --overwrite     Overwrite output");
-        puts("        -f, --format        Change output format {png (default), bmp, tga, hdr, jpg}");
+        puts("        -f, --format        Change output format {png (default), bmp, tga, jpg}");
         puts("        -q, --quality       Change output quality (PNG and JPG only; 1-100 for JPG, default is 90)");
         puts("    i, info <FILE>...");
         puts("    Show info about a PTF file");

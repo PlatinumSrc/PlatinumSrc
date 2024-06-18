@@ -13,81 +13,154 @@
 
 struct audiostate audiostate;
 
-static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab) {
-    stb_vorbis_seek(s->vorbis, ab->off);
-    stb_vorbis_get_samples_short(s->vorbis, 2, ab->data, ab->len);
+static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, int off, int len) {
+    stb_vorbis_seek(s->vorbis, off);
+    stb_vorbis_get_samples_short(s->vorbis, 2, s->audbuf.data, len);
 }
-static inline __attribute__((always_inline)) void getvorbisat_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len) {
-    if (pos >= ab->off + ab->len) {
-        int oldoff = ab->off;
-        ab->off = pos;
-        if (ab->off + ab->len >= len) {
-            ab->off = len - ab->len;
-            if (ab->off < 0) ab->off = 0;
-        }
-        if (ab->off != oldoff) {
-            s->audbuf.off = ab->off;
-            getvorbisat_fillbuf(s, ab);
-        }
-    } else if (pos < ab->off) {
-        int oldoff = ab->off;
-        ab->off = pos - ab->len / 2 + 1;
-        if (ab->off < 0) ab->off = 0;
-        if (ab->off != oldoff) {
-            s->audbuf.off = ab->off;
-            getvorbisat_fillbuf(s, ab);
+static int getvorbisat_prepbuf(struct audiosound* s, int pos) {
+    if (!s->audbuf.data[0]) {
+        s->audbuf.off = pos;
+        s->audbuf.data[0] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[0]));
+        s->audbuf.data[1] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[1]));
+        getvorbisat_fillbuf(s, pos, s->audbuf.len);
+        return 0;
+    }
+    int off = s->audbuf.off;
+    int len = s->audbuf.len;
+    int next = off + len;
+    if (pos >= next) {
+        off = pos;
+        s->audbuf.off = off;
+        getvorbisat_fillbuf(s, off, len);
+        return 0;
+    } else if (pos < off) {
+        off = pos - len / 2;
+        if (off < 0) off = 0;
+        s->audbuf.off = off;
+        getvorbisat_fillbuf(s, off, len);
+    }
+    return pos - off;
+}
+static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, int pos, int* out_l, int* out_r) {
+    int i = getvorbisat_prepbuf(s, pos);
+    *out_l = s->audbuf.data[0][i];
+    *out_r = s->audbuf.data[1][i];
+}
+
+static inline __attribute__((always_inline)) void getvorbisat_mono_fillbuf(struct audiosound* s, bool stereo, int off, int len) {
+    stb_vorbis_seek(s->vorbis, off);
+    stb_vorbis_get_samples_short(s->vorbis, 1 + stereo, s->audbuf.data, len);
+    int16_t* d[2] = {s->audbuf.data[0], s->audbuf.data[1]};
+    if (stereo) {
+        for (int i = 0; i < len; ++i) {
+            d[0][i] = (d[0][i] + d[1][i]) / 2;
         }
     }
 }
-static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= len) {
-        *out_l = 0;
-        *out_r = 0;
-        return;
+static int getvorbisat_mono_prepbuf(struct audiosound* s, int pos, bool stereo) {
+    if (!s->audbuf.data[0]) {
+        s->audbuf.off = pos;
+        s->audbuf.data[0] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[0]));
+        if (stereo) s->audbuf.data[1] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[1]));
+        getvorbisat_mono_fillbuf(s, stereo, pos, s->audbuf.len);
+        return 0;
     }
-    getvorbisat_prepbuf(s, ab, pos, len);
-    *out_l = ab->data[0][pos - ab->off];
-    *out_r = ab->data[1][pos - ab->off];
+    int off = s->audbuf.off;
+    int len = s->audbuf.len;
+    int next = off + len;
+    if (pos >= next) {
+        off = pos;
+        s->audbuf.off = off;
+        getvorbisat_mono_fillbuf(s, stereo, off, len);
+        return 0;
+    } else if (pos < off) {
+        off = pos - len / 2;
+        if (off < 0) off = 0;
+        s->audbuf.off = off;
+        getvorbisat_mono_fillbuf(s, stereo, off, len);
+    }
+    return pos - off;
+}
+static inline __attribute__((always_inline)) void getvorbisat_mono(struct audiosound* s, int pos, bool stereo, int* out) {
+    int i = getvorbisat_mono_prepbuf(s, pos, stereo);
+    *out = s->audbuf.data[0][i];
 }
 
 #ifdef PSRC_USEMINIMP3
-static inline __attribute__((always_inline)) void getmp3at_fillbuf(struct audiosound* s, struct audiosound_audbuf* ab, int ch) {
-    mp3dec_ex_seek(s->mp3, ab->off * ch);
-    mp3dec_ex_read(s->mp3, ab->data_mp3, ab->len * ch);
+
+static inline __attribute__((always_inline)) void getmp3at_fillbuf(struct audiosound* s, int off, int len, int ch) {
+    mp3dec_ex_seek(s->mp3, off * ch);
+    mp3dec_ex_read(s->mp3, s->audbuf.data_mp3, len * ch);
 }
-static inline __attribute__((always_inline)) void getmp3at_prepbuf(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int ch) {
-    if (pos >= ab->off + ab->len) {
-        int oldoff = ab->off;
-        ab->off = pos;
-        if (ab->off + ab->len >= len) {
-            ab->off = len - ab->len;
-            if (ab->off < 0) ab->off = 0;
-        }
-        if (ab->off != oldoff) {
-            s->audbuf.off = ab->off;
-            getmp3at_fillbuf(s, ab, ch);
-        }
-    } else if (pos < ab->off) {
-        int oldoff = ab->off;
-        ab->off = pos - ab->len / 2 + 1;
-        if (ab->off < 0) ab->off = 0;
-        if (ab->off != oldoff) {
-            s->audbuf.off = ab->off;
-            getmp3at_fillbuf(s, ab, ch);
-        }
+static int getmp3at_prepbuf(struct audiosound* s, int pos, int ch) {
+    if (!s->audbuf.data[0]) {
+        s->audbuf.off = pos;
+        s->audbuf.data_mp3 = malloc(s->audbuf.len * ch * sizeof(*s->audbuf.data_mp3));
+        getmp3at_fillbuf(s, pos, s->audbuf.len, ch);
+        return 0;
     }
+    int off = s->audbuf.off;
+    int len = s->audbuf.len;
+    int next = off + len;
+    if (pos >= next) {
+        off = pos;
+        s->audbuf.off = off;
+        getmp3at_fillbuf(s, off, len, ch);
+        return 0;
+    } else if (pos < off) {
+        off = pos - len / 2;
+        if (off < 0) off = 0;
+        s->audbuf.off = off;
+        getmp3at_fillbuf(s, off, len, ch);
+    }
+    return pos - off;
 }
-static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s, struct audiosound_audbuf* ab, int pos, int len, int* out_l, int* out_r) {
-    if (pos < 0 || pos >= len) {
-        *out_l = 0;
-        *out_r = 0;
-        return;
-    }
+static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s, int pos, bool stereo, int* out_l, int* out_r) {
     int channels = s->rc->channels;
-    getmp3at_prepbuf(s, ab, pos, len, channels);
-    *out_l = ab->data_mp3[(pos - ab->off) * channels];
-    *out_r = ab->data_mp3[(pos - ab->off) * channels + 1];
+    int i = getmp3at_prepbuf(s, pos, channels) * channels;
+    *out_l = s->audbuf.data_mp3[i];
+    *out_r = s->audbuf.data_mp3[i + stereo];
 }
+
+static inline __attribute__((always_inline)) void getmp3at_mono_fillbuf(struct audiosound* s, int off, int len, int ch) {
+    mp3d_sample_t* d = s->audbuf.data_mp3;
+    mp3dec_ex_seek(s->mp3, off * ch);
+    mp3dec_ex_read(s->mp3, d, len * ch);
+    if (ch > 1) {
+        for (int i = 0; i < len; ++i) {
+            d[i] = (d[i * ch] + d[i * ch + 1]) / 2;
+        }
+    }
+}
+static int getmp3at_mono_prepbuf(struct audiosound* s, int pos, int ch) {
+    if (!s->audbuf.data[0]) {
+        s->audbuf.off = pos;
+        s->audbuf.data_mp3 = malloc(s->audbuf.len * ch * sizeof(*s->audbuf.data_mp3));
+        getmp3at_mono_fillbuf(s, pos, s->audbuf.len, ch);
+        return 0;
+    }
+    int off = s->audbuf.off;
+    int len = s->audbuf.len;
+    int next = off + len;
+    if (pos >= next) {
+        off = pos;
+        s->audbuf.off = off;
+        getmp3at_mono_fillbuf(s, off, len, ch);
+        return 0;
+    } else if (pos < off) {
+        off = pos - len / 2;
+        if (off < 0) off = 0;
+        s->audbuf.off = off;
+        getmp3at_mono_fillbuf(s, off, len, ch);
+    }
+    return pos - off;
+}
+static inline __attribute__((always_inline)) void getmp3at_mono(struct audiosound* s, int pos, int* out) {
+    int channels = s->rc->channels;
+    int i = getmp3at_mono_prepbuf(s, pos, channels);
+    *out = s->audbuf.data_mp3[i];
+}
+
 #endif
 
 static inline void calc3DSoundFx(struct audiosound_3d* s) {
@@ -206,7 +279,7 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
     fx->volmul[1] = (sfx[0].volmul[1] * ii + sfx[1].volmul[1] * i) / samples;
 }
-#define MIXSOUND3D_CALCPOS() {\
+#define MIXSOUND3D_CALCPOS() do {\
     int mul = ((fx.posoff - fxoff + 1) * freq) * fx.speedmul;\
     fxoff = fx.posoff;\
     offset += mul / div;\
@@ -214,70 +287,54 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
     offset += frac / div;\
     frac %= div;\
     pos = offset;\
-}
-#define MIXSOUND3D_BODY(c) {\
+} while (0)
+#define MIXSOUND3D_LOOP_COMMON(wp, wp2, poob, p2oob) do {\
+    if (!(poob)) {\
+        wp;\
+        MIXSOUND_GETSAMPLE(pos, o1);\
+        if (frac) {\
+            pos2 = pos + 1;\
+            if (!(p2oob)) {\
+                wp2;\
+                MIXSOUND_GETSAMPLE(pos2, o2);\
+                uint8_t tmpfrac = frac / 16 / audiostate.freq;\
+                uint8_t ifrac = 16 - tmpfrac;\
+                o1 = (o1 * ifrac + o2 * tmpfrac) / 16;\
+            }\
+        }\
+        audbuf[0][i] += o1 * fx.volmul[0] / 32768;\
+        audbuf[1][i] += o1 * fx.volmul[1] / 32768;\
+    }\
+} while (0)
+#define MIXSOUND3D_LOOP(wp, wp2, poob, p2oob) do {\
     if (s->fxchanged) {\
-        if (stereo) {\
-            int i = 0, ii = audiostate.audbuf.len;\
-            while (1) {\
-                interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-                MIXSOUND3D_CALCPOS();\
-                c\
-                int tmp = (l + r) / 2;\
-                audbuf[0][i] += tmp * fx.volmul[0] / 32768;\
-                audbuf[1][i] += tmp * fx.volmul[1] / 32768;\
-                ++i;\
-                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
-                --ii;\
-            }\
-        } else {\
-            int i = 0, ii = audiostate.audbuf.len;\
-            while (1) {\
-                interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
-                MIXSOUND3D_CALCPOS();\
-                c\
-                audbuf[0][i] += l * fx.volmul[0] / 32768;\
-                audbuf[1][i] += r * fx.volmul[1] / 32768;\
-                ++i;\
-                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
-                --ii;\
-            }\
+        int i = 0, ii = audiostate.audbuf.len;\
+        while (1) {\
+            interpfx(sfx, &fx, i, ii, audiostate.audbuf.len);\
+            MIXSOUND3D_CALCPOS();\
+            MIXSOUND3D_LOOP_COMMON(wp, wp2, poob, p2oob);\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (poob) return false; break;}\
+            --ii;\
         }\
     } else {\
-        if (stereo) {\
-            int i = 0;\
-            while (1) {\
-                MIXSOUND3D_CALCPOS();\
-                c\
-                int tmp = (l + r) / 2;\
-                audbuf[0][i] += tmp * fx.volmul[0] / 32768;\
-                audbuf[1][i] += tmp * fx.volmul[1] / 32768;\
-                ++i;\
-                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;};\
-            }\
-        } else {\
-            int i = 0;\
-            while (1) {\
-                MIXSOUND3D_CALCPOS();\
-                c\
-                audbuf[0][i] += l * fx.volmul[0] / 32768;\
-                audbuf[1][i] += r * fx.volmul[1] / 32768;\
-                ++i;\
-                if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
-            }\
+        int i = 0;\
+        while (1) {\
+            MIXSOUND3D_CALCPOS();\
+            MIXSOUND3D_LOOP_COMMON(wp, wp2, poob, p2oob);\
+            ++i;\
+            if (i == audiostate.audbuf.len) {if (poob) return false; break;}\
         }\
     }\
-}
-#define MIXSOUND3D_INTERPBODY(c) {\
-    if (frac) {\
-        pos2 = pos + 1;\
-        c\
-        uint8_t tmpfrac = frac / 16 / audiostate.freq;\
-        uint8_t ifrac = 16 - tmpfrac;\
-        l = (l * ifrac + l2 * tmpfrac) / 16;\
-        r = (r * ifrac + r2 * tmpfrac) / 16;\
+} while (0)
+#define MIXSOUND3D_BODY() do {\
+    if (flags & SOUNDFLAG_LOOP) {\
+        if (flags & SOUNDFLAG_WRAP) MIXSOUND3D_LOOP(pos = ((pos % len) + len) % len, pos2 = ((pos2 % len) + len) % len, 0, 0);\
+        else MIXSOUND3D_LOOP(if (pos >= 0) pos %= len, if (pos2 >= 0) pos2 %= len, (pos < 0), 0);\
+    } else {\
+        MIXSOUND3D_LOOP((void)0, (void)0, (pos >= len || pos < 0), (pos2 >= len));\
     }\
-}
+} while (0)
 static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
     struct rc_sound* rc = s->data.rc;
     if (!rc) return true;
@@ -321,85 +378,8 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
     long pos;
     long pos2;
     bool stereo = rc->stereo;
-    int l, r;
-    int l2, r2;
+    int o1, o2;
     switch (rc->format) {
-        case RC_SOUND_FRMT_VORBIS: {
-            struct audiosound_audbuf ab = s->data.audbuf;
-            if (flags & SOUNDFLAG_LOOP) {
-                if (flags & SOUNDFLAG_WRAP) {
-                    #define MIXSOUND_POSCHECK 0
-                    MIXSOUND3D_BODY (
-                        pos = ((pos % len) + len) % len;
-                        getvorbisat(&s->data, &ab, pos, len, &l, &r);
-                        MIXSOUND3D_INTERPBODY (
-                            pos2 = ((pos2 % len) + len) % len;
-                            getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                    #undef MIXSOUND_POSCHECK
-                } else {
-                    #define MIXSOUND_POSCHECK (pos < 0)
-                    MIXSOUND3D_BODY (
-                        if (pos >= 0) pos %= len;
-                        getvorbisat(&s->data, &ab, pos, len, &l, &r);
-                        MIXSOUND3D_INTERPBODY (
-                            if (pos2 >= 0) pos2 %= len;
-                            getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                    #undef MIXSOUND_POSCHECK
-                }
-            } else {
-                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
-                MIXSOUND3D_BODY (
-                    getvorbisat(&s->data, &ab, pos, len, &l, &r);
-                    MIXSOUND3D_INTERPBODY (
-                        getvorbisat(&s->data, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            }
-        } break;
-        #ifdef PSRC_USEMINIMP3
-        case RC_SOUND_FRMT_MP3: {
-            struct audiosound_audbuf ab = s->data.audbuf;
-            if (flags & SOUNDFLAG_LOOP) {
-                if (flags & SOUNDFLAG_WRAP) {
-                    #define MIXSOUND_POSCHECK 0
-                    MIXSOUND3D_BODY (
-                        pos = ((pos % len) + len) % len;
-                        getmp3at(&s->data, &ab, pos, len, &l, &r);
-                        MIXSOUND3D_INTERPBODY (
-                            pos2 = ((pos2 % len) + len) % len;
-                            getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                    #undef MIXSOUND_POSCHECK
-                } else {
-                    #define MIXSOUND_POSCHECK (pos < 0)
-                    MIXSOUND3D_BODY (
-                        if (pos >= 0) pos %= len;
-                        getmp3at(&s->data, &ab, pos, len, &l, &r);
-                        MIXSOUND3D_INTERPBODY (
-                            if (pos2 >= 0) pos2 %= len;
-                            getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
-                        )
-                    )
-                    #undef MIXSOUND_POSCHECK
-                }
-            } else {
-                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
-                MIXSOUND3D_BODY (
-                    getmp3at(&s->data, &ab, pos, len, &l, &r);
-                    MIXSOUND3D_INTERPBODY (
-                        getmp3at(&s->data, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            }
-        } break;
-        #endif
         case RC_SOUND_FRMT_WAV: {
             union {
                 uint8_t* ptr;
@@ -409,136 +389,49 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
             data.ptr = rc->data;
             bool is8bit = rc->is8bit;
             int channels = rc->channels;
-            if (flags & SOUNDFLAG_LOOP) {
-                if (flags & SOUNDFLAG_WRAP) {
-                    #define MIXSOUND_POSCHECK 0
-                    if (is8bit) {
-                        MIXSOUND3D_BODY (
-                            pos = ((pos % len) + len) % len;
-                            l = data.i8[pos * channels] - 128;
-                            l = l * 256 + (l + 128);
-                            r = data.i8[pos * channels + stereo] - 128;
-                            r = r * 256 + (r + 128);
-                            MIXSOUND3D_INTERPBODY (
-                                pos2 = ((pos2 % len) + len) % len;
-                                l2 = data.i8[pos2 * channels] - 128;
-                                l2 = l2 * 256 + (l2 + 128);
-                                r2 = data.i8[pos2 * channels + stereo] - 128;
-                                r2 = r2 * 256 + (r2 + 128);
-                            )
-                        )
-                    } else {
-                        MIXSOUND3D_BODY (
-                            pos = ((pos % len) + len) % len;
-                            l = data.i16[pos * channels];
-                            r = data.i16[pos * channels + stereo];
-                            MIXSOUND3D_INTERPBODY (
-                                pos2 = ((pos2 % len) + len) % len;
-                                l2 = data.i16[pos2 * channels];
-                                r2 = data.i16[pos2 * channels + stereo];
-                            )
-                        )
-                    }
-                    #undef MIXSOUND_POSCHECK
+            if (stereo) {
+                if (is8bit) {
+                    #define MIXSOUND_GETSAMPLE(p, o) do {\
+                        o = data.i8[p * channels] - 128;\
+                        o = o * 256 + (o + 128);\
+                        int tmpo = data.i8[p * channels + 1] - 128;\
+                        tmpo = tmpo * 256 + (tmpo + 128);\
+                        o = (o + tmpo) / 2;\
+                    } while (0)
+                    MIXSOUND3D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 } else {
-                    #define MIXSOUND_POSCHECK (pos < 0)
-                    if (is8bit) {
-                        MIXSOUND3D_BODY (
-                            if (pos >= 0) {
-                                pos %= len;
-                                l = data.i8[pos * channels] - 128;
-                                l = l * 256 + (l + 128);
-                                r = data.i8[pos * channels + stereo] - 128;
-                                r = r * 256 + (r + 128);
-                                MIXSOUND3D_INTERPBODY (
-                                    if (pos2 >= 0) {
-                                        pos2 %= len;
-                                        l2 = data.i8[pos2 * channels] - 128;
-                                        l2 = l2 * 256 + (l2 + 128);
-                                        r2 = data.i8[pos2 * channels + stereo] - 128;
-                                        r2 = r2 * 256 + (r2 + 128);
-                                    } else {
-                                        l2 = 0;
-                                        r2 = 0;
-                                    }
-                                )
-                            } else {
-                                l = 0;
-                                r = 0;
-                            }
-                        )
-                    } else {
-                        MIXSOUND3D_BODY (
-                            if (pos >= 0) {
-                                pos %= len;
-                                l = data.i16[pos * channels];
-                                r = data.i16[pos * channels + stereo];
-                                MIXSOUND3D_INTERPBODY (
-                                    if (pos2 >= 0) {
-                                        pos2 %= len;
-                                        l2 = data.i16[pos2 * channels];
-                                        r2 = data.i16[pos2 * channels + stereo];
-                                    } else {
-                                        l2 = 0;
-                                        r2 = 0;
-                                    }
-                                )
-                            } else {
-                                l = 0;
-                                r = 0;
-                            }
-                        )
-                    }
-                    #undef MIXSOUND_POSCHECK
+                    #define MIXSOUND_GETSAMPLE(p, o) o = (data.i16[p * channels] + data.i16[p * channels + 1]) / 2
+                    MIXSOUND3D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 }
             } else {
-                #define MIXSOUND_POSCHECK (pos >= len || pos < 0)
                 if (is8bit) {
-                    MIXSOUND3D_BODY (
-                        if (pos >= 0 && pos < len) {
-                            l = data.i8[pos * channels] - 128;
-                            l = l * 256 + (l + 128);
-                            r = data.i8[pos * channels + stereo] - 128;
-                            r = r * 256 + (r + 128);
-                            MIXSOUND3D_INTERPBODY (
-                                if (pos2 >= 0 && pos2 < len) {
-                                    l2 = data.i8[pos2 * channels] - 128;
-                                    l2 = l2 * 256 + (l2 + 128);
-                                    r2 = data.i8[pos2 * channels + stereo] - 128;
-                                    r2 = r2 * 256 + (r2 + 128);
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, o) do {\
+                        o = data.i8[p] - 128;\
+                        o = o * 256 + (o + 128);\
+                    } while (0)
+                    MIXSOUND3D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 } else {
-                    MIXSOUND3D_BODY (
-                        if (pos >= 0 && pos < len) {
-                            l = data.i16[pos * channels];
-                            r = data.i16[pos * channels + stereo];
-                            MIXSOUND3D_INTERPBODY (
-                                if (pos2 >= 0 && pos2 < len) {
-                                    l2 = data.i16[pos2 * channels];
-                                    r2 = data.i16[pos2 * channels + stereo];
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, o) o = data.i16[p]
+                    MIXSOUND3D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 }
-                #undef MIXSOUND_POSCHECK
             }
         } break;
+        case RC_SOUND_FRMT_VORBIS: {
+            #define MIXSOUND_GETSAMPLE(p, o) getvorbisat_mono(&s->data, p, stereo, &o)
+            MIXSOUND3D_BODY();
+            #undef MIXSOUND_GETSAMPLE
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            #define MIXSOUND_GETSAMPLE(p, o) getmp3at_mono(&s->data, p, &o)
+            MIXSOUND3D_BODY();
+            #undef MIXSOUND_GETSAMPLE
+        } break;
+        #endif
     }
     #ifndef PSRC_NOMT
     readToWriteAccess(&audiostate.lock);
@@ -552,6 +445,9 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
     #endif
     return true;
 }
+#undef MIXSOUND3D_LOOP_COMMON
+#undef MIXSOUND3D_LOOP
+#undef MIXSOUND3D_BODY
 #define MIXSOUND3DFAKE_BODY(c) {\
     if (s->fxchanged) {\
         int i = 0, ii = audiostate.audbuf.len;\
@@ -626,48 +522,60 @@ static bool mixsound_3d_fake(struct audiosound_3d* s) {
     #endif
     return true;
 }
-#define MIXSOUND2D_CALCPOS() {\
+#undef MIXSOUND3DFAKE_BODY
+#undef MIXSOUND3D_CALCPOS
+
+#define MIXSOUND2D_CALCPOS() do {\
     offset += freq / audiostate.freq;\
     frac += freq % audiostate.freq;\
     offset += frac / audiostate.freq;\
     frac %= audiostate.freq;\
     pos = offset;\
-}
-#define MIXSOUND2D_BODY(c) {\
+} while (0)
+#define MIXSOUND2D_LOOP_COMMON(wp, wp2, poob, p2oob, v) do {\
+    if (!(poob)) {\
+        wp;\
+        MIXSOUND_GETSAMPLE(pos, l1, r1);\
+        if (frac) {\
+            pos2 = pos + 1;\
+            if (!(p2oob)) {\
+                wp2;\
+                MIXSOUND_GETSAMPLE(pos2, l2, r2);\
+                uint8_t tmpfrac = frac * 16 / audiostate.freq;\
+                uint8_t ifrac = 16 - tmpfrac;\
+                l1 = (l1 * ifrac + l2 * tmpfrac) / 16;\
+                r1 = (r1 * ifrac + r2 * tmpfrac) / 16;\
+            }\
+        }\
+        audbuf[0][i] += l1 * v / 32768;\
+        audbuf[1][i] += r1 * v / 32768;\
+    }\
+} while (0)
+#define MIXSOUND2D_LOOP(wp, wp2, poob, p2oob) do {\
     if (oldvol != newvol) {\
         int i = 0, ii = audiostate.audbuf.len;\
         while (1) {\
             vol = (oldvol * ii + newvol * i) / audiostate.audbuf.len;\
             MIXSOUND2D_CALCPOS();\
-            c\
-            audbuf[0][i] += l * vol / 32768;\
-            audbuf[1][i] += r * vol / 32768;\
+            MIXSOUND2D_LOOP_COMMON(wp, wp2, poob, p2oob, vol);\
             ++i;\
-            if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+            if (i == audiostate.audbuf.len) {if (poob) return false; break;}\
             --ii;\
         }\
     } else {\
         int i = 0;\
         while (1) {\
             MIXSOUND2D_CALCPOS();\
-            c\
-            audbuf[0][i] += l * newvol / 32768;\
-            audbuf[1][i] += r * newvol / 32768;\
+            MIXSOUND2D_LOOP_COMMON(wp, wp2, poob, p2oob, newvol);\
             ++i;\
-            if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
+            if (i == audiostate.audbuf.len) {if (poob) return false; break;}\
         }\
     }\
-}
-#define MIXSOUND2D_INTERPBODY(c) {\
-    if (frac) {\
-        pos2 = pos + 1;\
-        c\
-        uint8_t tmpfrac = frac * 16 / audiostate.freq;\
-        uint8_t ifrac = 16 - tmpfrac;\
-        l = (l * ifrac + l2 * tmpfrac) / 16;\
-        r = (r * ifrac + r2 * tmpfrac) / 16;\
-    }\
-}
+} while (0)
+#define MIXSOUND2D_BODY() do {\
+    if (flags & SOUNDFLAG_LOOP) MIXSOUND2D_LOOP(if (pos >= 0) pos %= len, if (pos2 >= 0) pos2 %= len, (pos < 0), 0);\
+    else MIXSOUND2D_LOOP((void)0, (void)0, (pos >= len || pos < 0), (pos2 >= len));\
+} while (0)
 static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int oldvol, int newvol, int volmul) {
     struct rc_sound* rc = s->rc;
     if (!rc) return true;
@@ -679,62 +587,12 @@ static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int o
     long pos;
     long pos2;
     bool stereo = rc->stereo;
-    int l, r;
+    int l1, r1;
     int l2, r2;
     oldvol = oldvol * volmul * audiostate.vol.master / 10000;
     newvol = newvol * volmul * audiostate.vol.master / 10000;
     int vol;
     switch (rc->format) {
-        case RC_SOUND_FRMT_VORBIS: {
-            struct audiosound_audbuf ab = s->audbuf;
-            if (flags & SOUNDFLAG_LOOP) {
-                #define MIXSOUND_POSCHECK 0
-                MIXSOUND2D_BODY (
-                    if (pos >= 0) pos %= len;
-                    getvorbisat(s, &ab, pos, len, &l, &r);
-                    MIXSOUND2D_INTERPBODY (
-                        if (pos2 >= 0) pos2 %= len;
-                        getvorbisat(s, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            } else {
-                #define MIXSOUND_POSCHECK (pos >= len)
-                MIXSOUND2D_BODY (
-                    getvorbisat(s, &ab, pos, len, &l, &r);
-                    MIXSOUND2D_INTERPBODY (
-                        getvorbisat(s, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            }
-        } break;
-        #ifdef PSRC_USEMINIMP3
-        case RC_SOUND_FRMT_MP3: {
-            struct audiosound_audbuf ab = s->audbuf;
-            if (flags & SOUNDFLAG_LOOP) {
-                #define MIXSOUND_POSCHECK 0
-                MIXSOUND2D_BODY (
-                    if (pos >= 0) pos %= len;
-                    getmp3at(s, &ab, pos, len, &l, &r);
-                    MIXSOUND2D_INTERPBODY (
-                        if (pos2 >= 0) pos2 %= len;
-                        getmp3at(s, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            } else {
-                #define MIXSOUND_POSCHECK (pos >= len)
-                MIXSOUND2D_BODY (
-                    getmp3at(s, &ab, pos, len, &l, &r);
-                    MIXSOUND2D_INTERPBODY (
-                        getmp3at(s, &ab, pos2, len, &l2, &r2);
-                    )
-                )
-                #undef MIXSOUND_POSCHECK
-            }
-        } break;
-        #endif
         case RC_SOUND_FRMT_WAV: {
             union {
                 uint8_t* ptr;
@@ -744,104 +602,52 @@ static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int o
             data.ptr = rc->data;
             bool is8bit = rc->is8bit;
             int channels = rc->channels;
-            if (flags & SOUNDFLAG_LOOP) {
-                #define MIXSOUND_POSCHECK 0
+            if (stereo) {
                 if (is8bit) {
-                    MIXSOUND2D_BODY (
-                        if (pos >= 0) {
-                            pos %= len;
-                            l = data.i8[pos * channels] - 128;
-                            l = l * 256 + (l + 128);
-                            r = data.i8[pos * channels + stereo] - 128;
-                            r = r * 256 + (r + 128);
-                            MIXSOUND2D_INTERPBODY (
-                                if (pos2 >= 0) {
-                                    pos2 %= len;
-                                    l2 = data.i8[pos2 * channels] - 128;
-                                    l2 = l2 * 256 + (l2 + 128);
-                                    r2 = data.i8[pos2 * channels + stereo] - 128;
-                                    r2 = r2 * 256 + (r2 + 128);
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, l, r) do {\
+                        l = data.i8[p * channels] - 128;\
+                        l = l * 256 + (l + 128);\
+                        r = data.i8[p * channels + 1] - 128;\
+                        r = r * 256 + (r + 128);\
+                    } while (0)
+                    MIXSOUND2D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 } else {
-                    MIXSOUND2D_BODY (
-                        if (pos >= 0) {
-                            pos %= len;
-                            l = data.i16[pos * channels];
-                            r = data.i16[pos * channels + stereo];
-                            MIXSOUND2D_INTERPBODY (
-                                if (pos2 >= 0) {
-                                    pos2 %= len;
-                                    l2 = data.i16[pos2 * channels];
-                                    r2 = data.i16[pos2 * channels + stereo];
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, l, r) do {\
+                        l = data.i16[p * channels];\
+                        r = data.i16[p * channels + 1];\
+                    } while (0)
+                    MIXSOUND2D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 }
-                #undef MIXSOUND_POSCHECK
             } else {
-                #define MIXSOUND_POSCHECK (pos >= len)
                 if (is8bit) {
-                    MIXSOUND2D_BODY (
-                        if (pos >= 0 && pos < len) {
-                            l = data.i8[pos * channels] - 128;
-                            l = l * 256 + (l + 128);
-                            r = data.i8[pos * channels + stereo] - 128;
-                            r = r * 256 + (r + 128);
-                            MIXSOUND2D_INTERPBODY (
-                                if (pos2 >= 0 && pos2 < len) {
-                                    l2 = data.i8[pos2 * channels] - 128;
-                                    l2 = l2 * 256 + (l2 + 128);
-                                    r2 = data.i8[pos2 * channels + stereo] - 128;
-                                    r2 = r2 * 256 + (r2 + 128);
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, l, r) do {\
+                        l = data.i8[p] - 128;\
+                        l = l * 256 + (l + 128);\
+                        r = l;\
+                    } while (0)
+                    MIXSOUND2D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 } else {
-                    MIXSOUND2D_BODY (
-                        if (pos >= 0 && pos < len) {
-                            l = data.i16[pos * channels];
-                            r = data.i16[pos * channels + stereo];
-                            MIXSOUND2D_INTERPBODY (
-                                if (pos2 >= 0 && pos2 < len) {
-                                    l2 = data.i16[pos2 * channels];
-                                    r2 = data.i16[pos2 * channels + stereo];
-                                } else {
-                                    l2 = 0;
-                                    r2 = 0;
-                                }
-                            )
-                        } else {
-                            l = 0;
-                            r = 0;
-                        }
-                    )
+                    #define MIXSOUND_GETSAMPLE(p, l, r) r = l = data.i16[p]
+                    MIXSOUND2D_BODY();
+                    #undef MIXSOUND_GETSAMPLE
                 }
-                #undef MIXSOUND_POSCHECK
             }
         } break;
+        case RC_SOUND_FRMT_VORBIS: {
+            #define MIXSOUND_GETSAMPLE(p, l, r) getvorbisat(s, p, &l, &r)
+            MIXSOUND2D_BODY();
+            #undef MIXSOUND_GETSAMPLE
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            #define MIXSOUND_GETSAMPLE(p, l, r) getmp3at(s, p, stereo, &l, &r)
+            MIXSOUND2D_BODY();
+            #undef MIXSOUND_GETSAMPLE
+        } break;
+        #endif
     }
     #ifndef PSRC_NOMT
     readToWriteAccess(&audiostate.lock);
@@ -853,17 +659,13 @@ static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int o
     #endif
     return true;
 }
-#define MIXSOUND2DFAKE_CALCPOS() {\
-    offset += freq / audiostate.freq;\
-    frac += freq % audiostate.freq;\
-    offset += frac / audiostate.freq;\
-    frac %= audiostate.freq;\
-    pos = offset;\
-}
+#undef MIXSOUND2D_LOOP_COMMON
+#undef MIXSOUND2D_LOOP
+#undef MIXSOUND2D_BODY
 #define MIXSOUND2DFAKE_BODY(c) {\
     int i = 0;\
     while (1) {\
-        MIXSOUND2DFAKE_CALCPOS();\
+        MIXSOUND2D_CALCPOS();\
         c\
         ++i;\
         if (i == audiostate.audbuf.len) {if (MIXSOUND_POSCHECK) return false; break;}\
@@ -899,6 +701,9 @@ static bool mixsound_2d_fake(struct audiosound* s, uint8_t flags) {
     #endif
     return true;
 }
+#undef MIXSOUND2DFAKE_BODY
+#undef MIXSOUND2D_CALCPOS
+
 static void mixsounds(int buf) {
     int* audbuf[2] = {audiostate.audbuf.data[buf][0], audiostate.audbuf.data[buf][1]};
     memset(audbuf[0], 0, audiostate.audbuf.len * sizeof(*audbuf[0]));
@@ -1092,20 +897,23 @@ static void setSoundData(struct audiosound* s, struct rc_sound* rc) {
     switch ((uint8_t)rc->format) {
         case RC_SOUND_FRMT_VORBIS: {
             s->vorbis = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL);
-            s->audbuf.off = 0;
+            //s->audbuf.off = 0;
             s->audbuf.len = audiostate.audbuflen;
-            s->audbuf.data[0] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[0]));
-            s->audbuf.data[1] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[1]));
-            stb_vorbis_get_samples_short(s->vorbis, 2, s->audbuf.data, s->audbuf.len);
+            //s->audbuf.data[0] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[0]));
+            //s->audbuf.data[1] = malloc(s->audbuf.len * sizeof(*s->audbuf.data[1]));
+            //stb_vorbis_get_samples_short(s->vorbis, 2, s->audbuf.data, s->audbuf.len);
+            s->audbuf.data[0] = NULL;
+            s->audbuf.data[1] = NULL;
         } break;
         #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3: {
             s->mp3 = malloc(sizeof(*s->mp3));
             mp3dec_ex_open_buf(s->mp3, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE);
-            s->audbuf.off = 0;
+            //s->audbuf.off = 0;
             s->audbuf.len = audiostate.audbuflen;
-            s->audbuf.data_mp3 = malloc(s->audbuf.len * rc->channels * sizeof(*s->audbuf.data_mp3));
-            mp3dec_ex_read(s->mp3, s->audbuf.data_mp3, s->audbuf.len);
+            //s->audbuf.data_mp3 = malloc(s->audbuf.len * rc->channels * sizeof(*s->audbuf.data_mp3));
+            //mp3dec_ex_read(s->mp3, s->audbuf.data_mp3, s->audbuf.len);
+            s->audbuf.data_mp3 = NULL;
         } break;
         #endif
     }
