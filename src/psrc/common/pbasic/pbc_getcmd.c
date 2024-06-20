@@ -1,4 +1,4 @@
-static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, unsigned nl, unsigned nc, bool func, bool useret, struct pbc_databuf* ops) {
+static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, unsigned nl, unsigned nc, bool func, bool useret, struct membuf* ops) {
     int c = name[0];
     if (c >= 'A' || c <= 'Z') c |= 0x20;
     ++name;
@@ -34,18 +34,19 @@ static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, u
                         //printf("SUB: {%s}\n", cb.data);
                         //pbc_pushscope(ctx, PBC_SCOPE_SUB);
                         //int sub = pbc_getsub(ctx, cb.data);
-                        //pbc_db_put8(ops, PBVM_OP_DEFSUB);
-                        //pbc_db_put32(ops, sub);
-                        //pbc_db_put8(ops, rt);
-                        //pbc_db_put32(ops, dim);
+                        //mb_put8(ops, PBVM_OP_DEFSUB);
+                        //mb_put32(ops, sub);
+                        //mb_put8(ops, rt);
+                        //mb_put32(ops, dim);
                         if (pbc_geteos_inline(ctx, false, err)) {
-                            //pbc_db_put32(ops, 0);
+                            //mb_put32(ops, 0);
                             cb_dump(&cb);
                             return true;
                         }
                         cb_clear(&cb);
                     }
-                    //unsigned argcoff = pbc_db_fake32(ops);
+                    //unsigned argcoff = ops.len;
+                    //mb_putfake(ops, 4);
                     unsigned argc = 1;
                     while (1) {
                         enum pbtype t = pbc_gettype_cb_inline(ctx, true, &dim, &nl, &nc, &cb, err);
@@ -67,8 +68,8 @@ static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, u
                         //    return false;
                         //}
                         //printf("ARG: {%d, %s}\n", t, cb.data);
-                        //pbc_db_put8(ops, t);
-                        //pbc_db_put32(ops, dim);
+                        //mb_put8(ops, t);
+                        //mb_put32(ops, dim);
                         int r = pbc_getsep_inline(ctx, false, err);
                         if (r == -1) {
                             cb_dump(&cb);
@@ -81,7 +82,7 @@ static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, u
                     }
                     cb_dump(&cb);
                     if (!pbc_geteos_inline(ctx, true, err)) return false;
-                    //pbc_db_put32at(ops, argcoff, argc);
+                    //mb_put32at(ops, argcoff, argc);
                     return true;
                 }
                 break;

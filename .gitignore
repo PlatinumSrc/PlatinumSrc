@@ -19,3 +19,4 @@
 .**
 !/.gitattributes
 !/.gitignore
+/engine/config.cfg

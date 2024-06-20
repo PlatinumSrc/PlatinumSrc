@@ -332,7 +332,7 @@ static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx*
         if (flags & SOUNDFLAG_WRAP) MIXSOUND3D_LOOP(pos = ((pos % len) + len) % len, pos2 = ((pos2 % len) + len) % len, 0, 0);\
         else MIXSOUND3D_LOOP(if (pos >= 0) pos %= len, if (pos2 >= 0) pos2 %= len, (pos < 0), 0);\
     } else {\
-        MIXSOUND3D_LOOP((void)0, (void)0, (pos >= len || pos < 0), (pos2 >= len));\
+        MIXSOUND3D_LOOP(,,(pos >= len || pos < 0), (pos2 >= len));\
     }\
 } while (0)
 static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
@@ -574,7 +574,7 @@ static bool mixsound_3d_fake(struct audiosound_3d* s) {
 } while (0)
 #define MIXSOUND2D_BODY() do {\
     if (flags & SOUNDFLAG_LOOP) MIXSOUND2D_LOOP(if (pos >= 0) pos %= len, if (pos2 >= 0) pos2 %= len, (pos < 0), 0);\
-    else MIXSOUND2D_LOOP((void)0, (void)0, (pos >= len || pos < 0), (pos2 >= len));\
+    else MIXSOUND2D_LOOP(,,(pos >= len || pos < 0), (pos2 >= len));\
 } while (0)
 static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int oldvol, int newvol, int volmul) {
     struct rc_sound* rc = s->rc;

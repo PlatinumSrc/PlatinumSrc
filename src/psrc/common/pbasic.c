@@ -483,7 +483,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 case PBC_PEOP_NEG: stack.data[stack.index] *= -stack.data[stack.index]; break;
                 case PBC_PEOP_NOT: stack.data[stack.index] = !stack.data[stack.index]; break;
                 case PBC_PEOP_BNOT: stack.data[stack.index] = ~stack.data[stack.index]; break;
-                default:
+                default: {
                     int tmp = stack.data[stack.index];
                     --stack.index;
                     switch (d.data) {
@@ -506,7 +506,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         case PBC_PEOP_AND: stack.data[stack.index] = (stack.data[stack.index] && tmp); break;
                         case PBC_PEOP_OR: stack.data[stack.index] = (stack.data[stack.index] || tmp); break;
                     }
-                    break;
+                } break;
             }
             ++stack.index;
         } else {
@@ -807,9 +807,9 @@ static inline bool pbc_geteos_inline(struct pbc* ctx, bool needed, struct charbu
     }
 }
 
-static bool pbc_getcmd(struct pbc*, struct charbuf*, const char*, unsigned, unsigned, bool, bool, struct pbc_databuf*);
+static bool pbc_getcmd(struct pbc*, struct charbuf*, const char*, unsigned, unsigned, bool, bool, struct membuf*);
 
-static bool pbc_getexpr(struct pbc* ctx, struct pbc_databuf* ops, struct charbuf* err) {
+static bool pbc_getexpr(struct pbc* ctx, struct membuf* ops, struct charbuf* err) {
     if (!ops) ops = &ctx->ops;
 }
 

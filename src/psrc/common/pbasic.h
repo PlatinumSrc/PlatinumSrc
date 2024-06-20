@@ -2,6 +2,7 @@
 #define PSRC_COMMON_PBASIC_H
 
 #include "string.h"
+#include "memory.h"
 #include "threading.h"
 
 #include <stdint.h>
@@ -118,11 +119,6 @@ struct pbc_label {
     uint32_t namecrc;
     int location;
 };
-struct pbc_databuf {
-    void* data;
-    int len;
-    int size;
-};
 struct pbc_scope {
     struct {
         struct pbc_name* data;
@@ -143,8 +139,8 @@ struct pbc {
         int current;
         int size;
     } scopes;
-    struct pbc_databuf ops;
-    struct pbc_databuf constdata;
+    struct membuf ops;
+    struct membuf constdata;
     struct {
         struct pbc_name* data;
         int len;

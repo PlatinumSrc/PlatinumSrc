@@ -46,7 +46,6 @@
       <keyword>argc</keyword>
       <keyword>argv</keyword>
       <keyword>as</keyword>
-      <keyword>data</keyword>
       <keyword>del</keyword>
       <keyword>delsub</keyword>
       <keyword>dim</keyword>
@@ -57,10 +56,8 @@
       <keyword>end</keyword>
       <keyword>for</keyword>
       <keyword>gosub</keyword>
-      <keyword>goto</keyword>
       <keyword>if</keyword>
       <keyword>ignore</keyword>
-      <keyword>label</keyword>
       <keyword>len</keyword>
       <keyword>on</keyword>
       <keyword>return</keyword>

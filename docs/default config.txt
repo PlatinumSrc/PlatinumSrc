@@ -2,6 +2,7 @@ defaultgame = default # read before loading user config
 mods = 
 
 [ Renderer ]
+  backend = # platform-dependent
   resolution.windowed = 800x600
   resolution.fullscreen = 
   fullscreen = false
