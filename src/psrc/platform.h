@@ -15,10 +15,11 @@
 #define PLAT_OPENBSD   11
 #define PLAT_PS2       12
 #define PLAT_UNIX      13
-#define PLAT_WII       14
-#define PLAT_WIN32     15
-#define PLAT_NXDK      16
-#define PLAT__COUNT    17
+#define PLAT_UWP       14
+#define PLAT_WII       15
+#define PLAT_WIN32     16
+#define PLAT_NXDK      17
+#define PLAT__COUNT    18
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -35,6 +36,7 @@
 #define BO_BE 4321
 
 #define PLATFLAG_UNIXLIKE (1 << 0)
+#define PLATFLAG_WINDOWSLIKE (1 << 1)
 
 #if defined(__3DS__)
     #define PLATFORM PLAT_3DS
@@ -75,15 +77,18 @@
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
+#elif defined(PSRC_UWP) || defined(__WINRT__)
+    #define PLATFORM PLAT_UWP
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(__wii__)
     #define PLATFORM PLAT_WII
     #define PLATFLAGS (0)
 #elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
     #define PLATFORM PLAT_WIN32
-    #define PLATFLAGS (0)
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(NXDK)
     #define PLATFORM PLAT_NXDK
-    #define PLATFLAGS (0)
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATFLAGS (0)

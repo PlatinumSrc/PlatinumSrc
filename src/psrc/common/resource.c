@@ -627,7 +627,12 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                     }
                 #endif
                 } else if (ext == extlist[RC_SOUND][2]) {
-                    SDL_RWops* rwops = SDL_RWFromFP(f, false);
+                    SDL_RWops* rwops;
+                    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    rwops = SDL_RWFromFP(f, false);
+                    #else
+                    rwops = SDL_RWFromFile(p, "rb");
+                    #endif
                     if (rwops) {
                         SDL_AudioSpec spec;
                         uint8_t* data;
@@ -642,52 +647,47 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 #else
                                 is8bit = (spec.format == AUDIO_U8 || spec.format == AUDIO_S8);
                                 #endif
-                                if (is8bit) {
-                                    destfrmt = AUDIO_U8;
-                                } else {
-                                    destfrmt = AUDIO_S16SYS;
-                                }
+                                destfrmt = (is8bit) ? AUDIO_U8 : AUDIO_S16SYS;
                             }
                             int ret = SDL_BuildAudioCVT(
                                 &cvt,
                                 spec.format, spec.channels, spec.freq,
                                 destfrmt, (spec.channels > 1) + 1, spec.freq
                             );
-                            if (ret >= 0) {
-                                if (ret) {
-                                    cvt.len = sz;
-                                    data = SDL_realloc(data, cvt.len * cvt.len_mult);
-                                    cvt.buf = data;
-                                    if (SDL_ConvertAudio(&cvt)) {
-                                        free(data);
-                                    } else {
-                                        data = SDL_realloc(data, cvt.len_cvt);
-                                        sz = cvt.len_cvt;
-                                        d = loadResource_newptr(t, g, p, pcrc);
-                                        d->sound.data.format = RC_SOUND_FRMT_WAV;
-                                        d->sound.data.size = sz;
-                                        d->sound.data.data = data;
-                                        d->sound.data.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                                        d->sound.data.freq = spec.freq;
-                                        d->sound.data.channels = spec.channels;
-                                        d->sound.data.is8bit = (destfrmt == AUDIO_U8);
-                                        d->sound.data.stereo = (spec.channels > 1);
-                                        d->sound.opt = *o.sound;
-                                    }
+                            if (!ret) {
+                                d = loadResource_newptr(t, g, p, pcrc);
+                                d->sound.data.format = RC_SOUND_FRMT_WAV;
+                                d->sound.data.size = sz;
+                                d->sound.data.data = data;
+                                d->sound.data.len = sz / spec.channels / ((destfrmt == AUDIO_S16SYS) + 1);
+                                d->sound.data.freq = spec.freq;
+                                d->sound.data.channels = spec.channels;
+                                d->sound.data.is8bit = (destfrmt == AUDIO_U8);
+                                d->sound.data.stereo = (spec.channels > 1);
+                                d->sound.data.sdlfree = 1;
+                                d->sound.opt = *o.sound;
+                            } else if (ret == 1) {
+                                cvt.len = sz;
+                                data = SDL_realloc(data, cvt.len * cvt.len_mult);
+                                cvt.buf = data;
+                                if (SDL_ConvertAudio(&cvt)) {
+                                    SDL_FreeWAV(data);
                                 } else {
+                                    data = SDL_realloc(data, cvt.len_cvt);
                                     d = loadResource_newptr(t, g, p, pcrc);
                                     d->sound.data.format = RC_SOUND_FRMT_WAV;
-                                    d->sound.data.size = sz;
+                                    d->sound.data.size = cvt.len_cvt;
                                     d->sound.data.data = data;
-                                    d->sound.data.len = sz / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
+                                    d->sound.data.len = cvt.len_cvt / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
                                     d->sound.data.freq = spec.freq;
-                                    d->sound.data.channels = spec.channels;
+                                    d->sound.data.channels = (spec.channels > 1) + 1;
                                     d->sound.data.is8bit = (destfrmt == AUDIO_U8);
                                     d->sound.data.stereo = (spec.channels > 1);
+                                    d->sound.data.sdlfree = 1;
                                     d->sound.opt = *o.sound;
                                 }
                             } else {
-                                free(data);
+                                SDL_FreeWAV(data);
                             }
                         }
                         SDL_RWclose(rwops);
@@ -844,7 +844,8 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
             pb_deletescript(&r->script.data.script);
         } break;
         case RC_SOUND: {
-            free(r->sound.data.data);
+            if (r->sound.data.format == RC_SOUND_FRMT_WAV && r->sound.data.sdlfree) SDL_FreeWAV(r->sound.data.data);
+            else free(r->sound.data.data);
         } break;
         case RC_TEXTURE: {
             free(r->texture.data.data);

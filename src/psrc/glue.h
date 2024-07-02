@@ -7,6 +7,7 @@
     #define pause() Sleep(INFINITE)
     #define strcasecmp _stricmp
     #define realpath(x, y) _fullpath(y, x, 0)
+    #define mkdir _mkdir
 #endif
 
 #ifndef _WIN32

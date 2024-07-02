@@ -8,8 +8,10 @@
 #elif PLATFORM == PLAT_DREAMCAST
     #include <dirent.h>
 #else
+    #include <sys/types.h>
     #include <sys/stat.h>
-    #if PLATFORM == PLAT_WIN32
+    #include <unistd.h>
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         #include <windows.h>
     #endif
     #ifndef PSRC_USESDL1
@@ -18,6 +20,8 @@
 #endif
 #include <stdio.h>
 #include <stdbool.h>
+
+#include "../glue.h"
 
 int isFile(const char* p) {
     #if PLATFORM != PLAT_NXDK
@@ -41,24 +45,22 @@ long getFileSize(FILE* f, bool c) {
     long tmp;
     if (!c) tmp = ftell(f);
     if (!fseek(f, 0, SEEK_END)) ret = ftell(f);
-    if (c) {
-        fclose(f);
-    } else {
-        fseek(f, tmp, SEEK_SET);
-    }
+    if (c) fclose(f);
+    else fseek(f, tmp, SEEK_SET);
     return ret;
 }
 
-static inline bool isSepChar(char c) {
-    #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
+static inline __attribute__((always_inline)) bool isSepChar(char c) {
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     return (c == '/');
     #else
     return (c == '/' || c == '\\');
     #endif
 }
+
 static void replsep(struct charbuf* b, const char* s, bool first) {
     if (first) {
-        #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
+        #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         if (*s == '/') {
             cb_add(b, '/');
             ++s;
@@ -75,11 +77,7 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
             sep = true;
         } else {
             if (sep) {
-                #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
-                cb_add(b, '/');
-                #else
-                cb_add(b, '\\');
-                #endif
+                cb_add(b, PATHSEP);
                 sep = false;
             }
             cb_add(b, c);
@@ -102,11 +100,7 @@ char* mkpath(const char* s, ...) {
         }
     }
     while ((s = va_arg(v, char*))) {
-        #if PLATFORM != PLAT_WIN32 && PLATFORM != PLAT_NXDK
-        cb_add(&b, '/');
-        #else
-        cb_add(&b, '\\');
-        #endif
+        cb_add(&b, PATHSEP);
         replsep(&b, s, false);
     }
     ret:;
@@ -124,6 +118,78 @@ char* strrelpath(const char* s) {
     cb_init(&b, 256);
     replsep(&b, s, false);
     return cb_finalize(&b);
+}
+
+bool md(const char* p) {
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    char c = *p;
+    if (isSepChar(c)) {cb_add(&cb, c); ++p;}
+    while ((c == *p)) {
+        if (isSepChar(c)) {
+            int t = isFile(cb_peek(&cb));
+            if (t < 0) {
+                bool cond;
+                #if PLATFORM != PLAT_NXDK
+                cond = (mkdir(cb.data) < 0);
+                #else
+                cond = (!CreateDirectory(cb.data, NULL));
+                #endif
+                if (cond) {
+                    cb_dump(&cb);
+                    return false;
+                }
+            } else if (t > 0) {
+                // is a file
+                cb_dump(&cb);
+                return false;
+            }
+        }
+        cb_add(&cb, c);
+        ++p;
+    }
+    cb_dump(&cb);
+    return true;
+}
+
+char** ls(const char* p) {
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    DIR* d = opendir(p);
+    if (!d) return NULL;
+    struct charbuf names, statname;
+    cb_init(&names);
+    cb_init(&statname);
+    cb_addstr(&statname, p);
+    if (statname.len > 0 && !isSepChar(statname.data[statname.len - 1])) cb_add(&statname, PATHSEP);
+    int snl = statname.len;
+    char** data = malloc(16 * sizeof(*data));
+    int len = 1;
+    int size = 16;
+    struct dirent* de;
+    while ((de = readdir(d))) {
+        cb_addstr(&statname, d->d_name);
+        struct stat s;
+        if (!lstat(cb_peek(&statname), &s)) {
+            char i = (S_ISDIR(s.st_mode)) ? LS_ISDIR : 0;
+            #ifdef S_ISLNK
+            if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
+            #endif
+            cb_add(&names, i);
+            cb_addstr(&names, d->d_name);
+        }
+        statname.len = snl;
+    }
+    #else
+    #endif
+    return &data[1];
+}
+void freels(char** d) {
+    free(d[-1]);
+    free(d);
+}
+
+bool rm(const char* p) {
+    
 }
 
 char* mkmaindir(void) {

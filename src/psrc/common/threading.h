@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
         #include <windows.h>
     #else
         #include <pthread.h>
@@ -27,7 +27,7 @@ struct thread_data {
 typedef void* (*threadfunc_t)(struct thread_data*);
 typedef struct thread_t {
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     HANDLE thread;
     #else
     pthread_t thread;
@@ -38,12 +38,12 @@ typedef struct thread_t {
     char* name;
     threadfunc_t func;
     struct thread_data data;
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     void* ret;
     #endif
 } thread_t;
 #ifndef PSRC_USESTDTHREAD
-#if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+#if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
 typedef CRITICAL_SECTION mutex_t;
 #else
 typedef pthread_mutex_t mutex_t;
@@ -61,7 +61,7 @@ void quitThread(thread_t*);
 void destroyThread(thread_t*, void** ret);
 
 #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
         #define yield() Sleep(0)
     #else
         #define yield() sched_yield()
@@ -72,7 +72,7 @@ void destroyThread(thread_t*, void** ret);
 
 static inline bool createMutex(mutex_t* m) {
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     InitializeCriticalSection(m);
     return true;
     #else
@@ -84,7 +84,7 @@ static inline bool createMutex(mutex_t* m) {
 }
 static inline void lockMutex(mutex_t* m) {
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     EnterCriticalSection(m);
     #else
     while (pthread_mutex_lock(m)) {}
@@ -101,7 +101,7 @@ static inline void lockMutex(mutex_t* m) {
 }
 static inline void unlockMutex(mutex_t* m) {
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     LeaveCriticalSection(m);
     #else
     while (pthread_mutex_unlock(m)) {}
@@ -112,7 +112,7 @@ static inline void unlockMutex(mutex_t* m) {
 }
 static inline void destroyMutex(mutex_t* m) {
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     DeleteCriticalSection(m);
     #else
     pthread_mutex_destroy(m);

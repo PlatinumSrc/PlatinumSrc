@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+#if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
 DWORD WINAPI threadwrapper(LPVOID t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     ExitThread(0);
@@ -43,7 +43,7 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.shouldclose = false;
     bool fail;
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
     #else
     fail = pthread_create(&t->thread, NULL, threadwrapper, t);
@@ -74,7 +74,7 @@ void destroyThread(thread_t* t, void** r) {
     #endif
     t->data.shouldclose = true;
     #ifndef PSRC_USESTDTHREAD
-    #if PLATFORM == PLAT_WIN32 && !defined(PSRC_USEWINPTHREAD)
+    #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
     WaitForSingleObject(t->thread, INFINITE);
     if (r) *r = t->ret;
     #else

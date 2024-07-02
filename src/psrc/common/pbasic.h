@@ -121,7 +121,7 @@ struct pbc_label {
 };
 struct pbc_scope {
     struct {
-        struct pbc_name* data;
+        int* data;
         int len;
         int size;
     } locals;
@@ -141,11 +141,6 @@ struct pbc {
     } scopes;
     struct membuf ops;
     struct membuf constdata;
-    struct {
-        struct pbc_name* data;
-        int len;
-        int size;
-    } consts;
     struct {
         struct pbc_name* data;
         int len;

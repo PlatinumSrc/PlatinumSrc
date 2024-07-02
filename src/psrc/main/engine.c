@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>
-#if PLATFORM == PLAT_WIN32
+#if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
     #include <windows.h>
 #elif PLATFORM == PLAT_EMSCR
     #include <emscripten.h>
@@ -150,7 +150,7 @@ static void sigh(int sig) {
                     sigh_cb_addstr(&cb, "` HERE AND DELETE THIS TEXT !!!***");
                 }
                 puts(cb_peek(&cb));
-                #if PLATFORM == PLAT_WIN32
+                #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
                 ShellExecute(NULL, NULL, cb_peek(&cb), NULL, NULL, SW_NORMAL);
                 #elif PLATFORM == PLAT_ANDROID
                 execlp("am", "am", "start", "-a", "android.intent.action.VIEW", "-d", cb_peek(&cb), NULL);
@@ -992,6 +992,8 @@ int main(int argc, char** argv) {
         }
     }
     timeBeginPeriod(tmrres);
+    #endif
+    #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
     QueryPerformanceFrequency(&perfctfreq);
     while (!(perfctfreq.QuadPart % 10) && !(perfctmul % 10)) {
         perfctfreq.QuadPart /= 10;

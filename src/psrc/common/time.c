@@ -7,7 +7,7 @@
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#if PLATFORM == PLAT_WIN32
+#if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
 LARGE_INTEGER perfctfreq;
 uint64_t perfctmul = 1000000;
 #elif PLATFORM == PLAT_NXDK
@@ -15,7 +15,7 @@ uint64_t perfctfreq;
 #endif
 
 uint64_t altutime(void) {
-    #if PLATFORM == PLAT_WIN32
+    #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     return time.QuadPart * perfctmul / perfctfreq.QuadPart;
@@ -30,7 +30,7 @@ uint64_t altutime(void) {
 }
 
 void microwait(uint64_t d) {
-    #if PLATFORM == PLAT_WIN32
+    #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
     #ifndef PSRC_NOMT
     static __thread HANDLE timer = NULL;
     #else
