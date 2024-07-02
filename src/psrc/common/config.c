@@ -701,12 +701,12 @@ bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
             } else {
                 plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
             }
-            return NULL;
+            return false;
         }
         f = fopen(p, "r");
         if (!f) {
             plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-            return NULL;
+            return false;
         }
     }
     #if DEBUG(1)

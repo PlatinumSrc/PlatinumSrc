@@ -93,14 +93,17 @@ static struct {
     union {
         #ifdef PSRC_USEGL11
         struct {
+            char _placeholder;
         } gl11;
         #endif
         #ifdef PSRC_USEGL33
         struct {
+            char _placeholder;
         } gl33;
         #endif
         #ifdef PSRC_USEGLES30
         struct {
+            char _placeholder;
         } gles30;
         #endif
     };

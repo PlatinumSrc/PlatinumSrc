@@ -182,9 +182,9 @@ char** ls(const char* p) {
         }
         statname.len = snl;
     }
+    return &data[1];
     #else
     #endif
-    return &data[1];
 }
 void freels(char** d) {
     free(d[-1]);

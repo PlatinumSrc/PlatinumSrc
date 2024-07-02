@@ -96,6 +96,7 @@ struct rcdata {
             struct rcopt_model opt;
         } model;
         struct {
+            int _placeholder;
             //struct rc_playermodel data;
             //struct rcopt_playermodel opt;
         } playermodel;
@@ -134,7 +135,7 @@ struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
 struct rcopt_script scriptopt_default = {
-    (struct pbc_opt){.findpv = common_findpv}
+    (struct pbc_opt){0}
 };
 struct rcopt_sound soundopt_default = {
     true
@@ -415,7 +416,7 @@ static struct rcdata* loadResource_internal(enum rctype, const char*, union rcop
 static inline void* loadResource_wrapper(enum rctype t, const char* uri, union rcopt o, struct charbuf* e) {
     struct rcdata* r = loadResource_internal(t, uri, o, e);
     if (!r) return NULL;
-    return (void*)r + sizeof(struct rcheader);
+    return (void*)(((uint8_t*)r) + sizeof(struct rcheader));
 }
 #define loadResource_wrapper(t, p, o, e) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)}, e)
 
@@ -825,7 +826,7 @@ void* loadResource(enum rctype t, const char* uri, void* o, struct charbuf* e) {
 static void freeResource_internal(struct rcdata*);
 
 static inline void freeResource_wrapper(void* r) {
-    if (r) freeResource_internal(r - sizeof(struct rcheader));
+    if (r) freeResource_internal((void*)(((uint8_t*)r) - sizeof(struct rcheader)));
 }
 
 static inline void freeResource_force(enum rctype type, struct rcdata* r) {
@@ -872,7 +873,7 @@ void freeResource(void* r) {
         #ifndef PSRC_NOMT
         lockMutex(&rclock);
         #endif
-        freeResource_internal(r - sizeof(struct rcheader));
+        freeResource_internal((void*)(((uint8_t*)r) - sizeof(struct rcheader)));
         #ifndef PSRC_NOMT
         unlockMutex(&rclock);
         #endif
@@ -884,7 +885,7 @@ void grabResource(void* _r) {
         #ifndef PSRC_NOMT
         lockMutex(&rclock);
         #endif
-        struct rcdata* r = _r - sizeof(struct rcheader);
+        struct rcdata* r = (void*)(((uint8_t*)_r) - sizeof(struct rcheader));
         ++r->header.refs;
         #ifndef PSRC_NOMT
         unlockMutex(&rclock);

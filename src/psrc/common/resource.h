@@ -134,7 +134,7 @@ PACKEDSTRUCT(rcopt_model {
 
 // RC_MAP
 PACKEDSTRUCT(rc_map {
-    int placeholder;
+    int _placeholder;
 });
 PACKEDENUM(rcopt_map_loadsect {
     RCOPT_MAP_LOADSECT_ALL,
