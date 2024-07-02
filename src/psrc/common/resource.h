@@ -100,13 +100,13 @@ PACKEDSTRUCT(rcopt_material {
 });
 
 // RC_SOUND
-PACKEDENUM(rc_sound_frmt {
+enum PACKED rc_sound_frmt {
     RC_SOUND_FRMT_WAV,
     RC_SOUND_FRMT_VORBIS,
     #ifdef PSRC_USEMINIMP3
     RC_SOUND_FRMT_MP3
     #endif
-});
+};
 PACKEDSTRUCT(rc_sound {
     enum rc_sound_frmt format;
     long size; // size of data in bytes
@@ -134,7 +134,7 @@ PACKEDSTRUCT(rcopt_model {
 
 // RC_MAP
 PACKEDSTRUCT(rc_map {
-    
+    int placeholder;
 });
 PACKEDENUM(rcopt_map_loadsect {
     RCOPT_MAP_LOADSECT_ALL,

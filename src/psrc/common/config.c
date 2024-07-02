@@ -323,7 +323,7 @@ static inline int interpesc(FILE* f, int c, char* out) {
         case 'b':
             *out++ = '\b'; *out = 0; return 1;
         case 'e':
-            *out++ = '\e'; *out = 0; return 1;
+            *out++ = '\x1b'; *out = 0; return 1;
         case 'f':
             *out++ = '\f'; *out = 0; return 1;
         case 'n':

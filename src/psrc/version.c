@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "glue.h"
+
 #define _STR(x) #x
 #define STR(x) _STR(x)
 

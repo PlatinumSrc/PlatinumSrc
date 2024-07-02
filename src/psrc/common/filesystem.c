@@ -8,11 +8,12 @@
 #elif PLATFORM == PLAT_DREAMCAST
     #include <dirent.h>
 #else
-    #include <dirent.h>
     #include <sys/types.h>
     #include <sys/stat.h>
-    #include <unistd.h>
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        #include <dirent.h>
+        #include <unistd.h>
+    #else
         #include <windows.h>
     #endif
     #ifndef PSRC_USESDL1

@@ -27,7 +27,9 @@
     #include <signal.h>
 #endif
 #include <string.h>
-#include <unistd.h>
+#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>

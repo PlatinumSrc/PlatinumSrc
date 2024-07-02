@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include <unistd.h>
+#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include <unistd.h>
+#endif
 #include <stdarg.h>
 #include <stdbool.h>
 
@@ -25,6 +27,8 @@
         #include <SDL2/SDL.h>
     #endif
 #endif
+
+#include "../glue.h"
 
 #define _STR(x) #x
 #define STR(x) _STR(x)

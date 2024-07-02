@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include "../glue.h"
+
 #if (PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP) && !defined(PSRC_USEWINPTHREAD)
 DWORD WINAPI threadwrapper(LPVOID t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);

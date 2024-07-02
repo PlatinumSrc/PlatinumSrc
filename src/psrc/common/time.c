@@ -7,7 +7,7 @@
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#include "../glue.h"
+#include "../util.h"
 
 #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
 LARGE_INTEGER perfctfreq;

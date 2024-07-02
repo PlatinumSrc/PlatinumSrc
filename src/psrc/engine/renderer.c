@@ -20,6 +20,8 @@
 #include <math.h>
 #include <stdarg.h>
 
+#include "../glue.h"
+
 struct rendstate rendstate;
 
 const char* rendapi_ids[] = {

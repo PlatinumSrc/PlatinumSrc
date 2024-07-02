@@ -6,6 +6,7 @@
 #else
     #define pause() Sleep(INFINITE)
     #define strcasecmp _stricmp
+    #define strdup _strdup
     #define realpath(x, y) _fullpath(y, x, 0)
     #define mkdir _mkdir
 #endif
@@ -20,6 +21,10 @@
     #define PRIuz "Iu"
     #define PRIxz "Ix"
     #define PRIXz "IX"
+#endif
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
 #endif
 
 #endif
