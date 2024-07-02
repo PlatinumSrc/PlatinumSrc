@@ -107,7 +107,7 @@ static const uint64_t crc64_table[] = {
 uint32_t crc32(const void* d, size_t l) {
     uint32_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc32_table[(crc ^ *(uint8_t*)d++) & 0xFF] ^ (crc >> 8);
+        crc = crc32_table[(crc ^ *((uint8_t*)d)++) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
@@ -115,7 +115,7 @@ uint32_t crc32(const void* d, size_t l) {
 uint64_t crc64(const void* d, size_t l) {
     uint64_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc64_table[(crc ^ *(uint8_t*)d++) & 0xFF] ^ (crc >> 8);
+        crc = crc64_table[(crc ^ *((uint8_t*)d)++) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }

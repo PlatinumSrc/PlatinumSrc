@@ -92,17 +92,21 @@
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATFLAGS (0)
-    #warning Unknown or unsupported platform. \
-    This will probably result in a broken build.
+    #ifndef _MSC_VER
+        #warning Unknown or unsupported platform. \
+        This will probably result in a broken build.
+    #else
+        #pragma message("Unknown or unsupported platform")
+    #endif
 #endif
 
-#if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64)
+#if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || (defined(_M_AMD64) && !defined(_M_ARM64EC))
     #define ARCH ARCH_AMD64
     #define ARCHSTR "x86 64-bit"
     #ifndef BYTEORDER
         #define BYTEORDER BO_LE
     #endif
-#elif defined(__arm__) && !defined(__aarch64__)
+#elif (defined(__arm__) && !defined(__aarch64__)) || defined(_M_ARM)
     #define ARCH ARCH_ARM
     #define ARCHSTR "Arm"
     #ifndef BYTEORDER
@@ -112,7 +116,7 @@
             #define BYTEORDER BO_BE
         #endif
     #endif
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
     #define ARCH ARCH_ARM64
     #define ARCHSTR "Arm 64-bit"
     #ifndef BYTEORDER
@@ -122,7 +126,7 @@
             #define BYTEORDER BO_BE
         #endif
     #endif
-#elif defined(__i386__) || defined(__i386)
+#elif defined(__i386__) || defined(__i386) || defined(_M_IX86)
     #define ARCH ARCH_I386
     #define ARCHSTR "x86"
     #ifndef BYTEORDER
@@ -143,8 +147,12 @@
 #else
     #define ARCH ARCH_UNKNOWN
     #define ARCHSTR "Unknown"
-    #warning Unknown or unsupported architecture. \
-    This may result in a broken build.
+    #ifndef _MSC_VER
+        #warning Unknown or unsupported architecture. \
+        This may result in a broken build.
+    #else
+        #pragma message("Unknown or unsupported architecture")
+    #endif
 #endif
 
 #ifndef BYTEORDER
@@ -171,8 +179,12 @@
         #endif
     #endif
     #ifndef BYTEORDER
-        #warning Unknown or unsupported byte order. \
-        This will probably result in a broken build.
+        #ifndef _MSC_VER
+            #warning Unknown or unsupported byte order. \
+            This will probably result in a broken build.
+        #else
+            #pragma message("Unknown or unsupported byte order")
+        #endif
     #endif
 #endif
 
