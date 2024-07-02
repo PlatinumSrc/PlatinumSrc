@@ -8,7 +8,9 @@
 #include <string.h>
 #include <errno.h>
 
-enum __attribute__((packed)) loglevel {
+#include "../util.h"
+
+PACKEDENUM(loglevel {
     LL_PLAIN,
     LL_INFO,
     LL_WARN,
@@ -18,7 +20,7 @@ enum __attribute__((packed)) loglevel {
     LF_FUNCLN = 3 << 8,
     LF_MSGBOX = 1 << 10,
     LF_DEBUG = 1 << 11,
-};
+});
 
 #define LE_MEMALLOC "Memory allocation error"
 #define LE_CANTOPEN(p, e) "Failed to open %s: %s", (p), strerror((e))

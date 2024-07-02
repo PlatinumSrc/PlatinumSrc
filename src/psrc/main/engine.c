@@ -208,7 +208,7 @@ static float lookspeed[2];
 static uint64_t toff;
 static uint64_t framestamp;
 
-enum __attribute__((packed)) action {
+PACKEDENUM(action {
     ACTION_NONE,
     ACTION_MENU,
     ACTION_FULLSCREEN,
@@ -224,7 +224,7 @@ enum __attribute__((packed)) action {
     ACTION_WALK,
     ACTION_JUMP,
     ACTION_CROUCH,
-};
+});
 
 int initLoop(void) {
     plog(LL_INFO, "Initializing renderer...");

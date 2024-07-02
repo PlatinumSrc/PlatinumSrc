@@ -13,7 +13,7 @@
 
 struct audiostate audiostate;
 
-static inline __attribute__((always_inline)) void getvorbisat_fillbuf(struct audiosound* s, int off, int len) {
+static FORCEINLINE void getvorbisat_fillbuf(struct audiosound* s, int off, int len) {
     stb_vorbis_seek(s->vorbis, off);
     stb_vorbis_get_samples_short(s->vorbis, 2, s->audbuf.data, len);
 }
@@ -41,13 +41,13 @@ static int getvorbisat_prepbuf(struct audiosound* s, int pos) {
     }
     return pos - off;
 }
-static inline __attribute__((always_inline)) void getvorbisat(struct audiosound* s, int pos, int* out_l, int* out_r) {
+static FORCEINLINE void getvorbisat(struct audiosound* s, int pos, int* out_l, int* out_r) {
     int i = getvorbisat_prepbuf(s, pos);
     *out_l = s->audbuf.data[0][i];
     *out_r = s->audbuf.data[1][i];
 }
 
-static inline __attribute__((always_inline)) void getvorbisat_mono_fillbuf(struct audiosound* s, bool stereo, int off, int len) {
+static FORCEINLINE void getvorbisat_mono_fillbuf(struct audiosound* s, bool stereo, int off, int len) {
     stb_vorbis_seek(s->vorbis, off);
     stb_vorbis_get_samples_short(s->vorbis, 1 + stereo, s->audbuf.data, len);
     int16_t* d[2] = {s->audbuf.data[0], s->audbuf.data[1]};
@@ -81,14 +81,14 @@ static int getvorbisat_mono_prepbuf(struct audiosound* s, int pos, bool stereo) 
     }
     return pos - off;
 }
-static inline __attribute__((always_inline)) void getvorbisat_mono(struct audiosound* s, int pos, bool stereo, int* out) {
+static inline FORCEINLINE void getvorbisat_mono(struct audiosound* s, int pos, bool stereo, int* out) {
     int i = getvorbisat_mono_prepbuf(s, pos, stereo);
     *out = s->audbuf.data[0][i];
 }
 
 #ifdef PSRC_USEMINIMP3
 
-static inline __attribute__((always_inline)) void getmp3at_fillbuf(struct audiosound* s, int off, int len, int ch) {
+static inline FORCEINLINE void getmp3at_fillbuf(struct audiosound* s, int off, int len, int ch) {
     mp3dec_ex_seek(s->mp3, off * ch);
     mp3dec_ex_read(s->mp3, s->audbuf.data_mp3, len * ch);
 }
@@ -115,14 +115,14 @@ static int getmp3at_prepbuf(struct audiosound* s, int pos, int ch) {
     }
     return pos - off;
 }
-static inline __attribute__((always_inline)) void getmp3at(struct audiosound* s, int pos, bool stereo, int* out_l, int* out_r) {
+static inline FORCEINLINE void getmp3at(struct audiosound* s, int pos, bool stereo, int* out_l, int* out_r) {
     int channels = s->rc->channels;
     int i = getmp3at_prepbuf(s, pos, channels) * channels;
     *out_l = s->audbuf.data_mp3[i];
     *out_r = s->audbuf.data_mp3[i + stereo];
 }
 
-static inline __attribute__((always_inline)) void getmp3at_mono_fillbuf(struct audiosound* s, int off, int len, int ch) {
+static inline FORCEINLINE void getmp3at_mono_fillbuf(struct audiosound* s, int off, int len, int ch) {
     mp3d_sample_t* d = s->audbuf.data_mp3;
     mp3dec_ex_seek(s->mp3, off * ch);
     mp3dec_ex_read(s->mp3, d, len * ch);
@@ -155,7 +155,7 @@ static int getmp3at_mono_prepbuf(struct audiosound* s, int pos, int ch) {
     }
     return pos - off;
 }
-static inline __attribute__((always_inline)) void getmp3at_mono(struct audiosound* s, int pos, int* out) {
+static inline FORCEINLINE void getmp3at_mono(struct audiosound* s, int pos, int* out) {
     int channels = s->rc->channels;
     int i = getmp3at_mono_prepbuf(s, pos, channels);
     *out = s->audbuf.data_mp3[i];
@@ -273,7 +273,7 @@ static inline void stop3DSound_inline(struct audiosound_3d* s) {
     --audiostate.emitters.data[s->emitter].uses;
 }
 
-static inline __attribute__((always_inline)) void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
+static inline FORCEINLINE void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
     fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
     fx->speedmul = (sfx[0].speedmul * ii + sfx[1].speedmul * i) / samples;
     fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;

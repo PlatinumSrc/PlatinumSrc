@@ -3,7 +3,7 @@
 
 #include "pbasic.h"
 
-enum __attribute__((packed)) pbvm_op {
+PACKEDENUM(pbvm_op {
     PBVM_OP_NOP,       // Padding
     PBVM_OP_HALT,      // Exit program with a return value of 0
     PBVM_OP_FRAME,     // Push a frame marker (pushes: marker)
@@ -51,7 +51,7 @@ enum __attribute__((packed)) pbvm_op {
     PBVM_OP_OUTTAB,    // Write a tab to the output
     PBVM_OP_OUTNL,     // Write a newline to the output
     PBVM_OP_EXIT       // Exit (pops: retval)
-};
+});
 
 struct pbvm_ccall_arg {
     union pbdata data;
@@ -121,13 +121,13 @@ struct pbvm_tmp {
         unsigned sizeindex;
     };
 };
-enum __attribute__((packed)) pbvm_stackelem_type {
+PACKEDENUM(pbvm_stackelem_type {
     PBVM_SE_TYPE_FRAME,
     PBVM_SE_TYPE_CONST,
     PBVM_SE_TYPE_VAR,
     PBVM_SE_TYPE_LOCAL,
     PBVM_SE_TYPE_TMP
-};
+});
 struct pbvm_stackelem {
     enum pbvm_stackelem_type type;
     unsigned index;

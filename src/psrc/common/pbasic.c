@@ -77,13 +77,13 @@ static void pbc_mkerr(struct pbc* ctx, struct charbuf* err, unsigned l, unsigned
     }
 }
 
-static inline __attribute__((always_inline)) bool pbc_iskwchar(int c) {
+static FORCEINLINE bool pbc_iskwchar(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
-static inline __attribute__((always_inline)) bool pbc_iskwletter(int c) {
+static FORCEINLINE bool pbc_iskwletter(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
-static inline __attribute__((always_inline)) bool pbc_isspace(int c) {
+static FORCEINLINE bool pbc_isspace(int c) {
     return c == ' ' || c == '\t' /* || c == '\v' */;
 }
 
@@ -100,7 +100,7 @@ struct pbc_preproc {
     int size;
 };
 
-enum __attribute__((packed)) pbc_peop {
+PACKEDENUM(pbc_peop {
     PBC_PEOP__INVAL = -1,
     PBC_PEOP_LP, // 0
     PBC_PEOP_RP,
@@ -126,7 +126,7 @@ enum __attribute__((packed)) pbc_peop {
     PBC_PEOP_AND, // 10
     PBC_PEOP_OR, // 11
     PBC_PEOP__COUNT
-};
+});
 static const struct pbc_peopinfo {
     uint8_t r : 1; // is right-to-left
     uint8_t p : 7; // precedence (lower val = higher place)
@@ -833,7 +833,6 @@ bool pb_compilefile(const char* p, struct pbc_opt* o, struct pb_script* out, str
     ctx.scopes.size = 4;
     ctx.ops.size = 256;
     ctx.constdata.size = 32;
-    ctx.consts.size = 4;
     ctx.vars.size = 4;
     ctx.subs.size = 4;
     struct pbc_preproc pctx;

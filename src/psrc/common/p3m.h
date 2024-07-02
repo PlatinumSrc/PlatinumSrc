@@ -3,61 +3,63 @@
 
 #include <stdint.h>
 
+#include "../util.h"
+
 #define P3M_VER_MAJOR 1
 #define P3M_VER_MINOR 1
 
-struct __attribute__((packed)) p3m_vertex {
+PACKEDSTRUCT(p3m_vertex {
     float x;
     float y;
     float z;
     float u;
     float v;
-};
-struct __attribute__((packed)) p3m_indexgroup {
+});
+PACKEDSTRUCT(p3m_indexgroup {
     char* texture;
     uint16_t indexcount;
     uint16_t* indices;
-};
-struct __attribute__((packed)) p3m_bonevertex {
+});
+PACKEDSTRUCT(p3m_bonevertex {
     uint16_t index;
     uint16_t weight;
-};
-struct __attribute__((packed)) p3m_bone {
+});
+PACKEDSTRUCT(p3m_bone {
     char* name;
-    struct __attribute__((packed)) {
+    PACKEDSTRUCT({
         float x;
         float y;
         float z;
-    } head;
-    struct __attribute__((packed)) {
+    }) head;
+    PACKEDSTRUCT({
         float x;
         float y;
         float z;
-    } tail;
+    }) tail;
     uint16_t vertexcount;
     struct p3m_bonevertex* vertices;
     uint8_t childcount;
-};
-struct __attribute__((packed)) p3m_actiontranslation {
+});
+PACKEDSTRUCT(p3m_actiontranslation {
     float x;
     float y;
     float z;
-};
-struct __attribute__((packed)) p3m_actionrotation {
+});
+PACKEDSTRUCT(p3m_actionrotation {
     float x;
     float y;
     float z;
-};
-struct __attribute__((packed)) p3m_actionscale {
+});
+PACKEDSTRUCT(p3m_actionscale {
     float x;
     float y;
     float z;
-};
-enum __attribute__((packed)) p3m_actioninterp {
+});
+PACKEDENUM(p3m_actioninterp {
     P3M_ACTINTERP_NONE,
     P3M_ACTINTERP_LINEAR
-};
-struct __attribute__((packed)) p3m_actionbone {
+});
+PACKEDSTRUCT(p3m_actionbone {
     char* name;
     uint8_t index;
     uint8_t translationcount;
@@ -68,13 +70,13 @@ struct __attribute__((packed)) p3m_actionbone {
     struct p3m_actiontranslation* translations;
     struct p3m_actionrotation* rotations;
     struct p3m_actionscale* scales;
-};
-struct __attribute__((packed)) p3m_action {
+});
+PACKEDSTRUCT(p3m_action {
     uint16_t maxframe;
     uint8_t bonecount;
     struct p3m_actionbone* bones;
-};
-struct __attribute__((packed)) p3m_animation {
+});
+struct p3m_animation {
     char* name;
     uint32_t frametime;
     uint8_t actioncount;

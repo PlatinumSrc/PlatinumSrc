@@ -18,25 +18,27 @@
 
 #include <stdbool.h>
 
-enum __attribute__((packed)) inputdev {
+#include "../util.h"
+
+PACKEDENUM(inputdev {
     INPUTDEV__NULL = -2,
     INPUTDEV__INVALID,
     INPUTDEV_KEYBOARD,
     INPUTDEV_MOUSE,
     INPUTDEV_GAMEPAD,
-};
+});
 
-enum __attribute__((packed)) inputdevpart_mouse {
+PACKEDENUM(inputdevpart_mouse {
     INPART_MOUSE_BUTTON,
     INPART_MOUSE_MOVEMENT,
     INPART_MOUSE_SCROLL,
-};
-enum __attribute__((packed)) inputdevpart_gamepad {
+});
+PACKEDENUM(inputdevpart_gamepad {
     INPART_GAMEPAD_AXIS,
     INPART_GAMEPAD_BUTTON,
-};
+});
 
-enum __attribute__((packed)) inputdevkey_keyboard {
+PACKEDENUM(inputdevkey_keyboard {
     INKEY_KB_ESC, INKEY_KB_F1, INKEY_KB_F2, INKEY_KB_F3, INKEY_KB_F4, INKEY_KB_F5, INKEY_KB_F6, INKEY_KB_F7,
     INKEY_KB_F8, INKEY_KB_F9, INKEY_KB_F10, INKEY_KB_F11, INKEY_KB_F12,
     INKEY_KB_BACKTICK, INKEY_KB_1, INKEY_KB_2, INKEY_KB_3, INKEY_KB_4, INKEY_KB_5, INKEY_KB_6, INKEY_KB_7, INKEY_KB_8,
@@ -60,18 +62,18 @@ enum __attribute__((packed)) inputdevkey_keyboard {
     INKEY_KB_KP_0, INKEY_KB_KP_PERIOD,
     INKEY_KB__COUNT,
     
-};
-enum __attribute__((packed)) inputdevkey_mouse_button {
+});
+PACKEDENUM(inputdevkey_mouse_button {
     INKEY_MOUSE_BUTTON_LEFT,
     INKEY_MOUSE_BUTTON_RIGHT,
     INKEY_MOUSE_BUTTON_MIDDLE,
-};
-enum __attribute__((packed)) inputdevkey_mouse_movement {
+});
+PACKEDENUM(inputdevkey_mouse_movement {
     INKEY_MOUSE_MOVEMENT_PX,
     INKEY_MOUSE_MOVEMENT_PY,
     INKEY_MOUSE_MOVEMENT_NX,
     INKEY_MOUSE_MOVEMENT_NY,
-};
+});
 
 struct inputkey {
     enum inputdev dev;
@@ -113,26 +115,26 @@ struct inputaction {
     void* userdata;
 };
 
-enum __attribute__((packed)) inputactiontype {
+PACKEDENUM(inputactiontype {
     INPUTACTIONTYPE__INVALID = -1,
     INPUTACTIONTYPE_ONCE,
     INPUTACTIONTYPE_SINGLE,
     INPUTACTIONTYPE_MULTI,
-};
+});
 
-struct __attribute__((packed)) inputactiondata {
+PACKEDSTRUCT(inputactiondata {
     enum inputactiontype type;
     char* name;
     struct inputkey* keys;
     void* userdata;
-};
+});
 
-enum __attribute__((packed)) inputmode {
+PACKEDENUM(inputmode {
     INPUTMODE_UI,
     INPUTMODE_INGAME,
     INPUTMODE_TEXTINPUT,
     INPUTMODE_GETKEY,
-};
+});
 
 struct inputstate {
     enum inputmode mode;

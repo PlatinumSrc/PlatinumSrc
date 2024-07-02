@@ -4,16 +4,18 @@
 #include "../common/p3m.h"
 #include "../common/resource.h"
 
-enum __attribute__((packed)) p3m_animmode {
+#include "../util.h"
+
+PACKEDENUM(p3m_animmode {
     P3MA_ANIMMODE_SET,
     P3MA_ANIMMODE_ADD,
-};
+});
 
 #define P3MA_FLAG_ACTIVE (1 << 0)
 #define P3MA_FLAG_ADVANCE (1 << 1)
 #define P3MA_FLAG_LOOP (1 << 2)
 
-struct __attribute__((packed)) p3m_animstackitem {
+PACKEDSTRUCT(p3m_animstackitem {
     struct rc_model* from;
     uint8_t* bonemap;
     uint8_t animation;
@@ -27,7 +29,7 @@ struct __attribute__((packed)) p3m_animstackitem {
         uint8_t act_to;
         uint16_t frame_to;
     } cache;
-};
+});
 struct p3m_animstate {
     struct rc_model* target;
     struct {

@@ -8,6 +8,7 @@
 #elif PLATFORM == PLAT_DREAMCAST
     #include <dirent.h>
 #else
+    #include <dirent.h>
     #include <sys/types.h>
     #include <sys/stat.h>
     #include <unistd.h>
@@ -22,6 +23,7 @@
 #include <stdbool.h>
 
 #include "../glue.h"
+#include "../util.h"
 
 int isFile(const char* p) {
     #if PLATFORM != PLAT_NXDK
@@ -50,7 +52,7 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
-static inline __attribute__((always_inline)) bool isSepChar(char c) {
+static FORCEINLINE bool isSepChar(char c) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     return (c == '/');
     #else
@@ -157,8 +159,8 @@ char** ls(const char* p) {
     DIR* d = opendir(p);
     if (!d) return NULL;
     struct charbuf names, statname;
-    cb_init(&names);
-    cb_init(&statname);
+    cb_init(&names, 256);
+    cb_init(&statname, 256);
     cb_addstr(&statname, p);
     if (statname.len > 0 && !isSepChar(statname.data[statname.len - 1])) cb_add(&statname, PATHSEP);
     int snl = statname.len;
@@ -167,7 +169,7 @@ char** ls(const char* p) {
     int size = 16;
     struct dirent* de;
     while ((de = readdir(d))) {
-        cb_addstr(&statname, d->d_name);
+        cb_addstr(&statname, de->d_name);
         struct stat s;
         if (!lstat(cb_peek(&statname), &s)) {
             char i = (S_ISDIR(s.st_mode)) ? LS_ISDIR : 0;
@@ -175,7 +177,7 @@ char** ls(const char* p) {
             if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
             #endif
             cb_add(&names, i);
-            cb_addstr(&names, d->d_name);
+            cb_addstr(&names, de->d_name);
         }
         statname.len = snl;
     }

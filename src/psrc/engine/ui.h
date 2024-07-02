@@ -8,7 +8,9 @@
 #include "../common/threading.h"
 #include "../common/string.h"
 
-enum __attribute__((packed)) uielemtype {
+#include "../util.h"
+
+PACKEDENUM(uielemtype {
     UIELEMTYPE__INVALID,
     UIELEMTYPE_CONTAINER,
     UIELEMTYPE_BOX,
@@ -24,7 +26,7 @@ enum __attribute__((packed)) uielemtype {
     UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
     UIELEMTYPE__COUNT
-};
+});
 
 enum uiattr {
     UIATTR_END,
@@ -110,7 +112,7 @@ struct uielem_text {
     char* font;
     uint8_t interpesc : 1;
     struct uidata_textfrmt frmt;
-    enum __attribute__((packed)) uiborder border;
+    PACKEDENUM(uiborder) border;
 };
 struct uielem_link {
     char* text;
@@ -118,7 +120,7 @@ struct uielem_link {
     struct uidata_textfrmt frmt;
     struct uidata_textfrmt frmt_hover;
     struct uidata_textfrmt frmt_use;
-    enum __attribute__((packed)) uiborder border;
+    PACKEDENUM(uiborder) border;
 };
 struct uielem_button {
     char* text;

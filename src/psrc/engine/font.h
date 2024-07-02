@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include "../../schrift/schrift.h"
 
+#include "../util.h"
+
 #define FA_BOLD (1 << 0)
 #define FA_ITALIC (1 << 1)
 #define FA_UNDERLINE (1 << 2)
@@ -16,12 +18,12 @@ struct font {
     SFT_Font* font;
 };
 
-struct __attribute__((packed)) fontpage_glyph {
+PACKEDSTRUCT(fontpage_glyph {
     uint16_t x;
     uint16_t y;
     uint8_t w;
     uint8_t h;
-};
+});
 struct fontpage {
     uint8_t uses;
     unsigned page;
@@ -39,14 +41,14 @@ struct fontcache {
     struct fontpage* pages;
 };
 
-enum __attribute__((packed)) fontdrawopcode {
+PACKEDENUM(fontdrawopcode {
     FDOP_PAGE,  // page
     FDOP_FGC,   // color
     FDOP_BGC,   // color
     FDOP_GLYPH, // glyph
     FDOP_X,     // coord
     FDOP_Y      // coord
-};
+});
 struct fontdrawop_page {
     uint8_t pt;
     uint8_t attr;

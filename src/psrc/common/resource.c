@@ -44,7 +44,7 @@
 static mutex_t rclock;
 #endif
 
-union __attribute__((packed)) resource {
+PACKEDUNION(resource {
     void* ptr;
     struct rc_config* config;
     struct rc_font* font;
@@ -56,9 +56,9 @@ union __attribute__((packed)) resource {
     struct rc_sound* sound;
     struct rc_texture* texture;
     struct rc_values* values;
-};
+});
 
-union __attribute__((packed)) rcopt {
+PACKEDUNION(rcopt {
     void* ptr;
     //struct rcopt_config* config;
     //struct rcopt_font* font;
@@ -70,7 +70,7 @@ union __attribute__((packed)) rcopt {
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
     //struct rcopt_values* values;
-};
+});
 
 struct rcdata {
     struct rcheader header;
@@ -118,11 +118,11 @@ struct rcdata {
     };
 };
 
-struct __attribute__((packed)) rcgroup {
+PACKEDSTRUCT(rcgroup {
     int len;
     int size;
     struct rcdata** data;
-};
+});
 
 static struct rcgroup groups[RC__COUNT];
 static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
