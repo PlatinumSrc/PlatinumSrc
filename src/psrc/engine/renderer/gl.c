@@ -32,7 +32,9 @@
     #endif
 #endif
 #if GL_KHR_debug
-    #pragma weak glDebugMessageCallback
+    #ifndef PSRC_USEGLAD
+        #pragma weak glDebugMessageCallback
+    #endif
     static void GLDBGCB gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
         (void)l; (void)u;
         int ll = -1;

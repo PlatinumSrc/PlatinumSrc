@@ -313,10 +313,12 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     cb_clear(&cb);
                     if (c >= '0' && c <= '9') {
                         if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error", "Expected name, given number");
+                        free(expr.ops.data);
                         retval = -1;
                         goto ret;
                     } else if (!pbc_iskwletter(c)) {
                         if (err) pbc_mkerr(ctx, err, nl, nc, "Syntax error", "Expected name");
+                        free(expr.ops.data);
                         retval = -1;
                         goto ret;
                     }
@@ -329,6 +331,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     }
                     if (c != ')') {
                         if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
+                        free(expr.ops.data);
                         retval = -1;
                         goto ret;
                     }
@@ -339,6 +342,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     if (err) pbc_mkerr(ctx, err, nl, nc, "Preprocessor error", "Unrecognized function '");
                     cb_addstr(err, cb.data);
                     cb_add(err, '\'');
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 }
@@ -352,6 +356,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     if (err) pbc_mkerr(ctx, err, nl, nc, "Preprocessor error", "Variable '");
                     cb_addstr(err, cb.data);
                     cb_addstr(err, "' is not defined");
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 }
@@ -369,6 +374,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                         if (c == '\n' || c == '\'' || c == EOF)  pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected name or value");
                         else pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
                     }
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 };
@@ -386,6 +392,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
             case ')':
                 if (!parenct) {
                     if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "')' without matching '('");
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 }
@@ -408,6 +415,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     pbc_pexpr_op(&expr, PBC_PEOP_EQ);
                 } else {
                     if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected '='");
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 }
@@ -418,6 +426,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                     pbc_pexpr_op(&expr, PBC_PEOP_NE);
                 } else {
                     if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected '='");
+                    free(expr.ops.data);
                     retval = -1;
                     goto ret;
                 }
@@ -446,6 +455,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
                 break;
             default:
                 if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Unexpected character");
+                free(expr.ops.data);
                 retval = -1;
                 goto ret;
                 break;
@@ -455,6 +465,7 @@ static int pbc_getpexpr(struct pbc* ctx, struct charbuf* err) {
     longbreak:;
     if (parenct) {
         if (err) pbc_mkerr(ctx, err, 0, 0, "Syntax error", "Expected ')'");
+        free(expr.ops.data);
         retval = -1;
         goto ret;
     }

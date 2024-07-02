@@ -33,17 +33,17 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>
-#if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
-    #include <windows.h>
-#elif PLATFORM == PLAT_EMSCR
-    #include <emscripten.h>
-#elif PLATFORM == PLAT_NXDK
+#if PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
     #include <pbkit/pbkit.h>
     #include <pbgl.h>
     #include <GL/gl.h>
+#elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include <windows.h>
+#elif PLATFORM == PLAT_EMSCR
+    #include <emscripten.h>
 #elif PLATFORM == PLAT_DREAMCAST
     #include <kos.h>
     #include <dirent.h>
@@ -152,7 +152,7 @@ static void sigh(int sig) {
                     sigh_cb_addstr(&cb, "` HERE AND DELETE THIS TEXT !!!***");
                 }
                 puts(cb_peek(&cb));
-                #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
+                #if PLATFORM == PLAT_WIN32
                 ShellExecute(NULL, NULL, cb_peek(&cb), NULL, NULL, SW_NORMAL);
                 #elif PLATFORM == PLAT_ANDROID
                 execlp("am", "am", "start", "-a", "android.intent.action.VIEW", "-d", cb_peek(&cb), NULL);
@@ -995,13 +995,7 @@ int main(int argc, char** argv) {
     }
     timeBeginPeriod(tmrres);
     #endif
-    #if PLATFORM == PLAT_WIN32 || PLATFORM == PLAT_UWP
-    QueryPerformanceFrequency(&perfctfreq);
-    while (!(perfctfreq.QuadPart % 10) && !(perfctmul % 10)) {
-        perfctfreq.QuadPart /= 10;
-        perfctmul /= 10;
-    }
-    #elif PLATFORM == PLAT_NXDK
+    #if PLATFORM == PLAT_NXDK
     perfctfreq = KeQueryPerformanceFrequency();
     XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
     pbgl_set_swap_interval(0);
@@ -1015,6 +1009,12 @@ int main(int argc, char** argv) {
     pbgl_swap_buffers();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     pbgl_swap_buffers();
+    #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    QueryPerformanceFrequency(&perfctfreq);
+    while (!(perfctfreq.QuadPart % 10) && !(perfctmul % 10)) {
+        perfctfreq.QuadPart /= 10;
+        perfctmul /= 10;
+    }
     #endif
     ret = bootstrap();
     if (!ret) {

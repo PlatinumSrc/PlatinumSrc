@@ -54,6 +54,8 @@ bool common_findpv(const char* n, int* d) {
                 *d = PLAT_FREEBSD; return true;
             } else if (!strcasecmp(n, "lat_gamecube")) {
                 *d = PLAT_GAMECUBE; return true;
+            } else if (!strcasecmp(n, "lat_gdk")) {
+                *d = PLAT_GDK; return true;
             } else if (!strcasecmp(n, "lat_haiku")) {
                 *d = PLAT_HAIKU; return true;
             } else if (!strcasecmp(n, "lat_linux")) {
@@ -68,8 +70,6 @@ bool common_findpv(const char* n, int* d) {
                 *d = PLAT_PS2; return true;
             } else if (!strcasecmp(n, "lat_unix")) {
                 *d = PLAT_UNIX; return true;
-            } else if (!strcasecmp(n, "lat_uwp")) {
-                *d = PLAT_UWP; return true;
             } else if (!strcasecmp(n, "lat_wii")) {
                 *d = PLAT_WII; return true;
             } else if (!strcasecmp(n, "lat_win32")) {

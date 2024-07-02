@@ -16,7 +16,6 @@ const char* platname[PLAT__COUNT] = {
     "OpenBSD",
     "PlayStation 2 (PS2Dev)",
     "Unix",
-    "UWP",
     "Wii",
     "Windows",
     "Xbox (NXDK)"
@@ -36,7 +35,6 @@ const char* platid[PLAT__COUNT] = {
     "openbsd",
     "ps2",
     "unix",
-    "uwp",
     "wii",
     "win32",
     "nxdk"
@@ -56,7 +54,6 @@ const char* platdir[PLAT__COUNT] = {
     "openbsd",
     "ps2",
     "unix",
-    "uwp",
     "wii",
     "windows",
     "nxdk"
@@ -74,7 +71,6 @@ const char* altplatdir[PLAT__COUNT] = {
     NULL,
     "bsd",
     "bsd",
-    NULL,
     NULL,
     NULL,
     NULL,

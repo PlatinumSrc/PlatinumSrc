@@ -8,14 +8,14 @@
 #define PLAT_EMSCR     4
 #define PLAT_FREEBSD   5
 #define PLAT_GAMECUBE  6
-#define PLAT_HAIKU     7
-#define PLAT_LINUX     8
-#define PLAT_MACOS     9
-#define PLAT_NETBSD    10
-#define PLAT_OPENBSD   11
-#define PLAT_PS2       12
-#define PLAT_UNIX      13
-#define PLAT_UWP       14
+#define PLAT_GDK       7
+#define PLAT_HAIKU     8
+#define PLAT_LINUX     9
+#define PLAT_MACOS     10
+#define PLAT_NETBSD    11
+#define PLAT_OPENBSD   12
+#define PLAT_PS2       13
+#define PLAT_UNIX      14
 #define PLAT_WII       15
 #define PLAT_WIN32     16
 #define PLAT_NXDK      17
@@ -56,6 +56,9 @@
 #elif defined(__gamecube__)
     #define PLATFORM PLAT_GAMECUBE
     #define PLATFLAGS (0)
+#elif defined(__GDK__)
+    #define PLATFORM PLAT_GDK
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(__HAIKU__)
     #define PLATFORM PLAT_HAIKU
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
@@ -77,9 +80,6 @@
 #elif defined(__unix__)
     #define PLATFORM PLAT_UNIX
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(PSRC_UWP) || defined(__WINRT__)
-    #define PLATFORM PLAT_UWP
-    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(__wii__)
     #define PLATFORM PLAT_WII
     #define PLATFLAGS (0)

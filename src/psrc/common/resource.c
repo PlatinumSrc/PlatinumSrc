@@ -135,7 +135,7 @@ struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
 struct rcopt_script scriptopt_default = {
-    (struct pbc_opt){0}
+    0
 };
 struct rcopt_sound soundopt_default = {
     true
