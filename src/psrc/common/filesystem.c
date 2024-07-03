@@ -17,7 +17,11 @@
         #include <windows.h>
     #endif
     #ifndef PSRC_USESDL1
-        #include <SDL2/SDL.h>
+        #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
+            #include <SDL.h>
+        #else
+            #include <SDL2/SDL.h>
+        #endif
     #endif
 #endif
 #include <stdio.h>
@@ -27,7 +31,7 @@
 #include "../util.h"
 
 int isFile(const char* p) {
-    #if PLATFORM != PLAT_NXDK
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         struct stat s;
         if (stat(p, &s)) return -1;
         if (S_ISREG(s.st_mode)) return 1;

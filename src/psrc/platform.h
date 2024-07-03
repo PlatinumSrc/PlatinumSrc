@@ -56,7 +56,7 @@
 #elif defined(__gamecube__)
     #define PLATFORM PLAT_GAMECUBE
     #define PLATFLAGS (0)
-#elif defined(__GDK__)
+#elif defined(PSRC_USEGDK) || defined(_GAMING_DESKTOP) || defined(__GDK__)
     #define PLATFORM PLAT_GDK
     #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(__HAIKU__)

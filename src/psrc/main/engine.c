@@ -15,7 +15,7 @@
 #include "../debug.h"
 #include "../common.h"
 
-#if PLATFORM == PLAT_NXDK
+#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
     #include <SDL.h>
 #elif defined(PSRC_USESDL1)
     #include <SDL/SDL.h>
@@ -54,6 +54,10 @@
 #elif PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
     #include <fat.h>
     #include <dirent.h>
+#endif
+
+#if PLATFORM == PLAT_GDK
+    #include <SDL_main.h>
 #endif
 
 #include "../glue.h"
@@ -758,6 +762,8 @@ static void emscrmain(void) {
         }
     }
 }
+#elif PLATFORM == PLAT_GDK
+#define main SDL_main
 #endif
 int main(int argc, char** argv) {
     makeVerStrs();
