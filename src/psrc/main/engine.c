@@ -214,7 +214,7 @@ static float lookspeed[2];
 static uint64_t toff;
 static uint64_t framestamp;
 
-PACKEDENUM(action {
+PACKEDENUM action {
     ACTION_NONE,
     ACTION_MENU,
     ACTION_FULLSCREEN,
@@ -230,7 +230,7 @@ PACKEDENUM(action {
     ACTION_WALK,
     ACTION_JUMP,
     ACTION_CROUCH,
-});
+};
 
 int initLoop(void) {
     plog(LL_INFO, "Initializing renderer...");
@@ -803,6 +803,7 @@ int main(int argc, char** argv) {
                 puts("OPTIONS:");
                 puts("    -help                       Display this help text.");
                 puts("    -version                    Display version information.");
+                puts("    -portable                   Run in portable mode.");
                 puts("    -game=NAME                  Set the game to run.");
                 puts("    -mods=NAME[,NAME]...        More mods to load.");
                 puts("    -icon=PATH                  Override the game's icon.");
@@ -993,11 +994,8 @@ int main(int argc, char** argv) {
     TIMECAPS tc;
     UINT tmrres = 1;
     if (timeGetDevCaps(&tc, sizeof(tc)) != TIMERR_NOERROR) {
-        if (tmrres < tc.wPeriodMin) {
-            tmrres = tc.wPeriodMin;
-        } else if (tmrres > tc.wPeriodMax) {
-            tmrres = tc.wPeriodMax;
-        }
+        if (tmrres < tc.wPeriodMin) tmrres = tc.wPeriodMin;
+        else if (tmrres > tc.wPeriodMax) tmrres = tc.wPeriodMax;
     }
     timeBeginPeriod(tmrres);
     #endif

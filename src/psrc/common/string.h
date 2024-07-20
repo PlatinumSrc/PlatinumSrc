@@ -28,21 +28,19 @@ static inline void cb_add(struct charbuf* b, char c) {
     b->data[b->len++] = c;
 }
 static inline void cb_addstr(struct charbuf* b, const char* s) {
-    while (*s) cb_add(b, *(s++));
+    while (*s) cb_add(b, *s++);
 }
 static inline void cb_addpartstr(struct charbuf* b, const char* s, long l) {
     // TODO: make it so that this function instead will see how much space is left before a realloc and manually copy
     //       up to that amount of chars before performing a realloc
     for (long i = 0; i < l; ++i) {
-        cb_add(b, *(s++));
+        cb_add(b, *s++);
     }
 }
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
     b->data[b->len] = 0;
-    char* d = b->data;
-    b->data = NULL;
-    return d;
+    return b->data;
 }
 static inline char* cb_reinit(struct charbuf* b, int sz) {
     char* d = cb_finalize(b);

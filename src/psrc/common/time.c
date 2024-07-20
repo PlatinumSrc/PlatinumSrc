@@ -7,7 +7,7 @@
     #include <xboxkrnl/xboxkrnl.h>
 #endif
 
-#include "../util.h"
+#include "../attribs.h"
 
 #if PLATFORM == PLAT_NXDK
 uint64_t perfctfreq;

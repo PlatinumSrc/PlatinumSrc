@@ -77,13 +77,13 @@ static void pbc_mkerr(struct pbc* ctx, struct charbuf* err, unsigned l, unsigned
     }
 }
 
-static FORCEINLINE bool pbc_iskwchar(int c) {
+static ALWAYSINLINE bool pbc_iskwchar(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
-static FORCEINLINE bool pbc_iskwletter(int c) {
+static ALWAYSINLINE bool pbc_iskwletter(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
-static FORCEINLINE bool pbc_isspace(int c) {
+static ALWAYSINLINE bool pbc_isspace(int c) {
     return c == ' ' || c == '\t' /* || c == '\v' */;
 }
 
@@ -100,7 +100,7 @@ struct pbc_preproc {
     int size;
 };
 
-PACKEDENUM(pbc_peop {
+PACKEDENUM pbc_peop {
     PBC_PEOP__INVAL = -1,
     PBC_PEOP_LP, // 0
     PBC_PEOP_RP,
@@ -126,7 +126,7 @@ PACKEDENUM(pbc_peop {
     PBC_PEOP_AND, // 10
     PBC_PEOP_OR, // 11
     PBC_PEOP__COUNT
-});
+};
 static const struct pbc_peopinfo {
     uint8_t r : 1; // is right-to-left
     uint8_t p : 7; // precedence (lower val = higher place)
@@ -703,13 +703,9 @@ static inline bool pbc_getname_loc_inline(struct pbc* ctx, struct charbuf* cb, u
     cb_nullterm(cb);
     return true;
 }
-static inline enum pbtype pbc_gettype_cb_inline(struct pbc* ctx, bool pdim, unsigned* dim, unsigned* nl, unsigned* nc, struct charbuf* cb, struct charbuf* err) {
-    unsigned nl2, nc2;
-    if (!pbc_getname_loc_inline(ctx, cb, &nl2, &nc2, err)) return -1;
-    if (nl) *nl = nl2;
-    if (nc) *nc = nc2;
-    char* name = cb->data + 1;
-    switch (*cb->data) {
+static inline enum pbtype pbc_typefromname_inline(const char* name) {
+    char c = *name++;
+    switch (c) {
         case 'v':
         case 'V':
             if (!strcasecmp(name, "oid")) return PBTYPE_VOID;
@@ -743,18 +739,29 @@ static inline enum pbtype pbc_gettype_cb_inline(struct pbc* ctx, bool pdim, unsi
             if (!strcasecmp(name, "tr")) return PBTYPE_STR;
             break;
     }
-    if (pdim) {
+    return -1;
+}
+static inline enum pbtype pbc_gettype_cb_inline(struct pbc* ctx, bool needed, unsigned* dim, unsigned* nl, unsigned* nc, struct charbuf* cb, struct charbuf* err) {
+    unsigned nl2, nc2;
+    if (!pbc_getname_loc_inline(ctx, cb, &nl2, &nc2, err)) return -1;
+    if (nl) *nl = nl2;
+    if (nc) *nc = nc2;
+    enum pbtype t = pbc_typefromname_inline(cb->data);
+    if (t == -1) {
+        if (needed && err) pbc_mkerr(ctx, err, nl2, nc2, "Syntax error", "Unrecognized type name");
+        return -1;
+    }
+    if (dim) {
         //int c;
         //c = pbc_getc_escnl(&ctx->input, ' ');
         *dim = 0;
     }
-    if (err) pbc_mkerr(ctx, err, nl2, nc2, "Syntax error", "Unrecognized type name");
-    return -1;
+    return t;
 }
-static inline int pbc_gettype_inline(struct pbc* ctx, bool pdim, unsigned* dim, unsigned* nl, unsigned* nc, struct charbuf* err) {
+static inline int pbc_gettype_inline(struct pbc* ctx, bool needed, unsigned* dim, unsigned* nl, unsigned* nc, struct charbuf* err) {
     struct charbuf cb;
     cb_init(&cb, 16);
-    int r = pbc_gettype_cb_inline(ctx, pdim, dim, nl, nc, &cb, err);
+    int r = pbc_gettype_cb_inline(ctx, needed, dim, nl, nc, &cb, err);
     cb_dump(&cb);
     return r;
 }

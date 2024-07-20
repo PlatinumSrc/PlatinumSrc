@@ -15,9 +15,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../util.h"
+#include "../attribs.h"
 
-PACKEDENUM(rctype {
+PACKEDENUM rctype {
     RC_CONFIG,
     RC_FONT,
     RC_MAP,
@@ -29,16 +29,16 @@ PACKEDENUM(rctype {
     RC_TEXTURE,
     RC_VALUES,
     RC__COUNT,
-});
+};
 
-PACKEDENUM(rcprefix {
+PACKEDENUM rcprefix {
     RCPREFIX_SELF = -1,
     RCPREFIX_ENGINE,
     RCPREFIX_GAME,
     RCPREFIX_MOD,
     RCPREFIX_USER,
     RCPREFIX__COUNT,
-});
+};
 
 // RC_CONFIG
 struct rc_config {
@@ -70,7 +70,7 @@ enum rc_texture_frmt {
     RC_TEXTURE_FRMT_RGB = 3,
     RC_TEXTURE_FRMT_RGBA,
 };
-PACKEDSTRUCT(rc_texture {
+struct rc_texture {
     int width;
     int height;
     union {
@@ -78,36 +78,38 @@ PACKEDSTRUCT(rc_texture {
         int channels;
     };
     uint8_t* data;
-});
+};
 enum rcopt_texture_qlt {
     RCOPT_TEXTURE_QLT_HIGH, // 1x size
     RCOPT_TEXTURE_QLT_MED, // 0.5x size
     RCOPT_TEXTURE_QLT_LOW, // 0.25x size
 };
-PACKEDSTRUCT(rcopt_texture {
+#pragma pack(push, 1)
+struct rcopt_texture {
     bool needsalpha;
-    enum rcopt_texture_qlt quality;
-});
+    PACKEDENUM rcopt_texture_qlt quality;
+};
+#pragma pack(pop)
 
 // RC_MATERIAL
-PACKEDSTRUCT(rc_material {
+struct rc_material {
     float color[4]; // RGBA
     struct rc_texture* texture;
     //struct rc_texture* bumpmap;
-});
-PACKEDSTRUCT(rcopt_material {
-    enum rcopt_texture_qlt quality;
-});
+};
+struct rcopt_material {
+    PACKEDENUM rcopt_texture_qlt quality;
+};
 
 // RC_SOUND
-enum PACKED rc_sound_frmt {
+PACKEDENUM rc_sound_frmt {
     RC_SOUND_FRMT_WAV,
     RC_SOUND_FRMT_VORBIS,
     #ifdef PSRC_USEMINIMP3
     RC_SOUND_FRMT_MP3
     #endif
 };
-PACKEDSTRUCT(rc_sound {
+struct rc_sound {
     enum rc_sound_frmt format;
     long size; // size of data in bytes
     uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
@@ -117,34 +119,40 @@ PACKEDSTRUCT(rc_sound {
     uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
     uint8_t stereo : 1;
     uint8_t sdlfree : 1; // use SDL_FreeWAV
-});
-PACKEDSTRUCT(rcopt_sound {
+};
+#pragma pack(push, 1)
+struct rcopt_sound {
     bool decodewhole;
-});
+};
+#pragma pack(pop)
 
 // RC_MODEL
-PACKEDSTRUCT(rc_model {
+struct rc_model {
     struct p3m* model;
     struct rc_texture** textures;
-});
-PACKEDSTRUCT(rcopt_model {
+};
+#pragma pack(push, 1)
+struct rcopt_model {
     uint8_t flags;
-    enum rcopt_texture_qlt texture_quality;
-});
+    PACKEDENUM rcopt_texture_qlt texture_quality;
+};
+#pragma pack(pop)
 
 // RC_MAP
-PACKEDSTRUCT(rc_map {
+struct rc_map {
     int _placeholder;
-});
-PACKEDENUM(rcopt_map_loadsect {
+};
+PACKEDENUM rcopt_map_loadsect {
     RCOPT_MAP_LOADSECT_ALL,
     RCOPT_MAP_LOADSECT_CLIENT,
     RCOPT_MAP_LOADSECT_SERVER,
-});
-PACKEDSTRUCT(rcopt_map {
+};
+#pragma pack(push, 1)
+struct rcopt_map {
     enum rcopt_map_loadsect loadsections;
     enum rcopt_texture_qlt texture_quality;
-});
+};
+#pragma pack(pop)
 
 struct rcheader {
     enum rctype type;

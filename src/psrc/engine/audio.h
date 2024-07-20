@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../util.h"
+#include "../attribs.h"
 
 struct audioemitter {
     int max;
@@ -47,11 +47,13 @@ struct audiosound_audbuf {
         #endif
     };
 };
-PACKEDSTRUCT(audiosound_fx {
+#pragma pack(push, 1)
+struct audiosound_fx {
     int posoff; // position offset in output freq samples (based on the dist between campos and pos)
     int speedmul; // position mult in units of 256 (based on speed)
     int volmul[3]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
-});
+};
+#pragma pack(pop)
 struct audiosound {
     struct rc_sound* rc;
     union {

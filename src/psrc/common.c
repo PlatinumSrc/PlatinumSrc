@@ -10,6 +10,21 @@ int quitreq = 0;
 
 struct options options = {0};
 
+char* dirs[DIR__COUNT];
+char* dirdesc[DIR__COUNT][2] = {
+    {"main", "Main"},
+    {"game", "Game"},
+    #ifndef PSRC_MODULE_SERVER
+    {"user", "User"},
+    {"data", "Data"},
+    {"save", "Save"},
+    {"screenshot", "Screenshot"},
+    {"downloads", "Downloads"},
+    {"custom content", "Custom content"}
+    #endif
+};
+
+
 char* maindir = NULL;
 char* userdir = NULL;
 char* gamedir = NULL;

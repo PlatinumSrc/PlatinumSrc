@@ -3,63 +3,64 @@
 
 #include <stdint.h>
 
-#include "../util.h"
+#include "../attribs.h"
 
 #define P3M_VER_MAJOR 1
 #define P3M_VER_MINOR 1
 
-PACKEDSTRUCT(p3m_vertex {
+#pragma pack(push, 1)
+struct p3m_vertex {
     float x;
     float y;
     float z;
     float u;
     float v;
-});
-PACKEDSTRUCT(p3m_indexgroup {
+};
+struct p3m_indexgroup {
     char* texture;
     uint16_t indexcount;
     uint16_t* indices;
-});
-PACKEDSTRUCT(p3m_bonevertex {
+};
+struct p3m_bonevertex {
     uint16_t index;
     uint16_t weight;
-});
-PACKEDSTRUCT(p3m_bone {
+};
+struct p3m_bone {
     char* name;
-    PACKEDSTRUCT({
+    struct {
         float x;
         float y;
         float z;
-    }) head;
-    PACKEDSTRUCT({
+    } head;
+    struct {
         float x;
         float y;
         float z;
-    }) tail;
+    } tail;
     uint16_t vertexcount;
     struct p3m_bonevertex* vertices;
     uint8_t childcount;
-});
-PACKEDSTRUCT(p3m_actiontranslation {
+};
+struct p3m_actiontranslation {
     float x;
     float y;
     float z;
-});
-PACKEDSTRUCT(p3m_actionrotation {
+};
+struct p3m_actionrotation {
     float x;
     float y;
     float z;
-});
-PACKEDSTRUCT(p3m_actionscale {
+};
+struct p3m_actionscale {
     float x;
     float y;
     float z;
-});
-PACKEDENUM(p3m_actioninterp {
+};
+PACKEDENUM p3m_actioninterp {
     P3M_ACTINTERP_NONE,
     P3M_ACTINTERP_LINEAR
-});
-PACKEDSTRUCT(p3m_actionbone {
+};
+struct p3m_actionbone {
     char* name;
     uint8_t index;
     uint8_t translationcount;
@@ -70,12 +71,13 @@ PACKEDSTRUCT(p3m_actionbone {
     struct p3m_actiontranslation* translations;
     struct p3m_actionrotation* rotations;
     struct p3m_actionscale* scales;
-});
-PACKEDSTRUCT(p3m_action {
+};
+struct p3m_action {
     uint16_t maxframe;
     uint8_t bonecount;
     struct p3m_actionbone* bones;
-});
+};
+#pragma pack(pop)
 struct p3m_animation {
     char* name;
     uint32_t frametime;

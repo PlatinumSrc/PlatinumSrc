@@ -231,11 +231,10 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Android
         - Need to finish the touch UI
         - Need to figure out how to build directly from the Makefile
-    - UWP?
-        - Requires D3D or can use ANGLE for OpenGL ES 3.0
-    - Xbox \(XDK\)?
-        - No OpenGL
-        - Uses MSVC
+    - UWP/GameSDK
+        - Needs a D3D 9 renderer
+    - Xbox \(XDK\)
+        - Needs a D3D 7/8 renderer
     - PSP
     - PS Vita
     - MSDOS?

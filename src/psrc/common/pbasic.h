@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "../util.h"
+#include "../attribs.h"
 
-PACKEDENUM(pbtype {
+PACKEDENUM pbtype {
     PBTYPE__SPECIAL = -1,
     PBTYPE_VOID,
     PBTYPE_BOOL,
@@ -27,7 +27,7 @@ PACKEDENUM(pbtype {
     PBTYPE_F64,
     PBTYPE_VEC,
     PBTYPE_STR
-});
+};
 
 struct pbdata_vec {
     float x;

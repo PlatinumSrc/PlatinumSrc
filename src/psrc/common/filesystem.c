@@ -28,7 +28,7 @@
 #include <stdbool.h>
 
 #include "../glue.h"
-#include "../util.h"
+#include "../attribs.h"
 
 int isFile(const char* p) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
@@ -57,7 +57,7 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
-static FORCEINLINE bool isSepChar(char c) {
+static ALWAYSINLINE bool isSepChar(char c) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     return (c == '/');
     #else
@@ -159,10 +159,12 @@ bool md(const char* p) {
     return true;
 }
 
-char** ls(const char* p) {
+char** ls(const char* p, bool ln, int* l) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     DIR* d = opendir(p);
     if (!d) return NULL;
+    #else
+    #endif
     struct charbuf names, statname;
     cb_init(&names, 256);
     cb_init(&statname, 256);
@@ -172,26 +174,55 @@ char** ls(const char* p) {
     char** data = malloc(16 * sizeof(*data));
     int len = 1;
     int size = 16;
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     struct dirent* de;
     while ((de = readdir(d))) {
-        cb_addstr(&statname, de->d_name);
+        char* n = de->d_name;
+        if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) continue; // skip . and ..
+        cb_addstr(&statname, n);
         struct stat s;
-        if (!lstat(cb_peek(&statname), &s)) {
+        if (!stat(cb_peek(&statname), &s)) {
             char i = (S_ISDIR(s.st_mode)) ? LS_ISDIR : 0;
+            if (S_ISCHR(s.st_mode)) i |= LS_ISSPECIAL;
+            else if (S_ISBLK(s.st_mode)) i |= LS_ISSPECIAL;
+            else if (S_ISFIFO(s.st_mode)) i |= LS_ISSPECIAL;
+            #ifdef S_ISSOCK
+            else if (S_ISSOCK(s.st_mode)) i |= LS_ISSPECIAL;
+            #endif
             #ifdef S_ISLNK
+            lstat(statname.data, &s);
             if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
             #endif
             cb_add(&names, i);
-            cb_addstr(&names, de->d_name);
+            if (len == size) {
+                size *= 2;
+                data = realloc(data, size * sizeof(*data));
+            }
+            data[len++] = (char*)(uintptr_t)names.len;
+            cb_addstr(&names, (ln) ? statname.data : n);
+            cb_add(&names, 0);
         }
         statname.len = snl;
     }
-    return &data[1];
+    closedir(d);
     #else
     #endif
+    cb_dump(&statname);
+    names.data = realloc(names.data, names.len);
+    data = realloc(data, (len + 1) * sizeof(*data));
+    *data = names.data;
+    data[len] = NULL;
+    --len;
+    ++data;
+    for (int i = 0; i < len; ++i) {
+        data[i] = (char*)(((uintptr_t)data[i]) + (uintptr_t)names.data);
+    }
+    if (l) *l = len;
+    return data;
 }
 void freels(char** d) {
-    free(d[-1]);
+    --d;
+    free(*d);
     free(d);
 }
 

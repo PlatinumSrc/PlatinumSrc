@@ -21,7 +21,7 @@ static bool pbc_getcmd(struct pbc* ctx, struct charbuf* err, const char* name, u
                     cb_init(&cb, 32);
                     unsigned dim;
                     {
-                        enum pbtype rt = pbc_gettype_cb_inline(ctx, true, &dim, NULL, NULL, &cb, err);
+                        enum pbtype rt = pbc_gettype_cb_inline(ctx, false, &dim, NULL, NULL, &cb, err);
                         if (rt < 0) {
                             cb_dump(&cb);
                             return false;

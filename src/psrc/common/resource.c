@@ -44,7 +44,7 @@
 static mutex_t rclock;
 #endif
 
-PACKEDUNION(resource {
+union resource {
     void* ptr;
     struct rc_config* config;
     struct rc_font* font;
@@ -56,9 +56,9 @@ PACKEDUNION(resource {
     struct rc_sound* sound;
     struct rc_texture* texture;
     struct rc_values* values;
-});
+};
 
-PACKEDUNION(rcopt {
+union rcopt {
     void* ptr;
     //struct rcopt_config* config;
     //struct rcopt_font* font;
@@ -70,7 +70,7 @@ PACKEDUNION(rcopt {
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
     //struct rcopt_values* values;
-});
+};
 
 struct rcdata {
     struct rcheader header;
@@ -119,28 +119,28 @@ struct rcdata {
     };
 };
 
-PACKEDSTRUCT(rcgroup {
+struct rcgroup {
     int len;
     int size;
     struct rcdata** data;
-});
+};
 
 static struct rcgroup groups[RC__COUNT];
 static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
 
-struct rcopt_material materialopt_default = {
+static struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
 };
-struct rcopt_model modelopt_default = {
+static struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
-struct rcopt_script scriptopt_default = {
+static struct rcopt_script scriptopt_default = {
     0
 };
-struct rcopt_sound soundopt_default = {
+static struct rcopt_sound soundopt_default = {
     true
 };
-struct rcopt_texture textureopt_default = {
+static struct rcopt_texture textureopt_default = {
     false, RCOPT_TEXTURE_QLT_HIGH
 };
 
@@ -480,7 +480,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_MATERIAL: {
             struct cfg* mat = cfg_open(p);
             if (mat) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                struct rc_texture* tex;
                 char* tmp = cfg_getvar(mat, NULL, "base");
                 if (tmp) {
                     char* tmp2 = getRcPath(tmp, RC_MATERIAL, NULL);
@@ -490,14 +490,29 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         free(tmp2);
                     }
                 }
-                tmp = cfg_getvar(mat, NULL, "texture");
-                if (tmp) {
+                {
+                    tmp = cfg_getvar(mat, NULL, "texture");
                     struct rcopt_texture texopt = {false, o.material->quality};
-                    d->material.data.texture = loadResource_wrapper(RC_TEXTURE, tmp, &texopt, NULL);
-                    free(tmp);
-                } else {
-                    d->material.data.texture = NULL;
+                    if (tmp) {
+                        tex = loadResource_wrapper(RC_TEXTURE, tmp, &texopt, NULL);
+                        free(tmp);
+                        if (!tex) {
+                            tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
+                            if (!tex) {
+                                cfg_close(mat);
+                                break;
+                            }
+                        }
+                    } else {
+                        tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
+                        if (!tex) {
+                            cfg_close(mat);
+                            break;
+                        }
+                    }
                 }
+                d = loadResource_newptr(t, g, p, pcrc);
+                d->material.data.texture = tex;
                 d->material.data.color[0] = 1.0f;
                 d->material.data.color[1] = 1.0f;
                 d->material.data.color[2] = 1.0f;
@@ -510,7 +525,20 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 if (tmp) {
                     sscanf(tmp, "%f", &d->material.data.color[3]);
                 }
+                cfg_close(mat);
                 d->material.opt = *o.material;
+            } else {
+                struct rcopt_texture texopt = {false, o.material->quality};
+                struct rc_texture* tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
+                if (tex) {
+                    d = loadResource_newptr(t, g, p, pcrc);
+                    d->material.data.texture = tex;
+                    d->material.data.color[0] = 1.0f;
+                    d->material.data.color[1] = 1.0f;
+                    d->material.data.color[2] = 1.0f;
+                    d->material.data.color[3] = 1.0f;
+                    d->material.opt = *o.material;
+                }
             }
         } break;
         #endif
@@ -1043,6 +1071,15 @@ bool initResource(void) {
         groups[i].len = 0;
         groups[i].size = groupsizes[i];
         groups[i].data = malloc(groups[i].size * sizeof(*groups[i].data));
+    }
+
+    scriptopt_default.compileropt.findpv = common_findpv;
+
+    if (isFile(userdir)) {
+        plog(LL_INFO | LF_DEBUG, "Creating user directory at %s...", userdir);
+        if (!md(userdir)) {
+            plog(LL_ERROR, "Failed to create user directory at %s...", userdir);
+        }
     }
 
     char* tmp = cfg_getvar(config, NULL, "mods");
