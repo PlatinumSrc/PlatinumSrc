@@ -1,7 +1,7 @@
 P3M - PlatinumSrc 3D Model File/Format
 
 - .p3m file extension
-- Current version is 1.1
+- Current revision is 0
 - All data should be little endian
 
 Format:
@@ -9,37 +9,72 @@ Format:
     <Header> <Data>
 
     Header:
-        <char[4]: {'P', '3', 'M', 0}>
-        <u8: Major version> <u8: Minor version>
-        <u8: <7 bits: 0> <1 bit: Has animations>>
+        <char[3]: {'P', '3', 'M'}>
+        <u8: Revision>
+        <u8:
+            <7 bits: 0>
+            <1 bit: Has normals>
+        >
     Data:
-        <u16: Vertex count> [Vertex]...
-        <u8: Index group count> [Index group]...
-        [
-            <u8: Bone count> [Bone]...
-            <u8: Action count> [Action]...
-            <u8: Animation count> [Animation]...
-        ]
-        <char[]: String table>
+        <u8: Part count> <u8[0..32]: Part visibility bitmask (LSB to MSB)> [Part]...
+        <u8: Material count> [Material]...
+        <u8: Texture count> [Texture]...
+        <u8: Bone count> [Bone]...
+        <u8: Animation count> [Animation]...
+        <u8: Action count> [Action]...
+        <char[1...]: String table {..., 0}>
 
-    String:
-        <u16: Offset in string table>
+    Part:
+        <<String>: Name>
+        <u8: Material index>
+        <u16: Vertex count> [Vertex]... [ [Normal]... ]
+        <u16: Index count> [u16: Index]...
+
+    Material:
+        <u8:
+            { P3M_RENDMODE_NORMAL
+            | P3M_RENDMODE_ADD }
+        >
+        <u8: Texture index (0xFF for none)>
+        <u8[4]: RGBA color>
+        <u8[3]: RGB emission>
+        <u8: Shading>
+    Texture:
+        { <u8: P3M_TEXTYPE_EMBEDDED> <PTF texture (See 'textures (ptf).txt')>
+        | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path (recommended to omit the prefix)> }
 
     Vertex:
-        <float: X> <float: Y> <float: Z> <float: U> <float: V>
-
-    Index group:
-        <<String>: Material path>
-        <u16: Index count> [u16: Index]...
+        <float[3]: Position XYZ>
+        <float[2]: Texture UV>
+    Normal:
+        <float[3]: Normal XYZ>
 
     Bone:
         <<String>: Name>
         <float[3]: Head position> <float[3]: Tail position>
-        <u16: Vertex count> [ <u16: Index> <u16: Weight> ]...
+        <u8: Affected part count> [Bone part]...
         <u8: Child count>
+    Bone part:
+        <<String>: Part name>
+        <Bone part weights>...
+    Bone part weights:
+        <u16: Vertices to skip>
+        <u16: Weight count (0 to terminate)>
+        [u8: Weight]...
 
+    Animation:
+        <<String>: Name>
+        <u32: Microseconds per frame>
+        <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
     Action:
         <u16: Max frame>
+        <u8:
+            { P3M_ACTPARTVIS_DEFAULTWHITE (use vis mask and add listed)
+            | P3M_ACTPARTVIS_DEFAULTBLACK (use vis mask and remove listed)
+            | P3M_ACTPARTVIS_WHITE (no parts except listed)
+            | P3M_ACTPARTVIS_BLACK (all parts except listed) }
+        >
+        <u8: Part count> <<String>: Part name>...
         <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
     Action data:
         <u8: Translation count> [u16: Frame]... [Animation interp type]... [float[3]: Translation]...
@@ -50,8 +85,8 @@ Format:
             { P3M_ACTINTERP_NONE
             | P3M_ACTINTERP_LINEAR }
         >
-    Animation:
-        <<String>: Name>
-        <u32: Microseconds per frame>
-        <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
+
+    String:
+        <u16: Offset in string table>
+
 

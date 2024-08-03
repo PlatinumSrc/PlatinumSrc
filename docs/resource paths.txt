@@ -2,22 +2,22 @@
 
 prefix: { <self prefix> | <engine prefix> | <game prefix> | <mod prefix> | <user prefix> | <custom prefix> }
 
-self prefix: [ [ "self" ] ":" ] (Access resources in <base dir>/<current game dir>/.)
-engine prefix: "engine:" (Access resources in <base dir>/engine/.)
-game prefix: "game:" <game dir> "/" (Access resources in <base dir>/<game dir>/.)
-mod prefix: "mod:" <mod dir> "/" (Access resources in <user dir>/mods/<mod dir>/.)
-user prefix: "user:" (Access resources in <user dir>/.)
-custom prefix: "custom:" (Access resources in <user dir>/custom/????/????/????????/.)
+self prefix: [ [ "self" ] ":" ] (Access resources in <current game dir>/.)
+engine prefix: "engine:" (Access resources in <base dir>/engine/resources/.)
+game prefix: "game:" <game dir> "/" (Access resources in <game dir>/.)
+mod prefix: "mod:" <mod dir> "/" (Access resources in <mod dir>/.)
+user prefix: "user:" (Access resources in <user dir>/resources/.)
+custom prefix: "custom:" (Access resources in <user dir>/downloads/player/????/????/????????/.)
 
 path: Path to the resource to access. Extensions are added automatically. For configs, the extension is .cfg. For maps,
-      the extension is .pmf. For materials, the extension is .txt. For models, the extension is .p3m. For playermodels,
-      the extension is .txt. For scripts, the extension is .bas. For sounds, the extensions are .ogg, .mp3, then .wav.
-      For textures, the extensions are .ptf, .png, .jpg, .tga, then .bmp. For values, the extension is .txt.
+      the extension is .pmf. For models, the extension is .p3m. For playermodels, the extension is .txt. For scripts,
+      the extension is .bas. For sounds, the extensions are .ogg, .mp3, then .wav. For textures, the extensions are
+      .ptf, .png, .jpg, .tga, then .bmp. For values, the extension is .txt.
 
 game dir: A directory in <base dir>/games/.
 current game dir: The directory in <base dir>/games/ where the current game resides.
 
-mod dir: A directory in <user dir>/mods/.
+mod dir: A directory in <base dir>/mods/ or <user dir>/mods/.
 
 user dir: User-specific storage (~/.local/share/<user dir suffix> on Linux, %AppData%\<user dir suffix> on Windows,
           ~/Library/Application Support/<user dir suffix> on MacOS).

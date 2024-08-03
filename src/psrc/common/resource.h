@@ -7,6 +7,7 @@
 #include "pbasic.h"
 #include "p3m.h"
 #include "string.h"
+#include "versioning.h"
 
 #ifndef PSRC_MODULE_SERVER
     #include "../../schrift/schrift.h"
@@ -156,7 +157,10 @@ struct rcopt_map {
 
 struct rcheader {
     enum rctype type;
-    char* path; // full file path
+    enum rcprefix prefix;
+    char* rcpath; // sanitized resource path without prefix (e.g. /textures/icon.png)
+    char* path; // full file path (e.g. /usr/share/games/psrc/engine/resources/textures/icon.png)
+    uint32_t rcpathcrc;
     uint32_t pathcrc;
     bool hasdatacrc;
     uint64_t datacrc;
@@ -169,15 +173,25 @@ struct customfile {
     uint64_t crc;
 };
 
+struct modinfo {
+    char* path;
+    char* dir;
+    char* name;
+    char* author;
+    char* desc;
+    struct version version;
+};
+
 bool initResource(void);
 void quitResource(void);
-void* loadResource(enum rctype type, const char* path, void* opt, struct charbuf* err);
+void* loadResource(enum rctype type, const char* uri, void* opt, struct charbuf* err);
 void freeResource(void*);
 void grabResource(void*);
 #define releaseResource freeResource
-char* getRcPath(const char* uri, enum rctype type, char** ext);
+char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rcpath, char** ext);
 void loadMods(const char* const* names, int count);
-char** queryMods(int* count);
+struct modinfo* queryMods(int* count);
+void freeModList(struct modinfo*);
 void setCustomFiles(struct customfile*, int count);
 
 #endif

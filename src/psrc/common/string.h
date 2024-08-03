@@ -11,7 +11,8 @@ struct charbuf {
 };
 
 char* strcombine(const char*, ...);
-char** splitstrlist(const char* str, char delim, bool nullterm, int* len);
+char** splitstrlist(const char*, char delim, bool nullterm, int* len);
+char** splitstr(const char*, const char* delims, bool nullterm, int* len);
 char* makestrlist(const char* const* str, int len, char delim);
 int strbool(const char*, int);
 

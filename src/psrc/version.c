@@ -10,8 +10,11 @@
 #define STR(x) _STR(x)
 
 char* titlestr;
-char verstr[64];
-char platstr[64];
+char verstr[128];
+char platstr[128];
+#if PLATFORM == PLAT_NXDK
+char titleidstr[9];
+#endif
 
 void makeVerStrs(void) {
     titlestr = strdup("PlatinumSrc " STR(PSRC_BUILD));
@@ -29,9 +32,18 @@ void makeVerStrs(void) {
         (unsigned)PSRC_BUILD / 1000000,
         ((unsigned)PSRC_BUILD % 100) + 1
     );
+    #if PLATFORM == PLAT_NXDK
+    sprintf(titleidstr, "%08x", (unsigned)CURRENT_XBE_HEADER->CertificateHeader->TitleID);
+    #endif
     snprintf(
         platstr, sizeof(platstr),
-        "Platform: %s (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR,
-        platname[PLATFORM]
+        "Platform: %s (Platform ID " STR(PLATFORM) "); Architecture: " ARCHSTR
+        #if PLATFORM == PLAT_NXDK
+        "; Title ID: %s"
+        #endif
+        , platname[PLATFORM]
+        #if PLATFORM == PLAT_NXDK
+        , titleidstr
+        #endif
     );
 }

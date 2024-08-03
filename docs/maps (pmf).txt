@@ -12,10 +12,10 @@ Format:
     Header:
         <char[4]: {'P', 'M', 'F', 0}>
         <u8: Major version> <u8: Minor version>
-        <char[... 0]: Name> <char[... 0]: Authors> <char[... 0]: Description>
+        <char[1...]: Name {..., 0}> <char[1...]: Authors {..., 0}> <char[1...]: Description {..., 0}>
         <u32: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
-        <<u8: 1..16>: Gamemode count> <char[... 0]: Gamemode>...
-        <<u8: 1..8>: Difficulty count> <char[... 0]: Difficulty>...
+        <<u8: 1..16>: Gamemode count> <char[1...]: Gamemode {..., 0}>...
+        <<u8: 1..8>: Difficulty count> <char[1...]: Difficulty {..., 0}>...
     Data:
         <u16: Material count>
         <u16: Dynamic light count>
@@ -178,7 +178,7 @@ Format:
 
     Team data: <<Server string>: Name> <float[3]: Color>
 
-    String table:  <u32: Decompressed size> <u32: Compressed size> <char[0 ... 0]>...: Strings>
+    String table:  <u32: Decompressed size> <u32: Compressed size> <char[2...]: Strings {0, ..., 0}>
     Server string: <u32: Byte index in the server string table>
     Client string: <u32: Byte index in the client string table>
 

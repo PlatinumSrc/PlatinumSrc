@@ -2,6 +2,7 @@
 #define PSRC_COMMON_COMMON_H
 
 #include "common/config.h"
+#include "common/versioning.h"
 
 #include <stdbool.h>
 
@@ -10,41 +11,64 @@ extern int quitreq;
 extern struct options {
     char* game;
     char* mods;
+    #ifndef PSRC_MODULE_SERVER
     char* icon;
+    #endif
     struct cfg* set;
     char* maindir;
+    #ifndef PSRC_MODULE_SERVER
     char* userdir;
+    #endif
     char* config;
+    #ifndef PSRC_MODULE_SERVER
     bool nouserconfig;
     bool nocontroller;
+    #endif
 } options;
 
-extern char* curgame;
-enum dir {
-    DIR_MAIN,
-    DIR_GAME,
+extern struct gameinfo {
+    char* dir;
+    char* name;
+    char* author;
+    char* desc;
     #ifndef PSRC_MODULE_SERVER
-    DIR_USER,
-    DIR_DATA,
-    DIR_SAVES,
-    DIR_SCREENSHOTS,
-    DIR_DOWNLOADS,
-    DIR_CUSTOM,
+    char* icon;
+    #endif
+    struct version version;
+    struct version minver;
+    #ifndef PSRC_MODULE_SERVER
+    char* userdir;
+    #endif
+} gameinfo;
+
+enum dir {
+    DIR_MAIN,        // instance dir
+    DIR_ENGINE,      // engine data dir; 'engine' in the main dir
+    DIR_ENGINERC,    // engine:/ resources; 'resources' in the engine data dir
+    DIR_GAMES,       // game dirs and game:/ resources; 'games' in the main dir
+    DIR_MODS,        // mods and mod:/ resources; 'mods' in the main dir
+    DIR_GAME,        // game dir
+    #ifndef PSRC_MODULE_SERVER
+    DIR_USER,        // user data dir; NULL if there is no suitable user file storage
+    DIR_USERRC,      // user:/ resources; 'resources' in the user data dir; NULL if the user data dir is NULL
+    DIR_USERMODS,    // user mods and mod:/ resources; 'mods' in the user data dir; NULL if the user data dir is NULL
+    DIR_SCREENSHOTS, // 'screenshots' in the user data dir; NULL if the user data dir is NULL or there is no writeable
+                     // filesystem suitable for large files
+    DIR_SAVES,       // save location; platform-specific dir or 'saves' dir in the user data dir; NULL if there is no
+                     // writable filesystem sutiable for saves
+    DIR_SVDL,        // typically 'server' in 'donwloads' in the user data dir; NULL if the user data dir is NULL
+    DIR_PLDL,        // typically 'player' in 'donwloads' in the user data dir; NULL if the user data dir is NULL
     #endif
     DIR__COUNT
 };
 extern char* dirs[DIR__COUNT];
-extern char* dirdesc[DIR__COUNT][2];
-
-extern char* maindir;
-extern char* userdir;
-extern char* gamedir; // relative to <maindir>/games
-extern char* savedir;
+extern char* dirdesc[DIR__COUNT];
 
 extern struct cfg* config;
 extern struct cfg* gameconfig;
 
-bool setGame(const char* n);
+void setupBaseDirs(void);
+bool setGame(const char*, bool maybepath);
 
 bool common_findpv(const char*, int*);
 

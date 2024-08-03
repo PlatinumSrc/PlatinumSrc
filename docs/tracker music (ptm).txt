@@ -11,9 +11,9 @@ Format:
     Header:
         <char[3]: {'P', 'T', 'M'}>
         <u8: Revision>
-        <char[... 0]: Song name>
-        <char[... 0]: Author>
-        <char[... 0]: Comments>
+        <char[0...]: Song name {..., 0}>
+        <char[0...]: Author {..., 0}>
+        <char[0...]: Comments {..., 0}>
     Data:
         <u8: BPM>
         <u8: Notes per beat>
@@ -61,12 +61,12 @@ Format:
         | <u8: PTM_PCMD_BENDDOWNGRAD> <u8: Semitones> }
 
     Group:
-        <char[... 0]: Name>
+        <char[1...]: Name {..., 0}>
         <float: BPM multiplier>
         <float[2]: Global volume multiplier>
 
     Instrument:
-        <char[... 0]: Name>
+        <char[1...]: Name {..., 0}>
         <u8: Sample count> [ <u8: Minimum note> <u8: Sample> (Should be sorted from highest minimum to lowest) ]...
         <float: Attack duration> <float: Note influence>
         <float: Decay duration> <float: Note influence>
@@ -74,7 +74,7 @@ Format:
         <float: Release duration> <float: Note influence>
 
     Sample:
-        <char[... 0]: Name>
+        <char[1...]: Name {..., 0}>
         <u16: Rate>
         <u32: Length>
         <u32: Loop start> <u32: Loop end>

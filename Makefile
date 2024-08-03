@@ -326,6 +326,9 @@ ifneq ($(CROSS),nxdk)
         _CPPFLAGS += -DGEKKO -D__gamecube__
         _LDFLAGS += -mogc -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/gamecube/lib
     endif
+    ifneq ($(DEFAULTGAME),)
+        _CPPFLAGS += -DPSRC_DEFAULTGAME='$(subst ','\'',$(DEFAULTGAME))'
+    endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
             _CPPFLAGS += -DPSRC_USEGLAD
@@ -398,7 +401,7 @@ ifndef DEBUG
     ifndef O
         O := 2
     endif
-    _CFLAGS += -O$(O)
+    _CFLAGS += -O$(O) -fno-omit-frame-pointer
     ifeq ($(CROSS),emscr)
         _LDFLAGS += -O$(O)
     endif

@@ -3,6 +3,7 @@
 #include "logging.h"
 
 #include <stddef.h>
+#include <ctype.h>
 #if PLATFORM == PLAT_NXDK
     #include <windows.h>
 #elif PLATFORM == PLAT_DREAMCAST
@@ -28,7 +29,6 @@
 #include <stdbool.h>
 
 #include "../glue.h"
-#include "../attribs.h"
 
 int isFile(const char* p) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
@@ -57,15 +57,7 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
-static ALWAYSINLINE bool isSepChar(char c) {
-    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    return (c == '/');
-    #else
-    return (c == '/' || c == '\\');
-    #endif
-}
-
-static void replsep(struct charbuf* b, const char* s, bool first) {
+void replpathsep(struct charbuf* b, const char* s, bool first) {
     if (first) {
         #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         if (*s == '/') {
@@ -74,13 +66,13 @@ static void replsep(struct charbuf* b, const char* s, bool first) {
         }
         #endif
     }
-    while (isSepChar(*s)) ++s;
+    while (ispathsep(*s)) ++s;
     bool sep = false;
     while (1) {
         char c = *s;
         if (!c) break;
         ++s;
-        if (isSepChar(c)) {
+        if (ispathsep(c)) {
             sep = true;
         } else {
             if (sep) {
@@ -95,20 +87,20 @@ char* mkpath(const char* s, ...) {
     struct charbuf b;
     cb_init(&b, 256);
     if (s) {
-        replsep(&b, s, true);
+        replpathsep(&b, s, true);
     }
     va_list v;
     va_start(v, s);
     if (!s) {
         if ((s = va_arg(v, char*))) {
-            replsep(&b, s, false);
+            replpathsep(&b, s, false);
         } else {
             goto ret;
         }
     }
     while ((s = va_arg(v, char*))) {
         cb_add(&b, PATHSEP);
-        replsep(&b, s, false);
+        replpathsep(&b, s, false);
     }
     ret:;
     va_end(v);
@@ -117,23 +109,130 @@ char* mkpath(const char* s, ...) {
 char* strpath(const char* s) {
     struct charbuf b;
     cb_init(&b, 256);
-    replsep(&b, s, true);
+    replpathsep(&b, s, true);
     return cb_finalize(&b);
 }
 char* strrelpath(const char* s) {
     struct charbuf b;
     cb_init(&b, 256);
-    replsep(&b, s, false);
+    replpathsep(&b, s, false);
     return cb_finalize(&b);
+}
+void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
+    char c;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    int b = cb.len;
+    #endif
+    while ((c = *s)) {
+        if (ispathsep(c)) {if (r) cb_add(cb, r);}
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        else if ((c >= 1 && c <= 31) || c == '<' || c == '>' || c == ':' ||
+            c == '"' || c == '|' || c == '?' || c == '*') if (r) cb_add(cb, r);
+        #endif
+        else cb_add(cb, c);
+        ++s;
+    }
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    if (b == cb.len) return;
+    int i = b;
+    while (i < cb.len) {
+        if (cb.data[i] == ' ') cb.data[i] = '_';
+        else break;
+        ++i;
+    }
+    if (i == b) {
+        char* d = cb.data + b;
+        int l = cb.len - b;
+        if (((l == 3 || (l > 3 && d[3] == '.')) &&
+             !strncasecmp(d, "con", 3) ||
+             !strncasecmp(d, "prn", 3) ||
+             !strncasecmp(d, "aux", 3) ||
+             !strncasecmp(d, "nul", 3)) ||
+            ((l == 4 || (l > 4 && d[4] == '.')) &&
+             (!strncasecmp(d, "com", 3) || !strncasecmp(d, "lpt", 3)) &&
+             ((c >= '0' && c <= '9') || c == 0xB2 || c == 0xB3 || c == 0xB9)) ||
+            ((l == 5 || (l > 5 && d[5] == '.')) &&
+             (!strncasecmp(d, "com", 3) || !strncasecmp(d, "lpt", 3)) && d[4] == 0xC2 &&
+             (c == 0xB2 || c == 0xB3 || c == 0xB9)) ||
+            ((l == 6 || (l > 6 && d[6] == '.')) &&
+             !strncasecmp(d, "conin$", 6)) ||
+            ((l == 7 || (l > 7 && d[7] == '.')) &&
+             !strncasecmp(d, "conout$", 7))) d[2] = (r) ? r : '_';
+        if ((l == 1 && d[0] == '.') ||
+            (l == 2 && d[0] == '.' && d[1] == '.')) return;
+        if (l > 2 && d[0] == '.' && d[1] == '.' && d[2] == '.') d[2] = (r && r != '.') ? r : '_';
+    }
+    i = cb.len - 1;
+    while (i >= b) {
+        if (cb.data[i] == '.') --cb.len;
+        else break;
+        --i;
+    }
+    while (i >= b) {
+        if (cb.data[i] == ' ') cb.data[i] = '_';
+        else break;
+        --i;
+    }
+    #endif
+}
+char* sanfilename(const char* s, char r) {
+    struct charbuf cb;
+    cb_init(&cb, 64);
+    sanfilename_cb(s, r, &cb);
+    return cb_finalize(&cb);
+}
+char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl) {
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    int ct;
+    char** dl = splitstr(s, inseps, false, &ct);
+    for (int i = 0; i < ct; ++i) {
+        char* d = dl[i];
+        #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            if (!*d) goto skip;
+            if (d[0] == '.') {
+                if (!d[1]) {
+                    goto skip;
+                } else if (d[1] == '.' && !d[2]) {
+                    while (cb.len > 0) {
+                        --cb.len;
+                        if (cb.data[cb.len] == outsep) break;
+                    }
+                    goto skip;
+                }
+            }
+            cb_add(&cb, outsep);
+            cb_addstr(&cb, d);
+            skip:;
+            free(d);
+        #else
+            if (!*d) {free(d); continue;}
+            int l = cb.len;
+            sanfilename_cb(d, outrepl, &cb);
+            free(d);
+            l = l - cb.len;
+            if (l == 1 && cb.data[cb.len - 1] == '.') {
+                cb.len -= 2;
+            } else if (l == 2 && cb.data[cb.len - 1] == '.' && cb.data[cb.len - 2] == '.') {
+                cb.len -= 3;
+                while (cb.len > 0) {
+                    --cb.len;
+                    if (cb.data[cb.len] == outsep) break;
+                }
+            }
+        #endif
+    }
+    free(dl);
+    return cb_finalize(&cb);
 }
 
 bool md(const char* p) {
     struct charbuf cb;
     cb_init(&cb, 256);
     char c = *p;
-    if (isSepChar(c)) {cb_add(&cb, c); ++p;}
+    if (ispathsep(c)) {cb_add(&cb, c); ++p;}
     while ((c == *p)) {
-        if (isSepChar(c)) {
+        if (ispathsep(c)) {
             int t = isFile(cb_peek(&cb));
             if (t < 0) {
                 bool cond;
@@ -169,7 +268,7 @@ char** ls(const char* p, bool ln, int* l) {
     cb_init(&names, 256);
     cb_init(&statname, 256);
     cb_addstr(&statname, p);
-    if (statname.len > 0 && !isSepChar(statname.data[statname.len - 1])) cb_add(&statname, PATHSEP);
+    if (statname.len > 0 && !ispathsep(statname.data[statname.len - 1])) cb_add(&statname, PATHSEP);
     int snl = statname.len;
     char** data = malloc(16 * sizeof(*data));
     int len = 1;
@@ -228,93 +327,4 @@ void freels(char** d) {
 
 bool rm(const char* p) {
     
-}
-
-char* mkmaindir(void) {
-    #if PLATFORM == PLAT_NXDK
-    return strdup("D:\\");
-    #elif PLATFORM == PLAT_DREAMCAST
-    DIR* d = opendir("/cd");
-    if (d) {
-        closedir(d);
-        return strdup("/cd");
-    } else {
-        return strdup("/sd/psrc");
-    }
-    #elif PLATFORM == PLAT_3DS
-    return strdup("sdmc:/3ds/psrc");
-    #elif PLATFORM == PLAT_WII
-    return strdup("/apps/psrc");
-    #elif PLATFORM == PLAT_GAMECUBE
-    return strdup("/");
-    #elif !defined(PSRC_USESDL1)
-    char* tmp = SDL_GetBasePath();
-    if (tmp) {
-        char* tmp2 = tmp;
-        tmp = mkpath(tmp, NULL);
-        SDL_free(tmp2);
-        return tmp;
-    } else {
-        plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
-        return strdup(".");
-    }
-    #elif PLATFORM == PLAT_WIN32
-    char* tmp = malloc(MAX_PATH + 1);
-    tmp[MAX_PATH] = 0;
-    DWORD r = GetModuleFileName(NULL, s, MAX_PATH);
-    if (r) {
-        for (int i = r - 1; i > 0; --i) {
-            if (tmp[r] == '\\' || tmp[r] == '/') {
-                tmp[r] = 0;
-                tmp = realloc(tmp, r + 1);
-                break;
-            }
-        }
-        return tmp;
-    } else {
-        free(tmp);
-        plog(LL_WARN, "Failed to get main directory");
-        return strdup(".");
-    }
-    #else // TODO: implement more platforms
-    plog(LL_WARN, "Failed to get main directory");
-    return strdup(".");
-    #endif
-}
-char* mkuserdir(const char* m, const char* n) {
-    #if PLATFORM == PLAT_NXDK
-    (void)m;
-    uint32_t titleid = CURRENT_XBE_HEADER->CertificateHeader->TitleID;
-    char titleidstr[9];
-    sprintf(titleidstr, "%08x", (unsigned)titleid);
-    return mkpath("E:\\TDATA", titleidstr, "data", n, NULL);
-    #elif PLATFORM == PLAT_DREAMCAST
-    (void)m;
-    return mkpath("/rd", n, NULL);
-    #elif PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
-    return mkpath(m, "data", n, NULL);
-    #elif !defined(PSRC_USESDL1)
-    (void)m;
-    char* tmp = SDL_GetPrefPath(NULL, n);
-    if (tmp) {
-        char* tmp2 = tmp;
-        tmp = mkpath(tmp, NULL);
-        SDL_free(tmp2);
-        return tmp;
-    } else {
-        plog(LL_WARN, "Failed to get user directory: %s", SDL_GetError());
-        return mkpath(m, "data", n, NULL);
-    }
-    #elif PLATFORM == PLAT_WIN32
-    char* tmp = getenv("AppData");
-    if (tmp) {
-        return mkpath(tmp, n, NULL);
-    } else {
-        plog(LL_WARN, LP_WARN "Failed to get user directory");
-        return mkpath(m, "data", n, NULL);
-    }
-    #else
-    plog(LL_WARN, LP_WARN "Failed to get user directory");
-    return mkpath(m, "data", n, NULL);
-    #endif
 }

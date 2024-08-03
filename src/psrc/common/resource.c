@@ -171,13 +171,13 @@ static void* typenames[RC__COUNT] = {
 };
 
 static struct {
-    int len;
-    int size;
-    char** paths;
+    struct modinfo* data;
+    uint16_t len;
+    uint16_t size;
     #ifndef PSRC_NOMT
     struct accesslock lock;
     #endif
-} modinfo;
+} mods;
 
 static char** extlist[RC__COUNT] = {
     (char*[]){".cfg", NULL},
@@ -192,158 +192,146 @@ static char** extlist[RC__COUNT] = {
     (char*[]){".txt", NULL}
 };
 
-static inline int getRcPath_try(struct charbuf* tmpcb, enum rctype type, char** ext, const char* s, ...) {
-    cb_addstr(tmpcb, s);
-    va_list v;
-    va_start(v, s);
-    while ((s = va_arg(v, char*))) {
-        cb_add(tmpcb, PATHSEP);
-        cb_addstr(tmpcb, s);
-    }
-    va_end(v);
-    char** exts = extlist[type];
-    char* tmp;
-    while ((tmp = *exts)) {
-        int len = 0;
+char* rslvRcPath(const char* uri, enum rcprefix* p) {
+    struct charbuf cb;
+    cb_init(&cb, 128);
+    {
+        const char* tmp = uri;
         char c;
         while ((c = *tmp)) {
             ++tmp;
-            ++len;
-            cb_add(tmpcb, c);
+            if (c == ':') {
+                cb_nullterm(&cb);
+                switch (*cb.data) {
+                    case 0: *p = RCPREFIX_SELF; goto match;
+                    case 's': if (!strcmp(cb.data + 1, "elf")) {*p = RCPREFIX_SELF; goto match;} break;
+                    case 'e': if (!strcmp(cb.data + 1, "ngine")) {*p = RCPREFIX_ENGINE; goto match;} break;
+                    case 'g': if (!strcmp(cb.data + 1, "ame")) {*p = RCPREFIX_GAME; goto match;} break;
+                    case 'm': if (!strcmp(cb.data + 1, "od")) {*p = RCPREFIX_MOD; goto match;} break;
+                    case 'u': if (!strcmp(cb.data + 1, "ser")) {*p = RCPREFIX_USER; goto match;} break;
+                    default: break;
+                }
+                plog(LL_ERROR, "Unknown prefix '%s' in resource path '%s'", cb.data, uri);
+                cb_dump(&cb);
+                return NULL;
+                match:;
+                cb_clear(&cb);
+                while ((c == *tmp)) {
+                    cb_add(&cb, c);
+                    ++tmp;
+                }
+                goto foundprefix;
+            } else {
+                cb_add(&cb, c);
+            }
         }
-        int status = isFile(cb_peek(tmpcb));
+    }
+    *p = RCPREFIX_SELF;
+    foundprefix:;
+    char* tmp = restrictpath(cb_peek(&cb), "/", '/', '_');
+    cb_dump(&cb);
+    return tmp;
+}
+
+static int getRcPath_try(struct charbuf* cb, enum rctype type, char** ext, const char* s, ...) {
+    {
+        cb_addstr(cb, s);
+        va_list v;
+        va_start(v, s);
+        while ((s = va_arg(v, const char*))) {
+            cb_addstr(cb, s);
+        }
+        va_end(v);
+    }
+    char** exts = extlist[type];
+    char* tmp;
+    while ((tmp = *exts)) {
+        int l = cb->len;
+        while (*tmp) {
+            cb_add(cb, *tmp);
+            ++tmp;
+        }
+        int status = isFile(cb_peek(cb));
         if (status >= 1) {
             if (ext) *ext = *exts;
             return status;
         }
-        cb_undo(tmpcb, len);
+        cb->len = l;
         ++exts;
     }
     return -1;
 }
-char* getRcPath(const char* uri, enum rctype type, char** ext) {
-    struct charbuf tmpcb;
-    cb_init(&tmpcb, 256);
-    const char* tmp = uri;
+#define GRP_TRY(...) do {\
+    if ((filestatus = getRcPath_try(&cb, type, ext, __VA_ARGS__, NULL)) >= 1) goto found;\
+} while (0)
+char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, char** ext) {
     enum rcprefix prefix;
-    while (1) {
-        char c = *tmp;
-        if (c) {
-            if (c == ':') {
-                uri = ++tmp;
-                char* srcstr = cb_peek(&tmpcb);
-                if (!*srcstr || !strcmp(srcstr, "self")) {
-                    prefix = RCPREFIX_SELF;
-                } else if (!strcmp(srcstr, "game")) {
-                    prefix = RCPREFIX_GAME;
-                } else if (!strcmp(srcstr, "mod")) {
-                    prefix = RCPREFIX_MOD;
-                } else if (!strcmp(srcstr, "user")) {
-                    prefix = RCPREFIX_USER;
-                } else if (!strcmp(srcstr, "engine")) {
-                    prefix = RCPREFIX_ENGINE;
-                } else {
-                    cb_dump(&tmpcb);
-                    free(srcstr);
-                    return NULL;
-                }
-                cb_clear(&tmpcb);
-                break;
-            } else {
-                cb_add(&tmpcb, c);
-            }
-        } else {
-            cb_clear(&tmpcb);
-            tmp = uri;
-            prefix = RCPREFIX_SELF;
-            break;
-        }
-        ++tmp;
+    char* uripath = rslvRcPath(uri, &prefix);
+    if (!uripath) return NULL;
+    if (!*uripath) {
+        free(uripath);
+        return NULL;
     }
-    int level = 0;
-    char* path = strrelpath(tmp);
-    char* tmp2 = path;
-    int lastlen = 0;
-    while (1) {
-        char c = *tmp2;
-        if (c == PATHSEP || !c) {
-            char* tmp3 = &(cb_peek(&tmpcb))[lastlen];
-            if (!strcmp(tmp3, "..")) {
-                --level;
-                if (level < 0) {
-                    plog(LL_ERROR, "%s reaches out of bounds", path);
-                    cb_dump(&tmpcb);
-                    free(path);
-                    return NULL;
-                }
-                tmpcb.len -= 2;
-                if (tmpcb.len > 0) {
-                    --tmpcb.len;
-                    while (tmpcb.len > 0 && tmpcb.data[tmpcb.len - 1] != PATHSEP) {
-                        --tmpcb.len;
-                    }
-                }
-            } else if (!strcmp(tmp3, ".")) {
-                tmpcb.len -= 1;
-            } else {
-                ++level;
-                if (c) cb_add(&tmpcb, PATHSEP);
-            }
-            if (!c) break;
-            lastlen = tmpcb.len;
-        } else {
-            cb_add(&tmpcb, c);
-        }
-        ++tmp2;
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    for (int i = 0; uripath[i]; ++i) {
+        if (uripath[i] == '/') uripath[i] = PATHSEP;
     }
-    free(path);
-    path = cb_reinit(&tmpcb, 256);
-    int filestatus = -1;
+    #endif
+    int filestatus;
     switch (prefix) {
-        case RCPREFIX_SELF: {
-            for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "games", gamedir, path, NULL)) >= 1) goto found;
-                cb_clear(&tmpcb);
+        default:
+            for (int i = 0; i < mods.len; ++i) {
+                GRP_TRY(mods.data[i].path, PATHSEPSTR "games" PATHSEPSTR, gameinfo.dir, uripath);
+                cb_clear(&cb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "games", gamedir, path, NULL)) >= 1) goto found;
-        } break;
-        case RCPREFIX_ENGINE: {
-            for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "engine", path, NULL)) >= 1) goto found;
-                cb_clear(&tmpcb);
+            GRP_TRY(dirs[DIR_GAME], uripath);
+            break;
+        case RCPREFIX_ENGINE:
+            for (int i = 0; i < mods.len; ++i) {
+                GRP_TRY(mods.data[i].path, PATHSEPSTR "engine" PATHSEPSTR "resources", uripath);
+                cb_clear(&cb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "engine", path, NULL)) >= 1) goto found;
-        } break;
-        case RCPREFIX_GAME: {
-            for (int i = 0; i < modinfo.len; ++i) {
-                if ((filestatus = getRcPath_try(&tmpcb, type, ext, modinfo.paths[i], "games", path, NULL)) >= 1) goto found;
-                cb_clear(&tmpcb);
+            GRP_TRY(dirs[DIR_ENGINERC], uripath);
+            break;
+        case RCPREFIX_GAME:
+            for (int i = 0; i < mods.len; ++i) {
+                GRP_TRY(mods.data[i].path, PATHSEPSTR "games", uripath);
+                cb_clear(&cb);
             }
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "games", path, NULL)) >= 1) goto found;
-        } break;
-        case RCPREFIX_MOD: {
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, userdir, "mods", path, NULL)) >= 1) goto found;
-            cb_clear(&tmpcb);
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, maindir, "mods", path, NULL)) >= 1) goto found;
-        } break;
-        case RCPREFIX_USER: {
-            if ((filestatus = getRcPath_try(&tmpcb, type, ext, userdir, path, NULL)) >= 1) goto found;
-        } break;
-        default: break;
+            GRP_TRY(dirs[DIR_GAMES], uripath);
+            break;
+        case RCPREFIX_MOD:
+            GRP_TRY(dirs[DIR_MODS], uripath);
+            break;
+        case RCPREFIX_USER:
+            #ifndef PSRC_MODULE_SERVER
+            GRP_TRY(dirs[DIR_USERRC], uripath);
+            #endif
+            break;
     }
-    free(path);
-    cb_dump(&tmpcb);
+    cb_dump(&cb);
+    free(uripath);
     return NULL;
     found:;
-    free(path);
-    path = cb_finalize(&tmpcb);
-    if (filestatus > 1) {
-        plog(LL_WARN, LW_SPECIALFILE(path));
+    if (p) *p = prefix;
+    if (rp) {
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        for (int i = 0; uripath[i]; ++i) {
+            if (uripath[i] == PATHSEP) uripath[i] = '/';
+        }
+        #endif
+        *rp = uripath;
+    } else {
+        free(uripath);
     }
-    return path;
+    return cb_finalize(&cb);
 }
+#undef GRP_TRY
 
-static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, const char* p, uint32_t pcrc) {
+static struct rcdata* loadResource_newptr(enum rctype t) {
+    struct rcgroup* g = &groups[t];
     struct rcdata* ptr = NULL;
     size_t size;
     switch (t) {
@@ -403,11 +391,6 @@ static struct rcdata* loadResource_newptr(enum rctype t, struct rcgroup* g, cons
         ptr->header.index = g->len;
         g->data[g->len++] = ptr;
     }
-    ptr->header.type = t;
-    ptr->header.path = strdup(p);
-    ptr->header.pathcrc = pcrc;
-    ptr->header.hasdatacrc = false;
-    ptr->header.refs = 1;
     return ptr;
 }
 
@@ -420,44 +403,60 @@ static inline void* loadResource_wrapper(enum rctype t, const char* uri, union r
 }
 #define loadResource_wrapper(t, p, o, e) loadResource_wrapper((t), (p), (union rcopt){.ptr = (void*)(o)}, e)
 
+#define LR_NEWPTR() do {\
+    d = loadResource_newptr(t);\
+    d->header.type = t;\
+    d->header.rcpath = rp;\
+    d->header.path = p;\
+    d->header.rcpathcrc = rpcrc;\
+    d->header.pathcrc = pcrc;\
+    d->header.hasdatacrc = false;\
+    d->header.refs = 1;\
+} while (0)
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o, struct charbuf* e) {
+    enum rcprefix prefix;
+    char* rp;
     char* ext;
-    char* p = getRcPath(uri, t, &ext);
+    char* p = getRcPath(t, uri, &prefix, &rp, &ext);
     if (!p) {
         plog(LL_ERROR, "Could not find %s at resource path %s", typenames[t], uri);
         return NULL;
     }
     uint32_t pcrc = strcrc32(p);
-    struct rcdata* d;
-    struct rcgroup* g = &groups[t];
+    uint32_t rpcrc = strcrc32(p);
     if (!o.ptr) o.ptr = defaultopt[t];
-    for (int i = 0; i < g->len; ++i) {
-        d = g->data[i];
-        if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
-            switch (t) {
-                case RC_MATERIAL: {
-                    if (o.material->quality != d->material.opt.quality) goto nomatch;
-                } break;
-                case RC_MODEL: {
-                    if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREVERTS)) goto nomatch;
-                    if ((o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREBONES)) goto nomatch;
-                    if ((o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
-                    if (o.model->texture_quality != d->model.opt.texture_quality) goto nomatch;
-                } break;
-                case RC_SCRIPT: {
-                    if (o.script->compileropt.findcmd != d->script.opt.compileropt.findcmd) goto nomatch;
-                    if (o.script->compileropt.findpv != d->script.opt.compileropt.findpv) goto nomatch;
-                } break;
-                case RC_TEXTURE: {
-                    if (o.texture->needsalpha && d->texture.data.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
-                    if (o.texture->quality != d->texture.opt.quality) goto nomatch;
-                } break;
-                default: break;
+    struct rcdata* d;
+    {
+        struct rcgroup* g = &groups[t];
+        for (int i = 0; i < g->len; ++i) {
+            d = g->data[i];
+            if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
+                switch (t) {
+                    case RC_MATERIAL: {
+                        if (o.material->quality != d->material.opt.quality) goto nomatch;
+                    } break;
+                    case RC_MODEL: {
+                        if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREVERTS)) goto nomatch;
+                        if ((o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREBONES)) goto nomatch;
+                        if ((o.model->flags & P3M_LOADFLAG_IGNOREANIMS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREANIMS)) goto nomatch;
+                        if (o.model->texture_quality != d->model.opt.texture_quality) goto nomatch;
+                    } break;
+                    case RC_SCRIPT: {
+                        if (o.script->compileropt.findcmd != d->script.opt.compileropt.findcmd) goto nomatch;
+                        if (o.script->compileropt.findpv != d->script.opt.compileropt.findpv) goto nomatch;
+                    } break;
+                    case RC_TEXTURE: {
+                        if (o.texture->needsalpha && d->texture.data.channels != RC_TEXTURE_FRMT_RGBA) goto nomatch;
+                        if (o.texture->quality != d->texture.opt.quality) goto nomatch;
+                    } break;
+                    default: break;
+                }
+                ++d->header.refs;
+                free(rp);
+                free(p);
+                return d;
+                nomatch:;
             }
-            ++d->header.refs;
-            free(p);
-            return d;
-            nomatch:;
         }
     }
     d = NULL;
@@ -465,7 +464,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_CONFIG: {
             struct cfg* config = cfg_open(p);
             if (config) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->config.data.config = config;
             }
         } break;
@@ -473,7 +472,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_FONT: {
             SFT_Font* font = sft_loadfile(p);
             if (font) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->font.data.font = font;
             }
         } break;
@@ -483,7 +482,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 struct rc_texture* tex;
                 char* tmp = cfg_getvar(mat, NULL, "base");
                 if (tmp) {
-                    char* tmp2 = getRcPath(tmp, RC_MATERIAL, NULL);
+                    char* tmp2 = getRcPath(RC_MATERIAL, tmp, NULL, NULL, NULL);
                     free(tmp);
                     if (tmp2) {
                         cfg_merge(mat, tmp2, false);
@@ -511,7 +510,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         }
                     }
                 }
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->material.data.texture = tex;
                 d->material.data.color[0] = 1.0f;
                 d->material.data.color[1] = 1.0f;
@@ -531,7 +530,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                 struct rcopt_texture texopt = {false, o.material->quality};
                 struct rc_texture* tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
                 if (tex) {
-                    d = loadResource_newptr(t, g, p, pcrc);
+                    LR_NEWPTR();
                     d->material.data.texture = tex;
                     d->material.data.color[0] = 1.0f;
                     d->material.data.color[1] = 1.0f;
@@ -545,7 +544,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_MODEL: {
             struct p3m* m = p3m_loadfile(p, o.model->flags);
             if (m) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->model.data.model = m;
                 d->model.data.textures = malloc(m->indexgroupcount * sizeof(*d->model.data.textures));
                 //struct rcopt_texture texopt = {false, o.model->texture_quality};
@@ -559,7 +558,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_SCRIPT: {
             struct pb_script s;
             if (pb_compilefile(p, &o.script->compileropt, &s, e)) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->script.data.script = s;
                 d->script.opt = *o.script;
             }
@@ -577,7 +576,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                         fread(data, 1, sz, f);
                         stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
                         if (v) {
-                            d = loadResource_newptr(t, g, p, pcrc);
+                            LR_NEWPTR();
                             if (o.sound->decodewhole) {
                                 d->sound.data.format = RC_SOUND_FRMT_WAV;
                                 stb_vorbis_info info = stb_vorbis_get_info(v);
@@ -624,7 +623,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                             free(data);
                             free(m);
                         } else {
-                            d = loadResource_newptr(t, g, p, pcrc);
+                            LR_NEWPTR();
                             if (o.sound->decodewhole) {
                                 d->sound.data.format = RC_SOUND_FRMT_WAV;
                                 int len = m->samples / m->info.channels;
@@ -684,7 +683,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 destfrmt, (spec.channels > 1) + 1, spec.freq
                             );
                             if (!ret) {
-                                d = loadResource_newptr(t, g, p, pcrc);
+                                LR_NEWPTR();
                                 d->sound.data.format = RC_SOUND_FRMT_WAV;
                                 d->sound.data.size = sz;
                                 d->sound.data.data = data;
@@ -703,7 +702,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                     SDL_FreeWAV(data);
                                 } else {
                                     data = SDL_realloc(data, cvt.len_cvt);
-                                    d = loadResource_newptr(t, g, p, pcrc);
+                                    LR_NEWPTR();
                                     d->sound.data.format = RC_SOUND_FRMT_WAV;
                                     d->sound.data.size = cvt.len_cvt;
                                     d->sound.data.data = data;
@@ -768,7 +767,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                             data = data2;
                         }
                     }
-                    d = loadResource_newptr(t, g, p, pcrc);
+                    LR_NEWPTR();
                     d->texture.data.width = r;
                     d->texture.data.height = r;
                     d->texture.data.channels = c;
@@ -815,7 +814,7 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
                                 data = data2;
                             }
                         }
-                        d = loadResource_newptr(t, g, p, pcrc);
+                        LR_NEWPTR();
                         d->texture.data.width = w;
                         d->texture.data.height = h;
                         d->texture.data.channels = c;
@@ -829,16 +828,20 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         case RC_VALUES: {
             struct cfg* values = cfg_open(p);
             if (values) {
-                d = loadResource_newptr(t, g, p, pcrc);
+                LR_NEWPTR();
                 d->values.data.values = values;
             }
         } break;
         default: break;
     }
-    free(p);
-    if (!d) plog(LL_ERROR, "Failed to load %s at resource path %s", typenames[t], uri);
+    if (!d) {
+        plog(LL_ERROR, "Failed to load %s at resource path '%s'", typenames[t], uri);
+        free(p);
+        free(rp);
+    }
     return d;
 }
+#undef LR_NEWPTR
 
 void* loadResource(enum rctype t, const char* uri, void* o, struct charbuf* e) {
     #ifndef PSRC_NOMT
@@ -882,6 +885,7 @@ static inline void freeResource_force(enum rctype type, struct rcdata* r) {
         default: break;
     }
     free(r->header.path);
+    free(r->header.rcpath);
 }
 
 static void freeResource_internal(struct rcdata* _r) {
@@ -921,150 +925,179 @@ void grabResource(void* _r) {
     }
 }
 
-static inline void loadMods_addpath(char* p) {
-    ++modinfo.len;
-    if (modinfo.len == modinfo.size) {
-        modinfo.size *= 2;
-        modinfo.paths = realloc(modinfo.paths, modinfo.size * sizeof(*modinfo.paths));
-    }
-    modinfo.paths[modinfo.len - 1] = p;
+static ALWAYSINLINE void freeModListEntry(struct modinfo* m) {
+    free(m->path);
+    free(m->dir);
+    free(m->name);
+    free(m->author);
+    free(m->desc);
 }
 
-void loadMods(const char* const* modnames, int modcount) {
-    #ifndef PSRC_NOMT
-    acquireWriteAccess(&modinfo.lock);
-    #endif
-    for (int i = 0; i < modinfo.len; ++i) {
-        free(modinfo.paths[i]);
+static inline int loadMods_add(struct charbuf* cb) {
+    {
+        cb_nullterm(cb);
+        int tmp = isFile(cb->data);
+        if (tmp < 0) {
+            #if DEBUG(1)
+            plog(LL_WARN | LF_DEBUG, "'%s' does not exist", cb->data);
+            #endif
+            return -1;
+        }
+        if (tmp >= 1) {
+            plog(LL_WARN, "'%s' is a file", cb->data);
+            return -1;
+        }
     }
-    modinfo.len = 0;
-    if (modcount > 0 && modnames && *modnames) {
-        if (modinfo.size < 4) {
-            modinfo.size = 4;
-            modinfo.paths = realloc(modinfo.paths, modinfo.size * sizeof(*modinfo.paths));
-        }
-        #if DEBUG(1)
-        {
-            struct charbuf cb;
-            cb_init(&cb, 256);
-            cb_add(&cb, '{');
-            if (modcount) {
-                const char* tmp = modnames[0];
-                char c;
-                cb_add(&cb, '"');
-                while ((c = *tmp)) {
-                    if (c == '"') cb_add(&cb, '\\');
-                    cb_add(&cb, c);
-                    ++tmp;
-                }
-                cb_add(&cb, '"');
-                for (int i = 1; i < modcount; ++i) {
-                    cb_add(&cb, ',');
-                    cb_add(&cb, ' ');
-                    tmp = modnames[i];
-                    cb_add(&cb, '"');
-                    while ((c = *tmp)) {
-                        if (c == '"' || c == '\\') cb_add(&cb, '\\');
-                        cb_add(&cb, c);
-                        ++tmp;
-                    }
-                    cb_add(&cb, '"');
-                }
-            }
-            cb_add(&cb, '}');
-            plog(LL_INFO | LF_DEBUG, "Requested mods: %s", cb_peek(&cb));
-            cb_dump(&cb);
-        }
-        #endif
-        for (int i = 0; i < modcount; ++i) {
-            bool notfound = true;
-            char* tmp = mkpath(userdir, "mods", modnames[i], NULL);
-            if (isFile(tmp)) {
-                free(tmp);
-            } else {
-                notfound = false;
-                loadMods_addpath(tmp);
-            }
-            tmp = mkpath(maindir, "mods", modnames[i], NULL);
-            if (isFile(tmp)) {
-                free(tmp);
-            } else {
-                notfound = false;
-                loadMods_addpath(tmp);
-            }
-            if (notfound) {
-                plog(LL_ERROR, "Unable to locate mod: %s", modnames[i]);
-            }
-        }
-        #if DEBUG(1)
-        {
-            struct charbuf cb;
-            cb_init(&cb, 256);
-            cb_add(&cb, '{');
-            if (modinfo.len) {
-                const char* tmp = modinfo.paths[0];
-                char c;
-                cb_add(&cb, '"');
-                while ((c = *tmp)) {
-                    if (c == '"') cb_add(&cb, '\\');
-                    cb_add(&cb, c);
-                    ++tmp;
-                }
-                cb_add(&cb, '"');
-                for (int i = 1; i < modinfo.len; ++i) {
-                    cb_add(&cb, ',');
-                    cb_add(&cb, ' ');
-                    tmp = modinfo.paths[i];
-                    cb_add(&cb, '"');
-                    while ((c = *tmp)) {
-                        if (c == '"' || c == '\\') cb_add(&cb, '\\');
-                        cb_add(&cb, c);
-                        ++tmp;
-                    }
-                    cb_add(&cb, '"');
-                }
-            }
-            cb_add(&cb, '}');
-            plog(LL_INFO | LF_DEBUG, "Found mods: %s", cb_peek(&cb));
-            cb_dump(&cb);
-        }
-        #endif
+    cb_add(cb, PATHSEP);
+    cb_addstr(cb, "mod.cfg");
+    struct cfg* cfg = cfg_open(cb_peek(cb));
+    cb->len -= 8;
+    if (!cfg) {
+        plog(LL_WARN, "No mod.cfg in '%s'", cb_peek(cb));
+        return -1;
+    }
+    if (mods.len == mods.size) {
+        mods.size = mods.size * 3 / 2;
+        mods.data = realloc(mods.data, mods.size * sizeof(*mods.data));
+    }
+    mods.data[mods.len].name = cfg_getvar(cfg, NULL, "name");
+    mods.data[mods.len].author = cfg_getvar(cfg, NULL, "author");
+    mods.data[mods.len].desc = cfg_getvar(cfg, NULL, "desc");
+    char* tmp = cfg_getvar(cfg, NULL, "version");
+    if (tmp) {
+        if (!strtover(tmp, &mods.data[mods.len].version)) mods.data[mods.len].version = MKVER_8_16_8(1, 0, 0);
+        free(tmp);
     } else {
-        modinfo.size = 0;
-        free(modinfo.paths);
-        modinfo.paths = NULL;
+        mods.data[mods.len].version = MKVER_8_16_8(1, 0, 0);
     }
+    cfg_close(cfg);
+    return mods.len++;
+}
+void loadMods(const char* const* l, int ct) {
     #ifndef PSRC_NOMT
-    releaseWriteAccess(&modinfo.lock);
+    acquireWriteAccess(&mods.lock);
+    #endif
+    for (int i = 0; i < mods.len; ++i) {
+        freeModListEntry(&mods.data[i]);
+    }
+    mods.len = 0;
+    if (ct < 0) {
+        do {
+            ++ct;
+        } while (l[ct]);
+    }
+    if (!ct) {
+        mods.size = 0;
+        free(mods.data);
+        return;
+    }
+    if (!mods.size) {
+        mods.size = 4;
+        mods.data = malloc(mods.size * sizeof(*mods.data));
+    }
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    #ifndef PSRC_MODULE_SERVER
+    if (dirs[DIR_USERMODS]) {
+        for (int i = 0; i < ct; ++i) {
+            char* n = sanfilename(l[i], '_');
+            cb_addstr(&cb, dirs[DIR_USERMODS]);
+            cb_add(&cb, PATHSEP);
+            cb_addstr(&cb, n);
+            int mi = loadMods_add(&cb);
+            if (mi < 0) {
+                cb_clear(&cb);
+                cb_addstr(&cb, dirs[DIR_MODS]);
+                cb_add(&cb, PATHSEP);
+                cb_addstr(&cb, n);
+                mi = loadMods_add(&cb);
+                if (mi < 0) {
+                    plog(LL_ERROR, "Failed to load mod '%s'", n);
+                    free(n);
+                    cb_clear(&cb);
+                    continue;
+                }
+            }
+            mods.data[mi].path = cb_reinit(&cb, 256);
+            mods.data[mi].dir = n;
+            if (!mods.data[mi].name) mods.data[mi].name = strdup(l[i]);
+        }
+    } else {
+    #endif
+        for (int i = 0; i < ct; ++i) {
+            char* n = sanfilename(l[i], '_');
+            cb_addstr(&cb, dirs[DIR_MODS]);
+            cb_add(&cb, PATHSEP);
+            cb_addstr(&cb, n);
+            int mi = loadMods_add(&cb);
+            if (mi < 0) {
+                plog(LL_ERROR, "Failed to load mod '%s'", n);
+                free(n);
+                cb_clear(&cb);
+                continue;
+            }
+            mods.data[mi].path = cb_reinit(&cb, 256);
+            mods.data[mi].dir = n;
+            if (!mods.data[mi].name) mods.data[mi].name = strdup(l[i]);
+        }
+    #ifndef PSRC_MODULE_SERVER
+    }
+    #endif
+    cb_dump(&cb);
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&mods.lock);
     #endif
 }
 
-char** queryMods(int* len) {
+void freeModList(struct modinfo* m) {
+    free(m->path);
+    free(m);
+}
+struct modinfo* queryMods(int* len) {
     #ifndef PSRC_NOMT
-    acquireReadAccess(&modinfo.lock);
+    acquireReadAccess(&mods.lock);
     #endif
-    if (modinfo.len > 0) {
-        if (len) *len = modinfo.len;
-        char** data = malloc((modinfo.len + 1) * sizeof(*data));
-        for (int i = 0; i < modinfo.len; ++i) {
-            data[i] = strdup(modinfo.paths[i]);
-        }
-        data[modinfo.len] = NULL;
+    if (!mods.len) {
         #ifndef PSRC_NOMT
-        releaseReadAccess(&modinfo.lock);
+        releaseReadAccess(&mods.lock);
         #endif
-        return data;
+        *len = 0;
+        return NULL;
     }
+    if (len) *len = mods.len;
+    struct modinfo* data = malloc(mods.len * sizeof(*data));
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    for (uint16_t i = 0; i < mods.len; ++i) {
+        data[i].path = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].path); cb_add(&cb, 0);
+        data[i].dir = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].dir); cb_add(&cb, 0);
+        data[i].name = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].name); cb_add(&cb, 0);
+        if (mods.data[i].author) {data[i].author = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].author); cb_add(&cb, 0);}
+        else data[i].author = NULL;
+        if (mods.data[i].desc) {data[i].desc = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].desc); cb_add(&cb, 0);}
+        else data[i].desc = NULL;
+        data[i].version = mods.data[i].version;
+    }
+    --cb.len;
+    cb_finalize(&cb);
+    for (uint16_t i = 0; i < mods.len; ++i) {
+        data[i].path += (uintptr_t)cb.data;
+        data[i].dir += (uintptr_t)cb.data;
+        data[i].name += (uintptr_t)cb.data;
+        if (data[i].author) data[i].author += (uintptr_t)cb.data;
+        if (data[i].desc) data[i].desc += (uintptr_t)cb.data;
+    }
+    cb_dump(&cb);
     #ifndef PSRC_NOMT
-    releaseReadAccess(&modinfo.lock);
+    releaseReadAccess(&mods.lock);
     #endif
-    return NULL;
+    return data;
 }
 
 bool initResource(void) {
     #ifndef PSRC_NOMT
     if (!createMutex(&rclock)) return false;
-    if (!createAccessLock(&modinfo.lock)) return false;
+    if (!createAccessLock(&mods.lock)) return false;
     #endif
 
     for (int i = 0; i < RC__COUNT; ++i) {
@@ -1074,27 +1107,6 @@ bool initResource(void) {
     }
 
     scriptopt_default.compileropt.findpv = common_findpv;
-
-    if (isFile(userdir)) {
-        plog(LL_INFO | LF_DEBUG, "Creating user directory at %s...", userdir);
-        if (!md(userdir)) {
-            plog(LL_ERROR, "Failed to create user directory at %s...", userdir);
-        }
-    }
-
-    char* tmp = cfg_getvar(config, NULL, "mods");
-    if (tmp) {
-        int modcount;
-        char** modnames = splitstrlist(tmp, ',', false, &modcount);
-        free(tmp);
-        loadMods((const char* const*)modnames, modcount);
-        for (int i = 0; i < modcount; ++i) {
-            free(modnames[i]);
-        }
-        free(modnames);
-    } else {
-        loadMods(NULL, 0);
-    }
 
     return true;
 }
@@ -1113,6 +1125,6 @@ void quitResource(void) {
 
     #ifndef PSRC_NOMT
     destroyMutex(&rclock);
-    destroyAccessLock(&modinfo.lock);
+    destroyAccessLock(&mods.lock);
     #endif
 }

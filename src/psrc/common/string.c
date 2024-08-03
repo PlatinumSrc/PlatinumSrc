@@ -72,6 +72,52 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
     if (l) *l = len;
     return data;
 }
+char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
+    int len = 0;
+    int size = 4;
+    char** data = malloc(size * sizeof(*data));
+    struct charbuf tmpcb;
+    cb_init(&tmpcb, 256);
+    char c;
+    bool split = false;
+    while (1) {
+        c = *s;
+        if (!c) {
+            split = true;
+        } else {
+            for (const char* d = delims; *d; ++d) {
+                if (c == *d) {split = true; break;}
+            }
+        }
+        if (split) {
+            if (len == size) {
+                size *= 2;
+                data = realloc(data, size * sizeof(*data));
+            }
+            data[len++] = cb_reinit(&tmpcb, 256);
+            if (!c) break;
+            split = false;
+        } else {
+            cb_add(&tmpcb, c);
+        }
+        ++s;
+    }
+    cb_dump(&tmpcb);
+    if (nullterm) {
+        ++len;
+        if (len != size) {
+            data = realloc(data, len * sizeof(*data));
+        }
+        --len;
+        data[len] = NULL;
+    } else {
+        if (len != size) {
+            data = realloc(data, len * sizeof(*data));
+        }
+    }
+    if (l) *l = len;
+    return data;
+}
 
 char* makestrlist(const char* const* s, int l, char delim) {
     if (!l) return calloc(1, 1);

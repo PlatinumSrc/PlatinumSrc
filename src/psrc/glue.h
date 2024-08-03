@@ -6,11 +6,12 @@
 #else
     #define pause() Sleep(INFINITE)
     #define strcasecmp _stricmp
+    #define strncasecmp _strnicmp
     #define strdup _strdup
     #define realpath(x, y) _fullpath(y, x, 0)
     #define mkdir _mkdir
-    #define isatty _isatty
     #define fileno _fileno
+    #define basename(x) (PathStripPath(x), x)
 #endif
 
 #ifndef _WIN32

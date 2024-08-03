@@ -1,6 +1,29 @@
-name = # game title
-icon = # default icon resource path
-vertype = # { 32 | 16.16 | 8.8.16 | 8.16.8 | 16.8.8 | 8.8.8.8 } (if empty, 32, 16.16, 8.8.16, or 8.8.8.8 depending on count of '.' in 'version')
-version = # current version (defaults to 0.0)
-minver = # minimum compatible version (used for multiplayer) (defaults to the current version)
-userdir = # if empty, the game dir name is used
+# In order to be recognized, games must have a game.cfg file in the root
+# The following params will be looked for:
+
+# Title
+# Defaults to the game's dir name
+name = My game
+
+# Author
+author = Me
+
+# Description
+desc = A cool game
+
+# Default icon image resource path (e.g. "textures/gameicon")
+icon = myicon
+
+# Current version
+# Version type (32, 16.16, 8.16.8, or 8.8.8.8) is determined automatically
+# Defaults to 1.0.0
+version = 2.0
+
+# Minimum compatible version (used for multiplayer compat checks)
+# Defaults to the current version
+minver = 
+
+# User data directory template
+# Use / to create subdirectories (e.g. "Games by Me/My game")
+# Defaults to the game's name
+userdir = Me - My game

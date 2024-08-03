@@ -1,37 +1,338 @@
 #include "common.h"
 #include "platform.h"
+#include "version.h"
 
+#include "common/filesystem.h"
+#include "common/logging.h"
+
+#if !defined(PSRC_USESDL1) && PLATFORM != PLAT_3DS && PLATFORM != PLAT_WII && PLATFORM != PLAT_GAMECUBE
+    #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
+        #include <SDL.h>
+    #else
+        #include <SDL2/SDL.h>
+    #endif
+#elif PLATFORM == PLAT_WIN32
+    #include <windows.h>
+#endif
+
+#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "glue.h"
 
 int quitreq = 0;
 
 struct options options = {0};
-
+struct gameinfo gameinfo = {0};
 char* dirs[DIR__COUNT];
-char* dirdesc[DIR__COUNT][2] = {
-    {"main", "Main"},
-    {"game", "Game"},
+char* dirdesc[DIR__COUNT] = {
+    "main",
+    "engine data",
+    "engine resource",
+    "games",
+    "mods",
+    "current game",
     #ifndef PSRC_MODULE_SERVER
-    {"user", "User"},
-    {"data", "Data"},
-    {"save", "Save"},
-    {"screenshot", "Screenshot"},
-    {"downloads", "Downloads"},
-    {"custom content", "Custom content"}
+    "user data",
+    "user resource",
+    "user mods",
+    "screenshot",
+    "save",
+    "downloaded server content",
+    "downloaded player content"
     #endif
 };
 
-
-char* maindir = NULL;
-char* userdir = NULL;
-char* gamedir = NULL;
-char* savedir = NULL;
-
 struct cfg* config = NULL;
 struct cfg* gameconfig = NULL;
+
+void setupBaseDirs(void) {
+    if (options.maindir) {
+        dirs[DIR_MAIN] = strpath(options.maindir);
+    } else {
+        #if PLATFORM == PLAT_NXDK
+        dirs[DIR_MAIN] = "D:\\";
+        #elif PLATFORM == PLAT_DREAMCAST
+        DIR* d = opendir("/cd");
+        if (d) {
+            closedir(d);
+            dirs[DIR_MAIN] = "/cd";
+        } else {
+            dirs[DIR_MAIN] = "/sd/psrc";
+        }
+        #elif PLATFORM == PLAT_3DS
+        dirs[DIR_MAIN] = "sdmc:/3ds/psrc";
+        #elif PLATFORM == PLAT_WII
+        dirs[DIR_MAIN] = "/apps/psrc";
+        #elif PLATFORM == PLAT_GAMECUBE
+        dirs[DIR_MAIN] = "/";
+        #elif !defined(PSRC_USESDL1)
+        char* tmp = SDL_GetBasePath();
+        if (tmp) {
+            char* tmp2 = tmp;
+            tmp = strpath(tmp);
+            SDL_free(tmp2);
+            dirs[DIR_MAIN] = tmp;
+        } else {
+            plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
+            dirs[DIR_MAIN] = ".";
+        }
+        #elif PLATFORM == PLAT_WIN32
+        char* tmp = malloc(MAX_PATH + 1);
+        tmp[MAX_PATH] = 0;
+        DWORD r = GetModuleFileName(NULL, s, MAX_PATH);
+        if (r) {
+            for (int i = r - 1; i > 0; --i) {
+                if (tmp[r] == '\\' || tmp[r] == '/') {
+                    tmp[r] = 0;
+                    tmp = realloc(tmp, r + 1);
+                    break;
+                }
+            }
+            dirs[DIR_MAIN] = tmp;
+        } else {
+            free(tmp);
+            plog(LL_WARN, "Failed to get main directory");
+            dirs[DIR_MAIN] = ".";
+        }
+        #else // TODO: implement more platforms
+        plog(LL_WARN, "Failed to get main directory");
+        dirs[DIR_MAIN] = ".";
+        #endif
+    }
+    dirs[DIR_ENGINE] = mkpath(dirs[DIR_MAIN], "engine", NULL);
+    dirs[DIR_ENGINERC] = mkpath(dirs[DIR_ENGINE], "resources", NULL);
+    dirs[DIR_GAMES] = mkpath(dirs[DIR_MAIN], "games", NULL);
+    dirs[DIR_MODS] = mkpath(dirs[DIR_MAIN], "mods", NULL);
+}
+static inline void logdirs(int until) {
+    for (int i = 0; i <= until; ++i) {
+        if (dirs[i]) plog(LL_INFO, "%c%s directory: %s", toupper(*dirdesc[i]), dirdesc[i] + 1, dirs[i]);
+    }
+}
+bool setGame(const char* g, bool p) {
+    if (!*g) return false;
+    char* d;
+    char* n;
+    if (p) {
+        {
+            const char* g2 = g;
+            const char* n2 = NULL;
+            char c = *g;
+            do {
+                ++g2;
+                if (ispathsep(c)) n2 = g2;
+            } while ((c = *g2));
+            if (n2 || (g[0] == '.' && (!g[1] || (g[1] == '.' && !g[2])))) {
+                d = strpath(g);
+            } else {
+                d = mkpath(dirs[DIR_GAMES], g, NULL);
+            }
+        }
+    } else {
+        const char* g2 = g;
+        char c = *g;
+        do {
+            if (ispathsep(c)) return false;
+            ++g2;
+        } while ((c = *g2));
+        d = mkpath(dirs[DIR_GAMES], g, NULL);
+    }
+    {
+        char* tmp = realpath(d, NULL);
+        free(d);
+        if (!tmp) return false;
+        d = tmp;
+        tmp = strpath(tmp);
+        n = basename(tmp);
+        n = strdup(n);
+        free(tmp);
+    }
+    if (isFile(d)) {
+        logdirs(DIR_GAME);
+        plog(LL_CRIT | LF_MSGBOX, "Could not find game directory '%s'", d);
+        free(d);
+        free(n);
+        return false;
+    }
+    {
+        char* tmp = mkpath(d, "game.cfg", NULL);
+        struct cfg* gc = cfg_open(tmp);
+        free(tmp);
+        if (!gc) {
+            plog(LL_CRIT | LF_MSGBOX, "Could not read game.cfg for '%s' in '%s'", n, d);
+            free(d);
+            free(n);
+            return false;
+        }
+        if (gameconfig) cfg_close(gameconfig);
+        gameconfig = gc;
+        free(gameinfo.dir);
+        gameinfo.dir = n;
+        tmp = cfg_getvar(gc, NULL, "name");
+        free(gameinfo.name);
+        if (tmp && *tmp) {
+            gameinfo.name = tmp;
+        } else {
+            gameinfo.name = strdup(n);
+            free(tmp);
+        }
+        free(gameinfo.author);
+        gameinfo.author = cfg_getvar(gc, NULL, "author");
+        free(gameinfo.desc);
+        gameinfo.desc = cfg_getvar(gc, NULL, "desc");
+        free(gameinfo.icon);
+        gameinfo.icon = cfg_getvar(gc, NULL, "icon");
+        tmp = cfg_getvar(gc, NULL, "version");
+        if (tmp) {
+            if (!strtover(tmp, &gameinfo.version)) gameinfo.version = MKVER_8_16_8(1, 0, 0);
+            free(tmp);
+        } else {
+            gameinfo.version = MKVER_8_16_8(1, 0, 0);
+        }
+        tmp = cfg_getvar(gc, NULL, "minver");
+        if (tmp) {
+            if (!strtover(tmp, &gameinfo.minver)) gameinfo.minver = gameinfo.version;
+            free(tmp);
+        } else {
+            gameinfo.minver = gameinfo.version;
+        }
+        #ifndef PSRC_MODULE_SERVER
+        free(gameinfo.userdir);
+        tmp = cfg_getvar(gc, NULL, "userdir");
+        if (tmp) {
+            gameinfo.userdir = restrictpath(tmp, "/", PATHSEP, '_');
+            free(tmp);
+        } else {
+            gameinfo.userdir = sanfilename(gameinfo.name, '_');
+        }
+        #endif
+    }
+    free(dirs[DIR_GAME]);
+    dirs[DIR_GAME] = d;
+    #ifndef PSRC_MODULE_SERVER
+    #if PLATFORM != PLAT_DREAMCAST
+    #if PLATFORM != PLAT_NXDK
+    free(dirs[DIR_USER]);
+    if (options.userdir) {
+        dirs[DIR_USER] = strpath(options.userdir);
+    } else {
+        #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
+        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+        #elif !defined(PSRC_USESDL1)
+        char* tmp;
+        tmp = SDL_GetPrefPath(NULL, gameinfo.userdir);
+        if (tmp) {
+            char* tmp2 = tmp;
+            dirs[DIR_USER] = strpath(tmp);
+            SDL_free(tmp2);
+        } else {
+            plog(LL_WARN, "Failed to get user directory: %s", SDL_GetError());
+            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+        }
+        #elif PLATFORM == PLAT_WIN32
+        char* tmp = getenv("AppData");
+        if (tmp) {
+            dirs[DIR_USER] = mkpath(tmp, gameinfo.userdir, NULL);
+        } else {
+            plog(LL_WARN, LP_WARN "Failed to get user directory");
+            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", n, NULL);
+        }
+        #else
+        plog(LL_WARN, LP_WARN "Failed to get user directory");
+        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+        #endif
+    }
+    #else
+    {
+        struct charbuf cb;
+        cb_init(&cb, 32);
+        cb_addstr(&cb, "data - ");
+        cb_addstr(&cb, n);
+        free(dirs[DIR_USER]);
+        dirs[DIR_USER] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+        cb_clear(&cb);
+        cb_addstr(&cb, "svdl - ");
+        cb_addstr(&cb, n);
+        free(dirs[DIR_SVDL]);
+        dirs[DIR_SVDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+        cb_clear(&cb);
+        cb_addstr(&cb, "pldl - ");
+        cb_addstr(&cb, n);
+        free(dirs[DIR_PLDL]);
+        dirs[DIR_PLDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+        cb_dump(&cb);
+    }
+    #endif
+    free(dirs[DIR_USERRC]);
+    dirs[DIR_USERRC] = mkpath(dirs[DIR_USER], "resources", NULL);
+    free(dirs[DIR_USERMODS]);
+    dirs[DIR_USERMODS] = mkpath(dirs[DIR_USER], "mods", NULL);
+    free(dirs[DIR_SCREENSHOTS]);
+    dirs[DIR_SCREENSHOTS] = mkpath(dirs[DIR_USER], "screenshots", NULL);
+    #if PLATFORM != PLAT_NXDK
+    free(dirs[DIR_SAVES]);
+    dirs[DIR_SAVES] = mkpath(dirs[DIR_USER], "saves", NULL);
+    free(dirs[DIR_SVDL]);
+    dirs[DIR_SVDL] = mkpath(dirs[DIR_USER], "downloads", "server", NULL);
+    free(dirs[DIR_PLDL]);
+    dirs[DIR_PLDL] = mkpath(dirs[DIR_USER], "downloads", "player", NULL);
+    #else
+    free(dirs[DIR_SAVES]);
+    dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
+    #endif
+    for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
+        if (dirs[i]) md(dirs[i]);
+    }
+    char* tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
+    if (!plog_setfile(tmp)) {
+        plog(LL_WARN, "Failed to set log file");
+    }
+    free(tmp);
+    logdirs(DIR__COUNT - 1);
+    #if PLATFORM == PLAT_NXDK
+    tmp = mkpath("E:\\UDATA", titleidstr, "TitleMeta.xbx", NULL);
+    if (isFile(tmp) < 0) {
+        FILE* f = fopen(tmp, "w");
+        fputs("TitleName=PlatinumSrc\n", f);
+        fclose(f);
+    }
+    free(tmp);
+    // TODO: copy icon maybe?
+    tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
+    if (isFile(tmp) < 0) {
+        FILE* f = fopen(tmp, "w");
+        fputs("Name=", f);
+        fputs(gameinfo.name, f);
+        fputs(" user data\n", f);
+        fclose(f);
+    }
+    free(tmp);
+    tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
+    if (isFile(tmp) < 0) {
+        FILE* f = fopen(tmp, "w");
+        fputs("Name=", f);
+        fputs(gameinfo.name, f);
+        fputs(" server content\n", f);
+        fclose(f);
+    }
+    free(tmp);
+    tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
+    if (isFile(tmp) < 0) {
+        FILE* f = fopen(tmp, "w");
+        fputs("Name=", f);
+        fputs(gameinfo.name, f);
+        fputs(" player content\n", f);
+        fclose(f);
+    }
+    free(tmp);
+    #endif
+    #endif
+    #endif
+    return true;
+}
 
 bool common_findpv(const char* n, int* d) {
     if (*n) {
