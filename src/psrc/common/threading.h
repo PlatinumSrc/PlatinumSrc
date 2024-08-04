@@ -38,9 +38,7 @@ typedef struct thread_t {
     char* name;
     threadfunc_t func;
     struct thread_data data;
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_USEWINPTHREAD)
     void* ret;
-    #endif
 } thread_t;
 #ifndef PSRC_USESTDTHREAD
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_USEWINPTHREAD)

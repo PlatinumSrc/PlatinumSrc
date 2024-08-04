@@ -251,6 +251,7 @@ static int getRcPath_try(struct charbuf* cb, enum rctype type, char** ext, const
             cb_add(cb, *tmp);
             ++tmp;
         }
+        //printf("TRY: {%s}\n", cb_peek(cb));
         int status = isFile(cb_peek(cb));
         if (status >= 1) {
             if (ext) *ext = *exts;

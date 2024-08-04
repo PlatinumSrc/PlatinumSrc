@@ -10,10 +10,14 @@
     #define strcasecmp _stricmp
     #define strncasecmp _strnicmp
     #define strdup _strdup
-    #define realpath(x, y) _fullpath(y, x, 0)
+    #if PLATFORM != PLAT_NXDK
+        #define realpath(x, y) _fullpath(y, x, 0)
+    #else
+        #define realpath(x, y) (NULL)
+    #endif
     #define mkdir(x) CreateDirectory(x, NULL)
     #define fileno _fileno
-    #define basename(x) (PathStripPath(x), x)
+    char* basename(char*);
 #endif
 
 #ifndef _WIN32

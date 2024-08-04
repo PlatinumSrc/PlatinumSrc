@@ -14,7 +14,10 @@
 #endif
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #include <windows.h>
-    #include <shlwapi.h>
+#elif PLATFORM == PLAT_DREAMCAST
+    #include <dirent.h>
+#elif PLATFORM == PLAT_EMSCR
+    #include <libgen.h>
 #endif
 
 #include <stdlib.h>
@@ -112,10 +115,10 @@ void setupBaseDirs(void) {
 static inline void logdirs(int until) {
     plog(LL_INFO, "Directories:");
     for (int i = 0; i <= until; ++i) {
-        if (dirs[i]) plog(LL_INFO, "  %c%s:\t%s", toupper(*dirdesc[i]), dirdesc[i] + 1, dirs[i]);
+        if (dirs[i]) plog(LL_INFO, "  %c%s: %s", toupper(*dirdesc[i]), dirdesc[i] + 1, dirs[i]);
     }
 }
-bool setGame(const char* g, bool p) {
+bool setGame(const char* g, bool p, struct charbuf* err) {
     if (!*g) return false;
     char* d;
     char* n;
@@ -138,24 +141,43 @@ bool setGame(const char* g, bool p) {
         const char* g2 = g;
         char c = *g;
         do {
-            if (ispathsep(c)) return false;
+            if (ispathsep(c)) {
+                cb_addstr(err, "Invalid game dir '");
+                cb_addstr(err, g);
+                cb_add(err, '\'');
+                return false;
+            }
             ++g2;
         } while ((c = *g2));
         d = mkpath(dirs[DIR_GAMES], g, NULL);
     }
     {
         char* tmp = realpath(d, NULL);
-        free(d);
-        if (!tmp) return false;
-        d = tmp;
+        if (tmp) {
+            free(d);
+            d = tmp;
+        } else {
+            plog(LL_WARN, "Could not find realpath of '%s'", d);
+            tmp = d;
+        }
         tmp = strpath(tmp);
         n = basename(tmp);
+        if (!n[0] || (ispathsep(n[0]) && !n[1]) || (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2])))) {
+            cb_addstr(err, "Invalid game dir '");
+            cb_addstr(err, d);
+            cb_add(err, '\'');
+            free(d);
+            free(tmp);
+            return false;
+        }
         n = strdup(n);
         free(tmp);
     }
     if (isFile(d)) {
         logdirs(DIR_GAME);
-        plog(LL_CRIT | LF_MSGBOX, "Could not find game directory '%s'", d);
+        cb_addstr(err, "Could not find game directory '");
+        cb_addstr(err, d);
+        cb_add(err, '\'');
         free(d);
         free(n);
         return false;
@@ -165,7 +187,9 @@ bool setGame(const char* g, bool p) {
         struct cfg* gc = cfg_open(tmp);
         free(tmp);
         if (!gc) {
-            plog(LL_CRIT | LF_MSGBOX, "Could not read game.cfg for '%s' in '%s'", n, d);
+            cb_addstr(err, "Could not read game.cfg in '");
+            cb_addstr(err, d);
+            cb_add(err, '\'');
             free(d);
             free(n);
             return false;
@@ -287,7 +311,9 @@ bool setGame(const char* g, bool p) {
                 dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
             #endif
             for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
-                if (dirs[i]) md(dirs[i]);
+                if (dirs[i]) {
+                    if (!md(dirs[i])) plog(LL_WARN, "Failed to make %s directory", dirdesc[i]);
+                }
             }
             char* tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
             if (!plog_setfile(tmp)) {
@@ -299,36 +325,52 @@ bool setGame(const char* g, bool p) {
                 tmp = mkpath("E:\\UDATA", titleidstr, "TitleMeta.xbx", NULL);
                 if (isFile(tmp) < 0) {
                     FILE* f = fopen(tmp, "w");
-                    fputs("TitleName=PlatinumSrc\n", f);
-                    fclose(f);
+                    if (f) {
+                        fputs("TitleName=PlatinumSrc\n", f);
+                        fclose(f);
+                    } else {
+                        plog(LL_WARN, "Failed to create TitleMeta.xbx");
+                    }
                 }
                 free(tmp);
                 // TODO: copy icon maybe?
                 tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
                 if (isFile(tmp) < 0) {
                     FILE* f = fopen(tmp, "w");
-                    fputs("Name=", f);
-                    fputs(gameinfo.name, f);
-                    fputs(" user data\n", f);
-                    fclose(f);
+                    if (f) {
+                        fputs("Name=", f);
+                        fputs(gameinfo.name, f);
+                        fputs(" user data\n", f);
+                        fclose(f);
+                    } else {
+                        plog(LL_WARN, "Failed to create user data SaveMeta.xbx");
+                    }
                 }
                 free(tmp);
                 tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
                 if (isFile(tmp) < 0) {
                     FILE* f = fopen(tmp, "w");
-                    fputs("Name=", f);
-                    fputs(gameinfo.name, f);
-                    fputs(" server content\n", f);
-                    fclose(f);
+                    if (f) {
+                        fputs("Name=", f);
+                        fputs(gameinfo.name, f);
+                        fputs(" server content\n", f);
+                        fclose(f);
+                    } else {
+                        plog(LL_WARN, "Failed to create server content SaveMeta.xbx");
+                    }
                 }
                 free(tmp);
                 tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
                 if (isFile(tmp) < 0) {
                     FILE* f = fopen(tmp, "w");
-                    fputs("Name=", f);
-                    fputs(gameinfo.name, f);
-                    fputs(" player content\n", f);
-                    fclose(f);
+                    if (f) {
+                        fputs("Name=", f);
+                        fputs(gameinfo.name, f);
+                        fputs(" player content\n", f);
+                        fclose(f);
+                    } else {
+                        plog(LL_WARN, "Failed to create player content SaveMeta.xbx");
+                    }
                 }
                 free(tmp);
             #endif

@@ -123,7 +123,7 @@ static inline char* vertostr(struct version* v) {
     char s[16];
     switch (v->t) {
         case VERTYPE_32:
-            sprintf(s, "%u", v->v_32.build);
+            sprintf(s, "%u", (unsigned)v->v_32.build);
             break;
         case VERTYPE_16_16:
             sprintf(s, "%u.%u", v->v_16_16.major, v->v_16_16.minor);

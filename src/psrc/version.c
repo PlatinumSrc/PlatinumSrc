@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#if PLATFORM == PLAT_NXDK
+    #include <winnt.h>
+#endif
+
 #include "glue.h"
 
 #define _STR(x) #x

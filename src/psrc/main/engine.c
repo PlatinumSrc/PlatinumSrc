@@ -239,7 +239,7 @@ void doLoop(void) {
     struct inputaction a;
     while (getNextInputAction(&a)) {
         //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
-        switch ((enum action)a.userdata) {
+        switch ((enum action)(uintptr_t)a.userdata) {
             case ACTION_MENU: ++quitreq; break;
             case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
             case ACTION_SCREENSHOT: screenshot = true; break;

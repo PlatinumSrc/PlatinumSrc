@@ -3,6 +3,7 @@
 
 #include "common/config.h"
 #include "common/versioning.h"
+#include "common/string.h"
 
 #include <stdbool.h>
 
@@ -68,7 +69,7 @@ extern struct cfg* config;
 extern struct cfg* gameconfig;
 
 void setupBaseDirs(void);
-bool setGame(const char*, bool maybepath);
+bool setGame(const char*, bool maybepath, struct charbuf* err);
 
 bool common_findpv(const char*, int*);
 

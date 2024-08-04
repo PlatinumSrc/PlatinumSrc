@@ -81,14 +81,14 @@ static int getvorbisat_mono_prepbuf(struct audiosound* s, int pos, bool stereo) 
     }
     return pos - off;
 }
-static inline ALWAYSINLINE void getvorbisat_mono(struct audiosound* s, int pos, bool stereo, int* out) {
+static ALWAYSINLINE void getvorbisat_mono(struct audiosound* s, int pos, bool stereo, int* out) {
     int i = getvorbisat_mono_prepbuf(s, pos, stereo);
     *out = s->audbuf.data[0][i];
 }
 
 #ifdef PSRC_USEMINIMP3
 
-static inline ALWAYSINLINE void getmp3at_fillbuf(struct audiosound* s, int off, int len, int ch) {
+static ALWAYSINLINE void getmp3at_fillbuf(struct audiosound* s, int off, int len, int ch) {
     mp3dec_ex_seek(s->mp3, off * ch);
     mp3dec_ex_read(s->mp3, s->audbuf.data_mp3, len * ch);
 }
@@ -115,14 +115,14 @@ static int getmp3at_prepbuf(struct audiosound* s, int pos, int ch) {
     }
     return pos - off;
 }
-static inline ALWAYSINLINE void getmp3at(struct audiosound* s, int pos, bool stereo, int* out_l, int* out_r) {
+static ALWAYSINLINE void getmp3at(struct audiosound* s, int pos, bool stereo, int* out_l, int* out_r) {
     int channels = s->rc->channels;
     int i = getmp3at_prepbuf(s, pos, channels) * channels;
     *out_l = s->audbuf.data_mp3[i];
     *out_r = s->audbuf.data_mp3[i + stereo];
 }
 
-static inline ALWAYSINLINE void getmp3at_mono_fillbuf(struct audiosound* s, int off, int len, int ch) {
+static ALWAYSINLINE void getmp3at_mono_fillbuf(struct audiosound* s, int off, int len, int ch) {
     mp3d_sample_t* d = s->audbuf.data_mp3;
     mp3dec_ex_seek(s->mp3, off * ch);
     mp3dec_ex_read(s->mp3, d, len * ch);
@@ -155,7 +155,7 @@ static int getmp3at_mono_prepbuf(struct audiosound* s, int pos, int ch) {
     }
     return pos - off;
 }
-static inline ALWAYSINLINE void getmp3at_mono(struct audiosound* s, int pos, int* out) {
+static ALWAYSINLINE void getmp3at_mono(struct audiosound* s, int pos, int* out) {
     int channels = s->rc->channels;
     int i = getmp3at_mono_prepbuf(s, pos, channels);
     *out = s->audbuf.data_mp3[i];
@@ -273,7 +273,7 @@ static inline void stop3DSound_inline(struct audiosound_3d* s) {
     --audiostate.emitters.data[s->emitter].uses;
 }
 
-static inline ALWAYSINLINE void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
+static ALWAYSINLINE void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
     fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
     fx->speedmul = (sfx[0].speedmul * ii + sfx[1].speedmul * i) / samples;
     fx->volmul[0] = (sfx[0].volmul[0] * ii + sfx[1].volmul[0] * i) / samples;
@@ -1090,7 +1090,7 @@ void updateSounds(float framemult) {
     }
 }
 
-int newAudioEmitter(int max, bool bg, ... /*soundfx*/) {
+int newAudioEmitter(int max, unsigned bg, ... /*soundfx*/) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
     #endif
@@ -1245,7 +1245,7 @@ void stopAudioEmitter(int ei) {
     #endif
 }
 
-void editAudioEmitter(int ei, bool immediate, ...) {
+void editAudioEmitter(int ei, unsigned immediate, ...) {
     if (ei < 0) return;
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);
@@ -1320,7 +1320,7 @@ void editAudioEmitter(int ei, bool immediate, ...) {
     #endif
 }
 
-void playSound(int ei, struct rc_sound* rc, uint8_t f, ...) {
+void playSound(int ei, struct rc_sound* rc, unsigned f, ...) {
     if (ei < 0) return;
     #ifndef PSRC_NOMT
     acquireReadAccess(&audiostate.lock);

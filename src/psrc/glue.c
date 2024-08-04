@@ -2,13 +2,18 @@
 #include "platform.h"
 
 #if PLATFORM == PLAT_NXDK
+    #include <ctype.h>
+#endif
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include "common/filesystem.h"
+#endif
+
+#if PLATFORM == PLAT_NXDK
 // objcopy refuses to put this section in the right place
 __asm__ (
     ".section \"XTIMAGE\"\n"
     ".byte 0"
 );
-
-#include <ctype.h>
 
 // the nxdk is missing atof
 double atof(const char *s) {
@@ -49,5 +54,28 @@ double atof(const char *s) {
         ++e;
     }
     return a;
+}
+#endif
+
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+char* basename(char* p) {
+    int i = 0;
+    char* r = p;
+    while (1) {
+        int o = i;
+        while (ispathsep(p[i])) {
+            ++i;
+        }
+        if (!p[i]) {
+            p[o] = 0;
+            return r;
+        }
+        r = &p[i];
+        ++i;
+        while (!ispathsep(p[i])) {
+            if (!p[i]) return r;
+            ++i;
+        }
+    }
 }
 #endif

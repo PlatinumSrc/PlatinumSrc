@@ -114,6 +114,6 @@ int args_getvarval(struct args* a, int n, struct charbuf* cb, struct charbuf* er
 void args_init(struct args* a, int c, char** v) {
     a->arg = 0;
     a->index = -1;
-    a->argc = c - 1;
-    a->argv = v + 1;
+    a->argc = c;
+    a->argv = v;
 }

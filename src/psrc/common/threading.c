@@ -15,6 +15,12 @@ DWORD WINAPI threadwrapper(LPVOID t) {
     ExitThread(0);
     return 0;
 }
+#elif defined(PSRC_USESTDTHREAD)
+static int threadwrapper(void* t) {
+    ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
+    thrd_exit(0);
+    return 0;
+}
 #else
 static void* threadwrapper(void* t) {
     #ifndef PSRC_COMMON_THREADING_NONAMES
@@ -30,7 +36,9 @@ static void* threadwrapper(void* t) {
             #endif
         #endif
     #endif
-    return ((thread_t*)t)->func(&((thread_t*)t)->data);
+    ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
+    pthread_exit(((thread_t*)t)->ret);
+    return ((thread_t*)t)->ret;
 }
 #endif
 
@@ -83,7 +91,8 @@ void destroyThread(thread_t* t, void** r) {
     pthread_join(t->thread, r);
     #endif
     #else
-    thrd_join(t->thread, (int*)r);
+    thrd_join(t->thread, NULL);
+    if (r) *r = t->ret;
     #endif
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Stopped thread %s", (t->name) ? t->name : "(null)");

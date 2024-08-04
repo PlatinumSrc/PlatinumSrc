@@ -188,13 +188,13 @@ enum soundfx {
     SOUNDFX_RANGE, // double
 };
 
-int newAudioEmitter(int max, bool bg, ... /*soundfx*/);
-void editAudioEmitter(int, bool immediate, ... /*soundfx*/);
+int newAudioEmitter(int max, unsigned /*bool*/ bg, ... /*soundfx*/);
+void editAudioEmitter(int, unsigned /*bool*/ immediate, ... /*soundfx*/);
 void pauseAudioEmitter(int, bool);
 void stopAudioEmitter(int);
 void deleteAudioEmitter(int);
 
-void playSound(int emitter, struct rc_sound* rc, uint8_t flags, ... /*soundfx*/);
+void playSound(int emitter, struct rc_sound* rc, unsigned /*uint8_t*/ flags, ... /*soundfx*/);
 void playUISound(struct rc_sound* rc);
 void playAlertSound(struct rc_sound* rc); // TODO: maybe add speed?
 void setAmbientSound(struct rc_sound* rc);

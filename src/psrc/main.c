@@ -65,6 +65,37 @@
 #define _STR(x) #x
 #define STR(x) _STR(x)
 
+#if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+static thread_t watchdogthread;
+static volatile bool killwatchdog;
+static void* watchdog(struct thread_data* td) {
+    plog(LL_INFO, "Watchdog armed for %u seconds", (unsigned)td->args);
+    uint64_t t = altutime() + (uint64_t)(td->args) * 1000000;
+    while (t > altutime()) {
+        if (killwatchdog) {
+            killwatchdog = false;
+            plog(LL_INFO, "Watchdog cancelled");
+            return NULL;
+        }
+        yield();
+    }
+    HalReturnToFirmware(HalRebootRoutine);
+    return NULL;
+}
+static void armWatchdog(unsigned sec) {
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
+static void cancelWatchdog(void) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+}
+static void rearmWatchdog(unsigned sec) {
+    killwatchdog = true;
+    destroyThread(&watchdogthread, NULL);
+    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
+}
+#endif
+
 #if defined(PSRC_MODULE_ENGINE)
     #ifndef PSRC_DEFAULTLOGO
         #define PSRC_DEFAULTLOGO engine:textures/engine
@@ -196,37 +227,6 @@ static void sigh(int sig) {
 }
 #endif
 
-#if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
-static thread_t watchdogthread;
-static volatile bool killwatchdog;
-static void* watchdog(struct thread_data* td) {
-    plog(LL_INFO, "Watchdog armed for %u seconds", (unsigned)td->args);
-    uint64_t t = altutime() + (uint64_t)(td->args) * 1000000;
-    while (t > altutime()) {
-        if (killwatchdog) {
-            killwatchdog = false;
-            plog(LL_INFO, "Watchdog cancelled");
-            return NULL;
-        }
-        yield();
-    }
-    HalReturnToFirmware(HalRebootRoutine);
-    return NULL;
-}
-static void armWatchdog(unsigned sec) {
-    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
-}
-static void cancelWatchdog(void) {
-    killwatchdog = true;
-    destroyThread(&watchdogthread, NULL);
-}
-static void rearmWatchdog(unsigned sec) {
-    killwatchdog = true;
-    destroyThread(&watchdogthread, NULL);
-    createThread(&watchdogthread, "watchdog", watchdog, (void*)sec);
-}
-#endif
-
 static int bootstrap(void) {
     puts(verstr);
     puts(platstr);
@@ -252,16 +252,33 @@ static int bootstrap(void) {
     }
     if (options.set) cfg_mergemem(config, options.set, true);
 
-    if (options.game) {
-        setGame(options.game, true);
-        free(options.game);
-        options.game = NULL;
-    } else if ((tmp = cfg_getvar(config, NULL, "defaultgame"))) {
-        setGame(tmp, false);
-        free(tmp);
-    } else {
-        plog(LL_WARN, "No default game specified, falling back to '%s'", STR(PSRC_DEFAULTGAME));
-        setGame(STR(PSRC_DEFAULTGAME), false);
+    {
+        struct charbuf err;
+        cb_init(&err, 256);
+        if (options.game) {
+            if (!setGame(options.game, true, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+            free(options.game);
+            options.game = NULL;
+        } else if ((tmp = cfg_getvar(config, NULL, "defaultgame"))) {
+            if (!setGame(tmp, false, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+            free(tmp);
+        } else {
+            plog(LL_WARN, "No default game specified, falling back to '%s'", STR(PSRC_DEFAULTGAME));
+            if (!setGame(STR(PSRC_DEFAULTGAME), false, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+        }
+        cb_dump(&err);
     }
 
     #ifndef PSRC_MODULE_SERVER
@@ -321,15 +338,15 @@ static void unstrap(void) {
 volatile bool issyncfsok = false;
 void __attribute__((used)) syncfsok(void) {issyncfsok = true;}
 static void emscrexit(void* arg) {
-    (void)arg;
-    exit(0);
+    exit((int)(uintptr_t)arg);
 }
 static void emscrmain(void) {
     static bool doloop = false;
     static bool syncmsg = false;
     if (doloop) {
-        doLoop();
-        if (quitreq) {
+        if (!quitreq) {
+            doLoop();
+        } else {
             static bool doexit = false;
             if (doexit) {
                 if (!syncmsg) {
@@ -338,7 +355,7 @@ static void emscrmain(void) {
                 }
                 if (issyncfsok) {
                     emscripten_cancel_main_loop();
-                    emscripten_async_call(emscrexit, NULL, -1);
+                    emscripten_async_call(emscrexit, (void*)(uintptr_t)0, -1);
                     puts("Done");
                 }
                 return;
@@ -371,6 +388,8 @@ static void emscrmain(void) {
             }
             unstrap();
         }
+        emscripten_cancel_main_loop();
+        emscripten_async_call(emscrexit, (void*)(uintptr_t)1, -1);
     }
 }
 #elif PLATFORM == PLAT_GDK

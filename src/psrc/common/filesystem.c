@@ -4,26 +4,29 @@
 
 #include <stddef.h>
 #include <ctype.h>
-#if PLATFORM == PLAT_NXDK
-    #include <windows.h>
-#elif PLATFORM == PLAT_DREAMCAST
-    #include <dirent.h>
-#else
-    #include <sys/types.h>
-    #include <sys/stat.h>
-    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+#if PLATFORM != PLAT_NXDK
+    #include <errno.h>
+    #if PLATFORM == PLAT_DREAMCAST
         #include <dirent.h>
-        #include <unistd.h>
     #else
-        #include <windows.h>
-    #endif
-    #ifndef PSRC_USESDL1
-        #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-            #include <SDL.h>
+        #include <sys/types.h>
+        #include <sys/stat.h>
+        #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            #include <dirent.h>
+            #include <unistd.h>
         #else
-            #include <SDL2/SDL.h>
+            #include <windows.h>
+        #endif
+        #ifndef PSRC_USESDL1
+            #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
+                #include <SDL.h>
+            #else
+                #include <SDL2/SDL.h>
+            #endif
         #endif
     #endif
+#else
+    #include <windows.h>
 #endif
 #include <stdio.h>
 #include <stdbool.h>
@@ -199,6 +202,7 @@ char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl)
         }
         cb_add(&cb, outsep);
         #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        (void)outrepl;
         cb_addstr(&cb, d);
         #else
         sanfilename_cb(d, outrepl, &cb);
@@ -214,16 +218,29 @@ bool md(const char* p) {
     struct charbuf cb;
     cb_init(&cb, 256);
     char c = *p;
-    if (ispathsep(c)) {cb_add(&cb, c); ++p;}
-    while ((c == *p)) {
-        if (ispathsep(c)) {
-            int t = isFile(cb_peek(&cb));
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    if (ispathsep(c)) {
+        cb_add(&cb, PATHSEP);
+        do {
+            ++p;
+            c = *p;
+        } while (ispathsep(c));
+    }
+    #endif
+    if (!c) return true;
+    while (1) {
+        if (ispathsep(c) || !c) {
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            cb_add(&cb, PATHSEP);
+            #endif
+            cb_nullterm(&cb);
+            int t = isFile(cb.data);
             if (t < 0) {
                 bool cond;
                 #if PLATFORM != PLAT_NXDK
-                cond = (mkdir(cb.data) < 0);
+                cond = (mkdir(cb.data) < 0 && errno != EEXIST);
                 #else
-                cond = (!CreateDirectory(cb.data, NULL));
+                cond = (!CreateDirectory(cb.data, NULL) && GetLastError() != ERROR_ALREADY_EXISTS);
                 #endif
                 if (cond) {
                     cb_dump(&cb);
@@ -234,9 +251,19 @@ bool md(const char* p) {
                 cb_dump(&cb);
                 return false;
             }
+            if (!c) break;
+            do {
+                ++p;
+                c = *p;
+            } while (ispathsep(c));
+            #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            cb_add(&cb, PATHSEP);
+            #endif
+        } else {
+            cb_add(&cb, c);
+            ++p;
+            c = *p;
         }
-        cb_add(&cb, c);
-        ++p;
     }
     cb_dump(&cb);
     return true;
@@ -272,7 +299,7 @@ char** ls(const char* p, bool ln, int* l) {
             #ifdef S_ISSOCK
             else if (S_ISSOCK(s.st_mode)) i |= LS_ISSPECIAL;
             #endif
-            #ifdef S_ISLNK
+            #if defined(S_ISLNK) && PLATFORM != PLAT_DREAMCAST
             lstat(statname.data, &s);
             if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
             #endif
