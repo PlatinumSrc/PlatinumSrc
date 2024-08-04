@@ -73,10 +73,12 @@ bool plog_setfile(const char* f) {
             free(logpath);
             logpath = strdup(f);
             bool writelog;
-            #if PLATFORM != PLAT_NXDK
+            #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
             writelog = !isatty(fileno(logfile));
-            #else
+            #elif PLATFORM == PLAT_NXDK
             writelog = true;
+            #else
+            writelog = (logfile != stdout && logfile != stderr);
             #endif
             if (writelog) plog_writedate(logfile);
             fprintf(logfile, "%s\n", verstr);
@@ -102,10 +104,12 @@ bool plog_setfile(const char* f) {
 }
 
 static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, const char* s, va_list v) {
-    #if PLATFORM != PLAT_NXDK
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
     if (!isatty(fileno(f))) plog_writedate(f);
-    #else
+    #elif PLATFORM == PLAT_NXDK
     plog_writedate(f);
+    #else
+    if (f != stdout && f != stderr) plog_writedate(f);
     #endif
     switch (lvl & 0xFF) {
         default:

@@ -48,11 +48,17 @@ int initLoop(void) {
         return 1;
     }
 
+    // TODO: move into the renderer
     char* tmp;
     if (options.icon) {
         rendstate.icon = strpath(options.icon);
     } else {
-        rendstate.icon = getRcPath(RC_TEXTURE, (gameinfo.icon) ? gameinfo.icon : STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
+        if (gameinfo.icon) {
+            rendstate.icon = getRcPath(RC_TEXTURE, gameinfo.icon, NULL, NULL, NULL);
+            if (!rendstate.icon) rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
+        } else {
+            rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
+        }
     }
 
     plog(LL_INFO, "Starting renderer...");
@@ -232,7 +238,7 @@ void doLoop(void) {
     float lookx = 0.0f, looky = 0.0f;
     struct inputaction a;
     while (getNextInputAction(&a)) {
-        printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
+        //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
         switch ((enum action)a.userdata) {
             case ACTION_MENU: ++quitreq; break;
             case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
@@ -275,7 +281,6 @@ void doLoop(void) {
         movex = tmp[0] + tmp[1];
         movez = tmp[2] + tmp[3];
     }
-    printf("move: [%f, %f]\n", movex, movez);
     audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * framemult);
     audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * framemult);
     audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);

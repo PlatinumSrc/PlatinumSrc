@@ -11,8 +11,10 @@
     #else
         #include <SDL2/SDL.h>
     #endif
-#elif PLATFORM == PLAT_WIN32
+#endif
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #include <windows.h>
+    #include <shlwapi.h>
 #endif
 
 #include <stdlib.h>
@@ -30,18 +32,18 @@ char* dirs[DIR__COUNT];
 char* dirdesc[DIR__COUNT] = {
     "main",
     "engine data",
-    "engine resource",
+    "engine resources",
     "games",
     "mods",
     "current game",
     #ifndef PSRC_MODULE_SERVER
     "user data",
-    "user resource",
+    "user resources",
     "user mods",
-    "screenshot",
-    "save",
-    "downloaded server content",
-    "downloaded player content"
+    "screenshots",
+    "saves",
+    "server downloads",
+    "player downloads"
     #endif
 };
 
@@ -108,8 +110,9 @@ void setupBaseDirs(void) {
     dirs[DIR_MODS] = mkpath(dirs[DIR_MAIN], "mods", NULL);
 }
 static inline void logdirs(int until) {
+    plog(LL_INFO, "Directories:");
     for (int i = 0; i <= until; ++i) {
-        if (dirs[i]) plog(LL_INFO, "%c%s directory: %s", toupper(*dirdesc[i]), dirdesc[i] + 1, dirs[i]);
+        if (dirs[i]) plog(LL_INFO, "  %c%s:\t%s", toupper(*dirdesc[i]), dirdesc[i] + 1, dirs[i]);
     }
 }
 bool setGame(const char* g, bool p) {
@@ -213,123 +216,123 @@ bool setGame(const char* g, bool p) {
     free(dirs[DIR_GAME]);
     dirs[DIR_GAME] = d;
     #ifndef PSRC_MODULE_SERVER
-    #if PLATFORM != PLAT_DREAMCAST
-    #if PLATFORM != PLAT_NXDK
-    free(dirs[DIR_USER]);
-    if (options.userdir) {
-        dirs[DIR_USER] = strpath(options.userdir);
-    } else {
-        #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
-        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
-        #elif !defined(PSRC_USESDL1)
-        char* tmp;
-        tmp = SDL_GetPrefPath(NULL, gameinfo.userdir);
-        if (tmp) {
-            char* tmp2 = tmp;
-            dirs[DIR_USER] = strpath(tmp);
-            SDL_free(tmp2);
-        } else {
-            plog(LL_WARN, "Failed to get user directory: %s", SDL_GetError());
-            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
-        }
-        #elif PLATFORM == PLAT_WIN32
-        char* tmp = getenv("AppData");
-        if (tmp) {
-            dirs[DIR_USER] = mkpath(tmp, gameinfo.userdir, NULL);
-        } else {
-            plog(LL_WARN, LP_WARN "Failed to get user directory");
-            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", n, NULL);
-        }
-        #else
-        plog(LL_WARN, LP_WARN "Failed to get user directory");
-        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+        #if PLATFORM != PLAT_DREAMCAST
+            #if PLATFORM != PLAT_NXDK
+                free(dirs[DIR_USER]);
+                if (options.userdir) {
+                    dirs[DIR_USER] = strpath(options.userdir);
+                } else {
+                    #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
+                        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+                    #elif !defined(PSRC_USESDL1)
+                        char* tmp;
+                        tmp = SDL_GetPrefPath(NULL, gameinfo.userdir);
+                        if (tmp) {
+                            char* tmp2 = tmp;
+                            dirs[DIR_USER] = strpath(tmp);
+                            SDL_free(tmp2);
+                        } else {
+                            plog(LL_WARN, "Failed to get user directory: %s", SDL_GetError());
+                            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+                        }
+                    #elif PLATFORM == PLAT_WIN32
+                        char* tmp = getenv("AppData");
+                        if (tmp) {
+                            dirs[DIR_USER] = mkpath(tmp, gameinfo.userdir, NULL);
+                        } else {
+                            plog(LL_WARN, LP_WARN "Failed to get user directory");
+                            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", n, NULL);
+                        }
+                    #else
+                        plog(LL_WARN, LP_WARN "Failed to get user directory");
+                        dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+                    #endif
+                }
+            #else
+                {
+                    struct charbuf cb;
+                    cb_init(&cb, 32);
+                    cb_addstr(&cb, "data - ");
+                    cb_addstr(&cb, n);
+                    free(dirs[DIR_USER]);
+                    dirs[DIR_USER] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+                    cb_clear(&cb);
+                    cb_addstr(&cb, "svdl - ");
+                    cb_addstr(&cb, n);
+                    free(dirs[DIR_SVDL]);
+                    dirs[DIR_SVDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+                    cb_clear(&cb);
+                    cb_addstr(&cb, "pldl - ");
+                    cb_addstr(&cb, n);
+                    free(dirs[DIR_PLDL]);
+                    dirs[DIR_PLDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
+                    cb_dump(&cb);
+                }
+            #endif
+            free(dirs[DIR_USERRC]);
+            dirs[DIR_USERRC] = mkpath(dirs[DIR_USER], "resources", NULL);
+            free(dirs[DIR_USERMODS]);
+            dirs[DIR_USERMODS] = mkpath(dirs[DIR_USER], "mods", NULL);
+            free(dirs[DIR_SCREENSHOTS]);
+            dirs[DIR_SCREENSHOTS] = mkpath(dirs[DIR_USER], "screenshots", NULL);
+            #if PLATFORM != PLAT_NXDK
+                free(dirs[DIR_SAVES]);
+                dirs[DIR_SAVES] = mkpath(dirs[DIR_USER], "saves", NULL);
+                free(dirs[DIR_SVDL]);
+                dirs[DIR_SVDL] = mkpath(dirs[DIR_USER], "downloads", "server", NULL);
+                free(dirs[DIR_PLDL]);
+                dirs[DIR_PLDL] = mkpath(dirs[DIR_USER], "downloads", "player", NULL);
+            #else
+                free(dirs[DIR_SAVES]);
+                dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
+            #endif
+            for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
+                if (dirs[i]) md(dirs[i]);
+            }
+            char* tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
+            if (!plog_setfile(tmp)) {
+                plog(LL_WARN, "Failed to set log file");
+            }
+            free(tmp);
+            logdirs(DIR__COUNT - 1);
+            #if PLATFORM == PLAT_NXDK
+                tmp = mkpath("E:\\UDATA", titleidstr, "TitleMeta.xbx", NULL);
+                if (isFile(tmp) < 0) {
+                    FILE* f = fopen(tmp, "w");
+                    fputs("TitleName=PlatinumSrc\n", f);
+                    fclose(f);
+                }
+                free(tmp);
+                // TODO: copy icon maybe?
+                tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
+                if (isFile(tmp) < 0) {
+                    FILE* f = fopen(tmp, "w");
+                    fputs("Name=", f);
+                    fputs(gameinfo.name, f);
+                    fputs(" user data\n", f);
+                    fclose(f);
+                }
+                free(tmp);
+                tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
+                if (isFile(tmp) < 0) {
+                    FILE* f = fopen(tmp, "w");
+                    fputs("Name=", f);
+                    fputs(gameinfo.name, f);
+                    fputs(" server content\n", f);
+                    fclose(f);
+                }
+                free(tmp);
+                tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
+                if (isFile(tmp) < 0) {
+                    FILE* f = fopen(tmp, "w");
+                    fputs("Name=", f);
+                    fputs(gameinfo.name, f);
+                    fputs(" player content\n", f);
+                    fclose(f);
+                }
+                free(tmp);
+            #endif
         #endif
-    }
-    #else
-    {
-        struct charbuf cb;
-        cb_init(&cb, 32);
-        cb_addstr(&cb, "data - ");
-        cb_addstr(&cb, n);
-        free(dirs[DIR_USER]);
-        dirs[DIR_USER] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
-        cb_clear(&cb);
-        cb_addstr(&cb, "svdl - ");
-        cb_addstr(&cb, n);
-        free(dirs[DIR_SVDL]);
-        dirs[DIR_SVDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
-        cb_clear(&cb);
-        cb_addstr(&cb, "pldl - ");
-        cb_addstr(&cb, n);
-        free(dirs[DIR_PLDL]);
-        dirs[DIR_PLDL] = mkpath("E:\\UDATA", titleidstr, cb_peek(&cb), NULL);
-        cb_dump(&cb);
-    }
-    #endif
-    free(dirs[DIR_USERRC]);
-    dirs[DIR_USERRC] = mkpath(dirs[DIR_USER], "resources", NULL);
-    free(dirs[DIR_USERMODS]);
-    dirs[DIR_USERMODS] = mkpath(dirs[DIR_USER], "mods", NULL);
-    free(dirs[DIR_SCREENSHOTS]);
-    dirs[DIR_SCREENSHOTS] = mkpath(dirs[DIR_USER], "screenshots", NULL);
-    #if PLATFORM != PLAT_NXDK
-    free(dirs[DIR_SAVES]);
-    dirs[DIR_SAVES] = mkpath(dirs[DIR_USER], "saves", NULL);
-    free(dirs[DIR_SVDL]);
-    dirs[DIR_SVDL] = mkpath(dirs[DIR_USER], "downloads", "server", NULL);
-    free(dirs[DIR_PLDL]);
-    dirs[DIR_PLDL] = mkpath(dirs[DIR_USER], "downloads", "player", NULL);
-    #else
-    free(dirs[DIR_SAVES]);
-    dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
-    #endif
-    for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
-        if (dirs[i]) md(dirs[i]);
-    }
-    char* tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
-    if (!plog_setfile(tmp)) {
-        plog(LL_WARN, "Failed to set log file");
-    }
-    free(tmp);
-    logdirs(DIR__COUNT - 1);
-    #if PLATFORM == PLAT_NXDK
-    tmp = mkpath("E:\\UDATA", titleidstr, "TitleMeta.xbx", NULL);
-    if (isFile(tmp) < 0) {
-        FILE* f = fopen(tmp, "w");
-        fputs("TitleName=PlatinumSrc\n", f);
-        fclose(f);
-    }
-    free(tmp);
-    // TODO: copy icon maybe?
-    tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
-    if (isFile(tmp) < 0) {
-        FILE* f = fopen(tmp, "w");
-        fputs("Name=", f);
-        fputs(gameinfo.name, f);
-        fputs(" user data\n", f);
-        fclose(f);
-    }
-    free(tmp);
-    tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
-    if (isFile(tmp) < 0) {
-        FILE* f = fopen(tmp, "w");
-        fputs("Name=", f);
-        fputs(gameinfo.name, f);
-        fputs(" server content\n", f);
-        fclose(f);
-    }
-    free(tmp);
-    tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
-    if (isFile(tmp) < 0) {
-        FILE* f = fopen(tmp, "w");
-        fputs("Name=", f);
-        fputs(gameinfo.name, f);
-        fputs(" player content\n", f);
-        fclose(f);
-    }
-    free(tmp);
-    #endif
-    #endif
     #endif
     return true;
 }

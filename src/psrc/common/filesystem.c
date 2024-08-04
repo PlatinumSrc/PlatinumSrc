@@ -121,39 +121,36 @@ char* strrelpath(const char* s) {
 void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     char c;
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    int b = cb.len;
+    int b = cb->len;
     #endif
     while ((c = *s)) {
         if (ispathsep(c)) {if (r) cb_add(cb, r);}
         #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         else if ((c >= 1 && c <= 31) || c == '<' || c == '>' || c == ':' ||
-            c == '"' || c == '|' || c == '?' || c == '*') if (r) cb_add(cb, r);
+            c == '"' || c == '|' || c == '?' || c == '*') {if (r) cb_add(cb, r);}
         #endif
         else cb_add(cb, c);
         ++s;
     }
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    if (b == cb.len) return;
+    if (b == cb->len) return;
     int i = b;
-    while (i < cb.len) {
-        if (cb.data[i] == ' ') cb.data[i] = '_';
+    while (i < cb->len) {
+        if (cb->data[i] == ' ') cb->data[i] = '_';
         else break;
         ++i;
     }
     if (i == b) {
-        char* d = cb.data + b;
-        int l = cb.len - b;
+        char* d = cb->data + b;
+        int l = cb->len - b;
         if (((l == 3 || (l > 3 && d[3] == '.')) &&
-             !strncasecmp(d, "con", 3) ||
-             !strncasecmp(d, "prn", 3) ||
-             !strncasecmp(d, "aux", 3) ||
-             !strncasecmp(d, "nul", 3)) ||
+             (!strncasecmp(d, "con", 3) || !strncasecmp(d, "prn", 3) || !strncasecmp(d, "aux", 3) || !strncasecmp(d, "nul", 3))) ||
             ((l == 4 || (l > 4 && d[4] == '.')) &&
              (!strncasecmp(d, "com", 3) || !strncasecmp(d, "lpt", 3)) &&
-             ((c >= '0' && c <= '9') || c == 0xB2 || c == 0xB3 || c == 0xB9)) ||
+             ((c >= '0' && c <= '9') || c == '\xB2' || c == '\xB3' || c == '\xB9')) ||
             ((l == 5 || (l > 5 && d[5] == '.')) &&
-             (!strncasecmp(d, "com", 3) || !strncasecmp(d, "lpt", 3)) && d[4] == 0xC2 &&
-             (c == 0xB2 || c == 0xB3 || c == 0xB9)) ||
+             (!strncasecmp(d, "com", 3) || !strncasecmp(d, "lpt", 3)) && d[4] == '\xC2' &&
+             (c == '\xB2' || c == '\xB3' || c == '\xB9')) ||
             ((l == 6 || (l > 6 && d[6] == '.')) &&
              !strncasecmp(d, "conin$", 6)) ||
             ((l == 7 || (l > 7 && d[7] == '.')) &&
@@ -162,14 +159,14 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
             (l == 2 && d[0] == '.' && d[1] == '.')) return;
         if (l > 2 && d[0] == '.' && d[1] == '.' && d[2] == '.') d[2] = (r && r != '.') ? r : '_';
     }
-    i = cb.len - 1;
+    i = cb->len - 1;
     while (i >= b) {
-        if (cb.data[i] == '.') --cb.len;
+        if (cb->data[i] == '.') --cb->len;
         else break;
         --i;
     }
     while (i >= b) {
-        if (cb.data[i] == ' ') cb.data[i] = '_';
+        if (cb->data[i] == ' ') cb->data[i] = '_';
         else break;
         --i;
     }
@@ -188,39 +185,26 @@ char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl)
     char** dl = splitstr(s, inseps, false, &ct);
     for (int i = 0; i < ct; ++i) {
         char* d = dl[i];
-        #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            if (!*d) goto skip;
-            if (d[0] == '.') {
-                if (!d[1]) {
-                    goto skip;
-                } else if (d[1] == '.' && !d[2]) {
-                    while (cb.len > 0) {
-                        --cb.len;
-                        if (cb.data[cb.len] == outsep) break;
-                    }
-                    goto skip;
-                }
-            }
-            cb_add(&cb, outsep);
-            cb_addstr(&cb, d);
-            skip:;
-            free(d);
-        #else
-            if (!*d) {free(d); continue;}
-            int l = cb.len;
-            sanfilename_cb(d, outrepl, &cb);
-            free(d);
-            l = l - cb.len;
-            if (l == 1 && cb.data[cb.len - 1] == '.') {
-                cb.len -= 2;
-            } else if (l == 2 && cb.data[cb.len - 1] == '.' && cb.data[cb.len - 2] == '.') {
-                cb.len -= 3;
+        if (!*d) goto skip;
+        if (d[0] == '.') {
+            if (!d[1]) {
+                goto skip;
+            } else if (d[1] == '.' && !d[2]) {
                 while (cb.len > 0) {
                     --cb.len;
                     if (cb.data[cb.len] == outsep) break;
                 }
+                goto skip;
             }
+        }
+        cb_add(&cb, outsep);
+        #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        cb_addstr(&cb, d);
+        #else
+        sanfilename_cb(d, outrepl, &cb);
         #endif
+        skip:;
+        free(d);
     }
     free(dl);
     return cb_finalize(&cb);

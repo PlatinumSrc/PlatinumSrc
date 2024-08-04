@@ -216,7 +216,7 @@ char* rslvRcPath(const char* uri, enum rcprefix* p) {
                 return NULL;
                 match:;
                 cb_clear(&cb);
-                while ((c == *tmp)) {
+                while ((c = *tmp)) {
                     cb_add(&cb, c);
                     ++tmp;
                 }

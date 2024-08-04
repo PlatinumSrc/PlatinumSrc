@@ -1,7 +1,9 @@
 #ifndef PSRC_GLUE_H
 #define PSRC_GLUE_H
 
-#ifndef _WIN32
+#include "platform.h"
+
+#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #define mkdir(x) mkdir(x, (S_IRWXU) | (S_IRGRP | S_IXGRP) | (S_IROTH | S_IXOTH))
 #else
     #define pause() Sleep(INFINITE)
@@ -9,7 +11,7 @@
     #define strncasecmp _strnicmp
     #define strdup _strdup
     #define realpath(x, y) _fullpath(y, x, 0)
-    #define mkdir _mkdir
+    #define mkdir(x) CreateDirectory(x, NULL)
     #define fileno _fileno
     #define basename(x) (PathStripPath(x), x)
 #endif
