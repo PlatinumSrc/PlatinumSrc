@@ -34,8 +34,8 @@ struct gameinfo gameinfo = {0};
 char* dirs[DIR__COUNT];
 char* dirdesc[DIR__COUNT] = {
     "main",
-    "engine data",
-    "engine resources",
+    "internal data",
+    "internal resources",
     "games",
     "mods",
     "current game",
@@ -107,8 +107,8 @@ void setupBaseDirs(void) {
         dirs[DIR_MAIN] = ".";
         #endif
     }
-    dirs[DIR_ENGINE] = mkpath(dirs[DIR_MAIN], "engine", NULL);
-    dirs[DIR_ENGINERC] = mkpath(dirs[DIR_ENGINE], "resources", NULL);
+    dirs[DIR_INTERNAL] = mkpath(dirs[DIR_MAIN], "internal", NULL);
+    dirs[DIR_INTERNALRC] = mkpath(dirs[DIR_INTERNAL], "resources", NULL);
     dirs[DIR_GAMES] = mkpath(dirs[DIR_MAIN], "games", NULL);
     dirs[DIR_MODS] = mkpath(dirs[DIR_MAIN], "mods", NULL);
 }
@@ -206,6 +206,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
             gameinfo.name = strdup(n);
             free(tmp);
         }
+        titlestr = gameinfo.name;
         free(gameinfo.author);
         gameinfo.author = cfg_getvar(gc, NULL, "author");
         free(gameinfo.desc);
@@ -430,8 +431,6 @@ bool common_findpv(const char* n, int* d) {
                 *d = PLAT_GAMECUBE; return true;
             } else if (!strcasecmp(n, "lat_gdk")) {
                 *d = PLAT_GDK; return true;
-            } else if (!strcasecmp(n, "lat_haiku")) {
-                *d = PLAT_HAIKU; return true;
             } else if (!strcasecmp(n, "lat_linux")) {
                 *d = PLAT_LINUX; return true;
             } else if (!strcasecmp(n, "lat_macos")) {

@@ -21,7 +21,7 @@ char titleidstr[9];
 #endif
 
 void makeVerStrs(void) {
-    titlestr = strdup("PlatinumSrc " STR(PSRC_BUILD));
+    titlestr = "PlatinumSrc " STR(PSRC_BUILD);
     static const char* months[12] = {
         "Jan", "Feb", "Mar", "Apr",
         "May", "Jun", "Jul", "Aug",

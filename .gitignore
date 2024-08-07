@@ -1,10 +1,8 @@
 *
 !/docs/
 !/docs/**
-!/engine/
-!/engine/**
-!/icons/
-!/icons/**
+!/internal/
+!/internal/**
 !/src/
 !/src/**
 !/tools/
@@ -19,4 +17,3 @@
 .**
 !/.gitattributes
 !/.gitignore
-/engine/config.cfg

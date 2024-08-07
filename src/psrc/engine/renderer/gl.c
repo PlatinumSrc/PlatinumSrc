@@ -255,7 +255,7 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
             glBegin(GL_TRIANGLES);
             //glColor3f(1.0f, 1.0f, 1.0f);
             for (uint16_t i = 0; i < indcount; ++i) {
-                float tmp1 = verts[*inds].z * 5.0f + 0.5f;
+                float tmp1 = (verts[*inds].z - tcos) * 3.25f + 1.5f;
                 if (tmp1 < 0.0f) tmp1 = 0.0f;
                 else if (tmp1 > 1.0f) tmp1 = 1.0f;
                 #if 1

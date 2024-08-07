@@ -1,9 +1,11 @@
 <Main dir>/ - Usually the directory the engine executable is located.
-    engine/
-        fonts/
-        scripts/
+    internal/
+        resources/
+            fonts/
+            icons/
+            scripts/
+            textures/
         shaders/
-        textures/
         themes/
         autorun.bas - (Optional) script to run on startup.
         config.cfg - Optional. See 'default config.txt' for details.
@@ -40,8 +42,8 @@
                 <Last 8 hex digits of %016x CRC64>/ - Files overlay <Game dir>.
     mods/
     playermodels/
-    autorun.bas - Optional script to run after autorun.bas in <Main dir>/engine/.
-    config.cfg - Optional config loaded after config.cfg in <Main dir>/engine/.
+    autorun.bas - Optional script to run after autorun.bas in <Main dir>/internal/.
+    config.cfg - Optional config loaded after config.cfg in <Main dir>/internal/.
 
 <Server dir>/ - The location the server executable was started in.
     content/ - Overlays <Game dir>.

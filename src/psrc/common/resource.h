@@ -24,7 +24,6 @@ PACKEDENUM rctype {
     RC_MAP,
     RC_MATERIAL,
     RC_MODEL,
-    RC_PLAYERMODEL,
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
@@ -34,7 +33,7 @@ PACKEDENUM rctype {
 
 PACKEDENUM rcprefix {
     RCPREFIX_SELF = -1,
-    RCPREFIX_ENGINE,
+    RCPREFIX_INTERNAL,
     RCPREFIX_GAME,
     RCPREFIX_MOD,
     RCPREFIX_USER,
@@ -159,7 +158,7 @@ struct rcheader {
     enum rctype type;
     enum rcprefix prefix;
     char* rcpath; // sanitized resource path without prefix (e.g. /textures/icon.png)
-    char* path; // full file path (e.g. /usr/share/games/psrc/engine/resources/textures/icon.png)
+    char* path; // full file path (e.g. /usr/share/games/psrc/internal/resources/textures/icon.png)
     uint32_t rcpathcrc;
     uint32_t pathcrc;
     bool hasdatacrc;
@@ -188,7 +187,7 @@ void* loadResource(enum rctype type, const char* uri, void* opt, struct charbuf*
 void freeResource(void*);
 void grabResource(void*);
 #define releaseResource freeResource
-char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rcpath, char** ext);
+char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rcpath, const char** ext);
 void loadMods(const char* const* names, int count);
 struct modinfo* queryMods(int* count);
 void freeModList(struct modinfo*);

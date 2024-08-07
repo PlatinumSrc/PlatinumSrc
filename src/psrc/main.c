@@ -98,17 +98,17 @@ static void rearmWatchdog(unsigned sec) {
 
 #if defined(PSRC_MODULE_ENGINE)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO engine:textures/engine
+        #define PSRC_DEFAULTLOGO internal:icons/engine
     #endif
     #include "main/engine.c"
 #elif defined(PSRC_MODULE_SERVER)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO engine:textures/server
+        #define PSRC_DEFAULTLOGO internal:icons/server
     #endif
     #include "main/server.c"
 #elif defined(PSRC_MODULE_EDITOR)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO engine:textures/editor
+        #define PSRC_DEFAULTLOGO internal:icons/editor
     #endif
     #include "main/editor.c"
 #endif
@@ -243,7 +243,7 @@ static int bootstrap(void) {
         return 1;
     }
 
-    char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_ENGINE], "config.cfg", NULL);
+    char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "config.cfg", NULL);
     config = cfg_open(tmp);
     free(tmp);
     if (!config) {

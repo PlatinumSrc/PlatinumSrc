@@ -74,7 +74,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
 - Setup
     - Xbox using the NXDK
         1. Create a directory called `xiso`
-        2. Copy \(or symlink\) the `engine` directory into `xiso/`
+        2. Copy \(or symlink\) the `internal` directory into `xiso/`
         3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
             - There should be a directory \(or link\) called `games`, and if you have mods, a directory \(or link\) called `mods`
     <!--
@@ -82,7 +82,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     -->
     - Dreamcast using KallistiOS
         1. Create a directory called `cdi`
-        2. Copy \(or symlink\) the `engine` directory into `cdi/`
+        2. Copy \(or symlink\) the `internal` directory into `cdi/`
         3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
     - Windows 2000 or Windows 98 with KernelEx
         1. Download [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
@@ -196,9 +196,9 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
 - Running the engine
     1. Download a game \(the engine will not run without a game\)
         - [H-74](https://github.com/PQCraft/H-74)
-    2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `engine/config/config.cfg` is set to the game's directory name
+    2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `internal/config.cfg` is set to the game's directory name
     3. Put any mods into a directory called `mods` and use the `-mods` option, or ensure they are listed in the `mods` variable in one of the configs
-        - You can use `config/config.cfg` in `engine/` or in the game's local data directory \(usually located in `~/.local/share/` under Linux and other Unix-like systems, and `%AppData%\Roaming\` under Windows\)
+        - You can use `config.cfg` in `internal/` or in the game's user data directory
         - Mods are listed as comma-separated values without spaces between values
     4. Run the executable
 

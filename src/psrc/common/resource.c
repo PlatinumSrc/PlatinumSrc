@@ -51,7 +51,6 @@ union resource {
     struct rc_map* map;
     struct rc_material* material;
     struct rc_model* model;
-    //struct rc_playermodel* playermodel;
     struct rc_script* script;
     struct rc_sound* sound;
     struct rc_texture* texture;
@@ -65,7 +64,6 @@ union rcopt {
     struct rcopt_map* map;
     struct rcopt_material* material;
     struct rcopt_model* model;
-    //struct rcopt_playermodel* playermodel;
     struct rcopt_script* script;
     struct rcopt_sound* sound;
     struct rcopt_texture* texture;
@@ -96,11 +94,6 @@ struct rcdata {
             struct rcopt_model opt;
         } model;
         struct {
-            int _placeholder;
-            //struct rc_playermodel data;
-            //struct rcopt_playermodel opt;
-        } playermodel;
-        struct {
             struct rc_script data;
             struct rcopt_script opt;
         } script;
@@ -126,7 +119,7 @@ struct rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 1, 4, 16, 16, 16};
+static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 4, 16, 16, 16};
 
 static struct rcopt_material materialopt_default = {
     RCOPT_TEXTURE_QLT_HIGH
@@ -150,7 +143,6 @@ static void* defaultopt[RC__COUNT] = {
     NULL,
     &materialopt_default,
     &modelopt_default,
-    NULL,
     &scriptopt_default,
     &soundopt_default,
     &textureopt_default,
@@ -163,7 +155,6 @@ static void* typenames[RC__COUNT] = {
     "map",
     "material",
     "model",
-    "playermodel",
     "script",
     "sound",
     "texture",
@@ -179,17 +170,16 @@ static struct {
     #endif
 } mods;
 
-static char** extlist[RC__COUNT] = {
-    (char*[]){".cfg", NULL},
-    (char*[]){".ttf", ".otf", NULL},
-    (char*[]){".pmf", NULL},
-    (char*[]){".txt", NULL},
-    (char*[]){".p3m", NULL},
-    (char*[]){".txt", NULL},
-    (char*[]){".bas", NULL},
-    (char*[]){".ogg", ".mp3", ".wav", NULL},
-    (char*[]){".ptf", ".png", ".jpg", ".tga", ".bmp", NULL},
-    (char*[]){".txt", NULL}
+static const char* const* extlist[RC__COUNT] = {
+    (const char* const[]){".cfg", NULL},
+    (const char* const[]){".ttf", ".otf", NULL},
+    (const char* const[]){".pmf", NULL},
+    (const char* const[]){".txt", NULL},
+    (const char* const[]){".p3m", NULL},
+    (const char* const[]){".bas", NULL},
+    (const char* const[]){".ogg", ".mp3", ".wav", NULL},
+    (const char* const[]){".ptf", ".png", ".jpg", ".tga", ".bmp", NULL},
+    (const char* const[]){".txt", NULL}
 };
 
 char* rslvRcPath(const char* uri, enum rcprefix* p) {
@@ -205,7 +195,7 @@ char* rslvRcPath(const char* uri, enum rcprefix* p) {
                 switch (*cb.data) {
                     case 0: *p = RCPREFIX_SELF; goto match;
                     case 's': if (!strcmp(cb.data + 1, "elf")) {*p = RCPREFIX_SELF; goto match;} break;
-                    case 'e': if (!strcmp(cb.data + 1, "ngine")) {*p = RCPREFIX_ENGINE; goto match;} break;
+                    case 'i': if (!strcmp(cb.data + 1, "nternal")) {*p = RCPREFIX_INTERNAL; goto match;} break;
                     case 'g': if (!strcmp(cb.data + 1, "ame")) {*p = RCPREFIX_GAME; goto match;} break;
                     case 'm': if (!strcmp(cb.data + 1, "od")) {*p = RCPREFIX_MOD; goto match;} break;
                     case 'u': if (!strcmp(cb.data + 1, "ser")) {*p = RCPREFIX_USER; goto match;} break;
@@ -233,7 +223,7 @@ char* rslvRcPath(const char* uri, enum rcprefix* p) {
     return tmp;
 }
 
-static int getRcPath_try(struct charbuf* cb, enum rctype type, char** ext, const char* s, ...) {
+static int getRcPath_try(struct charbuf* cb, enum rctype type, const char** ext, const char* s, ...) {
     {
         cb_addstr(cb, s);
         va_list v;
@@ -243,8 +233,8 @@ static int getRcPath_try(struct charbuf* cb, enum rctype type, char** ext, const
         }
         va_end(v);
     }
-    char** exts = extlist[type];
-    char* tmp;
+    const char* const* exts = extlist[type];
+    const char* tmp;
     while ((tmp = *exts)) {
         int l = cb->len;
         while (*tmp) {
@@ -265,12 +255,20 @@ static int getRcPath_try(struct charbuf* cb, enum rctype type, char** ext, const
 #define GRP_TRY(...) do {\
     if ((filestatus = getRcPath_try(&cb, type, ext, __VA_ARGS__, NULL)) >= 1) goto found;\
 } while (0)
-char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, char** ext) {
+char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, const char** ext) {
     enum rcprefix prefix;
     char* uripath = rslvRcPath(uri, &prefix);
-    if (!uripath) return NULL;
+    if (!uripath) {
+        #if DEBUG(1)
+        plog(LL_ERROR | LF_DEBUG, "Resource path '%s' is invalid", uri);
+        #endif
+        return NULL;
+    }
     if (!*uripath) {
         free(uripath);
+        #if DEBUG(1)
+        plog(LL_ERROR | LF_DEBUG, "Resolved resource path '%s' is empty", uri);
+        #endif
         return NULL;
     }
     struct charbuf cb;
@@ -289,12 +287,12 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
             }
             GRP_TRY(dirs[DIR_GAME], uripath);
             break;
-        case RCPREFIX_ENGINE:
+        case RCPREFIX_INTERNAL:
             for (int i = 0; i < mods.len; ++i) {
-                GRP_TRY(mods.data[i].path, PATHSEPSTR "engine" PATHSEPSTR "resources", uripath);
+                GRP_TRY(mods.data[i].path, PATHSEPSTR "internal" PATHSEPSTR "resources", uripath);
                 cb_clear(&cb);
             }
-            GRP_TRY(dirs[DIR_ENGINERC], uripath);
+            GRP_TRY(dirs[DIR_INTERNALRC], uripath);
             break;
         case RCPREFIX_GAME:
             for (int i = 0; i < mods.len; ++i) {
@@ -314,6 +312,9 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
     }
     cb_dump(&cb);
     free(uripath);
+    #if DEBUG(1)
+    plog(LL_ERROR | LF_DEBUG, "Could not find resource path '%s'", uri);
+    #endif
     return NULL;
     found:;
     if (p) *p = prefix;
@@ -350,9 +351,6 @@ static struct rcdata* loadResource_newptr(enum rctype t) {
             break;
         case RC_MODEL:
             size = offsetof(struct rcdata, model) + sizeof(ptr->model);
-            break;
-        case RC_PLAYERMODEL:
-            size = offsetof(struct rcdata, playermodel) + sizeof(ptr->playermodel);
             break;
         case RC_SCRIPT:
             size = offsetof(struct rcdata, script) + sizeof(ptr->script);
@@ -417,10 +415,10 @@ static inline void* loadResource_wrapper(enum rctype t, const char* uri, union r
 static struct rcdata* loadResource_internal(enum rctype t, const char* uri, union rcopt o, struct charbuf* e) {
     enum rcprefix prefix;
     char* rp;
-    char* ext;
+    const char* ext;
     char* p = getRcPath(t, uri, &prefix, &rp, &ext);
     if (!p) {
-        plog(LL_ERROR, "Could not find %s at resource path %s", typenames[t], uri);
+        plog(LL_ERROR, "Could not find %s at resource path '%s'", typenames[t], uri);
         return NULL;
     }
     uint32_t pcrc = strcrc32(p);

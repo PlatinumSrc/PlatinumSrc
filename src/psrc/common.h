@@ -44,8 +44,8 @@ extern struct gameinfo {
 
 enum dir {
     DIR_MAIN,        // instance dir
-    DIR_ENGINE,      // engine data dir; 'engine' in the main dir
-    DIR_ENGINERC,    // engine:/ resources; 'resources' in the engine data dir
+    DIR_INTERNAL,    // internal data dir; 'internal' in the main dir
+    DIR_INTERNALRC,  // internal:/ resources; 'resources' in the internal data dir
     DIR_GAMES,       // game dirs and game:/ resources; 'games' in the main dir
     DIR_MODS,        // mods and mod:/ resources; 'mods' in the main dir
     DIR_GAME,        // game dir

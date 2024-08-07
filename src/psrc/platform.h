@@ -2,24 +2,23 @@
 #define PSRC_PLATFORM_H
 
 #define PLAT_UNKNOWN   0
-#define PLAT_3DS       1
-#define PLAT_ANDROID   2
-#define PLAT_DREAMCAST 3
-#define PLAT_EMSCR     4
-#define PLAT_FREEBSD   5
-#define PLAT_GAMECUBE  6
-#define PLAT_GDK       7
-#define PLAT_HAIKU     8
-#define PLAT_LINUX     9
-#define PLAT_MACOS     10
-#define PLAT_NETBSD    11
-#define PLAT_OPENBSD   12
-#define PLAT_PS2       13
-#define PLAT_UNIX      14
-#define PLAT_WII       15
-#define PLAT_WIN32     16
-#define PLAT_NXDK      17
-#define PLAT__COUNT    18
+#define PLAT_UNIX      1
+#define PLAT_LINUX     2
+#define PLAT_WIN32     3
+#define PLAT_MACOS     4
+#define PLAT_EMSCR     5
+#define PLAT_NXDK      6
+#define PLAT_DREAMCAST 7
+#define PLAT_FREEBSD   8
+#define PLAT_NETBSD    9
+#define PLAT_OPENBSD   10
+#define PLAT_3DS       11
+#define PLAT_GAMECUBE  12
+#define PLAT_WII       13
+#define PLAT_PS2       14
+#define PLAT_GDK       15
+#define PLAT_ANDROID   16
+#define PLAT__COUNT    17
 
 #define ARCH_UNKNOWN 0
 #define ARCH_AMD64   1
@@ -38,35 +37,14 @@
 #define PLATFLAG_UNIXLIKE (1 << 0)
 #define PLATFLAG_WINDOWSLIKE (1 << 1)
 
-#if defined(__3DS__)
-    #define PLATFORM PLAT_3DS
-    #define PLATFLAGS (0)
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
-    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(_arch_dreamcast)
-    #define PLATFORM PLAT_DREAMCAST
-    #define PLATFLAGS (0)
-#elif defined(__EMSCRIPTEN__)
-    #define PLATFORM PLAT_EMSCR
-    #define PLATFLAGS (0)
-#elif defined(__FreeBSD__)
-    #define PLATFORM PLAT_FREEBSD
-    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(__gamecube__)
-    #define PLATFORM PLAT_GAMECUBE
-    #define PLATFLAGS (0)
-#elif defined(PSRC_USEGDK) || defined(_GAMING_DESKTOP) || defined(__GDK__)
-    #define PLATFORM PLAT_GDK
-    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
-#elif defined(__HAIKU__)
-    #define PLATFORM PLAT_HAIKU
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(__linux__)
     #define PLATFORM PLAT_LINUX
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(macintosh) || defined(Macintosh) || (defined(__APPLE__) && defined(__MACH__))
-    #define PLATFORM PLAT_MACOS
+#elif defined(__FreeBSD__)
+    #define PLATFORM PLAT_FREEBSD
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #elif defined(__NetBSD__)
     #define PLATFORM PLAT_NETBSD
@@ -74,21 +52,39 @@
 #elif defined(__OpenBSD__)
     #define PLATFORM PLAT_OPENBSD
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(_EE)
-    #define PLATFORM PLAT_PS2
-    #define PLATFLAGS (0)
-#elif defined(__unix__)
-    #define PLATFORM PLAT_UNIX
+#elif defined(macintosh) || defined(Macintosh) || (defined(__APPLE__) && defined(__MACH__))
+    #define PLATFORM PLAT_MACOS
     #define PLATFLAGS (PLATFLAG_UNIXLIKE)
-#elif defined(__wii__)
-    #define PLATFORM PLAT_WII
-    #define PLATFLAGS (0)
-#elif defined(_WIN32) && !(defined(NXDK) || defined(_XBOX))
-    #define PLATFORM PLAT_WIN32
-    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
 #elif defined(NXDK)
     #define PLATFORM PLAT_NXDK
     #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
+#elif defined(PSRC_USEGDK) || defined(_GAMING_DESKTOP) || defined(__GDK__)
+    #define PLATFORM PLAT_GDK
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
+#elif defined(__EMSCRIPTEN__)
+    #define PLATFORM PLAT_EMSCR
+    #define PLATFLAGS (0)
+#elif defined(_arch_dreamcast)
+    #define PLATFORM PLAT_DREAMCAST
+    #define PLATFLAGS (0)
+#elif defined(__3DS__)
+    #define PLATFORM PLAT_3DS
+    #define PLATFLAGS (0)
+#elif defined(__gamecube__)
+    #define PLATFORM PLAT_GAMECUBE
+    #define PLATFLAGS (0)
+#elif defined(_EE)
+    #define PLATFORM PLAT_PS2
+    #define PLATFLAGS (0)
+#elif defined(__wii__)
+    #define PLATFORM PLAT_WII
+    #define PLATFLAGS (0)
+#elif defined(_WIN32)
+    #define PLATFORM PLAT_WIN32
+    #define PLATFLAGS (PLATFLAG_WINDOWSLIKE)
+#elif defined(__unix__)
+    #define PLATFORM PLAT_UNIX
+    #define PLATFLAGS (PLATFLAG_UNIXLIKE)
 #else
     #define PLATFORM PLAT_UNKNOWN
     #define PLATFLAGS (0)
@@ -190,7 +186,6 @@
 
 extern const char* platname[PLAT__COUNT];
 extern const char* platid[PLAT__COUNT];
-extern const char* platdir[PLAT__COUNT];
-extern const char* altplatdir[PLAT__COUNT];
+extern const char* const* platdir[PLAT__COUNT];
 
 #endif

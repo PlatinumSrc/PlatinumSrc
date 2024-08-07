@@ -187,7 +187,11 @@ static void updateWindowMode(enum rendmode newmode) {
 
 #if PLATFORM != PLAT_NXDK
 static void updateWindowIcon(void) {
+    if (!rendstate.icon) return;
     int w, h, c;
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG, "Setting window icon to '%s'...", rendstate.icon);
+    #endif
     void* data = stbi_load(rendstate.icon, &w, &h, &c, STBI_rgb_alpha);
     if (data) {
         SDL_Surface* s = SDL_CreateRGBSurfaceFrom(
