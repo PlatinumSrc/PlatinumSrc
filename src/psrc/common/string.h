@@ -38,6 +38,13 @@ static inline void cb_addpartstr(struct charbuf* b, const char* s, long l) {
         cb_add(b, *s++);
     }
 }
+static inline void cb_addfake(struct charbuf* b) {
+    if (b->len == b->size) {
+        b->size *= 2;
+        b->data = realloc(b->data, b->size);
+    }
+    b->len++;
+}
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
     b->data[b->len] = 0;

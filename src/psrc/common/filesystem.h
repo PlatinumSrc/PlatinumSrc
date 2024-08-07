@@ -21,7 +21,7 @@
 
 #define LS_ISDIR (1 << 0)
 #define LS_ISLNK (1 << 1)
-#define LS_ISSPECIAL (1 << 2)
+#define LS_ISSPL (1 << 2)
 
 #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #define ispathsep(c) ((c) == '/')

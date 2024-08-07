@@ -312,7 +312,14 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
             #endif
             for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
                 if (dirs[i]) {
-                    if (!md(dirs[i])) plog(LL_WARN, "Failed to make %s directory", dirdesc[i]);
+                    if (i != DIR_SAVES && !dirs[DIR_USER]) {
+                        free(dirs[i]);
+                        dirs[i] = NULL;
+                    } else if (!md(dirs[i])) {
+                        plog(LL_ERROR, "Failed to make %s directory", dirdesc[i]);
+                        free(dirs[i]);
+                        dirs[i] = NULL;
+                    }
                 }
             }
             char* tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
@@ -320,7 +327,6 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 plog(LL_WARN, "Failed to set log file");
             }
             free(tmp);
-            logdirs(DIR__COUNT - 1);
             #if PLATFORM == PLAT_NXDK
                 tmp = mkpath("E:\\UDATA", titleidstr, "TitleMeta.xbx", NULL);
                 if (isFile(tmp) < 0) {
@@ -334,48 +340,55 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 }
                 free(tmp);
                 // TODO: copy icon maybe?
-                tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
-                if (isFile(tmp) < 0) {
-                    FILE* f = fopen(tmp, "w");
-                    if (f) {
-                        fputs("Name=", f);
-                        fputs(gameinfo.name, f);
-                        fputs(" user data\n", f);
-                        fclose(f);
-                    } else {
-                        plog(LL_WARN, "Failed to create user data SaveMeta.xbx");
+                if (dirs[DIR_USER]) {
+                    tmp = mkpath(dirs[DIR_USER], "SaveMeta.xbx", NULL);
+                    if (isFile(tmp) < 0) {
+                        FILE* f = fopen(tmp, "w");
+                        if (f) {
+                            fputs("Name=", f);
+                            fputs(gameinfo.name, f);
+                            fputs(" user data\n", f);
+                            fclose(f);
+                        } else {
+                            plog(LL_WARN, "Failed to create user data SaveMeta.xbx");
+                        }
                     }
+                    free(tmp);
                 }
-                free(tmp);
-                tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
-                if (isFile(tmp) < 0) {
-                    FILE* f = fopen(tmp, "w");
-                    if (f) {
-                        fputs("Name=", f);
-                        fputs(gameinfo.name, f);
-                        fputs(" server content\n", f);
-                        fclose(f);
-                    } else {
-                        plog(LL_WARN, "Failed to create server content SaveMeta.xbx");
+                if (dirs[DIR_SVDL]) {
+                    tmp = mkpath(dirs[DIR_SVDL], "SaveMeta.xbx", NULL);
+                    if (isFile(tmp) < 0) {
+                        FILE* f = fopen(tmp, "w");
+                        if (f) {
+                            fputs("Name=", f);
+                            fputs(gameinfo.name, f);
+                            fputs(" server content\n", f);
+                            fclose(f);
+                        } else {
+                            plog(LL_WARN, "Failed to create server content SaveMeta.xbx");
+                        }
                     }
+                    free(tmp);
                 }
-                free(tmp);
-                tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
-                if (isFile(tmp) < 0) {
-                    FILE* f = fopen(tmp, "w");
-                    if (f) {
-                        fputs("Name=", f);
-                        fputs(gameinfo.name, f);
-                        fputs(" player content\n", f);
-                        fclose(f);
-                    } else {
-                        plog(LL_WARN, "Failed to create player content SaveMeta.xbx");
+                if (dirs[DIR_PLDL]) {
+                    tmp = mkpath(dirs[DIR_PLDL], "SaveMeta.xbx", NULL);
+                    if (isFile(tmp) < 0) {
+                        FILE* f = fopen(tmp, "w");
+                        if (f) {
+                            fputs("Name=", f);
+                            fputs(gameinfo.name, f);
+                            fputs(" player content\n", f);
+                            fclose(f);
+                        } else {
+                            plog(LL_WARN, "Failed to create player content SaveMeta.xbx");
+                        }
                     }
+                    free(tmp);
                 }
-                free(tmp);
             #endif
         #endif
     #endif
+    logdirs(DIR__COUNT - 1);
     return true;
 }
 

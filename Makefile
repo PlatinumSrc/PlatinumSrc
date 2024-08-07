@@ -506,6 +506,8 @@ else
     else ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL
         LDLIBS.lib.SDL += -sUSE_SDL
+    else
+        LDLIBS.lib.SDL += -lSDL
     endif
 endif
 

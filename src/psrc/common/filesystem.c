@@ -102,7 +102,7 @@ char* mkpath(const char* s, ...) {
         }
     }
     while ((s = va_arg(v, char*))) {
-        cb_add(&b, PATHSEP);
+        if (b.len && b.data[b.len - 1] != PATHSEP) cb_add(&b, PATHSEP);
         replpathsep(&b, s, false);
     }
     ret:;
@@ -226,12 +226,21 @@ bool md(const char* p) {
             c = *p;
         } while (ispathsep(c));
     }
+    #else
+    bool sep = false;
+    bool cond = false;
     #endif
     if (!c) return true;
     while (1) {
         if (ispathsep(c) || !c) {
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            cb_add(&cb, PATHSEP);
+            if (!sep) {
+                sep = true;
+                if (cb.len >= 2 && cb.data[cb.len - 1] == ':') {
+                    cond = true;
+                    cb_add(&cb, PATHSEP);
+                }
+            }
             #endif
             cb_nullterm(&cb);
             int t = isFile(cb.data);
@@ -258,6 +267,12 @@ bool md(const char* p) {
             } while (ispathsep(c));
             #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
             cb_add(&cb, PATHSEP);
+            #else
+            if (cond) {
+                cond = false;
+            } else {
+                cb_add(&cb, PATHSEP);
+            }
             #endif
         } else {
             cb_add(&cb, c);
@@ -270,38 +285,96 @@ bool md(const char* p) {
 }
 
 char** ls(const char* p, bool ln, int* l) {
+    if (!*p) p = "." PATHSEPSTR;
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    DIR* d = opendir(p);
-    if (!d) return NULL;
+        DIR* d = opendir(p);
+        if (!d) return NULL;
     #else
+        WIN32_FIND_DATA fd;
+        HANDLE f;
+        {
+            size_t len = strlen(p);
+            char* tmp = malloc(len + 3);
+            if (len) memcpy(tmp, p, len);
+            tmp[len++] = PATHSEP;
+            tmp[len++] = '*';
+            tmp[len] = 0;
+            f = FindFirstFile(tmp, &fd);
+            free(tmp);
+            if (f == INVALID_HANDLE_VALUE) return NULL;
+        }
     #endif
-    struct charbuf names, statname;
-    cb_init(&names, 256);
-    cb_init(&statname, 256);
-    cb_addstr(&statname, p);
-    if (statname.len > 0 && !ispathsep(statname.data[statname.len - 1])) cb_add(&statname, PATHSEP);
-    int snl = statname.len;
     char** data = malloc(16 * sizeof(*data));
     int len = 1;
     int size = 16;
+    struct charbuf names;
+    cb_init(&names, 256);
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    struct dirent* de;
-    while ((de = readdir(d))) {
-        char* n = de->d_name;
-        if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) continue; // skip . and ..
-        cb_addstr(&statname, n);
-        struct stat s;
-        if (!stat(cb_peek(&statname), &s)) {
-            char i = (S_ISDIR(s.st_mode)) ? LS_ISDIR : 0;
-            if (S_ISCHR(s.st_mode)) i |= LS_ISSPECIAL;
-            else if (S_ISBLK(s.st_mode)) i |= LS_ISSPECIAL;
-            else if (S_ISFIFO(s.st_mode)) i |= LS_ISSPECIAL;
-            #ifdef S_ISSOCK
-            else if (S_ISSOCK(s.st_mode)) i |= LS_ISSPECIAL;
-            #endif
-            #if defined(S_ISLNK) && PLATFORM != PLAT_DREAMCAST
-            lstat(statname.data, &s);
-            if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
+        struct dirent* de;
+        while ((de = readdir(d))) {
+            char* n = de->d_name;
+            if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) continue; // skip . and ..
+            cb_addfake(&names);
+            int ol = names.len;
+            cb_addstr(&names, p);
+            if (!ispathsep(names.data[names.len - 1])) cb_add(&names, PATHSEP);
+            cb_addstr(&names, n);
+            cb_add(&names, 0);
+            struct stat s;
+            if (stat(names.data + ol, &s)) {
+                names.len = ol - 1;
+            } else {
+                char i = (S_ISDIR(s.st_mode)) ? LS_ISDIR : 0;
+                if (S_ISCHR(s.st_mode)) i |= LS_ISSPL;
+                else if (S_ISBLK(s.st_mode)) i |= LS_ISSPL;
+                else if (S_ISFIFO(s.st_mode)) i |= LS_ISSPL;
+                #ifdef S_ISSOCK
+                else if (S_ISSOCK(s.st_mode)) i |= LS_ISSPL;
+                #endif
+                #if defined(S_ISLNK) && PLATFORM != PLAT_DREAMCAST
+                lstat(names.data + ol, &s);
+                if (S_ISLNK(s.st_mode)) i |= LS_ISLNK;
+                #endif
+                names.data[ol - 1] = i;
+                if (!ln) {
+                    names.len = ol;
+                    cb_addstr(&names, n);
+                    cb_add(&names, 0);
+                }
+                if (len == size) {
+                    size *= 2;
+                    data = realloc(data, size * sizeof(*data));
+                }
+                data[len++] = (char*)(uintptr_t)ol;
+            }
+        }
+        closedir(d);
+    #else
+        do {
+            if (fd.cFileName[0] == '.' && (!fd.cFileName[1] || (fd.cFileName[1] == '.' && !fd.cFileName[2]))) continue;
+            char i = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? LS_ISDIR : 0;
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) i |= LS_ISSPL;
+            #ifdef FILE_ATTRIBUTE_REPARSE_POINT
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+                if (fd.dwReserved0 == IO_REPARSE_TAG_SYMLINK) i |= LS_ISLNK;
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT) i |= LS_ISLNK;
+                #ifdef IO_REPARSE_TAG_LX_SYMLINK
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_LX_SYMLINK) i |= LS_ISLNK;
+                #endif
+                #ifdef IO_REPARSE_TAG_AF_UNIX
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_AF_UNIX) i |= LS_ISSPL;
+                #endif
+                #ifdef IO_REPARSE_TAG_LX_FIFO
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_LX_FIFO) i |= LS_ISSPL;
+                #endif
+                #ifdef IO_REPARSE_TAG_LX_CHR
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_LX_CHR) i |= LS_ISSPL;
+                #endif
+                #ifdef IO_REPARSE_TAG_LX_BLK
+                else if (fd.dwReserved0 == IO_REPARSE_TAG_LX_BLK) i |= LS_ISSPL;
+                #endif
+                else i |= LS_ISLNK;
+            }
             #endif
             cb_add(&names, i);
             if (len == size) {
@@ -309,15 +382,15 @@ char** ls(const char* p, bool ln, int* l) {
                 data = realloc(data, size * sizeof(*data));
             }
             data[len++] = (char*)(uintptr_t)names.len;
-            cb_addstr(&names, (ln) ? statname.data : n);
+            if (ln) {
+                cb_addstr(&names, p);
+                if (!ispathsep(names.data[names.len - 1])) cb_add(&names, PATHSEP);
+            }
+            cb_addstr(&names, fd.cFileName);
             cb_add(&names, 0);
-        }
-        statname.len = snl;
-    }
-    closedir(d);
-    #else
+        } while (FindNextFile(f, &fd));
+        FindClose(f);
     #endif
-    cb_dump(&statname);
     names.data = realloc(names.data, names.len);
     data = realloc(data, (len + 1) * sizeof(*data));
     *data = names.data;
@@ -325,7 +398,7 @@ char** ls(const char* p, bool ln, int* l) {
     --len;
     ++data;
     for (int i = 0; i < len; ++i) {
-        data[i] = (char*)(((uintptr_t)data[i]) + (uintptr_t)names.data);
+        data[i] += (uintptr_t)names.data;
     }
     if (l) *l = len;
     return data;

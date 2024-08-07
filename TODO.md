@@ -9,21 +9,22 @@
         - Libraries/APIs
             - GL 1.1...
             - GL 3.3/GLES 3.0/WebGL 2.0
-            - D3D 7 \(Windows\)?
-                - Not really needed
+            - D3D 7 or 8 \(Windows and XDK\)
+            - D3D 9 \(Windows and GDK\)
             - XGU or PBKit \(NXDK\)
             - GSKIT \(PS2\)
             - PVR \(Dreamcast\)
-            - Software?
-                - Not really needed
-                - Might go with a software GL library
+            - Citro3D \(3DS\)
+            - OpenGX \(GameCube and Wii\)
+            - Software
         - Maps
         - Entities and props
     - Audio
+        - Music
         - Filters
         - Reverb
     - Physics
-    - UI...
+    - UI
     - Input
         - Touch UI
     - File I/O
