@@ -669,7 +669,7 @@ $(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).
 endef
 inc.null := $(null)
 define inc
-$$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
+$$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -xc -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
 endef
 
 default: build
@@ -816,7 +816,7 @@ else
 	@'$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} clean
 endif
 
-.PHONY: build run clean distclean externclean
+.PHONY: default _default build run clean distclean externclean
 
 ifeq ($(CROSS),nxdk)
 

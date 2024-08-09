@@ -1,4 +1,4 @@
-# PlatinumSrc<img src="https://raw.githubusercontent.com/PQCraft/PlatinumSrc/master/icons/logo.png" align="right" height="120"/>
+# PlatinumSrc<img src="https://raw.githubusercontent.com/PQCraft/PlatinumSrc/master/internal/resources/icons/logo.png" align="right" height="120"/>
 **A WIP retro 3D game engine inspired by GoldSrc and Quake**<br>
 Progress can be found [here](TODO.md)
 
