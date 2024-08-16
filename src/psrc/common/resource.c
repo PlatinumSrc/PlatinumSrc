@@ -49,7 +49,6 @@ union resource {
     struct rc_config* config;
     struct rc_font* font;
     struct rc_map* map;
-    struct rc_material* material;
     struct rc_model* model;
     struct rc_script* script;
     struct rc_sound* sound;
@@ -62,7 +61,6 @@ union rcopt {
     //struct rcopt_config* config;
     //struct rcopt_font* font;
     struct rcopt_map* map;
-    struct rcopt_material* material;
     struct rcopt_model* model;
     struct rcopt_script* script;
     struct rcopt_sound* sound;
@@ -85,10 +83,6 @@ struct rcdata {
             struct rc_map data;
             struct rcopt_map opt;
         } map;
-        struct {
-            struct rc_material data;
-            struct rcopt_material opt;
-        } material;
         struct {
             struct rc_model data;
             struct rcopt_model opt;
@@ -119,11 +113,8 @@ struct rcgroup {
 };
 
 static struct rcgroup groups[RC__COUNT];
-static int groupsizes[RC__COUNT] = {2, 1, 1, 16, 8, 4, 16, 16, 16};
+static int groupsizes[RC__COUNT] = {2, 1, 1, 8, 4, 16, 16, 16};
 
-static struct rcopt_material materialopt_default = {
-    RCOPT_TEXTURE_QLT_HIGH
-};
 static struct rcopt_model modelopt_default = {
     0, RCOPT_TEXTURE_QLT_HIGH
 };
@@ -137,11 +128,10 @@ static struct rcopt_texture textureopt_default = {
     false, RCOPT_TEXTURE_QLT_HIGH
 };
 
-static void* defaultopt[RC__COUNT] = {
+static void* const defaultopt[RC__COUNT] = {
     NULL,
     NULL,
     NULL,
-    &materialopt_default,
     &modelopt_default,
     &scriptopt_default,
     &soundopt_default,
@@ -149,11 +139,10 @@ static void* defaultopt[RC__COUNT] = {
     NULL
 };
 
-static void* typenames[RC__COUNT] = {
+static const char* const typenames[RC__COUNT] = {
     "config",
     "font",
     "map",
-    "material",
     "model",
     "script",
     "sound",
@@ -170,17 +159,34 @@ static struct {
     #endif
 } mods;
 
-static const char* const* extlist[RC__COUNT] = {
-    (const char* const[]){".cfg", NULL},
-    (const char* const[]){".ttf", ".otf", NULL},
-    (const char* const[]){".pmf", NULL},
-    (const char* const[]){".txt", NULL},
-    (const char* const[]){".p3m", NULL},
-    (const char* const[]){".bas", NULL},
-    (const char* const[]){".ogg", ".mp3", ".wav", NULL},
-    (const char* const[]){".ptf", ".png", ".jpg", ".tga", ".bmp", NULL},
-    (const char* const[]){".txt", NULL}
+static const char* const* const extlist[RC__COUNT] = {
+    (const char* const[]){"cfg", NULL},
+    (const char* const[]){"ttf", "otf", NULL},
+    (const char* const[]){"pmf", NULL},
+    (const char* const[]){"p3m", NULL},
+    (const char* const[]){"bas", NULL},
+    (const char* const[]){"ogg", "mp3", "wav", NULL},
+    (const char* const[]){"ptf", "png", "jpg", "tga", "bmp", NULL},
+    (const char* const[]){"txt", NULL}
 };
+
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+struct dlcache_dir {
+    char* rcpath;
+    uint32_t rcpathcrc;
+    int next;
+    struct rcls l;
+};
+static struct {
+    struct dlcache_dir* data;
+    int len;
+    int size;
+    int head;
+    #ifndef PSRC_NOMT
+    struct accesslock lock;
+    #endif
+} dlcache;
+#endif
 
 char* rslvRcPath(const char* uri, enum rcprefix* p) {
     struct charbuf cb;
@@ -197,7 +203,6 @@ char* rslvRcPath(const char* uri, enum rcprefix* p) {
                     case 's': if (!strcmp(cb.data + 1, "elf")) {*p = RCPREFIX_SELF; goto match;} break;
                     case 'i': if (!strcmp(cb.data + 1, "nternal")) {*p = RCPREFIX_INTERNAL; goto match;} break;
                     case 'g': if (!strcmp(cb.data + 1, "ame")) {*p = RCPREFIX_GAME; goto match;} break;
-                    case 'm': if (!strcmp(cb.data + 1, "od")) {*p = RCPREFIX_MOD; goto match;} break;
                     case 'u': if (!strcmp(cb.data + 1, "ser")) {*p = RCPREFIX_USER; goto match;} break;
                     default: break;
                 }
@@ -237,9 +242,13 @@ static int getRcPath_try(struct charbuf* cb, enum rctype type, const char** ext,
     const char* tmp;
     while ((tmp = *exts)) {
         int l = cb->len;
-        while (*tmp) {
-            cb_add(cb, *tmp);
-            ++tmp;
+        if (*tmp) {
+            cb_add(cb, '.');
+            cb_add(cb, *tmp++);
+            while (*tmp) {
+                cb_add(cb, *tmp);
+                ++tmp;
+            }
         }
         //printf("TRY: {%s}\n", cb_peek(cb));
         int status = isFile(cb_peek(cb));
@@ -301,9 +310,6 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
             }
             GRP_TRY(dirs[DIR_GAMES], uripath);
             break;
-        case RCPREFIX_MOD:
-            GRP_TRY(dirs[DIR_MODS], uripath);
-            break;
         case RCPREFIX_USER:
             #ifndef PSRC_MODULE_SERVER
             GRP_TRY(dirs[DIR_USERRC], uripath);
@@ -332,6 +338,160 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
 }
 #undef GRP_TRY
 
+bool lsRc(const char* uri, struct rcls* l) {
+    enum rcprefix p;
+    char* r = rslvRcPath(uri, &p);
+    if (!r) return false;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+//    if (*r && !dlcacheFind(RC__DIR, p, r)) {
+//        free(r);
+//        return false;
+//    }
+    #endif
+    struct {
+        int len;
+        int size;
+    } ld[RC__DIR + 1] = {0};
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    bool ret = false;
+    int dirind = 0;
+    char* dir;
+    while (1) {
+        switch (p) {
+            default:
+                if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "games", gameinfo.dir, r, NULL);
+                else if (dirind == mods.len) dir = mkpath(dirs[DIR_GAME], r, NULL);
+                else goto longbreak;
+                break;
+            case RCPREFIX_INTERNAL:
+                if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "internal" PATHSEPSTR "resources", r, NULL);
+                else if (dirind == mods.len) dir = mkpath(dirs[DIR_INTERNALRC], r, NULL);
+                else goto longbreak;
+                break;
+            case RCPREFIX_GAME:
+                if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "games", r, NULL);
+                else if (dirind == mods.len) dir = mkpath(dirs[DIR_GAMES], r, NULL);
+                else goto longbreak;
+                break;
+            case RCPREFIX_USER:
+                #ifndef PSRC_MODULE_SERVER
+                if (dirind) goto longbreak;
+                else dir = mkpath(dirs[DIR_USERRC], r, NULL);
+                #else
+                goto longbreak;
+                #endif
+                break;
+        }
+        ++dirind;
+        struct lsstate s;
+        if (!startls(dir, &s)) {
+            free(dir);
+            continue;
+        }
+        free(dir);
+        ret = true;
+        const char* n;
+        const char* ln;
+        while (getls(&s, &n, &ln)) {
+            int ind;
+            int ol = cb.len;
+            {
+                int isfile = isFile(ln);
+                if (isfile > 0) {
+                    cb_addstr(&cb, n);
+                    cb_add(&cb, 0);
+                    again:;
+                    --cb.len;
+                    if (cb.len == ol) continue;
+                    if (cb.data[cb.len] == '.') {
+                        char* tmp = &cb.data[cb.len + 1];
+                        for (int j = 0; j < RC__COUNT; ++j) {
+                            const char* const* exts = extlist[j];
+                            do {
+                                if (!strcmp(tmp, *exts)) {
+                                    ind = j;
+                                    goto foundext;
+                                }
+                                ++exts;
+                            } while (*exts);
+                        }
+                        cb.len = ol;
+                        continue;
+                        foundext:;
+                        cb_add(&cb, 0);
+                    } else {
+                        goto again;
+                    }
+                } else if (!isfile) {
+                    cb_addstr(&cb, n);
+                    cb_add(&cb, 0);
+                    ind = RC__DIR;
+                } else {
+                    continue;
+                }
+            }
+            int fi;
+            char* tmp = &cb.data[ol];
+            uint32_t crc = strcrc32(tmp);
+            if (dirind > 1) {
+                int i = 0;
+                again2:;
+                if (i < ld[ind].len) {
+                    struct rcls_file* f = &l->files[ind][i];
+                    if (crc == f->namecrc && !strcmp(tmp, &cb.data[(uintptr_t)f->name])) {
+                        cb.len = ol;
+                        continue;
+                    }
+                    ++i;
+                    goto again2;
+                }
+            }
+            fi = ld[ind].len++;
+            if (!fi) {
+                ld[ind].size = 4;
+                l->files[ind] = malloc(ld[ind].size * sizeof(**l->files));
+            } else if (ld[ind].len == ld[ind].size) {
+                ld[ind].size = ld[ind].size * 3 / 2;
+                l->files[ind] = realloc(l->files[ind], ld[ind].size * sizeof(**l->files));
+            }
+            struct rcls_file* f = &l->files[ind][fi];
+            f->name = (char*)(uintptr_t)ol;
+            f->namecrc = crc;
+            //printf("[%d]: [%d]: {%s}\n", fi, ind, &cb.data[ol]);
+        }
+        endls(&s);
+    }
+    longbreak:;
+    if (ret) {
+        cb.data = realloc(cb.data, cb.len);
+        l->names = cb.data;
+        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
+            int ct = ld[ri].len;
+            l->count[ri] = ct;
+            if (ct) {
+                struct rcls_file* fl = realloc(l->files[ri], ld[ri].len * sizeof(**l->files));
+                l->files[ri] = fl;
+                for (int i = 0; i < ct; ++i) {
+                    fl[i].name += (uintptr_t)cb.data;
+                }
+            } else {
+                l->files[ri] = NULL;
+            }
+        }
+    } else {
+        cb_dump(&cb);
+    }
+    free(r);
+    return ret;
+}
+void freeRcls(struct rcls* l) {
+    free(l->names);
+    for (int i = 0; i < RC__DIR + 1; ++i) {
+        free(l->files[i]);
+    }
+}
+
 static struct rcdata* loadResource_newptr(enum rctype t) {
     struct rcgroup* g = &groups[t];
     struct rcdata* ptr = NULL;
@@ -345,9 +505,6 @@ static struct rcdata* loadResource_newptr(enum rctype t) {
             break;
         case RC_MAP:
             size = offsetof(struct rcdata, map) + sizeof(ptr->map);
-            break;
-        case RC_MATERIAL:
-            size = offsetof(struct rcdata, material) + sizeof(ptr->material);
             break;
         case RC_MODEL:
             size = offsetof(struct rcdata, model) + sizeof(ptr->model);
@@ -431,9 +588,6 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             d = g->data[i];
             if (d && d->header.pathcrc == pcrc && !strcmp(p, d->header.path)) {
                 switch (t) {
-                    case RC_MATERIAL: {
-                        if (o.material->quality != d->material.opt.quality) goto nomatch;
-                    } break;
                     case RC_MODEL: {
                         if ((o.model->flags & P3M_LOADFLAG_IGNOREVERTS) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREVERTS)) goto nomatch;
                         if ((o.model->flags & P3M_LOADFLAG_IGNOREBONES) < (d->model.opt.flags & P3M_LOADFLAG_IGNOREBONES)) goto nomatch;
@@ -473,70 +627,6 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
             if (font) {
                 LR_NEWPTR();
                 d->font.data.font = font;
-            }
-        } break;
-        case RC_MATERIAL: {
-            struct cfg* mat = cfg_open(p);
-            if (mat) {
-                struct rc_texture* tex;
-                char* tmp = cfg_getvar(mat, NULL, "base");
-                if (tmp) {
-                    char* tmp2 = getRcPath(RC_MATERIAL, tmp, NULL, NULL, NULL);
-                    free(tmp);
-                    if (tmp2) {
-                        cfg_merge(mat, tmp2, false);
-                        free(tmp2);
-                    }
-                }
-                {
-                    tmp = cfg_getvar(mat, NULL, "texture");
-                    struct rcopt_texture texopt = {false, o.material->quality};
-                    if (tmp) {
-                        tex = loadResource_wrapper(RC_TEXTURE, tmp, &texopt, NULL);
-                        free(tmp);
-                        if (!tex) {
-                            tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
-                            if (!tex) {
-                                cfg_close(mat);
-                                break;
-                            }
-                        }
-                    } else {
-                        tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
-                        if (!tex) {
-                            cfg_close(mat);
-                            break;
-                        }
-                    }
-                }
-                LR_NEWPTR();
-                d->material.data.texture = tex;
-                d->material.data.color[0] = 1.0f;
-                d->material.data.color[1] = 1.0f;
-                d->material.data.color[2] = 1.0f;
-                d->material.data.color[3] = 1.0f;
-                tmp = cfg_getvar(mat, NULL, "color");
-                if (tmp) {
-                    sscanf(tmp, "%f,%f,%f", &d->material.data.color[0], &d->material.data.color[1], &d->material.data.color[2]);
-                }
-                tmp = cfg_getvar(mat, NULL, "alpha");
-                if (tmp) {
-                    sscanf(tmp, "%f", &d->material.data.color[3]);
-                }
-                cfg_close(mat);
-                d->material.opt = *o.material;
-            } else {
-                struct rcopt_texture texopt = {false, o.material->quality};
-                struct rc_texture* tex = loadResource_wrapper(RC_TEXTURE, uri, &texopt, NULL);
-                if (tex) {
-                    LR_NEWPTR();
-                    d->material.data.texture = tex;
-                    d->material.data.color[0] = 1.0f;
-                    d->material.data.color[1] = 1.0f;
-                    d->material.data.color[2] = 1.0f;
-                    d->material.data.color[3] = 1.0f;
-                    d->material.opt = *o.material;
-                }
             }
         } break;
         #endif
@@ -861,9 +951,6 @@ static inline void freeResource_wrapper(void* r) {
 
 static inline void freeResource_force(enum rctype type, struct rcdata* r) {
     switch (type) {
-        case RC_MATERIAL: {
-            freeResource_wrapper(r->material.data.texture);
-        } break;
         case RC_MODEL: {
             for (unsigned i = 0; i < r->model.data.model->indexgroupcount; ++i) {
                 freeResource_wrapper(r->model.data.textures[i]);
@@ -999,6 +1086,7 @@ void loadMods(const char* const* l, int ct) {
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USERMODS]) {
         for (int i = 0; i < ct; ++i) {
+            if (!*l[i]) continue;
             char* n = sanfilename(l[i], '_');
             cb_addstr(&cb, dirs[DIR_USERMODS]);
             cb_add(&cb, PATHSEP);
@@ -1024,6 +1112,7 @@ void loadMods(const char* const* l, int ct) {
     } else {
     #endif
         for (int i = 0; i < ct; ++i) {
+            if (!*l[i]) continue;
             char* n = sanfilename(l[i], '_');
             cb_addstr(&cb, dirs[DIR_MODS]);
             cb_add(&cb, PATHSEP);
@@ -1086,7 +1175,6 @@ struct modinfo* queryMods(int* len) {
         if (data[i].author) data[i].author += (uintptr_t)cb.data;
         if (data[i].desc) data[i].desc += (uintptr_t)cb.data;
     }
-    cb_dump(&cb);
     #ifndef PSRC_NOMT
     releaseReadAccess(&mods.lock);
     #endif

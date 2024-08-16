@@ -43,7 +43,7 @@ struct version {
 #define MKVER_8_16_8(M, m, p) ((struct version){.t = VERTYPE_8_16_8, .v_8_16_8 = {(M), (m), (p)}})
 #define MKVER_8_8_8_8(M, m, p, b) ((struct version){.t = VERTYPE_8_8_8_8, .v_8_8_8_8 = {(M), (m), (p), (b)}})
 
-static ALWAYSINLINE int vercmp__cmp(unsigned a[4], unsigned b[4]) {
+static ALWAYSINLINE int vercmp__cmp(const unsigned a[4], const unsigned b[4]) {
     if (a[0] > b[0]) return 1;
     else if (a[0] < b[0]) return -1;
     if (a[1] > b[1]) return 1;
@@ -55,7 +55,7 @@ static ALWAYSINLINE int vercmp__cmp(unsigned a[4], unsigned b[4]) {
     return 0;
 }
 
-static ALWAYSINLINE void vercmp__unpack(struct version* v, unsigned f[4]) {
+static ALWAYSINLINE void vercmp__unpack(const struct version* v, unsigned f[4]) {
     switch (v->t) {
         case VERTYPE_32:
             f[0] = v->v_32.build;
@@ -119,8 +119,7 @@ static inline bool strtover(const char* s, struct version* v) {
     v->t = ct;
     return true;
 }
-static inline char* vertostr(struct version* v) {
-    char s[16];
+static inline void vertostr(const struct version* v, char s[16]) {
     switch (v->t) {
         case VERTYPE_32:
             sprintf(s, "%u", (unsigned)v->v_32.build);
@@ -146,10 +145,14 @@ static inline char* vertostr(struct version* v) {
             );
             break;
     }
+}
+static inline char* vertostrdup(const struct version* v) {
+    char s[16];
+    vertostr(v, s);
     return strdup(s);
 }
 
-static inline int vercmp(struct version* a, struct version* b) {
+static inline int vercmp(const struct version* a, const struct version* b) {
     unsigned ua[4], ub[4];
     vercmp__unpack(a, ua);
     vercmp__unpack(b, ub);

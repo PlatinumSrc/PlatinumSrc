@@ -261,9 +261,10 @@ ifndef DEBUG
     PLATFORMDIR := release/$(PLATFORM)
 else
     ifeq ($(ASAN),y)
-        PLATFORMDIRNAME := $(PLATFORMDIRNAME)_asan
+        PLATFORMDIR := debug_asan/$(PLATFORM)
+    else
+        PLATFORMDIR := debug/$(PLATFORM)
     endif
-    PLATFORMDIR := debug/$(PLATFORM)
 endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
 _OBJDIR := $(OBJDIR)/$(PLATFORMDIR)

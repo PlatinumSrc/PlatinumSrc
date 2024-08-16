@@ -22,22 +22,21 @@ PACKEDENUM rctype {
     RC_CONFIG,
     RC_FONT,
     RC_MAP,
-    RC_MATERIAL,
     RC_MODEL,
     RC_SCRIPT,
     RC_SOUND,
     RC_TEXTURE,
     RC_VALUES,
     RC__COUNT,
+    RC__DIR = RC__COUNT
 };
 
 PACKEDENUM rcprefix {
     RCPREFIX_SELF = -1,
     RCPREFIX_INTERNAL,
     RCPREFIX_GAME,
-    RCPREFIX_MOD,
     RCPREFIX_USER,
-    RCPREFIX__COUNT,
+    RCPREFIX__COUNT
 };
 
 // RC_CONFIG
@@ -68,7 +67,7 @@ struct rc_font {
 // RC_TEXTURE
 enum rc_texture_frmt {
     RC_TEXTURE_FRMT_RGB = 3,
-    RC_TEXTURE_FRMT_RGBA,
+    RC_TEXTURE_FRMT_RGBA
 };
 struct rc_texture {
     int width;
@@ -82,7 +81,7 @@ struct rc_texture {
 enum rcopt_texture_qlt {
     RCOPT_TEXTURE_QLT_HIGH, // 1x size
     RCOPT_TEXTURE_QLT_MED, // 0.5x size
-    RCOPT_TEXTURE_QLT_LOW, // 0.25x size
+    RCOPT_TEXTURE_QLT_LOW // 0.25x size
 };
 #pragma pack(push, 1)
 struct rcopt_texture {
@@ -90,16 +89,6 @@ struct rcopt_texture {
     PACKEDENUM rcopt_texture_qlt quality;
 };
 #pragma pack(pop)
-
-// RC_MATERIAL
-struct rc_material {
-    float color[4]; // RGBA
-    struct rc_texture* texture;
-    //struct rc_texture* bumpmap;
-};
-struct rcopt_material {
-    PACKEDENUM rcopt_texture_qlt quality;
-};
 
 // RC_SOUND
 PACKEDENUM rc_sound_frmt {
@@ -163,8 +152,8 @@ struct rcheader {
     uint32_t pathcrc;
     bool hasdatacrc;
     uint64_t datacrc;
-    int refs;
-    int index;
+    unsigned refs;
+    unsigned index;
 };
 
 struct customfile {
@@ -181,6 +170,16 @@ struct modinfo {
     struct version version;
 };
 
+struct rcls_file {
+    char* name;
+    uint32_t namecrc;
+};
+struct rcls {
+    char* names;
+    unsigned count[RC__DIR + 1];
+    struct rcls_file* files[RC__DIR + 1];
+};
+
 bool initResource(void);
 void quitResource(void);
 void* loadResource(enum rctype type, const char* uri, void* opt, struct charbuf* err);
@@ -188,6 +187,8 @@ void freeResource(void*);
 void grabResource(void*);
 #define releaseResource freeResource
 char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rcpath, const char** ext);
+bool lsRc(const char* uri, struct rcls*);
+void freeRcls(struct rcls*);
 void loadMods(const char* const* names, int count);
 struct modinfo* queryMods(int* count);
 void freeModList(struct modinfo*);

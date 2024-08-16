@@ -1,11 +1,10 @@
 <prefix> <path>
 
-prefix: { <self prefix> | <internal prefix> | <game prefix> | <mod prefix> | <user prefix> | <custom prefix> }
+prefix: { <self prefix> | <internal prefix> | <game prefix> | <user prefix> | <custom prefix> }
 
 self prefix: [ [ "self" ] ":" ] (Access resources in the current game dir.)
 internal prefix: "internal:" (Access resources in 'resources/' in the instance directory.)
 game prefix: "game:" <game dir> "/" (Access resources in <game dir>/.)
-mod prefix: "mod:" <mod dir> "/" (Access resources in <mod dir>/.)
 user prefix: "user:" (Access resources in <user dir>/resources/.)
 custom prefix: "custom:" (Access resources in <user dir>/downloads/player/????/????/????????/.)
 
@@ -16,8 +15,6 @@ path: Path to the resource to access. Extensions are added automatically. For co
 
 game dir: A directory in <base dir>/games/.
 current game dir: The directory where the current game resides.
-
-mod dir: A directory in <base dir>/mods/ or <user dir>/mods/.
 
 user dir: User-specific storage.
 user resources dir: User-specific storage for resources.

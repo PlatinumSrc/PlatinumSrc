@@ -157,7 +157,7 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
             ((l == 6 || (l > 6 && d[6] == '.')) &&
              !strncasecmp(d, "conin$", 6)) ||
             ((l == 7 || (l > 7 && d[7] == '.')) &&
-             !strncasecmp(d, "conout$", 7))) d[2] = (r) ? r : '_';
+             (!strncasecmp(d, "conout$", 7) || !strncasecmp(d, "conerr$", 7)))) d[2] = (r) ? r : '_';
         if ((l == 1 && d[0] == '.') ||
             (l == 2 && d[0] == '.' && d[1] == '.')) return;
         if (l > 2 && d[0] == '.' && d[1] == '.' && d[2] == '.') d[2] = (r && r != '.') ? r : '_';
@@ -208,8 +208,8 @@ char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl)
         sanfilename_cb(d, outrepl, &cb);
         #endif
         skip:;
-        free(d);
     }
+    free(*dl);
     free(dl);
     return cb_finalize(&cb);
 }
@@ -409,6 +409,65 @@ void freels(char** d) {
     free(d);
 }
 
+bool startls(const char* p, struct lsstate* s) {
+    if (!*p) p = "." PATHSEPSTR;
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        s->d = opendir(p);
+        if (!s->d) return false;
+    #else
+        size_t len = strlen(p);
+        char* tmp = malloc(len + 3);
+        if (len) memcpy(tmp, p, len);
+        tmp[len++] = PATHSEP;
+        tmp[len++] = '*';
+        tmp[len] = 0;
+        s->f = FindFirstFile(tmp, &s->fd);
+        free(tmp);
+        if (s->f == INVALID_HANDLE_VALUE) return false;
+        s->r = false;
+    #endif
+    cb_init(&s->p, 256);
+    cb_addstr(&s->p, p);
+    if (!ispathsep(s->p.data[s->p.len - 1])) cb_add(&s->p, PATHSEP);
+    return true;
+}
+bool getls(struct lsstate* s, const char** on, const char** oln) {
+    tryagain:;
+    char* n;
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        struct dirent* de = readdir(s->d);
+        if (!de) return false;
+        n = de->d_name;
+    #else
+        if (s->r) {
+            if (!FindNextFile(s->f, &s->fd)) return false;
+        } else {
+            s->r = true;
+        }
+        n = s->fd.cFileName;
+    #endif
+    if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) goto tryagain;
+    if (on) *on = n;
+    if (oln) {
+        int l = s->p.len;
+        cb_addstr(&s->p, n);
+        cb_nullterm(&s->p);
+        s->p.len = l;
+        *oln = s->p.data;
+    }
+    return true;
+}
+void endls(struct lsstate* s) {
+    cb_dump(&s->p);
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        closedir(s->d);
+    #else
+        FindClose(s->f);
+    #endif
+}
+
+#if 0
 bool rm(const char* p) {
     
 }
+#endif

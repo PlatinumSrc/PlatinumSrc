@@ -8,6 +8,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include <dirent.h>
+#else
+    #include <windows.h>
+#endif
 
 #include "../attribs.h"
 
@@ -31,6 +36,17 @@
     }
 #endif
 
+struct lsstate {
+    struct charbuf p;
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    DIR* d;
+    #else
+    WIN32_FIND_DATA fd;
+    HANDLE f;
+    bool r;
+    #endif
+};
+
 int isFile(const char*);
 long getFileSize(FILE* file, bool close);
 void replpathsep(struct charbuf* cb, const char*, bool first);
@@ -42,6 +58,9 @@ char* sanfilename(const char*, char repl);
 char* restrictpath(const char*, const char* inseps, char outsep, char outrepl);
 bool md(const char*);
 char** ls(const char*, bool longnames, int* l); // info flags are stored at [-1] of each string
+bool startls(const char*, struct lsstate*);
+bool getls(struct lsstate*, const char** name, const char** longname);
+void endls(struct lsstate*);
 void freels(char**);
 bool rm(const char*);
 

@@ -579,12 +579,10 @@ struct inputkey* inputKeysFromStr(const char* s) {
             }
             #endif
         }
-        for (int j = 0; j < dcount; ++j) {
-            free(kds[j]);
-        }
+        free(*kds);
         free(kds);
-        free(ks[i]);
     }
+    free(*ks);
     free(ks);
     return k;
 }

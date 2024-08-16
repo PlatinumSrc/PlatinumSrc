@@ -306,6 +306,77 @@ static int bootstrap(void) {
         return 1;
     }
 
+    {
+        tmp = cfg_getvar(config, NULL, "mods");
+        if (options.mods) {
+            if (tmp) {
+                int ct1, ct2;
+                char** l1;
+                char** l2;
+                l1 = splitstrlist(tmp, ',', false, &ct1);
+                free(tmp);
+                l2 = splitstrlist(options.mods, ',', false, &ct2);
+                free(options.mods);
+                options.mods = NULL;
+                l1 = realloc(l1, (ct1 + ct2) * sizeof(*l1));
+                for (int i = 0; i < ct2; ++i) {
+                    l1[i + ct1] = l2[i];
+                }
+                free(*l2);
+                free(l2);
+                free(*l1);
+                free(l1);
+            } else {
+                int ct;
+                char** l = splitstrlist(options.mods, ',', false, &ct);
+                free(options.mods);
+                options.mods = NULL;
+                loadMods((const char* const *)l, ct);
+                free(*l);
+                free(l);
+            }
+        } else if (tmp) {
+            int ct;
+            char** l = splitstrlist(tmp, ',', false, &ct);
+            free(tmp);
+            loadMods((const char* const *)l, ct);
+            free(*l);
+            free(l);
+        }
+        int ct;
+        struct modinfo* data = queryMods(&ct);
+        if (data) {
+            plog(LL_INFO, "Mod info:");
+            for (int i = 0; i < ct; ++i) {
+                plog(LL_INFO, "  %s (%s)", data[i].name, data[i].dir);
+                plog(LL_INFO, "    Path: %s", data[i].path);
+                if (data[i].author) plog(LL_INFO, "    Author: %s", data[i].author);
+                if (data[i].desc) plog(LL_INFO, "    Description: %s", data[i].desc);
+                char s[16];
+                vertostr(&data[i].version, s);
+                plog(LL_INFO, "    Version: %s", s);
+            }
+            freeModList(data);
+        } else {
+            plog(LL_INFO, "No mods laoded");
+        }
+    }
+
+    struct rcls l;
+    if (lsRc("", &l)) {
+        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
+            int ct = l.count[ri];
+            printf("TYPE[%d] (%d):\n", ri, ct);
+            for (int i = 0; i < ct; ++i) {
+                struct rcls_file* f = &l.files[ri][i];
+                printf("  name: {%s}, crc: [%08X]\n", f->name, f->namecrc);
+            }
+        }
+    } else {
+        puts("LIST FAILED");
+    }
+    freeRcls(&l);
+
     return 0;
 }
 static void unstrap(void) {

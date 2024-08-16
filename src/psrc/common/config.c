@@ -752,4 +752,5 @@ void cfg_close(struct cfg* cfg) {
     #ifndef PSRC_NOMT
     destroyMutex(&cfg->lock);
     #endif
+    free(cfg);
 }

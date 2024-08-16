@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "../glue.h"
 
@@ -28,6 +29,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
     char c;
+    int ol = 0;
     while (1) {
         c = *s;
         if (c == '\\') {
@@ -49,14 +51,16 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = cb_reinit(&tmpcb, 256);
+            data[len++] = (char*)(uintptr_t)ol;
             if (!c) break;
+            cb_add(&tmpcb, 0);
+            ol = tmpcb.len;
         } else {
             cb_add(&tmpcb, c);
         }
         ++s;
     }
-    cb_dump(&tmpcb);
+    cb_nullterm(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {
@@ -69,6 +73,9 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
             data = realloc(data, len * sizeof(*data));
         }
     }
+    for (int i = 0; i < len; ++i) {
+        data[i] += (uintptr_t)tmpcb.data;
+    }
     if (l) *l = len;
     return data;
 }
@@ -78,6 +85,7 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
     char** data = malloc(size * sizeof(*data));
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
+    int ol = 0;
     char c;
     bool split = false;
     while (1) {
@@ -94,15 +102,17 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = cb_reinit(&tmpcb, 256);
+            data[len++] = (char*)(uintptr_t)ol;
             if (!c) break;
+            cb_add(&tmpcb, 0);
+            ol = tmpcb.len;
             split = false;
         } else {
             cb_add(&tmpcb, c);
         }
         ++s;
     }
-    cb_dump(&tmpcb);
+    cb_nullterm(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {
@@ -114,6 +124,9 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
         if (len != size) {
             data = realloc(data, len * sizeof(*data));
         }
+    }
+    for (int i = 0; i < len; ++i) {
+        data[i] += (uintptr_t)tmpcb.data;
     }
     if (l) *l = len;
     return data;
