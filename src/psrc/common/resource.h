@@ -176,6 +176,7 @@ struct rcls_file {
 };
 struct rcls {
     char* names;
+    unsigned nameslen;
     unsigned count[RC__DIR + 1];
     struct rcls_file* files[RC__DIR + 1];
 };

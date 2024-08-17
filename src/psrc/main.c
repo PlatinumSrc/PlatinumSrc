@@ -362,8 +362,9 @@ static int bootstrap(void) {
         }
     }
 
+    #if 0
     struct rcls l;
-    if (lsRc("", &l)) {
+    if (lsRc("textures/env", &l)) {
         for (int ri = 0; ri < RC__DIR + 1; ++ri) {
             int ct = l.count[ri];
             printf("TYPE[%d] (%d):\n", ri, ct);
@@ -372,10 +373,11 @@ static int bootstrap(void) {
                 printf("  name: {%s}, crc: [%08X]\n", f->name, f->namecrc);
             }
         }
+        freeRcls(&l);
     } else {
         puts("LIST FAILED");
     }
-    freeRcls(&l);
+    #endif
 
     return 0;
 }

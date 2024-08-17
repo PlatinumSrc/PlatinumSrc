@@ -1,5 +1,6 @@
 defaultgame = default # read before loading user config
 mods = 
+lscache.size = 32
 
 [ Renderer ]
   backend = # platform-dependent

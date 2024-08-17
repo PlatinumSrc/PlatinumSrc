@@ -29,7 +29,7 @@ build_engine() {
 
     FILES=(psrc.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine i686-w64-mingw32-' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
 
     FILES=(xiso/default.xbe)
     OUTPUT="${BASE}_nxdk"
@@ -48,7 +48,7 @@ build_server() {
 
     FILES=(psrc-server.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine i686-w64-mingw32-' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
 }
 build_editor() {
     BASE="psrc_editor"
@@ -63,7 +63,7 @@ build_editor() {
 
     FILES=(psrc-editor.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine i686-w64-mingw32-' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
 }
 
 for i in "${modules[@]}"; do
