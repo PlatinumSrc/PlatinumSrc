@@ -6,12 +6,12 @@
 
 struct membuf {
     void* data;
-    int len;
-    int size;
+    unsigned long len;
+    unsigned long size;
 };
 
 // NOTE: do not pass in anything less than 2
-static inline void mb_init(struct membuf* b, int sz) {
+static inline void mb_init(struct membuf* b, unsigned long sz) {
     b->data = malloc(sz);
     b->size = sz;
     b->len = 0;
@@ -25,9 +25,6 @@ static inline void mb_init(struct membuf* b, int sz) {
         b->data = realloc(b->data, b->size);\
     }\
 } while (0)
-static inline void mb_putfake(struct membuf* b, int sz) {
-    mb__incsize(sz);
-}
 static inline void mb_put8(struct membuf* b, uint8_t v) {
     uintptr_t p = b->len;
     mb__incsize(1);
@@ -52,26 +49,35 @@ static inline void mb_put64(struct membuf* b, uint64_t v) {
     p += (uintptr_t)b->data;
     *(uint64_t*)p = v;
 }
-static inline void mb_put8at(struct membuf* b, uint8_t v, int o) {
+static inline void mb_put8at(struct membuf* b, uint8_t v, unsigned long o) {
     *(uint8_t*)((uintptr_t)b->data + o) = v;
 }
-static inline void mb_put16at(struct membuf* b, uint16_t v, int o) {
+static inline void mb_put16at(struct membuf* b, uint16_t v, unsigned long o) {
     *(uint16_t*)((uintptr_t)b->data + o) = v;
 }
-static inline void mb_put32at(struct membuf* b, uint32_t v, int o) {
+static inline void mb_put32at(struct membuf* b, uint32_t v, unsigned long o) {
     *(uint32_t*)((uintptr_t)b->data + o) = v;
 }
-static inline void mb_put64at(struct membuf* b, uint64_t v, int o) {
+static inline void mb_put64at(struct membuf* b, uint64_t v, unsigned long o) {
     *(uint64_t*)((uintptr_t)b->data + o) = v;
 }
-static inline void mb_put(struct membuf* b, void* d, int sz) {
+static inline void mb_put(struct membuf* b, void* d, unsigned long sz) {
     uintptr_t p = b->len;
     mb__incsize(sz);
     p += (uintptr_t)b->data;
     memcpy((void*)p, d, sz);
 }
-static inline void mb_putat(struct membuf* b, void* d, int sz, int o) {
+static inline void mb_putz(struct membuf* b, unsigned long sz) {
+    uintptr_t p = b->len;
+    mb__incsize(sz);
+    p += (uintptr_t)b->data;
+    memset((void*)p, 0, sz);
+}
+static inline void mb_putat(struct membuf* b, void* d, unsigned long sz, unsigned long o) {
     memcpy((void*)((uintptr_t)b->data + o), d, sz);
+}
+static inline void mb_putfake(struct membuf* b, unsigned long sz) {
+    mb__incsize(sz);
 }
 static inline void mb_dump(struct membuf* b) {
     free(b->data);

@@ -210,7 +210,7 @@ int initLoop(void) {
 
 static float fwrap(float n, float d) {
     float tmp = n - (int)(n / d) * d;
-    if (tmp < 0.0) tmp += d;
+    if (tmp < 0.0f) tmp += d;
     return tmp;
 }
 void doLoop(void) {
@@ -247,10 +247,10 @@ void doLoop(void) {
             case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0f; break;
             case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0f; break;
             case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0f; break;
-            case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
             case ACTION_WALK: walk = true; break;
             case ACTION_JUMP: movey += (float)a.amount / 32767.0f; break;
             case ACTION_CROUCH: movey -= (float)a.amount / 32767.0f; break;
@@ -281,9 +281,9 @@ void doLoop(void) {
         movex = tmp[0] + tmp[1];
         movez = tmp[2] + tmp[3];
     }
-    audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * framemult);
-    audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * framemult);
-    audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * framemult);
+    audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * (float)framemult);
+    audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * (float)framemult);
+    audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * (float)framemult);
     rendstate.camrot[0] += lookx * lookspeed[1];
     rendstate.camrot[1] += looky * lookspeed[0];
     //rendstate.camrot[2] =  22.5f;
@@ -323,7 +323,7 @@ void doLoop(void) {
             fpstime += 200000;
             if (tmputime >= fpstime) fpstime = tmputime + 200000;
             uint64_t avgframetime = fpsframetime / fpsframecount;
-            float avgfps = 1000000.0 / (uint64_t)avgframetime;
+            double avgfps = 1000000.0 / (uint64_t)avgframetime;
             printf("FPS: %.03f (%"PRId64"us)\n", avgfps, avgframetime);
             fpsframetime = 0;
             fpsframecount = 0;

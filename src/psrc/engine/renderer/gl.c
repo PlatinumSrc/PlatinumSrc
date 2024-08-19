@@ -166,7 +166,7 @@ static inline void gl_calcViewMat(void) {
     #endif
     static float rotradx, rotrady, rotradz;
     rotradx = rendstate.camrot[0] * (float)M_PI / 180.0f;
-    rotrady = rendstate.camrot[1] * (float)-M_PI / 180.0f;
+    rotrady = rendstate.camrot[1] * -(float)M_PI / 180.0f;
     rotradz = rendstate.camrot[2] * (float)M_PI / 180.0f;
     static float sinx, cosx;
     static float siny, cosy;
@@ -244,11 +244,11 @@ static void rendermodel_gl_legacy(struct p3m* m, struct p3m_vertex* verts) {
     int vertct = 0;
     for (int mc = 0; mc < 5; ++mc) {
     #endif
-        double dt = (double)(lt % 1000) / 1000.0f;
+        double dt = (double)(lt % 1000) / 1000.0;
         double t = (double)(lt / 1000) + dt;
-        float tsin = sin(t * 0.179254f * M_PI) * 2.0f;
-        float tsin2 = fabs(sin(t * 0.374124f * M_PI));
-        float tcos = cos(t * 0.214682f * M_PI) * 0.5f;
+        float tsin = (float)sin(t * 0.179254 * M_PI) * 2.0f;
+        float tsin2 = (float)fabs(sin(t * 0.374124 * M_PI));
+        float tcos = (float)cos(t * 0.214682 * M_PI) * 0.5f;
         for (int ig = 0; ig < m->indexgroupcount; ++ig) {
             uint16_t indcount = m->indexgroups[ig].indexcount;
             uint16_t* inds = m->indexgroups[ig].indices;
@@ -336,12 +336,12 @@ static void render_gl_legacy(void) {
 #else
 static void render_gl_legacy(void) {
     long lt = SDL_GetTicks();
-    double dt = (double)(lt % 1000) / 1000.0f;
+    double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
-    float tsin = sin(t * 0.827535f * M_PI);
-    float tsin2 = sin(t * 0.628591f * M_PI);
-    float tsinn = sin(t * M_PI) * 0.5f + 0.5f;
-    float tcosn = cos(t * M_PI) * 0.5f + 0.5f;
+    float tsin = (float)sin(t * 0.827535 * M_PI);
+    float tsin2 = (float)sin(t * 0.628591 * M_PI);
+    float tsinn = (float)sin(t * M_PI) * 0.5f + 0.5f;
+    float tcosn = (float)cos(t * M_PI) * 0.5f + 0.5f;
     float tsini = 1.0f - tsinn;
     float tcosi = 1.0f - tcosn;
 

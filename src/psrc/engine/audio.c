@@ -798,7 +798,7 @@ static void mixsounds(int buf) {
             #endif
         }
     }
-    if (audiostate.voices.ambience.fade == 1.0 && audiostate.voices.ambience.oldfade == 1.0) {
+    if (audiostate.voices.ambience.fade == 1.0f && audiostate.voices.ambience.oldfade == 1.0f) {
         if (!mixsound_2d_fake(&audiostate.voices.ambience.data[0], SOUNDFLAG_LOOP)) {
             #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
@@ -810,7 +810,7 @@ static void mixsounds(int buf) {
         }
     } else {
         if (!mixsound_2d(&audiostate.voices.ambience.data[0], audbuf, SOUNDFLAG_LOOP,
-        (1.0 - audiostate.voices.ambience.oldfade) * 32768.0, (1.0 - audiostate.voices.ambience.fade) * 32768.0, audiostate.vol.ambience)) {
+        (1.0f - audiostate.voices.ambience.oldfade) * 32768.0f, (1.0f - audiostate.voices.ambience.fade) * 32768.0f, audiostate.vol.ambience)) {
             #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
             #endif
@@ -820,7 +820,7 @@ static void mixsounds(int buf) {
             #endif
         }
     }
-    if (audiostate.voices.ambience.fade == 0.0 && audiostate.voices.ambience.oldfade == 0.0) {
+    if (audiostate.voices.ambience.fade == 0.0f && audiostate.voices.ambience.oldfade == 0.0f) {
         if (!mixsound_2d_fake(&audiostate.voices.ambience.data[1], SOUNDFLAG_LOOP)) {
             #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
@@ -832,7 +832,7 @@ static void mixsounds(int buf) {
         }
     } else {
         if (!mixsound_2d(&audiostate.voices.ambience.data[1], audbuf, SOUNDFLAG_LOOP,
-        audiostate.voices.ambience.oldfade * 32768.0, audiostate.voices.ambience.fade * 32768.0, audiostate.vol.ambience)) {
+        audiostate.voices.ambience.oldfade * 32768.0f, audiostate.voices.ambience.fade * 32768.0f, audiostate.vol.ambience)) {
             #ifndef PSRC_NOMT
             readToWriteAccess(&audiostate.lock);
             #endif
@@ -1020,7 +1020,7 @@ void updateSounds(float framemult) {
     #endif
     if (audiostate.voices.ambience.oldfade != audiostate.voices.ambience.fade) audiostate.voices.ambience.oldfade = audiostate.voices.ambience.fade;
     if (audiostate.voices.ambience.index) {
-        if (audiostate.voices.ambience.fade == 1.0) {
+        if (audiostate.voices.ambience.fade == 1.0f) {
             if (audiostate.voices.ambience.queue) {
                 audiostate.voices.ambience.index = 0;
                 struct audiosound* s = &audiostate.voices.ambience.data[0];
@@ -1032,10 +1032,10 @@ void updateSounds(float framemult) {
             }
         } else {
             audiostate.voices.ambience.fade += framemult;
-            if (audiostate.voices.ambience.fade > 1.0) audiostate.voices.ambience.fade = 1.0;
+            if (audiostate.voices.ambience.fade > 1.0f) audiostate.voices.ambience.fade = 1.0f;
         }
     } else {
-        if (audiostate.voices.ambience.fade == 0.0) {
+        if (audiostate.voices.ambience.fade == 0.0f) {
             if (audiostate.voices.ambience.queue) {
                 audiostate.voices.ambience.index = 1;
                 struct audiosound* s = &audiostate.voices.ambience.data[1];
@@ -1047,11 +1047,11 @@ void updateSounds(float framemult) {
             }
         } else {
             audiostate.voices.ambience.fade -= framemult;
-            if (audiostate.voices.ambience.fade < 0.0) audiostate.voices.ambience.fade = 0.0;
+            if (audiostate.voices.ambience.fade < 0.0f) audiostate.voices.ambience.fade = 0.0f;
         }
     }
     audiostate.cam.rotradx = audiostate.cam.rot[0] * (float)M_PI / 180.0f;
-    audiostate.cam.rotrady = audiostate.cam.rot[1] * (float)-M_PI / 180.0f;
+    audiostate.cam.rotrady = audiostate.cam.rot[1] * -(float)M_PI / 180.0f;
     audiostate.cam.rotradz = audiostate.cam.rot[2] * (float)M_PI / 180.0f;
     audiostate.cam.sinx = sinf(audiostate.cam.rotradx);
     audiostate.cam.cosx = cosf(audiostate.cam.rotradx);

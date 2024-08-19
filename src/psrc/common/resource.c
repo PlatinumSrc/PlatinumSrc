@@ -7,6 +7,7 @@
 
 #include "logging.h"
 #include "string.h"
+#include "memory.h"
 #include "filesystem.h"
 #include "threading.h"
 #include "crc.h"
@@ -189,7 +190,7 @@ static struct {
 } lscache;
 
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-static bool lscFind(enum rctype t, enum rcprefix p, const char* uri);
+static uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* uri);
 #endif
 
 static void lsRc_dup(const struct rcls* in, struct rcls* out) {
@@ -197,6 +198,12 @@ static void lsRc_dup(const struct rcls* in, struct rcls* out) {
     char* inames = in->names;
     out->names = onames;
     memcpy(onames, inames, in->nameslen);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    uint8_t* odirbmp = malloc(in->dirbmplen);
+    uint8_t* idirbmp = in->dirbmp;
+    out->dirbmp = odirbmp;
+    memcpy(odirbmp, idirbmp, in->dirbmplen);
+    #endif
     for (int ri = 0; ri < RC__DIR + 1; ++ri) {
         int ct = in->count[ri];
         out->count[ri] = ct;
@@ -205,17 +212,27 @@ static void lsRc_dup(const struct rcls* in, struct rcls* out) {
             out->files[ri] = ofl;
             struct rcls_file* ifl = in->files[ri];
             for (int i = 0; i < ct; ++i) {
-                ofl[i].name = ifl[i].name - (uintptr_t)inames;
+                ofl[i] = ifl[i];
+                ofl[i].name -= (uintptr_t)inames;
                 ofl[i].name += (uintptr_t)onames;
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                ofl[i].dirbits -= (uintptr_t)idirbmp;
+                ofl[i].dirbits += (uintptr_t)odirbmp;
+                #endif
             }
         } else {
             out->files[ri] = NULL;
         }
     }
 }
-bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
+static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    if (*r && !lscFind(RC__DIR, p, r)) return false;
+    uint8_t* dirbits;
+    if (*r) {
+        if (!(dirbits = lscFind(RC__DIR, p, r))) return false;
+    } else {
+        dirbits = NULL;
+    }
     #endif
     struct {
         int len;
@@ -223,22 +240,35 @@ bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
     } ld[RC__DIR + 1] = {0};
     struct charbuf cb;
     cb_init(&cb, 256);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    struct membuf dirbmp;
+    mb_init(&dirbmp, 8 * (mods.len + 1));
+    #endif
     bool ret = false;
     int dirind = 0;
     char* dir;
     while (1) {
         switch (p) {
             default:
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
+                #endif
                 if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "games", gameinfo.dir, r, NULL);
                 else if (dirind == mods.len) dir = mkpath(dirs[DIR_GAME], r, NULL);
                 else goto longbreak;
                 break;
             case RCPREFIX_INTERNAL:
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
+                #endif
                 if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "internal" PATHSEPSTR "resources", r, NULL);
                 else if (dirind == mods.len) dir = mkpath(dirs[DIR_INTERNALRC], r, NULL);
                 else goto longbreak;
                 break;
             case RCPREFIX_GAME:
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
+                #endif
                 if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "games", r, NULL);
                 else if (dirind == mods.len) dir = mkpath(dirs[DIR_GAMES], r, NULL);
                 else goto longbreak;
@@ -252,14 +282,12 @@ bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
                 #endif
                 break;
         }
-        ++dirind;
         struct lsstate s;
         if (!startls(dir, &s)) {
             free(dir);
-            continue;
+            goto longcont;
         }
         free(dir);
-        ret = true;
         const char* n;
         const char* ln;
         while (getls(&s, &n, &ln)) {
@@ -303,12 +331,15 @@ bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
             int fi;
             char* tmp = &cb.data[ol];
             uint32_t crc = strcrc32(tmp);
-            if (dirind > 1) {
+            if (ret) {
                 int i = 0;
                 again2:;
                 if (i < ld[ind].len) {
                     struct rcls_file* f = &l->files[ind][i];
                     if (crc == f->namecrc && !strcmp(tmp, &cb.data[(uintptr_t)f->name])) {
+                        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                        ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
+                        #endif
                         cb.len = ol;
                         continue;
                     }
@@ -327,15 +358,28 @@ bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
             struct rcls_file* f = &l->files[ind][fi];
             f->name = (char*)(uintptr_t)ol;
             f->namecrc = crc;
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            f->dirbits = (uint8_t*)(uintptr_t)dirbmp.len;
+            mb_putz(&dirbmp, (mods.len + 8) / 8);
+            ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
+            #endif
             //printf("[%d]: [%d]: {%s}\n", fi, ind, &cb.data[ol]);
         }
+        ret = true;
         endls(&s);
+        longcont:;
+        ++dirind;
     }
     longbreak:;
     if (ret) {
         cb.data = realloc(cb.data, cb.len);
         l->names = cb.data;
         l->nameslen = cb.len;
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        dirbmp.data = realloc(dirbmp.data, dirbmp.len);
+        l->dirbmp = dirbmp.data;
+        l->dirbmplen = dirbmp.len;
+        #endif
         for (int ri = 0; ri < RC__DIR + 1; ++ri) {
             int ct = ld[ri].len;
             l->count[ri] = ct;
@@ -344,18 +388,27 @@ bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
                 l->files[ri] = fl;
                 for (int i = 0; i < ct; ++i) {
                     fl[i].name += (uintptr_t)cb.data;
+                    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    fl[i].dirbits += (uintptr_t)dirbmp.data;
+                    #endif
                 }
             } else {
                 l->files[ri] = NULL;
             }
         }
     } else {
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        mb_dump(&dirbmp);
+        #endif
         cb_dump(&cb);
     }
     return ret;
 }
 void freeRcls(struct rcls* l) {
     free(l->names);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    free(l->dirbmp);
+    #endif
     for (int i = 0; i < RC__DIR + 1; ++i) {
         free(l->files[i]);
     }
@@ -453,7 +506,7 @@ static struct rcls* lscGet(enum rcprefix p, const char* uri, uint32_t crc) {
     return NULL;
 }
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-static bool lscFind(enum rctype t, enum rcprefix p, const char* uri) {
+static uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* uri) {
     //printf("LSCFIND: [%d] [%d] {%s}\n", t, p, uri);
     int spos = 0;
     const char* f = uri;
@@ -481,7 +534,7 @@ static bool lscFind(enum rctype t, enum rcprefix p, const char* uri) {
             l = &lscache.data[i].l;
         } else {
             free(tmp);
-            return false;
+            return NULL;
         }
     }
     uint32_t fcrc = strcrc32(f);
@@ -490,9 +543,9 @@ static bool lscFind(enum rctype t, enum rcprefix p, const char* uri) {
     struct rcls_file* fl = l->files[t];
     for (int i = 0; i < ct; ++i) {
         //printf("CMP [%08X] {%s}\n", fl[i].namecrc, fl[i].name);
-        if (fl[i].namecrc == fcrc && !strcmp(fl[i].name, f)) return true;
+        if (fl[i].namecrc == fcrc && !strcmp(fl[i].name, f)) return fl[i].dirbits;
     }
-    return false;
+    return NULL;
 }
 #endif
 
@@ -624,7 +677,8 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
         return NULL;
     }
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    if (!lscFind(type, prefix, uripath)) {
+    uint8_t* dirbits = lscFind(type, prefix, uripath);
+    if (!dirbits) {
         free(uripath);
         return NULL;
     }
@@ -640,23 +694,41 @@ char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rp, 
     switch (prefix) {
         default:
             for (int i = 0; i < mods.len; ++i) {
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
+                #endif
                 GRP_TRY(mods.data[i].path, PATHSEPSTR "games" PATHSEPSTR, gameinfo.dir, uripath);
                 cb_clear(&cb);
             }
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            if (!((dirbits[mods.len / 8] >> (mods.len % 8)) & 1)) break;
+            #endif
             GRP_TRY(dirs[DIR_GAME], uripath);
             break;
         case RCPREFIX_INTERNAL:
             for (int i = 0; i < mods.len; ++i) {
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
+                #endif
                 GRP_TRY(mods.data[i].path, PATHSEPSTR "internal" PATHSEPSTR "resources", uripath);
                 cb_clear(&cb);
             }
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            if (!((dirbits[mods.len / 8] >> (mods.len % 8)) & 1)) break;
+            #endif
             GRP_TRY(dirs[DIR_INTERNALRC], uripath);
             break;
         case RCPREFIX_GAME:
             for (int i = 0; i < mods.len; ++i) {
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
+                #endif
                 GRP_TRY(mods.data[i].path, PATHSEPSTR "games", uripath);
                 cb_clear(&cb);
             }
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            if (!((dirbits[mods.len / 8] >> (mods.len % 8)) & 1)) break;
+            #endif
             GRP_TRY(dirs[DIR_GAMES], uripath);
             break;
         case RCPREFIX_USER:
@@ -1262,6 +1334,7 @@ void loadMods(const char* const* l, int ct) {
         freeModListEntry(&mods.data[i]);
     }
     mods.len = 0;
+    lscDelAll();
     if (ct < 0) {
         do {
             ++ct;

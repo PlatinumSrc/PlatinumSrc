@@ -401,8 +401,13 @@ ifndef DEBUG
     _CPPFLAGS += -DNDEBUG
     ifndef O
         O := 2
+        ifeq ($(CROSS),)
+        else ifeq ($(CROSS),win32)
+        else
+            O := s
+        endif
     endif
-    _CFLAGS += -O$(O) -fno-omit-frame-pointer
+    _CFLAGS += -O$(O)
     ifeq ($(CROSS),emscr)
         _LDFLAGS += -O$(O)
     endif
@@ -420,7 +425,7 @@ else
         ifndef O
             O := g
         endif
-        _CFLAGS += -O$(O) -g
+        _CFLAGS += -O$(O) -g -Wdouble-promotion -fno-omit-frame-pointer
     else
         _CFLAGS += -g -gdwarf-4
         _LDFLAGS += -debug
