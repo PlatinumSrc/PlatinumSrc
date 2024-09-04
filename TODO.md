@@ -23,6 +23,7 @@
         - Music
         - Filters
         - Reverb
+        - OpenAL support
     - Physics
     - UI
     - Input
@@ -38,6 +39,8 @@
     - Decompile PMF to PMP?
 - Common
     - Scripting...
+    - Logging
+        - Ring buffer
 - Tools
     - Blender P3M plugin
         - Importing

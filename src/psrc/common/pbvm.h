@@ -21,7 +21,7 @@ PACKEDENUM pbvm_op {
     PBVM_OP_DELSUB,    // Delete a sub (u32 index)
     PBVM_OP_ON,        // Subscribe to an event (u32 subindex; pops: name)
     PBVM_OP_UNON,      // Unsubscribe from an event (pops: name)
-    PBVM_OP_JSR,       // Jump to a sub and discard the return value (GOSUB) (u32 index; pops: args...; pushes: retval)
+    PBVM_OP_JSR,       // Jump to a sub and discard the return value (GOSUB) (u32 index; pops: args...)
     PBVM_OP_JSRR,      // Jump to a sub and push the return value (GOSUB()) (u32 index; pops: args...; pushes: retval)
     PBVM_OP_RET,       // Return from a sub (pops: retval)
     PBVM_OP_CCALL,     // Call a C function (pb_cfunc func, u32 datasz, u8 data[]; pops: args...; pushes: retval)

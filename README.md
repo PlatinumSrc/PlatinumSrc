@@ -211,14 +211,16 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - MacOS
     - HaikuOS
     - Emscripten
-    - Xbox \(NXDK\)
-    - Dreamcast
 - Untested
     - FreeBSD
     - NetBSD
     - OpenBSD
     - Windows 9x no KernelEx
 - In progress
+    - Xbox \(NXDK\)
+        - Needs an XGU renderer
+    - Dreamcast
+        - Needs a PowerVR renderer
     - 3DS
         - Needs a Citro3D renderer
     - GameCube

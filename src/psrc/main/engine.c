@@ -3,6 +3,9 @@
 #include "../engine/ui.h"
 #include "../engine/audio.h"
 #include "../common/arg.h"
+#if DEBUG(1)
+    #include "../common/profiling.h"
+#endif
 
 struct rc_script* mainscript;
 
@@ -30,6 +33,30 @@ PACKEDENUM action {
     ACTION_JUMP,
     ACTION_CROUCH,
 };
+
+#if DEBUG(1)
+static struct profile dbgprof;
+enum {
+    DBGPROF_EVENTS,
+    DBGPROF_SCRIPTS,
+    DBGPROF_SERVER,
+    DBGPROF_AUDIO,
+    DBGPROF_RENDERER,
+    DBGPROF_RENDSWAP,
+    DBGPROF__COUNT
+};
+static const char* dbgprofstr[DBGPROF__COUNT] = {
+    "Event handling",
+    "Scripts",
+    "Server",
+    "Audio",
+    "Renderer",
+    "Swap buffers",
+};
+static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, unsigned p, const char* n) {
+    printf("\e[38;2;%u;%u;%um\u2588\u2588 - %5.02f%% (%.03fms) - %s\e[0m\n", r, g, b, p / 100.0, t / 1000.0, n);
+}
+#endif
 
 int initLoop(void) {
     plog(LL_INFO, "Initializing renderer...");
@@ -201,6 +228,12 @@ int initLoop(void) {
         lookspeed[1] = 2.0f;
     }
 
+    #if DEBUG(1)
+    prof_init(&dbgprof, DBGPROF__COUNT, dbgprofstr);
+    prof_start(&dbgprof);
+    rendstate.dbgprof = &dbgprof;
+    #endif
+
     plog(LL_INFO, "All systems go!");
     toff = SDL_GetTicks();
     framestamp = altutime();
@@ -214,14 +247,25 @@ static float fwrap(float n, float d) {
     return tmp;
 }
 void doLoop(void) {
+    #if DEBUG(1)
+    prof_start(&dbgprof);
+    #endif
+
     static float runspeed = 4.0f;
     static float walkspeed = 2.0f;
     static double framemult = 0.0;
 
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_EVENTS);
+    #endif
     pollInput();
     #if PLATFORM == PLAT_3DS
     if (!aptMainLoop()) ++quitreq;
     #endif
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
+
     if (quitreq) return;
 
     // TODO: run scripts here
@@ -229,13 +273,22 @@ void doLoop(void) {
     long lt = SDL_GetTicks() - toff;
     double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_AUDIO);
+    #endif
     editAudioEmitter(testemt_obj, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
 
     static bool screenshot = false;
 
     bool walk = false;
     float movex = 0.0f, movez = 0.0f, movey = 0.0f;
     float lookx = 0.0f, looky = 0.0f;
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_EVENTS);
+    #endif
     struct inputaction a;
     while (getNextInputAction(&a)) {
         //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
@@ -257,11 +310,19 @@ void doLoop(void) {
             default: break;
         }
     }
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0f : 2.5f;
 
     char* tmp = cfg_getvar(config, "Debug", "printfps");
-    bool printfps = strbool(tmp, false);
+    bool printfps;
+    #if DEBUG(1)
+    printfps = strbool(tmp, true);
+    #else
+    printfps = strbool(tmp, false);
+    #endif
     free(tmp);
 
     {
@@ -294,9 +355,21 @@ void doLoop(void) {
     audiostate.cam.rot[1] = rendstate.camrot[1];
     audiostate.cam.rot[2] = rendstate.camrot[2];
 
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_AUDIO);
+    #endif
     updateSounds(framemult);
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RENDERER);
+    #endif
     render();
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RENDSWAP);
+    #endif
     display();
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
 
     if (screenshot) {
         int sz;
@@ -317,25 +390,49 @@ void doLoop(void) {
         static uint64_t fpstime = 0;
         static uint64_t fpsframetime = 0;
         static int fpsframecount = 0;
+        #if DEBUG(1)
+        static int profcurwait = -1;
+        static const int profwait = 2;
+        #endif
         fpsframetime += frametime;
         ++fpsframecount;
         if (tmputime >= fpstime) {
-            fpstime += 200000;
-            if (tmputime >= fpstime) fpstime = tmputime + 200000;
+            fpstime += 500000;
+            if (tmputime >= fpstime) fpstime = tmputime + 500000;
             uint64_t avgframetime = fpsframetime / fpsframecount;
             double avgfps = 1000000.0 / (uint64_t)avgframetime;
-            printf("FPS: %.03f (%"PRId64"us)\n", avgfps, avgframetime);
+            printf("FPS: %.03f (%.03fms)\n", avgfps, avgframetime / 1000.0);
             fpsframetime = 0;
             fpsframecount = 0;
+            #if DEBUG(1)
+            if (profcurwait <= 0) {
+                prof_calc(&dbgprof);
+                for (int i = 0; i < DBGPROF__COUNT; ++i) {
+                    printprofpoint(
+                        dbgprof.colors[i].r, dbgprof.colors[i].g, dbgprof.colors[i].b,
+                        dbgprof.time[i], dbgprof.percent[i],
+                        dbgprofstr[i]
+                    );
+                }
+                printprofpoint(192, 192, 192, dbgprof.time[-1], dbgprof.percent[-1], "Other");
+                for (int i = 0; i < profwait; ++i) {
+                    putchar('\n');
+                }
+                for (int i = 0; i < profwait; ++i) {
+                    putchar('\e');
+                    putchar('[');
+                    putchar('A');
+                }
+            }
+            if (profcurwait == profwait) profcurwait = 0;
+            else ++profcurwait;
+            #endif
         }
     }
 }
 
 void quitLoop(void) {
     plog(LL_INFO, "Quit requested");
-    #if PLATFORM == PLAT_NXDK
-    plog__nodraw = false;
-    #endif
 
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     armWatchdog(5);

@@ -64,7 +64,7 @@
 #elif defined(__EMSCRIPTEN__)
     #define PLATFORM PLAT_EMSCR
     #define PLATFLAGS (0)
-#elif defined(_arch_dreamcast)
+#elif defined(__DREAMCAST__) || defined(_arch_dreamcast)
     #define PLATFORM PLAT_DREAMCAST
     #define PLATFLAGS (0)
 #elif defined(__3DS__)

@@ -2,15 +2,15 @@
 #define PSRC_DEBUG_H
 
 // PSRC_DBGLVL:
-// <= -1: off
+// undef: off
 // 0: silent
 // 1: basic
 // 2: advanced
 // 3: detailed
 #ifndef PSRC_DBGLVL
-    #define PSRC_DBGLVL -1
+    #define DEBUG(x) 0
+#else
+    #define DEBUG(x) (PSRC_DBGLVL >= (x))
 #endif
-
-#define DEBUG(x) (PSRC_DBGLVL >= (x))
 
 #endif

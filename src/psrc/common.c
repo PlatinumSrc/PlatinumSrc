@@ -86,13 +86,12 @@ void setupBaseDirs(void) {
         }
         #elif PLATFORM == PLAT_WIN32
         char* tmp = malloc(MAX_PATH + 1);
-        tmp[MAX_PATH] = 0;
-        DWORD r = GetModuleFileName(NULL, s, MAX_PATH);
+        DWORD r = GetModuleFileName(NULL, tmp, MAX_PATH);
         if (r) {
-            for (int i = r - 1; i > 0; --i) {
-                if (tmp[r] == '\\' || tmp[r] == '/') {
-                    tmp[r] = 0;
-                    tmp = realloc(tmp, r + 1);
+            for (int i = r - 1; i >= 0; --i) {
+                if (ispathsep(tmp[i])) {
+                    tmp[i] = 0;
+                    tmp = realloc(tmp, i + 1);
                     break;
                 }
             }
@@ -265,11 +264,11 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                         if (tmp) {
                             dirs[DIR_USER] = mkpath(tmp, gameinfo.userdir, NULL);
                         } else {
-                            plog(LL_WARN, LP_WARN "Failed to get user directory");
+                            plog(LL_WARN, "Failed to get user directory");
                             dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", n, NULL);
                         }
                     #else
-                        plog(LL_WARN, LP_WARN "Failed to get user directory");
+                        plog(LL_WARN, "Failed to get user directory");
                         dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
                     #endif
                 }

@@ -17,8 +17,6 @@
     #if PLATFORM == PLAT_NXDK
         #include <pbkit/pbkit.h>
         #include <pbkit/nv_regs.h>
-        #include <pbgl.h>
-        #include <GL/gl.h>
     #elif PLATFORM == PLAT_WIN32
         #include <windows.h>
     #elif PLATFORM == PLAT_GDK
@@ -39,19 +37,63 @@
 mutex_t loglock;
 #endif
 
+#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST || PLATFORM == PLAT_3DS || \
+PLATFORM == PLAT_GAMECUBE || PLATFORM == PLAT_WII || PLATFORM == PLAT_PS2
+    #ifndef PSRC_LOG_RINGSIZE
+        #if !DEBUG(1)
+            #define PSRC_LOG_RINGSIZE 128
+        #else
+            #define PSRC_LOG_RINGSIZE 256
+        #endif
+    #endif
+    #ifndef PSRC_LOG_LINESIZE
+        #define PSRC_LOG_LINESIZE 256
+    #endif
+#else
+    #ifndef PSRC_LOG_RINGSIZE
+        #define PSRC_LOG_RINGSIZE 256
+    #endif
+    #ifndef PSRC_LOG_LINESIZE
+        #define PSRC_LOG_LINESIZE 512
+    #endif
+#endif
+
+static struct {
+    char* text;
+    enum loglevel level;
+    time_t time;
+} ring[PSRC_LOG_RINGSIZE];
+static int ringstart = 0;
+static int ringend = -1;
+static int ringnext = 0;
+static int ringsize = 0;
+
+static void logring_step(void) {
+    ringend = ringnext;
+    ringnext = (ringnext + 1) % PSRC_LOG_RINGSIZE;
+    if (ringsize == PSRC_LOG_RINGSIZE - 1) {
+        ringstart = ringnext;
+    } else {
+        ++ringsize;
+    }
+}
+
 bool initLogging(void) {
     #ifndef PSRC_NOMT
     if (!createMutex(&loglock)) return false;
     #endif
+    ring[0].text = malloc(PSRC_LOG_LINESIZE * PSRC_LOG_RINGSIZE);
+    for (int i = 1; i < PSRC_LOG_RINGSIZE; ++i) {
+        ring[i].text = &ring[0].text[PSRC_LOG_LINESIZE * i];
+    }
     return true;
 }
 
 static FILE* logfile = NULL;
 char* logpath = NULL;
 
-static void plog_writedate(FILE* f) {
+static void pl_fputdate(time_t t, FILE* f) {
     static char tmpstr[32];
-    time_t t = time(NULL);
     struct tm* bdt = localtime(&t);
     if (bdt) {
         strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
@@ -60,6 +102,169 @@ static void plog_writedate(FILE* f) {
         fputs("[ ? ]: ", f);
     }
 }
+static void pl_fputprefix(enum loglevel lvl, FILE* f) {
+    switch (lvl & 0xFF) {
+        default:
+            return;
+        case LL_INFO:
+            if (lvl & LF_DEBUG) {
+                fputs("<D>", f);
+            } else {
+                fputs("(i)", f);
+            }
+            break;
+        case LL_WARN:
+            fputs("/!\\", f);
+            break;
+        case LL_ERROR:
+            fputs("[E]", f);
+            break;
+        case LL_CRIT:
+            fputs("{X}", f);
+            break;
+    }
+    fputc(':', f);
+    fputc(' ', f);
+}
+static void pl_fputprefix_color(enum loglevel lvl, FILE* f) {
+    switch (lvl & 0xFF) {
+        default:
+            return;
+        case LL_INFO:
+            if (lvl & LF_DEBUG) {
+                fputs("\e[34m<\e[1mD\e[22m>:\e[0m", f);
+            } else {
+                fputs("\e[36m(\e[1mi\e[22m):\e[0m", f);
+            }
+            break;
+        case LL_WARN:
+            fputs("\e[33m/\e[1m!\e[22m\\:\e[0m", f);
+            break;
+        case LL_ERROR:
+            fputs("\e[31m[\e[1mE\e[22m]:\e[0m", f);
+            break;
+        case LL_CRIT:
+            fputs("\e[1;31m{X}:\e[0m", f);
+            break;
+    }
+    fputc(' ', f);
+}
+
+static void plog_internal(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, va_list v) {
+    time_t t = time(NULL);
+    ring[ringnext].level = lvl;
+    ring[ringnext].time = t;
+    int l = PSRC_LOG_LINESIZE;
+    #if DEBUG(1)
+        if ((lvl & 0xFF) > LL_INFO) lvl |= LF_FUNCLN;
+    #endif
+    if (lvl & LF_FUNC) {
+        if ((lvl & ~LF_FUNC) & LF_FUNCLN) {
+            l -= snprintf(ring[ringnext].text, PSRC_LOG_LINESIZE, "%s (%s:%u): ", func, file, line);
+        } else {
+            l -= snprintf(ring[ringnext].text, PSRC_LOG_LINESIZE, "%s: ", func);
+        }
+        if (l < 1) l = 1;
+    }
+    vsnprintf(ring[ringnext].text + (PSRC_LOG_LINESIZE - l), l, s, v);
+    if (logfile) {
+        pl_fputdate(t, logfile);
+        pl_fputprefix(lvl, logfile);
+        fputs(ring[ringnext].text, logfile);
+        fputc('\n', logfile);
+        fflush(logfile);
+    }
+    FILE* f;
+    #if PLATFORM != PLAT_EMSCR
+        switch (lvl & 0xFF) {
+            default:
+                f = stdout;
+                break;
+            case LL_WARN:
+            case LL_ERROR:
+            case LL_CRIT:
+                f = stderr;
+                break;
+        }
+    #else
+        f = stdout;
+    #endif
+    bool istty;
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
+        istty = isatty(fileno(f));
+    #else
+        istty = true;
+    #endif
+    if (istty) {
+        pl_fputprefix_color(lvl, f);
+    } else {
+        pl_fputdate(t, f);
+        pl_fputprefix(lvl, f);
+    }
+    fputs(ring[ringnext].text, f);
+    fputc('\n', f);
+    fflush(f);
+    #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && PLATFORM != PLAT_NXDK
+        if (lvl & LF_MSGBOX) {
+            #if PLATFORM != PLAT_WIN32
+                #ifndef PSRC_USESDL1
+                    int flags;
+                    switch (lvl & 0xFF) {
+                        default:
+                            flags = SDL_MESSAGEBOX_INFORMATION;
+                            break;
+                        case LL_WARN:
+                            flags = SDL_MESSAGEBOX_WARNING;
+                            break;
+                        case LL_ERROR:
+                        case LL_CRIT:
+                            flags = SDL_MESSAGEBOX_ERROR;
+                            break;
+                    }
+                    SDL_ShowSimpleMessageBox(flags, titlestr, ring[ringnext].text, NULL);
+                #endif
+            #else
+                unsigned flags;
+                switch (lvl & 0xFF) {
+                    default:
+                        flags = MB_ICONINFORMATION;
+                        break;
+                    case LL_WARN:
+                        flags = MB_ICONWARNING;
+                        break;
+                    case LL_ERROR:
+                    case LL_CRIT:
+                        flags = MB_ICONERROR;
+                        break;
+                }
+                MessageBox(NULL, ring[ringnext].text, titlestr, flags);
+            #endif
+        }
+    #endif
+    logring_step();
+}
+
+#undef plog
+void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
+    #ifndef PSRC_NOMT
+    lockMutex(&loglock);
+    #endif
+    va_list v;
+    va_start(v, s);
+    plog_internal(lvl, func, file, line, s, v);
+    va_end(v);
+    #ifndef PSRC_NOMT
+    unlockMutex(&loglock);
+    #endif
+}
+
+static void plog_nolock(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
+    va_list v;
+    va_start(v, s);
+    plog_internal(lvl, func, file, line, s, v);
+    va_end(v);
+}
+#define plog_nolock(lvl, ...) plog_nolock(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
 
 bool plog_setfile(const char* f) {
     #ifndef PSRC_NOMT
@@ -69,27 +274,35 @@ bool plog_setfile(const char* f) {
         FILE* tmp = fopen(f, "w");
         if (tmp) {
             if (logfile) fclose(logfile);
+            #if DEBUG(1)
+            logfile = NULL;
+            plog_nolock(LL_INFO | LF_DEBUG, "Set log to %s", f);
+            #endif
             logfile = tmp;
             free(logpath);
             logpath = strdup(f);
-            bool writelog;
-            #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-            writelog = !isatty(fileno(logfile));
-            #elif PLATFORM == PLAT_NXDK
-            writelog = true;
-            #else
-            writelog = (logfile != stdout && logfile != stderr);
-            #endif
-            if (writelog) plog_writedate(logfile);
-            fprintf(logfile, "%s\n", verstr);
-            if (writelog) plog_writedate(logfile);
-            fprintf(logfile, "%s\n", platstr);
+            fputs(verstr, logfile);
+            fputc('\n', logfile);
+            fputs(platstr, logfile);
+            fputc('\n', logfile);
+            if (ringsize) {
+                int i = ringstart;
+                while (1) {
+                    pl_fputdate(ring[i].time, logfile);
+                    pl_fputprefix(ring[i].level, logfile);
+                    fputs(ring[i].text, logfile);
+                    fputc('\n', logfile);
+                    if (i == ringend) break;
+                    i = (i + 1) % PSRC_LOG_RINGSIZE;
+                }
+            }
+            fflush(logfile);
         } else {
+            #if DEBUG(1)
+            plog_nolock(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, errno));
+            #endif
             #ifndef PSRC_NOMT
             unlockMutex(&loglock);
-            #endif
-            #if DEBUG(1)
-            plog(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, errno));
             #endif
             return false;
         }
@@ -102,235 +315,3 @@ bool plog_setfile(const char* f) {
     #endif
     return true;
 }
-
-static void writelog(enum loglevel lvl, FILE* f, const char* func, const char* file, unsigned line, const char* s, va_list v) {
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-    if (!isatty(fileno(f))) plog_writedate(f);
-    #elif PLATFORM == PLAT_NXDK
-    plog_writedate(f);
-    #else
-    if (f != stdout && f != stderr) plog_writedate(f);
-    #endif
-    switch (lvl & 0xFF) {
-        default:
-            break;
-        case LL_INFO:
-            if (lvl & LF_DEBUG) {
-                fputs(LP_DEBUG, f);
-            } else {
-                fputs(LP_INFO, f);
-            }
-            break;
-        case LL_WARN:
-            fputs(LP_WARN, f);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-        case LL_ERROR:
-            fputs(LP_ERROR, f);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-        case LL_CRIT:
-            fputs(LP_CRIT, f);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-    }
-    if (lvl & LF_FUNC) {
-        if ((lvl & ~LF_FUNC) & LF_FUNCLN) {
-            fprintf(f, "%s (%s:%u): ", func, file, line);
-        } else {
-            fprintf(f, "%s: ", func);
-        }
-    }
-    vfprintf(f, s, v);
-    fputc('\n', f);
-    fflush(f);
-}
-
-void plog__write(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, va_list ov) {
-    va_list v;
-    FILE* f;
-    #if PLATFORM != PLAT_EMSCR
-    switch (lvl & 0xFF) {
-        default:
-            f = stdout;
-            break;
-        case LL_WARN:
-        case LL_ERROR:
-        case LL_CRIT:
-            f = stderr;
-            break;
-    }
-    #else
-    f = stdout;
-    #endif
-    va_copy(v, ov);
-    writelog(lvl, f, func, file, line, s, v);
-    if (logfile != NULL) {
-        va_copy(v, ov);
-        writelog(lvl, logfile, func, file, line, s, v);
-    }
-    #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && PLATFORM != PLAT_NXDK
-    if (lvl & LF_MSGBOX) {
-        char* tmpstr = malloc(4096);
-        va_copy(v, ov);
-        vsnprintf(tmpstr, 4096, s, v);
-        #if PLATFORM != PLAT_WIN32
-        #ifndef PSRC_USESDL1
-        int flags;
-        switch (lvl & 0xFF) {
-            default:;
-                flags = SDL_MESSAGEBOX_INFORMATION;
-                break;
-            case LL_WARN:;
-                flags = SDL_MESSAGEBOX_WARNING;
-                break;
-            case LL_ERROR:;
-            case LL_CRIT:;
-                flags = SDL_MESSAGEBOX_ERROR;
-                break;
-        }
-        SDL_ShowSimpleMessageBox(flags, titlestr, tmpstr, NULL);
-        #endif
-        #else
-        unsigned flags;
-        switch (lvl & 0xFF) {
-            default:;
-                flags = MB_ICONINFORMATION;
-                break;
-            case LL_WARN:;
-                flags = MB_ICONWARNING;
-                break;
-            case LL_ERROR:;
-            case LL_CRIT:;
-                flags = MB_ICONERROR;
-                break;
-        }
-        MessageBox(NULL, tmpstr, titlestr, flags);
-        #endif
-        free(tmpstr);
-    }
-    #endif
-}
-
-#if PLATFORM == PLAT_NXDK
-
-#include <pbgl.h>
-#include <GL/gl.h>
-
-bool plog__nodraw;
-bool plog__wrote = true;
-
-void plog__info(enum loglevel lvl, const char* func, const char* file, unsigned line) {
-    #if 0
-    static char tmpstr[32];
-    time_t t = time(NULL);
-    struct tm* bdt = localtime(&t);
-    if (bdt) {
-        strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
-        pb_print(tmpstr);
-    } else {
-        pb_print("[ ? ]: ");
-    }
-    #endif
-    switch (lvl & 0xFF) {
-        default:
-            break;
-        case LL_INFO:
-            if (lvl & LF_DEBUG) {
-                pb_print(LP_DEBUG);
-            } else {
-                pb_print(LP_INFO);
-            }
-            break;
-        case LL_WARN:
-            pb_print(LP_WARN);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-        case LL_ERROR:
-            pb_print(LP_ERROR);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-        case LL_CRIT:
-            pb_print(LP_CRIT);
-            #if DEBUG(1)
-            lvl |= LF_FUNCLN;
-            #endif
-            break;
-    }
-    if (lvl & LF_FUNC) {
-        // pb_print uses a small buffer
-        pb_print("%s", func);
-        if ((lvl & ~LF_FUNC) & LF_FUNCLN) {
-            pb_print(" (");
-            pb_print("%s", file);
-            pb_print(":%u)", line);
-        }
-        pb_print(": ");
-    }
-}
-
-static void plog__draw(void) {
-    if (!plog__nodraw) {
-        glClear(GL_COLOR_BUFFER_BIT);
-        pb_draw_text_screen();
-        uint32_t* p = pb_begin();
-        pb_push(p++, NV097_SET_CLEAR_RECT_HORIZONTAL, 2);
-        *(p++) = 639 << 16;
-        *(p++) = 479 << 16;
-        pb_end(p);
-        pbgl_swap_buffers();
-    }
-}
-
-#undef plog
-void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
-    #ifndef PSRC_NOMT
-    lockMutex(&loglock);
-    #endif
-    va_list v;
-    va_start(v, s);
-    plog__info(lvl, func, file, line);
-    {
-        va_list v2;
-        va_copy(v2, v);
-        static char buf[512];
-        vsnprintf(buf, sizeof(buf), s, v2);
-        pb_print("%s", buf);
-        pb_print("\n");
-    }
-    plog__wrote = true;
-    plog__write(lvl, func, file, line, s, v);
-    va_end(v);
-    plog__draw();
-    #ifndef PSRC_NOMT
-    unlockMutex(&loglock);
-    #endif
-}
-
-#else
-
-#undef plog
-void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
-    #ifndef PSRC_NOMT
-    lockMutex(&loglock);
-    #endif
-    va_list v;
-    va_start(v, s);
-    plog__write(lvl, func, file, line, s, v);
-    va_end(v);
-    #ifndef PSRC_NOMT
-    unlockMutex(&loglock);
-    #endif
-}
-
-#endif

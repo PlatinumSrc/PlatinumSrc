@@ -24,36 +24,25 @@
 
 struct rendstate rendstate;
 
-const char* rendapi_ids[] = {
+const char* const* rendapi_names[RENDAPI__COUNT] = {
     #ifdef PSRC_USESR
-    "sw",
+    (const char*[]){"sw", "Software rendering"},
     #endif
     #ifdef PSRC_USEGL
+
     #ifdef PSRC_USEGL11
-    "gl11",
+    (const char*[]){"gl11", "OpenGL 1.1"},
     #endif
     #ifdef PSRC_USEGL33
-    "gl33",
+    (const char*[]){"gl33", "OpenGL 3.3"},
     #endif
     #ifdef PSRC_USEGLES30
-    "gles30"
+    (const char*[]){"gles30", "OpenGL ES 3.0"},
     #endif
     #endif
-};
-const char* rendapi_names[] = {
-    #ifdef PSRC_USESR
-    "Software rendering",
-    #endif
-    #ifdef PSRC_USEGL
-    #ifdef PSRC_USEGL11
-    "OpenGL 1.1",
-    #endif
-    #ifdef PSRC_USEGL33
-    "OpenGL 3.3",
-    #endif
-    #ifdef PSRC_USEGLES30
-    "OpenGL ES 3.0"
-    #endif
+
+    #ifdef PSRC_USEXGU
+    (const char*[]){"xgu", "XGU"}
     #endif
 };
 
@@ -65,8 +54,20 @@ static struct rc_model* testmodel;
 #ifdef PSRC_USEGL
     #include "renderer/gl.c"
 #endif
+#ifdef PSRC_USEXGU
+    #include "renderer/xgu.c"
+#endif
 
-static enum rendapi apilist[] = {
+static void* r_dummy_takeScreenshot(int* w, int* h, int* sz) {
+    (void)w; (void)h; (void)sz;
+    return NULL;
+}
+
+static enum rendapi trylist[] = {
+    #ifdef PSRC_USEXGU
+    RENDAPI_XGU,
+    #endif
+
     #ifdef PSRC_USEGL
     #ifdef PSRC_USEGL33
     RENDAPI_GL33,
@@ -78,9 +79,12 @@ static enum rendapi apilist[] = {
     RENDAPI_GL11,
     #endif
     #endif
+
     #ifdef PSRC_USESR
     RENDAPI_SW,
     #endif
+
+    RENDAPI__INVALID,
 };
 
 void (*render)(void);
@@ -254,7 +258,7 @@ static bool createWindow(void) {
             break;
     }
     if (!beforeCreateWindow(&flags)) {
-        rendstate.apigroup = RENDAPIGROUP__INVALID;
+        rendstate.api = RENDAPI__INVALID;
         return false;
     }
     #else
@@ -274,7 +278,7 @@ static bool createWindow(void) {
             break;
     }
     if (!beforeCreateWindow(&rendstate.flags)) {
-        rendstate.apigroup = RENDAPIGROUP__INVALID;
+        rendstate.api = RENDAPI__INVALID;
         return false;
     }
     #endif
@@ -306,7 +310,7 @@ static bool createWindow(void) {
     updateWindowIcon();
     #endif
     if (!afterCreateWindow()) {
-        rendstate.apigroup = RENDAPIGROUP__INVALID;
+        rendstate.api = RENDAPI__INVALID;
         destroyWindow();
         return false;
     }
@@ -316,56 +320,66 @@ static bool createWindow(void) {
 static bool startRenderer_internal(void) {
     switch (rendstate.api) {
         #ifdef PSRC_USESR
-        case RENDAPI_SW: rendstate.apigroup = RENDAPIGROUP_SW; break;
-        #endif
-        #ifdef PSRC_USEGL
-        #ifdef PSRC_USEGL11
-        case RENDAPI_GL11: rendstate.apigroup = RENDAPIGROUP_GL; break;
-        #endif
-        // TODO: implement
-        #ifdef PSRC_USEGL33
-        case RENDAPI_GL33: return false; //rendstate.apigroup = RENDAPIGROUP_GL; break;
-        #endif
-        #ifdef PSRC_USEGLES30
-        case RENDAPI_GLES30: return false; //rendstate.apigroup = RENDAPIGROUP_GL; break;
-        #endif
-        #endif
-        default: return false;
-    }
-    switch (rendstate.apigroup) {
-        #ifdef PSRC_USESR
-        case RENDAPIGROUP_SW:
-            //render = sw_render;
-            //display = sw_display;
-            //takeScreenshot = sw_takeScreenshot;
-            //beforeCreateWindow = sw_beforeCreateWindow;
-            //afterCreateWindow = sw_afterCreateWindow;
-            //prepRenderer = sw_prepRenderer;
-            //beforeDestroyWindow = sw_beforeDestroyWindow;
-            //calcProjMat = sw_calcProjMat;
-            //updateFrame = sw_updateFrame;
-            //updateVSync = sw_updateVSync;
-        #endif
-        #ifdef PSRC_USEGL
-        case RENDAPIGROUP_GL:
-            render = gl_render;
-            display = gl_display;
-            takeScreenshot = gl_takeScreenshot;
-            beforeCreateWindow = gl_beforeCreateWindow;
-            afterCreateWindow = gl_afterCreateWindow;
-            prepRenderer = gl_prepRenderer;
-            beforeDestroyWindow = gl_beforeDestroyWindow;
-            calcProjMat = gl_calcProjMat;
-            updateFrame = gl_updateFrame;
-            updateVSync = gl_updateVSync;
+        case RENDAPI_SW:
+            return false; // TODO: implement
+            //render = r_sw_render;
+            //display = r_sw_display;
+            //takeScreenshot = r_sw_takeScreenshot;
+            //beforeCreateWindow = r_sw_beforeCreateWindow;
+            //afterCreateWindow = r_sw_afterCreateWindow;
+            //prepRenderer = r_sw_prepRenderer;
+            //beforeDestroyWindow = r_sw_beforeDestroyWindow;
+            //calcProjMat = r_sw_calcProjMat;
+            //updateFrame = r_sw_updateFrame;
+            //updateVSync = r_sw_updateVSync;
             break;
         #endif
+
+        #ifdef PSRC_USEGL
+        #ifdef PSRC_USEGL11
+        case RENDAPI_GL11:
+        #endif
+        #ifdef PSRC_USEGL33
+        //case RENDAPI_GL33: // TODO: implement
+        #endif
+        #ifdef PSRC_USEGLES30
+        //case RENDAPI_GLES30: // TODO: implement
+        #endif
+            render = r_gl_render;
+            display = r_gl_display;
+            takeScreenshot = r_gl_takeScreenshot;
+            beforeCreateWindow = r_gl_beforeCreateWindow;
+            afterCreateWindow = r_gl_afterCreateWindow;
+            prepRenderer = r_gl_prepRenderer;
+            beforeDestroyWindow = r_gl_beforeDestroyWindow;
+            calcProjMat = r_gl_calcProjMat;
+            updateFrame = r_gl_updateFrame;
+            updateVSync = r_gl_updateVSync;
+            break;
+        #endif
+
+        #ifdef PSRC_USEXGU
+        case RENDAPI_XGU:
+            return false; // TODO: implement
+            //render = r_xgu_render;
+            //display = r_xgu_display;
+            takeScreenshot = r_dummy_takeScreenshot;
+            //beforeCreateWindow = r_xgu_beforeCreateWindow;
+            //afterCreateWindow = r_xgu_afterCreateWindow;
+            //prepRenderer = r_xgu_prepRenderer;
+            //beforeDestroyWindow = r_xgu_beforeDestroyWindow;
+            //calcProjMat = r_xgu_calcProjMat;
+            //updateFrame = r_xgu_updateFrame;
+            //updateVSync = r_xgu_updateVSync;
+            break;
+        #endif
+
         default:
             return false;
     }
     if (!createWindow()) return false;
     if (!prepRenderer()) {
-        rendstate.apigroup = RENDAPIGROUP__INVALID;
+        rendstate.api = RENDAPI__INVALID;
         destroyWindow();
         return false;
     }
@@ -382,7 +396,10 @@ bool reloadRenderer(void) {
 }
 
 bool startRenderer(void) {
-    for (int i = 0; (rendstate.api = apilist[i]) != RENDAPI__INVALID; ++i) {
+    if (rendstate.api != RENDAPI__INVALID) {
+        if (startRenderer_internal()) return true;
+    }
+    for (int i = 0; (rendstate.api = trylist[i]) != RENDAPI__INVALID; ++i) {
         if (startRenderer_internal()) return true;
     }
     plog(LL_CRIT, "Could not use any available rendering APIs");
@@ -416,11 +433,11 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                     plog(
                         LL_WARN,
                         "Failed to restart renderer after changing API to %s. Reverting to %s...",
-                        rendapi_names[rendstate.api], rendapi_names[oldapi]
+                        rendapi_names[rendstate.api][1], rendapi_names[oldapi][1]
                     );
                     rendstate.api = oldapi;
                     if (!startRenderer_internal()) {
-                        plog(LL_ERROR, "Failed to restart renderer after reverting API to %s.", rendapi_names[rendstate.api]);
+                        plog(LL_ERROR, "Failed to restart renderer after reverting API to %s.", rendapi_names[rendstate.api][1]);
                         goto retfalse;
                     }
                 }
@@ -510,7 +527,25 @@ bool initRenderer(void) {
         return false;
         #endif
     }
-    char* tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
+    char* tmp = cfg_getvar(config, "Renderer", "api");
+    if (tmp) {
+        enum rendapi i = 0;
+        while (1) {
+            if (i == RENDAPI__COUNT) {
+                rendstate.api = RENDAPI__INVALID;
+                break;
+            }
+            if (!strcasecmp(tmp, rendapi_names[i][0])) {
+                rendstate.api = i;
+                break;
+            }
+            ++i;
+        }
+        free(tmp);
+    } else {
+        rendstate.api = RENDAPI__INVALID;
+    }
+    tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
     rendstate.res.windowed = (struct rendres){960, 720};
     #elif PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST

@@ -103,7 +103,6 @@ else ifeq ($(CROSS),nxdk)
     NOLTO := y
     NOSIMD := y
     USESTDTHREAD := y
-    USEGL11 := y
     USEXGU := y
     MKENV.NXDK := $(MKENV.NXDK) NXDK_ONLY=y NXDK_SDL=y LIB="nxdk-lib -llvmlibempty"
     MKENV.NXDK := $(MKENV.NXDK) LIBSDLIMAGE_SRCS="" LIBSDLIMAGE_OBJS=""
@@ -163,8 +162,10 @@ else ifeq ($(CROSS),dc)
     IP_MRIMAGE := icons/engine.mr
     CDI := $(OUTDIR)/$(IP_TITLE).cdi
     CDIDIR := $(OUTDIR)/cdi
+    # LTO can cause bugs
+    NOLTO := y
+    NOMT := y
     USESTDTHREAD := y
-    USEGL11 := y
     USEPVR := y
     USESDL1 := y
 else ifeq ($(CROSS),3ds)
@@ -327,9 +328,6 @@ ifneq ($(CROSS),nxdk)
         _CPPFLAGS += -DGEKKO -D__gamecube__
         _LDFLAGS += -mogc -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/gamecube/lib
     endif
-    ifneq ($(DEFAULTGAME),)
-        _CPPFLAGS += -DPSRC_DEFAULTGAME='$(subst ','\'',$(DEFAULTGAME))'
-    endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
             _CPPFLAGS += -DPSRC_USEGLAD
@@ -372,6 +370,9 @@ ifneq ($(CROSS),nxdk)
     _LDLIBS += -lm
 else
     _CPPFLAGS += -DPB_HAL_FONT
+endif
+ifneq ($(DEFAULTGAME),)
+    _CPPFLAGS += -DPSRC_DEFAULTGAME='$(subst ','\'',$(DEFAULTGAME))'
 endif
 ifeq ($(NOSIMD),y)
     _CPPFLAGS += -DPSRC_NOSIMD

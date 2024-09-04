@@ -733,7 +733,7 @@ static void mixsounds(int buf) {
         }
         for (int si = 0; si < playcount; ++si) {
             struct audiosound_3d* s = &audiostate.voices.world.data[audiostate.voices.world.sortdata[si]];
-            if (!mixsound_3d(s, audbuf)) {
+            if (!((s->maxvol) ? mixsound_3d(s, audbuf) : mixsound_3d_fake(s))) {
                 #ifndef PSRC_NOMT
                 readToWriteAccess(&audiostate.lock);
                 #endif
@@ -763,7 +763,7 @@ static void mixsounds(int buf) {
         }
         for (int si = 0; si < playcount; ++si) {
             struct audiosound_3d* s = &audiostate.voices.worldbg.data[audiostate.voices.worldbg.sortdata[si]];
-            if (!mixsound_3d(s, audbuf)) {
+            if (!((s->maxvol) ? mixsound_3d(s, audbuf) : mixsound_3d_fake(s))) {
                 #ifndef PSRC_NOMT
                 readToWriteAccess(&audiostate.lock);
                 #endif
@@ -1502,13 +1502,15 @@ bool startAudio(void) {
         inspec.freq = atoi(tmp);
         free(tmp);
     } else {
-        #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_3DS
+        #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_DREAMCAST
+        inspec.freq = 11025;
+        #elif PLATFORM == PLAT_NXDK
+        inspec.freq = 22050;
+        #else
         inspec.freq = 44100;
         #ifndef PSRC_USESDL1
         flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE;
         #endif
-        #else
-        inspec.freq = 22050;
         #endif
     }
     tmp = cfg_getvar(config, "Audio", "buffer");
@@ -1516,13 +1518,9 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
-        #if PLATFORM != PLAT_NXDK && PLATFORM != PLAT_3DS
-        inspec.samples = 1024;
-        #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_NXDK
+        inspec.samples = inspec.freq * 4 / 11025 * 32;
+        #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_3DS && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_NXDK
         flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
-        #endif
-        #else
-        inspec.samples = 512;
         #endif
     }
     #ifndef PSRC_USESDL1

@@ -1,6 +1,8 @@
 #ifndef PSRC_COMMON_MEMORY_H
 #define PSRC_COMMON_MEMORY_H
 
+#include "../platform.h"
+
 #include <stdint.h>
 #include <string.h>
 
@@ -25,6 +27,7 @@ static inline void mb_init(struct membuf* b, unsigned long sz) {
         b->data = realloc(b->data, b->size);\
     }\
 } while (0)
+// TODO: handle misaligned access on non-x86
 static inline void mb_put8(struct membuf* b, uint8_t v) {
     uintptr_t p = b->len;
     mb__incsize(1);

@@ -15,6 +15,9 @@
         #include <SDL.h>
     #elif defined(PSRC_USESDL1)
         #include <SDL/SDL.h>
+        #ifdef main
+            #undef main
+        #endif
     #else
         #include <SDL2/SDL.h>
     #endif
@@ -37,9 +40,6 @@
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
-    #include <pbkit/pbkit.h>
-    #include <pbgl.h>
-    #include <GL/gl.h>
 #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #include <windows.h>
 #elif PLATFORM == PLAT_EMSCR
@@ -47,7 +47,13 @@
 #elif PLATFORM == PLAT_DREAMCAST
     #include <kos.h>
     #include <dirent.h>
-    KOS_INIT_FLAGS(INIT_IRQ | INIT_THD_PREEMPT | INIT_CONTROLLER | INIT_VMU | INIT_NO_DCLOAD);
+    #define PSRC_KOS_INIT_FLAGS (INIT_IRQ | INIT_NET | INIT_DEFAULT_ARCH | INIT_NO_DCLOAD)
+    #if DEBUG(0)
+    KOS_INIT_FLAGS(PSRC_KOS_INIT_FLAGS);
+    #else
+    KOS_INIT_FLAGS(PSRC_KOS_INIT_FLAGS | INIT_QUIET);
+    #endif
+    #undef PSRC_KOS_INIT_FLAGS
 #elif PLATFORM == PLAT_3DS
     #include <3ds.h>
     #include <dirent.h>
@@ -121,6 +127,7 @@ static void sigh_log(int l, char* name, char* msg) {
         plog(l, "Received signal: %s", name);
     }
 }
+#ifndef PSRC_USESDL1
 static void sigh_cb_addstr(struct charbuf* b, const char* s) {
     char c;
     while ((c = *s)) {
@@ -138,6 +145,7 @@ static void sigh_cb_addstr(struct charbuf* b, const char* s) {
         ++s;
     }
 }
+#endif
 static void sigh(int sig) {
     signal(sig, sigh);
     #if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809L
@@ -178,6 +186,7 @@ static void sigh(int sig) {
         #endif
         {
             plog(LL_CRIT, "Received signal: %s", signame);
+            #ifndef PSRC_USESDL1
             SDL_MessageBoxButtonData btndata[] = {
                 {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
                 {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"}
@@ -218,6 +227,7 @@ static void sigh(int sig) {
                 execlp("open", "open", cb_peek(&cb), NULL);
                 #endif
             }
+            #endif
             exit(1);
         } break;
         default:
@@ -239,7 +249,7 @@ static int bootstrap(void) {
     #endif
 
     if (!initLogging()) {
-        fputs(LP_ERROR "Failed to init logging\n", stderr);
+        fputs("{X}: Failed to init logging\n", stderr);
         return 1;
     }
 
@@ -283,10 +293,6 @@ static int bootstrap(void) {
 
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USER]) {
-        tmp = mkpath(dirs[DIR_USER], "log.txt", NULL);
-        if (!plog_setfile(tmp)) {
-            plog(LL_WARN, "Failed to set log file");
-        }
         free(tmp);
         if (!options.nouserconfig) {
             tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
@@ -523,17 +529,6 @@ int main(int argc, char** argv) {
     #if PLATFORM == PLAT_NXDK
         perfctfreq = KeQueryPerformanceFrequency();
         XVideoSetMode(640, 480, 32, REFRESH_DEFAULT);
-        pbgl_set_swap_interval(0);
-        //pbgl_set_swap_interval(1);
-        pbgl_init(true);
-        //pbgl_set_swap_interval(1);
-        glClearColor(0.0f, 0.25f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        pbgl_swap_buffers();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        pbgl_swap_buffers();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        pbgl_swap_buffers();
     #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         QueryPerformanceFrequency(&perfctfreq);
         while (!(perfctfreq.QuadPart % 10) && !(perfctmul % 10)) {

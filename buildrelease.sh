@@ -29,7 +29,9 @@ build_engine() {
 
     FILES=(psrc.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows 2000+ i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
+    OUTPUT="${BASE}_win9x_i686"
+    buildrel "${1}" "Windows 95/98 i686" "${@:2}" CROSS=win32 M32=y USESDL1=y NOMT=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
 
     FILES=(xiso/default.xbe)
     OUTPUT="${BASE}_nxdk"

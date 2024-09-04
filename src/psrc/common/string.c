@@ -60,7 +60,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
         }
         ++s;
     }
-    cb_nullterm(&tmpcb);
+    cb_finalize(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {
@@ -112,7 +112,7 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
         }
         ++s;
     }
-    cb_nullterm(&tmpcb);
+    cb_finalize(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {

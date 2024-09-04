@@ -67,7 +67,7 @@ _zip_r() {
 }
 
 buildrel() {
-    [ -z "${PLATFORM}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
+    [ -z "${2}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
     make "${@:3}" distclean 1> /dev/null || _exit
     RESPONSE=""
     while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do

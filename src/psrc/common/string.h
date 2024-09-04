@@ -46,7 +46,7 @@ static inline void cb_addfake(struct charbuf* b) {
         b->size *= 2;
         b->data = realloc(b->data, b->size);
     }
-    b->len++;
+    ++b->len;
 }
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
@@ -60,7 +60,6 @@ static inline char* cb_reinit(struct charbuf* b, unsigned long sz) {
 }
 static inline void cb_dump(struct charbuf* b) {
     free(b->data);
-    b->data = NULL;
 }
 static inline void cb_reset(struct charbuf* b, unsigned long sz) {
     cb_dump(b);

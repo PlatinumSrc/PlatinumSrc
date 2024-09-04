@@ -1016,8 +1016,8 @@ static void stbir__calculate_sample_range_upsample(int n, float out_filter_radiu
     float in_pixel_influence_upperbound = (out_pixel_influence_upperbound + out_shift) / scale_ratio;
 
     *in_center_of_out = (out_pixel_center + out_shift) / scale_ratio;
-    *in_first_pixel = (int)(floor(in_pixel_influence_lowerbound + 0.5));
-    *in_last_pixel = (int)(floor(in_pixel_influence_upperbound - 0.5));
+    *in_first_pixel = (int)(floor(in_pixel_influence_lowerbound + 0.5f));
+    *in_last_pixel = (int)(floor(in_pixel_influence_upperbound - 0.5f));
 }
 
 // What output pixels does this input pixel contribute to?
@@ -1031,8 +1031,8 @@ static void stbir__calculate_sample_range_downsample(int n, float in_pixels_radi
     float out_pixel_influence_upperbound = in_pixel_influence_upperbound * scale_ratio - out_shift;
 
     *out_center_of_in = in_pixel_center * scale_ratio - out_shift;
-    *out_first_pixel = (int)(floor(out_pixel_influence_lowerbound + 0.5));
-    *out_last_pixel = (int)(floor(out_pixel_influence_upperbound - 0.5));
+    *out_first_pixel = (int)(floor(out_pixel_influence_lowerbound + 0.5f));
+    *out_last_pixel = (int)(floor(out_pixel_influence_upperbound - 0.5f));
 }
 
 static void stbir__calculate_coefficients_upsample(stbir_filter filter, float scale, int in_first_pixel, int in_last_pixel, float in_center_of_out, stbir__contributors* contributor, float* coefficient_group)
@@ -1070,7 +1070,7 @@ static void stbir__calculate_coefficients_upsample(stbir_filter filter, float sc
     // on the image aspect ratio which can get pretty extreme.
     //STBIR_ASSERT(stbir__filter_info_table[filter].kernel((float)(in_last_pixel + 1) + 0.5f - in_center_of_out, 1/scale) == 0);
 
-    STBIR_ASSERT(total_filter > 0.9);
+    STBIR_ASSERT(total_filter > 0.9f);
     STBIR_ASSERT(total_filter < 1.1f); // Make sure it's not way off.
 
     // Make sure the sum of all coefficients is 1.
@@ -1731,7 +1731,8 @@ static void stbir__encode_scanline(stbir__info* stbir_info, int num_pixels, void
         }
     }
 
-    #define STBIR__ROUND_INT(f)    ((int)          ((f)+0.5))
+    #define STBIR__ROUND_INT(f)    ((int)          ((f)+0.5f))
+    #define STBIR__ROUND_INTDBL(f) ((int)          ((f)+0.5))
     #define STBIR__ROUND_UINT(f)   ((stbir_uint32) ((f)+0.5))
 
     #ifdef STBIR__SATURATE_INT
@@ -1828,7 +1829,7 @@ static void stbir__encode_scanline(stbir__info* stbir_info, int num_pixels, void
                 }
 
                 if (!(stbir_info->flags&STBIR_FLAG_ALPHA_USES_COLORSPACE))
-                    ((unsigned int*)output_buffer)[pixel_index + alpha_channel] = (unsigned int)STBIR__ROUND_INT(((double)stbir__saturate(encode_buffer[pixel_index + alpha_channel])) * stbir__max_uint32_as_float);
+                    ((unsigned int*)output_buffer)[pixel_index + alpha_channel] = (unsigned int)STBIR__ROUND_INTDBL(((double)stbir__saturate(encode_buffer[pixel_index + alpha_channel])) * stbir__max_uint32_as_float);
             }
             break;
 

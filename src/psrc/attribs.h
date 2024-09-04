@@ -1,5 +1,5 @@
-#ifndef PSRC_UTIL_H
-#define PSRC_UTIL_H
+#ifndef PSRC_ATTRIBS_H
+#define PSRC_ATTRIBS_H
 
 #ifndef _MSC_VER
     #define PACKEDENUM enum __attribute__((packed))

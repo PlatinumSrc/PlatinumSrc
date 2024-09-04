@@ -2,6 +2,11 @@
 #define PSRC_ENGINE_RENDERER_H
 
 #include "../platform.h"
+#include "../debug.h"
+
+#if DEBUG(1)
+    #include "../common/profiling.h"
+#endif
 #include "../common/resource.h"
 
 #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
@@ -17,9 +22,11 @@
 
 enum rendapi {
     RENDAPI__INVALID = -1,
+
     #ifdef PSRC_USESR
     RENDAPI_SW,
     #endif
+
     #ifdef PSRC_USEGL
     #ifdef PSRC_USEGL11
     RENDAPI_GL11,
@@ -31,18 +38,12 @@ enum rendapi {
     RENDAPI_GLES30,
     #endif
     #endif
-    RENDAPI__COUNT,
-};
 
-enum rendapigroup {
-    RENDAPIGROUP__INVALID = -1,
-    #ifdef PSRC_USESR
-    RENDAPIGROUP_SW,
+    #ifdef PSRC_USEXGU
+    RENDAPI_XGU,
     #endif
-    #ifdef PSRC_USEGL
-    RENDAPIGROUP_GL,
-    #endif
-    RENDAPIGROUP__COUNT,
+
+    RENDAPI__COUNT
 };
 
 enum rendmode {
@@ -67,7 +68,6 @@ struct rendstate {
     #endif
     char* icon;
     enum rendapi api;
-    enum rendapigroup apigroup;
     enum rendmode mode;
     uint8_t vsync : 1;
     uint8_t borderless : 1;
@@ -86,6 +86,9 @@ struct rendstate {
     #endif
     enum rcopt_texture_qlt texqlt;
     enum rendlighting lighting;
+    #if DEBUG(1)
+    struct profile* dbgprof;
+    #endif
 };
 
 extern struct rendstate rendstate;
@@ -115,7 +118,6 @@ extern void (*render)(void);
 extern void (*display)(void);
 extern void* (*takeScreenshot)(int* w, int* h, int* sz);
 
-extern const char* rendapi_ids[];
-extern const char* rendapi_names[];
+extern const char* const* rendapi_names[RENDAPI__COUNT];
 
 #endif

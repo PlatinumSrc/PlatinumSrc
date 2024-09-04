@@ -737,7 +737,7 @@ void cfg_close(struct cfg* cfg) {
         struct cfg_sect* sect = &cfg->sectdata[secti];
         if (sect->name) {
             int varcount = sect->varcount;
-            for (int vari = 0; vari < varcount; ++ vari) {
+            for (int vari = 0; vari < varcount; ++vari) {
                 struct cfg_var* var = &sect->vardata[vari];
                 if (var->name) {
                     free(var->name);

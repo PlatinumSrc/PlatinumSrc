@@ -33,19 +33,9 @@ PACKEDENUM loglevel {
 
 #define LW_SPECIALFILE(p) "%s is a special file", (p)
 
-#define LP_INFO "(i): "
-#define LP_WARN "/!\\: "
-#define LP_ERROR "[E]: "
-#define LP_CRIT "{X}: "
-#define LP_DEBUG "<D>: "
-
 extern char* logpath;
 #ifndef PSRC_NOMT
 extern mutex_t loglock;
-#endif
-#if PLATFORM == PLAT_NXDK
-    extern bool plog__nodraw;
-    extern bool plog__wrote;
 #endif
 
 bool initLogging(void);

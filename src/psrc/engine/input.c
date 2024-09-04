@@ -444,6 +444,7 @@ struct inputkey* inputKeysFromStr(const char* s) {
     struct inputkey* k = malloc(count * sizeof(*k) + sizeof(enum inputdev));
     k[count].dev = INPUTDEV__NULL;
     for (int i = 0; i < count; ++i) {
+        //printf("ks[%d]: {%s}\n", i, ks[i]);
         int dcount;
         char** kds = splitstrlist(ks[i], ',', false, &dcount);
         k[i].dev = INPUTDEV__INVALID;
