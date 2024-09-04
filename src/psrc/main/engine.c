@@ -316,14 +316,18 @@ void doLoop(void) {
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0f : 2.5f;
 
-    char* tmp = cfg_getvar(config, "Debug", "printfps");
-    bool printfps;
     #if DEBUG(1)
-    printfps = strbool(tmp, true);
-    #else
-    printfps = strbool(tmp, false);
+    bool printfps;
+    bool printprof;
+    {
+        char* tmp = cfg_getvar(config, "Debug", "printfps");
+        printfps = strbool(tmp, true);
+        free(tmp);
+        tmp = cfg_getvar(config, "Debug", "printprof");
+        printprof = strbool(tmp, false);
+        free(tmp);
+    }
     #endif
-    free(tmp);
 
     {
         // this can probably be optimized
@@ -386,49 +390,49 @@ void doLoop(void) {
     framestamp = tmputime;
     framemult = frametime / 1000000.0;
 
-    if (printfps) {
+    #if DEBUG(1)
         static uint64_t fpstime = 0;
         static uint64_t fpsframetime = 0;
         static int fpsframecount = 0;
-        #if DEBUG(1)
         static int profcurwait = -1;
         static const int profwait = 2;
-        #endif
         fpsframetime += frametime;
         ++fpsframecount;
         if (tmputime >= fpstime) {
             fpstime += 500000;
             if (tmputime >= fpstime) fpstime = tmputime + 500000;
-            uint64_t avgframetime = fpsframetime / fpsframecount;
-            double avgfps = 1000000.0 / (uint64_t)avgframetime;
-            printf("FPS: %.03f (%.03fms)\n", avgfps, avgframetime / 1000.0);
+            if (printfps) {
+                uint64_t avgframetime = fpsframetime / fpsframecount;
+                double avgfps = 1000000.0 / (uint64_t)avgframetime;
+                printf("FPS: %.03f (%.03fms)\n", avgfps, avgframetime / 1000.0);
+            }
             fpsframetime = 0;
             fpsframecount = 0;
-            #if DEBUG(1)
             if (profcurwait <= 0) {
                 prof_calc(&dbgprof);
-                for (int i = 0; i < DBGPROF__COUNT; ++i) {
-                    printprofpoint(
-                        dbgprof.colors[i].r, dbgprof.colors[i].g, dbgprof.colors[i].b,
-                        dbgprof.time[i], dbgprof.percent[i],
-                        dbgprofstr[i]
-                    );
-                }
-                printprofpoint(192, 192, 192, dbgprof.time[-1], dbgprof.percent[-1], "Other");
-                for (int i = 0; i < profwait; ++i) {
-                    putchar('\n');
-                }
-                for (int i = 0; i < profwait; ++i) {
-                    putchar('\e');
-                    putchar('[');
-                    putchar('A');
+                if (printprof) {
+                    for (int i = 0; i < DBGPROF__COUNT; ++i) {
+                        printprofpoint(
+                            dbgprof.colors[i].r, dbgprof.colors[i].g, dbgprof.colors[i].b,
+                            dbgprof.time[i], dbgprof.percent[i],
+                            dbgprofstr[i]
+                        );
+                    }
+                    printprofpoint(192, 192, 192, dbgprof.time[-1], dbgprof.percent[-1], "Other");
+                    for (int i = 0; i < profwait; ++i) {
+                        putchar('\n');
+                    }
+                    for (int i = 0; i < profwait; ++i) {
+                        putchar('\e');
+                        putchar('[');
+                        putchar('A');
+                    }
                 }
             }
             if (profcurwait == profwait) profcurwait = 0;
             else ++profcurwait;
-            #endif
         }
-    }
+    #endif
 }
 
 void quitLoop(void) {

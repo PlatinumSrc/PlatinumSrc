@@ -162,8 +162,6 @@ else ifeq ($(CROSS),dc)
     IP_MRIMAGE := icons/engine.mr
     CDI := $(OUTDIR)/$(IP_TITLE).cdi
     CDIDIR := $(OUTDIR)/cdi
-    # LTO can cause bugs
-    NOLTO := y
     NOMT := y
     USESTDTHREAD := y
     USEPVR := y

@@ -50,7 +50,7 @@ static inline void cb_addfake(struct charbuf* b) {
 }
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
-    b->data[b->len] = 0;
+    ((volatile char*)b->data)[b->len] = 0;
     return b->data;
 }
 static inline char* cb_reinit(struct charbuf* b, unsigned long sz) {
@@ -73,7 +73,7 @@ static inline void cb_nullterm(struct charbuf* b) {
         b->size *= 2;
         b->data = realloc(b->data, b->size);
     }
-    b->data[b->len] = 0;
+    ((volatile char*)b->data)[b->len] = 0;
 }
 static inline void cb_undo(struct charbuf* b, unsigned long l) {
     if (l > b->len) {

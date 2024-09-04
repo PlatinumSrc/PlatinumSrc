@@ -17,8 +17,6 @@
     #if PLATFORM == PLAT_NXDK
         #include <pbkit/pbkit.h>
         #include <pbkit/nv_regs.h>
-    #elif PLATFORM == PLAT_WIN32
-        #include <windows.h>
     #elif PLATFORM == PLAT_GDK
         #include <SDL.h>
     #elif defined(PSRC_USESDL1)
@@ -26,6 +24,11 @@
     #else
         #include <SDL2/SDL.h>
     #endif
+#endif
+#if PLATFORM == PLAT_WIN32
+    #include <windows.h>
+    static WORD conattr;
+    static HANDLE conh;
 #endif
 
 #include "../glue.h"
@@ -82,6 +85,15 @@ bool initLogging(void) {
     #ifndef PSRC_NOMT
     if (!createMutex(&loglock)) return false;
     #endif
+    #if PLATFORM == PLAT_WIN32
+    conh = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO coni;
+    if (conh && GetConsoleScreenBufferInfo(conh, &coni)) {
+        conattr = coni.wAttributes;
+    } else {
+        conattr = (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+    }
+    #endif
     ring[0].text = malloc(PSRC_LOG_LINESIZE * PSRC_LOG_RINGSIZE);
     for (int i = 1; i < PSRC_LOG_RINGSIZE; ++i) {
         ring[i].text = &ring[0].text[PSRC_LOG_LINESIZE * i];
@@ -126,29 +138,103 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
     fputc(':', f);
     fputc(' ', f);
 }
-static void pl_fputprefix_color(enum loglevel lvl, FILE* f) {
-    switch (lvl & 0xFF) {
-        default:
+#if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
+    static void pl_fputprefix_color(enum loglevel lvl, FILE* f) {
+        #if PLATFORM == PLAT_WIN32
+        if (!conh) {
+            pl_fputprefix(lvl, f);
             return;
-        case LL_INFO:
-            if (lvl & LF_DEBUG) {
-                fputs("\e[34m<\e[1mD\e[22m>:\e[0m", f);
-            } else {
-                fputs("\e[36m(\e[1mi\e[22m):\e[0m", f);
-            }
-            break;
-        case LL_WARN:
-            fputs("\e[33m/\e[1m!\e[22m\\:\e[0m", f);
-            break;
-        case LL_ERROR:
-            fputs("\e[31m[\e[1mE\e[22m]:\e[0m", f);
-            break;
-        case LL_CRIT:
-            fputs("\e[1;31m{X}:\e[0m", f);
-            break;
+        }
+        #endif
+        switch (lvl & 0xFF) {
+            default:
+                return;
+            #if PLATFORM != PLAT_WIN32
+            case LL_INFO:
+                if (lvl & LF_DEBUG) {
+                    fputs("\e[34m<\e[1mD\e[22m>:\e[0m", f);
+                } else {
+                    fputs("\e[36m(\e[1mi\e[22m):\e[0m", f);
+                }
+                break;
+            case LL_WARN:
+                fputs("\e[33m/\e[1m!\e[22m\\:\e[0m", f);
+                break;
+            case LL_ERROR:
+                fputs("\e[31m[\e[1mE\e[22m]:\e[0m", f);
+                break;
+            case LL_CRIT:
+                fputs("\e[1;31m{X}:\e[0m", f);
+                break;
+            #else
+            case LL_INFO:
+                if (lvl & LF_DEBUG) {
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE);
+                    fputc('<', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+                    fputc('D', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE);
+                    fputc('>', f);
+                    fflush(f);
+                    fputc(':', f);
+                    fflush(f);
+                } else {
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN);
+                    fputc('(', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+                    fputc('i', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN);
+                    fputc(')', f);
+                    fflush(f);
+                    fputc(':', f);
+                    fflush(f);
+                }
+                break;
+            case LL_WARN:
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED);
+                fputc('/', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputc('!', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED);
+                fputc('\\', f);
+                fflush(f);
+                fputc(':', f);
+                fflush(f);
+                break;
+            case LL_ERROR:
+                SetConsoleTextAttribute(conh, FOREGROUND_RED);
+                fputc('[', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputc('E', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_RED);
+                fputc(']', f);
+                fflush(f);
+                fputc(':', f);
+                fflush(f);
+                break;
+            case LL_CRIT:
+                SetConsoleTextAttribute(conh, FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputs("{X}:", f);
+                fflush(f);
+                break;
+            #endif
+        }
+        #if PLATFORM == PLAT_WIN32
+        SetConsoleTextAttribute(conh, conattr);
+        #endif
+        fputc(' ', f);
     }
-    fputc(' ', f);
-}
+#else
+    #define pl_fputprefix_color pl_fputprefix
+#endif
 
 static void plog_internal(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, va_list v) {
     time_t t = time(NULL);
@@ -176,24 +262,24 @@ static void plog_internal(enum loglevel lvl, const char* func, const char* file,
     }
     FILE* f;
     #if PLATFORM != PLAT_EMSCR
-        switch (lvl & 0xFF) {
-            default:
-                f = stdout;
-                break;
-            case LL_WARN:
-            case LL_ERROR:
-            case LL_CRIT:
-                f = stderr;
-                break;
-        }
+    switch (lvl & 0xFF) {
+        default:
+            f = stdout;
+            break;
+        case LL_WARN:
+        case LL_ERROR:
+        case LL_CRIT:
+            f = stderr;
+            break;
+    }
     #else
-        f = stdout;
+    f = stdout;
     #endif
     bool istty;
     #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-        istty = isatty(fileno(f));
+    istty = isatty(fileno(f));
     #else
-        istty = true;
+    istty = true;
     #endif
     if (istty) {
         pl_fputprefix_color(lvl, f);
