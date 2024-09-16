@@ -9,10 +9,10 @@ H="\e[0m\e[1m\e[37m[\e[34m-\e[37m]\e[0m"
 T="\e[0m\e[1m\e[33m>>>\e[0m"
 TB="\e[0m\e[1m\e[37m"
 TR="\e[0m"
-inf() { printf "${I} ${TB}${1}${TR}\n"; }
-err() { printf "${E} ${TB}${1}${TR}\n"; }
-qry() { printf "${Q} ${TB}${1}${TR}\n"; }
-tsk() { printf "${T} ${TB}${1}${TR}\n"; }
+inf() { printf "${I} ${TB}${1}${TR}\n" "${@}"; }
+err() { printf "${E} ${TB}${1}${TR}\n" "${@}"; }
+qry() { printf "${Q} ${TB}${1}${TR}\n" "${@}"; }
+tsk() { printf "${T} ${TB}${1}${TR}\n" "${@}"; }
 
 PLATNAME="$(uname -s)"
 PLATARCH="$(uname -m)"
@@ -68,9 +68,11 @@ _zip_r() {
 
 buildrel() {
     [ -z "${2}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
-    make "${@:3}" distclean 1> /dev/null || _exit
+    local _MAKE="${MAKE}"
+    [ -z "${_MAKE}" ] && _MAKE=make
+    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
     RESPONSE=""
-    while ! make "${@:3}" "-j${NJOBS}" 1> /dev/null; do
+    while ! "${_MAKE}" "${@:3}" "-j${NJOBS}" 1> /dev/null; do
         while [[ -z "${RESPONSE}" ]]; do
             ask "${TB}Build failed. Retry?${TR} (${TB}Y${TR}es/${TB}N${TR}o/${TB}S${TR}kip/${TB}C${TR}lean): "
             case "${RESPONSE,,}" in
@@ -78,7 +80,7 @@ buildrel() {
                     break
                     ;;
                 c | clean)
-                    make "${@:3}" distclean 1> /dev/null || _exit
+                    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
                     ;;
                 *)
                     RESPONSE=""
@@ -100,12 +102,8 @@ buildrel() {
         esac
     done
     [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
-    make "${@:3}" distclean 1> /dev/null || _exit
+    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
     [[ ! "${RESPONSE}" == "n" ]] || _exit 1
-}
-buildmod() {
-    #inf "Building ${1}..."
-    build "${1}" MODULE="${1}" "${@:2}" || _exit
 }
 
 fi

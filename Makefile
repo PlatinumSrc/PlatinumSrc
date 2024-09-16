@@ -310,7 +310,7 @@ ifneq ($(CROSS),nxdk)
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
         endif
-        _LDFLAGS += --embed-file engine/ --embed-file games/ --embed-file mods/
+        _LDFLAGS += --embed-file internal/ --embed-file games/ --embed-file mods/
     else ifeq ($(CROSS),3ds)
         _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
         _CPPFLAGS += -D__3DS__

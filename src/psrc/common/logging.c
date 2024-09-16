@@ -344,12 +344,14 @@ void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, 
     #endif
 }
 
+#if DEBUG(1) // silence a warning
 static void plog_nolock(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
     va_list v;
     va_start(v, s);
     plog_internal(lvl, func, file, line, s, v);
     va_end(v);
 }
+#endif
 #define plog_nolock(lvl, ...) plog_nolock(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
 
 bool plog_setfile(const char* f) {
@@ -367,8 +369,11 @@ bool plog_setfile(const char* f) {
             logfile = tmp;
             free(logpath);
             logpath = strdup(f);
+            time_t t = time(NULL);
+            pl_fputdate(t, logfile);
             fputs(verstr, logfile);
             fputc('\n', logfile);
+            pl_fputdate(t, logfile);
             fputs(platstr, logfile);
             fputc('\n', logfile);
             if (ringsize) {

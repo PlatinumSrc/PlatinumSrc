@@ -688,33 +688,63 @@ static bool r_gl_afterCreateWindow(void) {
     plog(LL_INFO, "OpenGL info:");
     bool cond[4];
     int tmpint[4];
-    char* tmpstr[1];
+    char* tmpstr;
     #ifndef PSRC_USESDL1
         cond[0] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &tmpint[0]);
         cond[1] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &tmpint[1]);
         cond[2] = !SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &tmpint[2]);
         if (cond[2]) {
             switch (tmpint[2]) {
-                default: tmpstr[0] = ""; break;
-                case SDL_GL_CONTEXT_PROFILE_CORE: tmpstr[0] = " core"; break;
-                case SDL_GL_CONTEXT_PROFILE_COMPATIBILITY: tmpstr[0] = " compat"; break;
-                case SDL_GL_CONTEXT_PROFILE_ES: tmpstr[0] = " ES"; break;
+                default: tmpstr = ""; break;
+                case SDL_GL_CONTEXT_PROFILE_CORE: tmpstr = " core"; break;
+                case SDL_GL_CONTEXT_PROFILE_COMPATIBILITY: tmpstr = " compat"; break;
+                case SDL_GL_CONTEXT_PROFILE_ES: tmpstr = " ES"; break;
             }
+        } else {
+            tmpstr = "";
         }
         if (cond[0] && cond[1]) {
-            plog(LL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr[0]);
+            plog(LL_INFO, "  Requested OpenGL version: %d.%d%s", tmpint[0], tmpint[1], tmpstr);
         }
     #endif
-    tmpstr[0] = (char*)glGetString(GL_VERSION);
-    plog(LL_INFO, "  OpenGL version: %s", (tmpstr[0]) ? tmpstr[0] : "?");
+    tmpstr = (char*)glGetString(GL_VERSION);
+    plog(LL_INFO, "  OpenGL version: %s", (tmpstr) ? tmpstr : "?");
     #ifdef GL_SHADING_LANGUAGE_VERSION
-        tmpstr[0] = (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-        if (tmpstr[0]) plog(LL_INFO, "  GLSL version: %s", tmpstr[0]);
+        tmpstr = (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+        if (tmpstr) plog(LL_INFO, "  GLSL version: %s", tmpstr);
     #endif
-    tmpstr[0] = (char*)glGetString(GL_VENDOR);
-    if (tmpstr[0]) plog(LL_INFO, "  Vendor string: %s", tmpstr[0]);
-    tmpstr[0] = (char*)glGetString(GL_RENDERER);
-    if (tmpstr[0]) plog(LL_INFO, "  Renderer string: %s", tmpstr[0]);
+    tmpstr = (char*)glGetString(GL_VENDOR);
+    if (tmpstr) plog(LL_INFO, "  Vendor string: %s", tmpstr);
+    tmpstr = (char*)glGetString(GL_RENDERER);
+    if (tmpstr) plog(LL_INFO, "  Renderer string: %s", tmpstr);
+    tmpstr = (char*)glGetString(GL_EXTENSIONS);
+    if (tmpstr) {
+        plog(LL_INFO, "  Extensions:");
+        char** tmplist = splitstr(tmpstr, " ", false, &tmpint[0]);
+        char* tmp = cfg_getvar(config, "Debug", "gl.allext");
+        int max;
+        if (strbool(tmp, false)) {
+            max = tmpint[0];
+        } else {
+            #if DEBUG(1)
+            max = 32;
+            #else
+            max = 10;
+            #endif
+        }
+        free(tmp);
+        for (int i = 0, ct = 0; i < tmpint[0]; ++i) {
+            if (!*tmplist[i]) continue;
+            plog(LL_INFO, "    %s", tmplist[i]);
+            ++ct;
+            if (ct == max) {
+                plog(LL_INFO, "    ...");
+                break;
+            }
+        }
+        free(*tmplist);
+        free(tmplist);
+    }
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
     if (cond[0]) plog(LL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);
@@ -733,28 +763,28 @@ static bool r_gl_afterCreateWindow(void) {
     #if GL_KHR_debug
         if (glDebugMessageCallback) plog(LL_INFO, "  glDebugMessageCallback is supported");
     #endif
-    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.near");
-    if (tmpstr[0]) {
-        r_gl_data.nearplane = atof(tmpstr[0]);
-        free(tmpstr[0]);
+    tmpstr = cfg_getvar(config, "Renderer", "gl.near");
+    if (tmpstr) {
+        r_gl_data.nearplane = atof(tmpstr);
+        free(tmpstr);
     } else {
         r_gl_data.nearplane = 0.1f;
     }
-    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.far");
-    if (tmpstr[0]) {
-        r_gl_data.farplane = atof(tmpstr[0]);
-        free(tmpstr[0]);
+    tmpstr = cfg_getvar(config, "Renderer", "gl.far");
+    if (tmpstr) {
+        r_gl_data.farplane = atof(tmpstr);
+        free(tmpstr);
     } else {
         r_gl_data.farplane = 100.0f;
     }
-    tmpstr[0] = cfg_getvar(config, "Renderer", "gl.fastclear");
+    tmpstr = cfg_getvar(config, "Renderer", "gl.fastclear");
     #if DEBUG(1)
         // makes debugging easier
-        r_gl_data.fastclear = strbool(tmpstr[0], false);
+        r_gl_data.fastclear = strbool(tmpstr, false);
     #else
-        r_gl_data.fastclear = strbool(tmpstr[0], true);
+        r_gl_data.fastclear = strbool(tmpstr, true);
     #endif
-    free(tmpstr[0]);
+    free(tmpstr);
     return true;
 }
 

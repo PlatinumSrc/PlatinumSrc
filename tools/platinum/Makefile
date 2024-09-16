@@ -6,11 +6,21 @@ PSRCDIR := ../../src/psrc
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 
-TARGET := $(OUTDIR)/platinum
+BIN := platinum
+ifeq ($(OS),Windows_NT)
+    BIN := $(BIN).exe
+endif
+
+TARGET := $(OUTDIR)/$(BIN)
 
 CC ?= gcc
 LD := $(CC)
 STRIP ?= strip
+CC := $(TOOLCHAIN)$(CC)
+LD := $(TOOLCHAIN)$(LD)
+STRIP := $(TOOLCHAIN)$(STRIP)
+
+CFLAGS += -O2
 
 .SECONDEXPANSION:
 

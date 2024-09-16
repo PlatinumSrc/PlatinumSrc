@@ -6,12 +6,21 @@ PSRCDIR := ../../src/psrc
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 
-TARGET := $(OUTDIR)/ptftool
+BIN := ptftool
+ifeq ($(OS),Windows_NT)
+    BIN := $(BIN).exe
+endif
+
+TARGET := $(OUTDIR)/$(BIN)
 
 CC ?= gcc
 LD := $(CC)
 STRIP ?= strip
+CC := $(TOOLCHAIN)$(CC)
+LD := $(TOOLCHAIN)$(LD)
+STRIP := $(TOOLCHAIN)$(STRIP)
 
+CFLAGS += -O2
 LDLIBS += -lm
 
 .SECONDEXPANSION:

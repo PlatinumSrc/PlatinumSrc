@@ -21,10 +21,12 @@ pause
 
 tsk "Building..."
 ./buildrelease.sh || _exit
-inf "Making psrc_assets.zip..."
-_zip_r "psrc_assets.zip" engine/ icons/
-inf "Making psrc_extras.zip..."
-_zip_r "psrc_extras.zip" docs/ tools/
+inf "Making psrc_docs.zip..."
+_zip_r "psrc_docs" docs/
+inf "Making psrc_reqired_files.zip..."
+_zip_r "psrc_reqired_files" internal/
+#inf "Making psrc_reqired_server_files.zip..."
+#_zip_r "psrc_reqired_files" internal/scripts/
 pause
 
 tsk "Pushing..."

@@ -58,10 +58,12 @@ static struct rc_model* testmodel;
     #include "renderer/xgu.c"
 #endif
 
+#if 0 // silence a warning
 static void* r_dummy_takeScreenshot(int* w, int* h, int* sz) {
     (void)w; (void)h; (void)sz;
     return NULL;
 }
+#endif
 
 static enum rendapi trylist[] = {
     #ifdef PSRC_USEXGU

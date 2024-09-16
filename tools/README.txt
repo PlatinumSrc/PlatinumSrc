@@ -1,17 +1,17 @@
-Blender:
+'blender':
 
-    A Blender extension to export .p3m files.
+    Blender plugins for PlatinumSrc.
+    Refer to the READMEs in each plugin's directory.
 
     1. Add the 'blender' folder as a script directory.
-    2. Enable the P3M addon.
 
-GtkSourceView:
+'gtksourceview':
 
     A GtkSourceView syntax highlighting spec for PBASIC.
 
-    1. Copy or link 'pbasic.lang' into 'gtksourceview-4/language-specs/' in `/usr/share/` or '~/.local/share/'.
+    1. Copy or symlink 'pbasic.lang' into 'gtksourceview-4/language-specs/' in '/usr/share/' or '~/.local/share/'.
 
-Platinum:
+'platinum':
 
     A music tracker to compose .ptm files.
 
@@ -19,7 +19,7 @@ Platinum:
     2. Run 'make'.
     3. Run the 'platinum' executable.
 
-PTFTool:
+'ptftool':
 
     A utility to convert images into the PTF format.
 

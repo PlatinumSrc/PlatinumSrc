@@ -293,7 +293,6 @@ static int bootstrap(void) {
 
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USER]) {
-        free(tmp);
         if (!options.nouserconfig) {
             tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
             if (cfg_merge(config, tmp, true)) {

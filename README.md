@@ -3,9 +3,9 @@
 Progress can be found [here](TODO.md)
 
 ---
-- [Building](#Building)
-- [Running](#Running)
-- [Platforms](#Platforms)
+- [Platform Support](#platform-support)
+- [How to run](#how-to-run)
+- [Building from source](#building-from-source)
 
 ---
 #### Demo video
@@ -14,93 +14,141 @@ Using [H-74](https://github.com/PQCraft/H-74), and [test_model.p3m](https://gith
 https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5044fe3e
 
 ---
-#### Building
-- Dependencies
-    - Compiling natively on Unix-like systems
-        - GNU Make
-        - GCC with GNU Binutils or Clang with LLVM
-            - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
-            - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
-        - SDL 2.x or 1.2.x
-    - Compiling for Windows
-        - Compiling on Windows with MSYS2
-            - MSYS2
-            - GNU Make
-            - GCC with GNU Binutils or Clang with LLVM
-                - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
-            - MinGW SDL 2.x or 1.2.x
-        - Compiling on Windows without MSYS2
-            - Git bash
-            - Make for Windows
-            - MinGW
-            - MinGW SDL 2.x or 1.2.x
-        - Cross-compiling on Unix-like platforms
-            - GNU Make
-            - MinGW
-            - MinGW SDL 2.x or 1.2.x
-    - Compiling for Windows 2000 or Windows 98 with KernelEx
-        - Cross-compiling on Unix-like platforms
-            - Wine
-        - Cross-compiling on Unix-like platforms and compiling on Windows
-            - [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
-                - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
-            - [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip)
-    - Compiling for web browsers using Emscripten
-        - GNU Make
-        - Emscripten
-    - Compiling for the Xbox using the NXDK
-        - [NXDK](https://github.com/XboxDev/nxdk)
-            - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
-            - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
-            - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
-        - [pbGL](https://github.com/fgsfdsfgs/pbgl)
-            1. Go to the NXDK directory
-            2. Copy the pbgl folder into `lib/`
-            3. Add `include $(NXDK_DIR)/lib/pbgl/Makefile` to `lib/Makefile`
-    <!--
-    - Compiling for the PlayStation 2 using the ps2dev sdk
-        - [ps2dev](https://github.com/ps2dev/ps2dev)
-            - See [this forum post](https://www.ps2-home.com/forum/viewtopic.php?t=9488) for a tutorial
-    -->
-    - Compiling for the Dreamcast using KallistiOS
-        - [KallistiOS](http://gamedev.allusion.net/softprj/kos)
-            - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
-        - [img4dc](https://github.com/Kazade/img4dc)
-            1. Go into the KallistiOS directory
-            2. Go into `utils/`
-            3. Git clone `https://github.com/Kazade/img4dc`
-            4. Enter `img4dc/` and build it
+#### Platform Support
+- Supported
+    - Linux
+    - Windows 2000+
+    - Windows 98
+    - MacOS
+    - HaikuOS
+    - Emscripten
+- Untested
+    - FreeBSD
+    - NetBSD
+    - OpenBSD
+- In progress
+    - Xbox \(NXDK\)
+        - Needs an XGU renderer
+    - Dreamcast
+        - Needs a PowerVR renderer
+    - 3DS
+        - Needs a Citro3D renderer
+    - GameCube
+        - Needs an OpenGX renderer
+    - Wii
+        - Needs an OpenGX renderer
+    - PS2
+        - Needs a GSKit renderer
+- Wanted
+    - Android
+        - Need to finish the touch UI
+        - Need to figure out how to build directly from the Makefile
+    - UWP/GameSDK
+        - Needs a D3D 9 renderer
+    - Xbox \(XDK\)
+        - Needs a D3D 7/8 renderer
+    - PSP
+    - PS Vita
 
-- Setup
-    - Xbox using the NXDK
+---
+#### How to run
+- Running the engine
+    1. Download a game \(the engine will not run without a game\)
+        - [H-74](https://github.com/PQCraft/H-74)
+    2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `internal/config.cfg` is set to the game's directory name
+    3. Put any mods into a directory called `mods` and use the `-mods` option, or ensure they are listed in the `mods` variable in one of the configs
+        - You can use `config.cfg` in `internal/` or in the game's user data directory
+        - Mods are listed as comma-separated values without spaces between values
+    4. Run the executable
+
+---
+#### Building from source
+- When building on Unix-like platforms for that same platform
+    - Install GNU Make
+    - Install GCC with GNU Binutils, or Clang with LLVM
+        - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
+        - On 32-bit HaikuOS, pass `CC=gcc-x86` to the Makefile to use the correct GCC executable
+    - Install SDL 2.x or 1.2.x
+    - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
+- When building for newer Windows
+    - If cross-compiling on a Unix-like platform
+        - Install GNU Make
+        - Install MinGW
+        - Install MinGW SDL 2.x or 1.2.x
+        - Pass `CROSS=win32` to the Makefile
+    - If MSYS2 is supported
+        - Install MSYS2 and use the MINGW64 backend
+        - Install GNU Make
+        - Install GCC with GNU Binutils, or Clang with LLVM
+            - Pass `TOOLCHAIN=llvm- CC=clang` to the Makefile to use Clang
+        - Install MinGW SDL 2.x or 1.2.x
+    - If MSYS2 is not supported
+        - Install Git bash
+        - Install [Make for Windows](https://sourceforge.net/projects/gnuwin32/files/make/3.81/make-3.81.exe/download) and add it to the `PATH`
+        - Download MinGW and add it to the `PATH`
+        - Donwload and extract MinGW SDL 2.x or 1.2.x into MinGW
+        - Pass `inc.null=NUL` to the Makefile
+    - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
+- When building for older Windows
+    - Download [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download) and add it to the `PATH`
+        - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
+    - If cross-compiling on a Unix-like platform
+        - Install Wine
+        - Pass `CROSS=win32 TOOLCHAIN='wine '` to the Makefile
+    - If bulding for Windows 2000
+        - Download [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip), and extract it to `external/Windows_i686`
+    - If building for Windows 98
+        - Download [SDL 1.2.x modified to be compatible with Windows 98](https://github.com/PQCraft/PQCraft/raw/master/SDL_1_2_Win98.zip), and extract it to `external/Windows_i686`
+        - Pass `USESDL1=y NOMT=y` to the Makefile
+    - Pass `inc.null=NUL` to the Makefile
+    - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
+- When building for web browsers using Emscripten
+    - Install GNU Make
+    - Install Emscripten
+    - Pass `CROSS=emscr` to the Makefile
+- When building for the Xbox using the NXDK
+    - Set up the [NXDK](https://github.com/XboxDev/nxdk)
+        - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
+        - [The extract-xiso symlink fixes are recommended](https://github.com/PQCraft/extract-xiso)
+        - [See here for NXDK's dependencies](https://github.com/XboxDev/nxdk/wiki/Install-the-Prerequisites)
+    - Set up [XGU](https://github.com/dracc/xgu)
+        1. Go to the NXDK directory
+        2. Go into the `lib/` directory
+        3. Clone XGU into an `xgu/` directory
+    - Set up the `xiso` directory
         1. Create a directory called `xiso`
         2. Copy \(or symlink\) the `internal` directory into `xiso/`
         3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
             - There should be a directory \(or link\) called `games`, and if you have mods, a directory \(or link\) called `mods`
-    <!--
-    - PS2 using the ps2dev sdk
-    -->
-    - Dreamcast using KallistiOS
+    - Pass `CROSS=nxdk` to the Makefile
+- When building for the Dreamcast using KallistiOS
+    - Set up [KallistiOS](http://gamedev.allusion.net/softprj/kos)
+        - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
+    - Set up [img4dc](https://github.com/Kazade/img4dc)
+        1. Go into the KallistiOS directory
+        2. Go into `utils/`
+        3. Git clone `https://github.com/Kazade/img4dc`
+        4. Enter `img4dc/` and build it
+    - Set up the `cdi` directory
         1. Create a directory called `cdi`
         2. Copy \(or symlink\) the `internal` directory into `cdi/`
         3. Copy \(or symlink\) the games and/or mods you want to include in the disc image
-    - Windows 2000 or Windows 98 with KernelEx
-        1. Download [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download)
-            - On Linux, use Wine and add MinGW's bin folder to the `PATH` \(can be done using regedit to modify `HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment\PATH`\)
-            - On Windows, add MinGW's bin folder to the `PATH` \(can be done using the environment variable editor\)
-        2. Download the [MinGW 7.1.0 build of psrc-sdl2](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip), and extract it to `external/Windows_i686`
-        3. When using the Makefile, ensure that it uses the correct tools
-            - On Linux, pass `M32=y TOOLCHAIN='wine ' CC='wine i686-w64-mingw32-gcc' inc.null=NUL` to the Makefile
-            - On Windows, pass `M32=y TOOLCHAIN= CC=i686-w64-mingw32-gcc` to the Makefile
+    - Pass `CROSS=dc` to the Makefile
+<!--
+- When building for the PlayStation 2 using the ps2dev sdk
+    - Set up the [ps2dev SDK](https://github.com/ps2dev/ps2dev)
+        - See [this forum post](https://www.ps2-home.com/forum/viewtopic.php?t=9488) for a tutorial
+    - Pass `CROSS=ps2` to the Makefile
+-->
 
-- Using the Makefile
-    - Makefile rules
+- Makefile usage
+    - Rules
         - `build` - Build an executable or ROM
         - `run` - Build an executable or ROM and run it
         - `clean` - Clean up intermediate files
         - `distclean` - Clean up intermediate and output files
         - `externclean` - Clean up external tools
-    - Makefile variables
+    - Variables
         - Build options
             - `MODULE` - Which module to build \(default is `engine`\)
                 - `engine` - Game engine
@@ -110,10 +158,10 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
                 - `win32` - Windows 2000+ or Windows 98 with KernelEx
                 - `emscr` - Emscripten
                 - `nxdk` - Xbox using NXDK
+                - `dc` - Dreamcast using KallistiOS
                 <!--
                 - `ps2` - PS2 using ps2dev sdk
                 -->
-                - `dc` - Dreamcast using KallistiOS
             - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
             - `M32` - Set to `y` to produce a 32-bit binary
             - `NATIVE` - Set to `y` to tune build for native system
@@ -186,56 +234,3 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     ```
     make CROSS=nxdk DEBUG=0 -j$(nproc) run
     ```
-
----
-#### Running
-- Dependencies
-    - Running the engine or editor on Unix-like platforms
-        - SDL 2.x or 1.2.x
-
-- Running the engine
-    1. Download a game \(the engine will not run without a game\)
-        - [H-74](https://github.com/PQCraft/H-74)
-    2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `internal/config.cfg` is set to the game's directory name
-    3. Put any mods into a directory called `mods` and use the `-mods` option, or ensure they are listed in the `mods` variable in one of the configs
-        - You can use `config.cfg` in `internal/` or in the game's user data directory
-        - Mods are listed as comma-separated values without spaces between values
-    4. Run the executable
-
----
-#### Platforms
-- Supported
-    - Linux
-    - Windows 2000+
-    - Windows 98 with KernelEx
-    - MacOS
-    - HaikuOS
-    - Emscripten
-- Untested
-    - FreeBSD
-    - NetBSD
-    - OpenBSD
-    - Windows 9x no KernelEx
-- In progress
-    - Xbox \(NXDK\)
-        - Needs an XGU renderer
-    - Dreamcast
-        - Needs a PowerVR renderer
-    - 3DS
-        - Needs a Citro3D renderer
-    - GameCube
-        - Needs an OpenGX renderer
-    - Wii
-        - Needs an OpenGX renderer
-    - PS2
-        - Needs a GSKit renderer
-- Wanted
-    - Android
-        - Need to finish the touch UI
-        - Need to figure out how to build directly from the Makefile
-    - UWP/GameSDK
-        - Needs a D3D 9 renderer
-    - Xbox \(XDK\)
-        - Needs a D3D 7/8 renderer
-    - PSP
-    - PS Vita
