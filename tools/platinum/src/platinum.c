@@ -192,12 +192,14 @@ static bool kbuf_update(void) {
                                         if (b & 8) to |= KF_ALT;
                                         if (b & 16) to |= KF_CTRL;
                                         if (!(c & 32)) {
-                                            if (b & 32) kbu_add(KT_MOUSEMOVE | to, .mx = x - 1, .my = y - 1);
-                                            else if (!(b & 64)) kbu_add(KT_MOUSEBUTTON | to, .mbdn = 1, .mb = b & 3);
-                                            else kbu_add(KT_MOUSESCROLL | to, .ms = (b & 1) ? 1 : -1);
+                                            if (!(b & 32)) {
+                                                if (!(b & 64)) kbu_add(KT_MOUSEBUTTON | to, .mbdn = 1, .mb = b & 3);
+                                                else kbu_add(KT_MOUSESCROLL | to, .ms = (b & 1) ? 1 : -1);
+                                            }
                                         } else {
                                             kbu_add(KT_MOUSEBUTTON | to, .mb = b & 3);
                                         }
+                                            kbu_add(KT_MOUSEMOVE | to, .mx = x - 1, .my = y - 1);
                                         s += i;
                                         len -= i;
                                         goto escok;
@@ -281,12 +283,16 @@ enum __attribute__((packed)) gfx_charset {
 #define GFX_COLOR_BRMAGENTA (GFX_COLOR_MAGENTA | GFX_COLOR_BRIGHT)
 #define GFX_COLOR_BRCYAN    (GFX_COLOR_CYAN | GFX_COLOR_BRIGHT)
 #define GFX_COLOR_BRWHITE   (GFX_COLOR_WHITE | GFX_COLOR_BRIGHT)
-#define GFX_ATTR_INVERTED   (1 << 0)
+#define GFX_EXTCOLOR_CUBE(r, g, b) (16 + (r) * 36 + (g) * 6 + (b))
+#define GFX_EXTCOLOR_CUBE8(r, g, b) GFX_EXTCOLOR_CUBE((r) * 6 / 256, + (g) * 6 / 256, (b) * 6 / 256)
+#define GFX_EXTCOLOR_RAMP(w) (232 + (w))
+#define GFX_EXTCOLOR_RAMP8(w) GFX_EXTCOLOR_RAMP((w) * 24 / 256)
 struct __attribute__((packed)) gfx_char {
     uint32_t fgc : 8;
     uint32_t bgc : 8;
-    uint32_t attr : 3;
-    uint32_t chr : 21;
+    uint32_t mouse : 1;
+    uint32_t : 7;
+    uint32_t chr : 8;
 };
 struct __attribute__((packed)) gfx_linechange {
     int16_t l, r;
@@ -341,31 +347,24 @@ static void gfx_cleanup(void) {
     write(STDOUT_FILENO, s, strlen(s));
     #endif
 }
-static void gfx_update(void) {
-    if (!gfx.resize) return;
-    gfx.resize = false;
-    gfx.redraw = true;
-    gfx.screen.w = gfx.screen.neww;
-    gfx.screen.h = gfx.screen.newh;
-    gfx.oldmouse.x = -1;
-    gfx.oldmouse.y = -1;
-    free(gfx.screen.data);
-    int sz = gfx.screen.w * gfx.screen.h;
-    gfx.screen.data = malloc(sz * sizeof(*gfx.screen.data));
-    for (int i = 0; i < sz; ++i) {
-        gfx.screen.data[i] = (struct gfx_char){
-            .fgc = GFX_COLOR_WHITE,
-            .bgc = GFX_COLOR_BLACK,
-            .chr = ' '
-        };
-    }
-    free(gfx.screen.linechange);
-    gfx.screen.linechange = malloc(gfx.screen.h * sizeof(*gfx.screen.linechange));
-    for (int i = 0; i < gfx.screen.h; ++i) {
-        gfx.screen.linechange[i] = (struct gfx_linechange){.l = 0, .r = gfx.screen.w - 1};
-    }
+static inline bool gfx_getlineredraw(int y) {
+    return (gfx.screen.linechange[y].l >= 0);
 }
-static void gfx_screen__setchanged(int x, int y) {
+static bool gfx_getlinesredraw(int y1, int y2) {
+    for (int y = y1; y <= y2; ++y) {
+        if (gfx.screen.linechange[y].l >= 0) return true;
+    }
+    return false;
+}
+static bool gfx_getregionredraw(int x1, int y1, int x2, int y2) {
+    for (int y = y1; y <= y2; ++y) {
+        if (gfx.screen.linechange[y].l >= 0 &&
+            x1 >= gfx.screen.linechange[y].l &&
+            x2 <= gfx.screen.linechange[y].r) return true;
+    }
+    return false;
+}
+static inline void gfx_screen__setchangedsingle(int y, int x) {
     if (gfx.screen.linechange[y].l < 0) {
         gfx.screen.linechange[y].l = x;
         gfx.screen.linechange[y].r = x;
@@ -375,20 +374,74 @@ static void gfx_screen__setchanged(int x, int y) {
         gfx.screen.linechange[y].r = x;
     }
 }
-static void gfx_draw(void) {
+static inline void gfx_screen__setchangedrange(int y, int l, int r) {
+    if (gfx.screen.linechange[y].l < 0) {
+        gfx.screen.linechange[y].l = l;
+        gfx.screen.linechange[y].r = r;
+    } else {
+        if (l < gfx.screen.linechange[y].l) {
+            gfx.screen.linechange[y].l = l;
+        }
+        if (r > gfx.screen.linechange[y].r) {
+            gfx.screen.linechange[y].r = r;
+        }
+    }
+}
+static void gfx_setlineredraw(int y) {
+    gfx_screen__setchangedrange(y, 0, gfx.screen.w - 1);
+}
+static void gfx_setlinesredraw(int y1, int y2) {
+    for (int y = y1; y <= y2; ++y) {
+        gfx_screen__setchangedrange(y, 0, gfx.screen.w - 1);
+    }
+}
+static void gfx_setregionredraw(int x1, int y1, int x2, int y2) {
+    for (int y = y1; y <= y2; ++y) {
+        gfx_screen__setchangedrange(y, x1, x2);
+    }
+}
+static void gfx_update(void (*draw)(void)) {
+    if (gfx.resize) {
+        gfx.resize = false;
+        gfx.redraw = true;
+        gfx.screen.w = gfx.screen.neww;
+        gfx.screen.h = gfx.screen.newh;
+        gfx.oldmouse.x = -1;
+        gfx.oldmouse.y = -1;
+        free(gfx.screen.data);
+        int sz = gfx.screen.w * gfx.screen.h;
+        gfx.screen.data = malloc(sz * sizeof(*gfx.screen.data));
+        for (int i = 0; i < sz; ++i) {
+            gfx.screen.data[i] = (struct gfx_char){
+                .fgc = GFX_COLOR_WHITE,
+                .bgc = GFX_COLOR_BLACK,
+                .chr = ' '
+            };
+        }
+        free(gfx.screen.linechange);
+        gfx.screen.linechange = malloc(gfx.screen.h * sizeof(*gfx.screen.linechange));
+        for (int i = 0; i < gfx.screen.h; ++i) {
+            gfx.screen.linechange[i] = (struct gfx_linechange){.l = 0, .r = gfx.screen.w - 1};
+        }
+    }
     if (!gfx.redraw) return;
     gfx.redraw = false;
+    draw();
     if (gfx.mouse.x != gfx.oldmouse.x || gfx.mouse.y != gfx.oldmouse.y) {
         if (gfx.oldmouse.x >= 0 && gfx.oldmouse.y >= 0 && gfx.oldmouse.x < gfx.screen.w && gfx.oldmouse.y < gfx.screen.h) {
-            gfx.screen.data[gfx.oldmouse.x + gfx.oldmouse.y * gfx.screen.w].attr ^= GFX_ATTR_INVERTED;
-            gfx_screen__setchanged(gfx.oldmouse.x, gfx.oldmouse.y);
+            gfx.screen.data[gfx.oldmouse.x + gfx.oldmouse.y * gfx.screen.w].mouse = 0;
+            gfx_screen__setchangedsingle(gfx.oldmouse.y, gfx.oldmouse.x);
         }
         if (gfx.mouse.x >= 0 && gfx.mouse.y >= 0 && gfx.mouse.x < gfx.screen.w && gfx.mouse.y < gfx.screen.h) {
-            gfx.screen.data[gfx.mouse.x + gfx.mouse.y * gfx.screen.w].attr ^= GFX_ATTR_INVERTED;
-            gfx_screen__setchanged(gfx.mouse.x, gfx.mouse.y);
+            gfx.screen.data[gfx.mouse.x + gfx.mouse.y * gfx.screen.w].mouse = 1;
+            gfx_screen__setchangedsingle(gfx.mouse.y, gfx.mouse.x);
         }
         gfx.oldmouse.x = gfx.mouse.x;
         gfx.oldmouse.y = gfx.mouse.y;
+    } else if (gfx.mouse.x >= 0 && gfx.mouse.y >= 0 && gfx.mouse.x < gfx.screen.w && gfx.mouse.y < gfx.screen.h &&
+    gfx_getregionredraw(gfx.mouse.x, gfx.mouse.y, gfx.mouse.x, gfx.mouse.y)) {
+        gfx.screen.data[gfx.mouse.x + gfx.mouse.y * gfx.screen.w].mouse = 1;
+        gfx_screen__setchangedsingle(gfx.mouse.y, gfx.mouse.x);
     }
     for (int y = 0; y < gfx.screen.h; ++y) {
         int l = gfx.screen.linechange[y].l;
@@ -396,37 +449,87 @@ static void gfx_draw(void) {
         gfx.screen.linechange[y].l = -1;
         int r = gfx.screen.linechange[y].r;
         printf("\e[%d;%dH", y + 1, l + 1);
-        int tmp = l + y * gfx.screen.w;
+        int off = l + y * gfx.screen.w;
         int fgc = -1, bgc = -1;
-        for (int x = l; x <= r; ++x, ++tmp) {
+        for (int x = l; x <= r; ++x, ++off) {
             // TODO: manually encode based on charset
-            struct gfx_char c = gfx.screen.data[tmp];
-            if (c.attr & GFX_ATTR_INVERTED) {
-                int tmp2 = c.fgc;
+            struct gfx_char c = gfx.screen.data[off];
+            if (c.mouse) {
+                int tmp = c.fgc;
                 c.fgc = c.bgc;
-                c.bgc = tmp2;
+                c.bgc = tmp;
             }
             if (c.fgc != fgc) {
                 fgc = c.fgc;
-                if (fgc & GFX_COLOR_BRIGHT) fgc += 52;
-                fgc += 30;
                 if (c.bgc == bgc) {
-                    printf("\e[%dm", fgc);
+                    printf("\e[38;5;%dm", fgc);
                 } else {
                     bgc = c.bgc;
-                    if (bgc & GFX_COLOR_BRIGHT) bgc += 52;
-                    bgc += 40;
-                    printf("\e[%d;%dm", fgc, bgc);
+                    printf("\e[38;5;%d;48;5;%dm", fgc, bgc);
                 }
             } else if (c.bgc != bgc) {
                 bgc = c.bgc;
-                if (bgc & GFX_COLOR_BRIGHT) bgc += 52;
-                bgc += 40;
-                printf("\e[%dm", bgc);
+                printf("\e[48;5;%dm", bgc);
             }
             fputc(c.chr, stdout);
         }
         fflush(stdout);
+    }
+}
+#define GFX_DRAW_BAR_CENTERTEXT (1 << 0)
+static void gfx_draw_bar(unsigned y, uint8_t fgc, uint8_t bgc, char* text, int len, unsigned ml, unsigned mr, unsigned flags) {
+    if (y >= (unsigned)gfx.screen.h) return;
+    gfx_screen__setchangedrange(y, 0, gfx.screen.w - 1);
+    if (len < 0) len += strlen(text) + 1;
+    int off = y * gfx.screen.w;
+    if (len > gfx.screen.w) len = gfx.screen.w;
+    if (len == gfx.screen.w && !ml && !mr) {
+        for (int i = 0; i < gfx.screen.w; ++i, ++off) {
+            gfx.screen.data[off] = (struct gfx_char){.chr = text[i], .fgc = fgc, .bgc = bgc};
+        }
+    } else {
+        if (ml + mr >= (unsigned)gfx.screen.w) {
+            for (int i = 0; i < gfx.screen.w; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = ' ', .fgc = fgc, .bgc = bgc};
+            }
+        } else if (flags & GFX_DRAW_BAR_CENTERTEXT) {
+            int sl, sr;
+            {
+                int tmp = gfx.screen.w - ml - mr;
+                if (len > tmp) {
+                    len = tmp;
+                    sl = ml;
+                    sr = mr;
+                } else {
+                    tmp -= len;
+                    sl = tmp / 2 + ml;
+                    sr = (tmp + 1) / 2 + mr;
+                }
+            }
+            for (int i = 0; i < sl; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = ' ', .fgc = fgc, .bgc = bgc};
+            }
+            for (int i = 0; i < len; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = text[i], .fgc = fgc, .bgc = bgc};
+            }
+            for (int i = 0; i < sr; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = ' ', .fgc = fgc, .bgc = bgc};
+            }
+        } else {
+            int tmp = gfx.screen.w - ml - mr;
+            if (len > tmp) len = tmp;
+            tmp += mr;
+            for (unsigned i = 0; i < ml; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = ' ', .fgc = fgc, .bgc = bgc};
+            }
+            int i = 0;
+            for (; i < len; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = text[i], .fgc = fgc, .bgc = bgc};
+            }
+            for (; i < tmp; ++i, ++off) {
+                gfx.screen.data[off] = (struct gfx_char){.chr = ' ', .fgc = fgc, .bgc = bgc};
+            }
+        }
     }
 }
 
@@ -504,38 +607,79 @@ static struct {
     .bpm = 150.0
 };
 
+uint8_t titlecolors[] = {
+    GFX_EXTCOLOR_CUBE(0, 0, 0),
+    GFX_EXTCOLOR_CUBE(0, 0, 0),
+    GFX_EXTCOLOR_CUBE(0, 0, 0),
+    GFX_EXTCOLOR_CUBE(0, 0, 1),
+    GFX_EXTCOLOR_CUBE(0, 0, 2),
+    GFX_EXTCOLOR_CUBE(0, 0, 3),
+    GFX_EXTCOLOR_CUBE(0, 0, 4),
+    GFX_EXTCOLOR_CUBE(0, 0, 5),
+    GFX_EXTCOLOR_CUBE(1, 1, 5),
+    GFX_EXTCOLOR_CUBE(2, 2, 5),
+    GFX_EXTCOLOR_CUBE(3, 3, 5),
+    GFX_EXTCOLOR_CUBE(4, 4, 5),
+    GFX_EXTCOLOR_CUBE(5, 5, 5),
+    GFX_EXTCOLOR_CUBE(5, 5, 5),
+    GFX_EXTCOLOR_CUBE(5, 5, 5),
+    GFX_EXTCOLOR_CUBE(4, 4, 5),
+    GFX_EXTCOLOR_CUBE(3, 3, 5),
+    GFX_EXTCOLOR_CUBE(2, 2, 5),
+    GFX_EXTCOLOR_CUBE(1, 1, 5),
+    GFX_EXTCOLOR_CUBE(0, 0, 5),
+    GFX_EXTCOLOR_CUBE(0, 0, 4),
+    GFX_EXTCOLOR_CUBE(0, 0, 3),
+    GFX_EXTCOLOR_CUBE(0, 0, 2),
+    GFX_EXTCOLOR_CUBE(0, 0, 1),
+};
+int titlecolor = 0;
+#define TITLECOLORS_COUNT (sizeof(titlecolors) / sizeof(*titlecolors))
+static void draw(void) {
+    if (gfx.screen.w < 40 || gfx.screen.h < 20) {
+        //gfx_draw_text(0, 0, GFX_COLOR_WHITE, GFX_COLOR_RED, "TERMINAL TOO SMALL");
+        return;
+    }
+    if (gfx_getlineredraw(0)) {
+        gfx_draw_bar(0, titlecolors[titlecolor], GFX_COLOR_WHITE, "Platinum Music Tracker", -1, 1, 1, GFX_DRAW_BAR_CENTERTEXT);
+    }
+    if (gfx_getlineredraw(1)) {
+        gfx_draw_bar(1, GFX_COLOR_BLACK, GFX_COLOR_WHITE, " File  Edit  Song  Page  Track  Help ", -1, 1, 1, 0);
+    }
+    if (gfx_getlineredraw(gfx.screen.h - 1)) {
+        gfx_draw_bar(gfx.screen.h - 1, GFX_COLOR_BLACK, GFX_COLOR_WHITE, "Idle", -1, 1, 1, 0);
+    }
+}
 static void run(void) {
     enum __attribute__((packed)) ev {
-        EV_NOTHING
+        EV_NOTHING,
+        EV_TITLE
     };
+    timer_new(250000, (void*)EV_TITLE);
     while (1) {
         uint64_t tt;
         int ti = timer_getnext(&tt);
         recalctimer:;
+        int selret;
         uint64_t d;
+        FD_SET(STDIN_FILENO, &tty.fds);
         if (ti >= 0) {
             uint64_t lt = altutime();
             if (tt > lt) d = tt - lt;
             else d = 0;
-        } else {
-            d = 0;
-        }
-        int selret;
-        {
-            //printf("DELAY: [%" PRIu64 "]\n", d);
             struct timeval tv;
             tv.tv_sec = d / 1000000;
             tv.tv_usec = d % 1000000;
-            FD_SET(STDIN_FILENO, &tty.fds);
             selret = select(STDIN_FILENO + 1, &tty.fds, NULL, NULL, &tv);
-            if (selret > 0) kbuf_update();
+        } else {
+            selret = select(STDIN_FILENO + 1, &tty.fds, NULL, NULL, NULL);
         }
-        gfx_update();
+        if (selret > 0) kbuf_update();
         struct key k;
         while (getkey(&k)) {
             switch (k.t & KT_MASK) {
                 case KT_CHAR: {
-                    if (k.t & KF_CTRL && k.c == 'q') return;
+                    if ((k.t & KF_MASK) == KF_CTRL && k.c == 'q') return;
                 } break;
                 case KT_MOUSEMOVE: {
                     gfx.mouse.x = k.mx; gfx.mouse.y = k.my;
@@ -559,9 +703,14 @@ static void run(void) {
         if (!selret && ti >= 0) {
             switch ((enum ev)tdata.data[ti].d) {
                 default: break;
+                case EV_TITLE:
+                    titlecolor = (titlecolor + 1) % TITLECOLORS_COUNT;
+                    gfx_setlineredraw(0);
+                    gfx.redraw = true;
+                    break;
             };
         }
-        gfx_draw();
+        gfx_update(draw);
         if (selret) goto recalctimer;
     }
 }
@@ -570,6 +719,7 @@ static inline void setup() {
     tty_setup();
     gfx_setup();
     timer_init();
+    gfx_update(draw);
 }
 static inline void cleanup() {
     gfx_cleanup();
@@ -586,6 +736,7 @@ static void die(const char* argv0, const char* f, ...) {
     va_start(v, f);
     vfprintf(stderr, f, v);
     va_end(v);
+    putchar('\n');
     exit(1);
 }
 static void puthelp(const char* argv0) {
@@ -631,9 +782,11 @@ int main(int argc, char** argv) {
                 soret:;
                 ++sopos;
                 char* optname;
+                char soptname[] = {'-', 0, 0};
                 if (shortopt) {
                     if (!(sopt = opt[sopos])) continue;
-                    optname = (char[]){'-', sopt, 0};
+                    soptname[1] = sopt;
+                    optname = soptname;
                 } else {
                     optname = opt;
                     opt += 2;
