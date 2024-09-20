@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "glue.h"
 
@@ -28,6 +29,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
     char c;
+    int ol = 0;
     while (1) {
         c = *s;
         if (c == '\\') {
@@ -49,14 +51,16 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = cb_reinit(&tmpcb, 256);
+            data[len++] = (char*)(uintptr_t)ol;
             if (!c) break;
+            cb_add(&tmpcb, 0);
+            ol = tmpcb.len;
         } else {
             cb_add(&tmpcb, c);
         }
         ++s;
     }
-    cb_dump(&tmpcb);
+    cb_finalize(&tmpcb);
     if (nullterm) {
         ++len;
         if (len != size) {
@@ -68,6 +72,61 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
         if (len != size) {
             data = realloc(data, len * sizeof(*data));
         }
+    }
+    for (int i = 0; i < len; ++i) {
+        data[i] += (uintptr_t)tmpcb.data;
+    }
+    if (l) *l = len;
+    return data;
+}
+char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
+    int len = 0;
+    int size = 4;
+    char** data = malloc(size * sizeof(*data));
+    struct charbuf tmpcb;
+    cb_init(&tmpcb, 256);
+    int ol = 0;
+    char c;
+    bool split = false;
+    while (1) {
+        c = *s;
+        if (!c) {
+            split = true;
+        } else {
+            for (const char* d = delims; *d; ++d) {
+                if (c == *d) {split = true; break;}
+            }
+        }
+        if (split) {
+            if (len == size) {
+                size *= 2;
+                data = realloc(data, size * sizeof(*data));
+            }
+            data[len++] = (char*)(uintptr_t)ol;
+            if (!c) break;
+            cb_add(&tmpcb, 0);
+            ol = tmpcb.len;
+            split = false;
+        } else {
+            cb_add(&tmpcb, c);
+        }
+        ++s;
+    }
+    cb_finalize(&tmpcb);
+    if (nullterm) {
+        ++len;
+        if (len != size) {
+            data = realloc(data, len * sizeof(*data));
+        }
+        --len;
+        data[len] = NULL;
+    } else {
+        if (len != size) {
+            data = realloc(data, len * sizeof(*data));
+        }
+    }
+    for (int i = 0; i < len; ++i) {
+        data[i] += (uintptr_t)tmpcb.data;
     }
     if (l) *l = len;
     return data;
@@ -97,9 +156,9 @@ char* makestrlist(const char* const* s, int l, char delim) {
 
 int strbool(const char* s, int d) {
     if (!s) return d;
-    if (!strcasecmp(s, "true") || !strcasecmp(s, "yes")) {
+    if (!strcasecmp(s, "true") || !strcasecmp(s, "yes") || !strcasecmp(s, "y") || !strcasecmp(s, "on")) {
         return 1;
-    } else if (!strcasecmp(s, "false") || !strcasecmp(s, "no")) {
+    } else if (!strcasecmp(s, "false") || !strcasecmp(s, "no") || !strcasecmp(s, "n") || !strcasecmp(s, "off")) {
         return 0;
     }
     return d;

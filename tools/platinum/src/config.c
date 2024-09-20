@@ -8,6 +8,8 @@
 #include <string.h>
 #include <errno.h>
 
+#include "glue.h"
+
 char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
     struct cfg_sect* sectptr = NULL;
     uint32_t crc;
@@ -33,7 +35,10 @@ char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
     crc = strcasecrc32(var);
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
-        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) return strdup(ptr->data);
+        if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
+            char* tmp = strdup(ptr->data);
+            return tmp;
+        }
     }
     return NULL;
 }
@@ -65,11 +70,14 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
             char* from = ptr->data;
+            --size;
             for (size_t j = 0; j < size; ++j) {
-                if (!(*data = *from)) break;
-                ++data;
+                char c = *from;
+                if (!c) break;
+                *data++ = c;
                 ++from;
             }
+            *data = 0;
             return true;
         }
     }
@@ -256,7 +264,7 @@ static inline int interpesc(FILE* f, int c, char* out) {
         case 'b':
             *out++ = '\b'; *out = 0; return 1;
         case 'e':
-            *out++ = '\e'; *out = 0; return 1;
+            *out++ = '\x1b'; *out = 0; return 1;
         case 'f':
             *out++ = '\f'; *out = 0; return 1;
         case 'n':
@@ -601,7 +609,7 @@ struct cfg* cfg_open(const char* p) {
 
 bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
     FILE* f = fopen(p, "r");
-    if (!f) return NULL;
+    if (!f) return false;
     cfg_read(cfg, f, overwrite);
     fclose(f);
     return true;
@@ -627,7 +635,7 @@ void cfg_close(struct cfg* cfg) {
         struct cfg_sect* sect = &cfg->sectdata[secti];
         if (sect->name) {
             int varcount = sect->varcount;
-            for (int vari = 0; vari < varcount; ++ vari) {
+            for (int vari = 0; vari < varcount; ++vari) {
                 struct cfg_var* var = &sect->vardata[vari];
                 if (var->name) {
                     free(var->name);
@@ -639,4 +647,5 @@ void cfg_close(struct cfg* cfg) {
         }
     }
     free(cfg->sectdata);
+    free(cfg);
 }

@@ -16,9 +16,9 @@ TARGET := $(OUTDIR)/$(BIN)
 CC ?= gcc
 LD := $(CC)
 STRIP ?= strip
-CC := $(TOOLCHAIN)$(CC)
-LD := $(TOOLCHAIN)$(LD)
-STRIP := $(TOOLCHAIN)$(STRIP)
+_CC := $(TOOLCHAIN)$(CC)
+_LD := $(TOOLCHAIN)$(LD)
+_STRIP := $(TOOLCHAIN)$(STRIP)
 
 CFLAGS += -O2
 
@@ -35,7 +35,7 @@ if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
 endef
 null := /dev/null
 define inc
-$$(patsubst $(null)\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(CC) $(_CFLAGS) $(_CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT $(null)))))
+$$(patsubst $(null)\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(_CC) $(CFLAGS) $(CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT $(null)))))
 endef
 
 default: build
@@ -48,14 +48,14 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiling $<...
-	@$(CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) $(CPPFLAGS) $< -c -o $@
+	@$(_CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $<
 
 $(TARGET): $(OBJECTS) | $(OUTDIR)
 	@echo Linking $@...
-	@$(LD) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	@$(_LD) $(LDFLAGS) $^ $(LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
-	@$(STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
+	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif
 	@echo Linked $@
 
