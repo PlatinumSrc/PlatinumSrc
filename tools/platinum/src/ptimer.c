@@ -1,11 +1,16 @@
-#include "timer.h"
+#include "ptimer.h"
 
 #include "time.h"
 
 #include <stdlib.h>
 
+struct ptimer {
+    uint64_t t;
+    uint64_t a;
+    void* d;
+};
 static struct {
-    struct timer* data;
+    struct ptimer* data;
     int len;
     int size;
     int index;
@@ -14,13 +19,13 @@ static struct {
     .next = -1
 };
 
-void timer_init(void) {
+void ptimer_init(void) {
     tdata.len = 0;
     tdata.size = 4;
     tdata.data = malloc(tdata.size * sizeof(*tdata.data));
 }
 
-int timer_new(uint64_t a, void* d) {
+int ptimer_new(uint64_t a, void* d) {
     int i = 0;
     for (; i < tdata.len; ++i) {
         if (!tdata.data[i].a) goto found;
@@ -36,11 +41,11 @@ int timer_new(uint64_t a, void* d) {
     tdata.data[i].d = d;
     return i;
 }
-void timer_delete(int i) {
+void ptimer_delete(int i) {
     tdata.data[i].a = 0;
 }
 
-int timer_getnext(uint64_t* u, void** d) {
+int ptimer_getnext(uint64_t* u, void** d) {
     if (!tdata.len) return -1;
     uint64_t m;
     int cur = tdata.next;

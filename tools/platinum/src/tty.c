@@ -27,13 +27,13 @@ void tty_setup(void) {
     tcsetattr(STDIN_FILENO, TCSANOW, &tty.nt);
     //fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
     FD_ZERO(&tty.fds);
-    static char s[] = "\e[?1049h\e[H\e[?25l\e[2J\e[3J\e[?1003h\e[?1006h";
+    static char s[] = "\e[?1049h\e[H\e[?25l\e[?1003h\e[?1006h";
     write(STDOUT_FILENO, s, sizeof(s));
     #endif
 }
 void tty_cleanup(void) {
     #ifndef _WIN32
-    static char s[] = "\e[?1006l\e[?1003l\e[H\e[?25h\e[2J\e[3J\e[?1049l";
+    static char s[] = "\e[?1006l\e[?1003l\e[H\e[?25h\e[9999H\n\e[?1049l";
     write(STDOUT_FILENO, s, sizeof(s));
     tcsetattr(STDIN_FILENO, TCSANOW, &tty.t);
     #endif

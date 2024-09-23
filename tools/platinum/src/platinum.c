@@ -5,7 +5,8 @@
 #include "tty.h"
 #include "input.h"
 #include "gfx.h"
-#include "timer.h"
+#include "time.h"
+#include "ptimer.h"
 //#include "string.h"
 
 #include <stddef.h>
@@ -16,6 +17,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <signal.h>
+#include <unistd.h>
+#include <time.h>
 
 static char* filename = NULL;
 static FILE* filedata = NULL;
@@ -30,46 +33,45 @@ static struct {
 };
 
 uint8_t titlecolors[] = {
-    GFX_EXTCOLOR_CUBE(0, 0, 0),
-    GFX_EXTCOLOR_CUBE(0, 0, 0),
-    GFX_EXTCOLOR_CUBE(0, 0, 0),
-    GFX_EXTCOLOR_CUBE(0, 0, 1),
-    GFX_EXTCOLOR_CUBE(0, 0, 2),
-    GFX_EXTCOLOR_CUBE(0, 0, 3),
-    GFX_EXTCOLOR_CUBE(0, 0, 4),
-    GFX_EXTCOLOR_CUBE(0, 0, 5),
-    GFX_EXTCOLOR_CUBE(1, 1, 5),
-    GFX_EXTCOLOR_CUBE(2, 2, 5),
-    GFX_EXTCOLOR_CUBE(3, 3, 5),
-    GFX_EXTCOLOR_CUBE(4, 4, 5),
-    GFX_EXTCOLOR_CUBE(5, 5, 5),
-    GFX_EXTCOLOR_CUBE(5, 5, 5),
-    GFX_EXTCOLOR_CUBE(5, 5, 5),
-    GFX_EXTCOLOR_CUBE(4, 4, 5),
-    GFX_EXTCOLOR_CUBE(3, 3, 5),
-    GFX_EXTCOLOR_CUBE(2, 2, 5),
-    GFX_EXTCOLOR_CUBE(1, 1, 5),
-    GFX_EXTCOLOR_CUBE(0, 0, 5),
-    GFX_EXTCOLOR_CUBE(0, 0, 4),
-    GFX_EXTCOLOR_CUBE(0, 0, 3),
-    GFX_EXTCOLOR_CUBE(0, 0, 2),
-    GFX_EXTCOLOR_CUBE(0, 0, 1),
+    GFX_COLOR_BLACK,
+    GFX_COLOR_BLACK,
+    GFX_COLOR_BLUE,
+    GFX_COLOR_BRBLUE,
+    GFX_COLOR_BRWHITE,
+    GFX_COLOR_BRWHITE,
+    GFX_COLOR_BRBLUE,
+    GFX_COLOR_BLUE
 };
 int titlecolor = 0;
 #define TITLECOLORS_COUNT (sizeof(titlecolors) / sizeof(*titlecolors))
 static void draw(void) {
-    if (gfx.screen.w < 40 || gfx.screen.h < 20) {
-        //gfx_draw_text(0, 0, GFX_COLOR_WHITE, GFX_COLOR_RED, "TERMINAL TOO SMALL");
-        return;
+//    if (gfx.screen.w < 40 || gfx.screen.h < 20) {
+//        //gfx_draw_text(0, 0, GFX_COLOR_WHITE, GFX_COLOR_RED, "TERMINAL TOO SMALL");
+//        return;
+//    }
+    if (gfx_getregionbyszredraw(0, 2, gfx.screen.w, gfx.screen.h - 3)) {
+        gfx_draw_box(0, 2, gfx.screen.w, gfx.screen.h - 3, GFX_NCOLOR(WHITE, BLUE), 0, GFX_DRAW_BOX_NOBORDER);
     }
     if (gfx_getlineredraw(0)) {
-        gfx_draw_bar(0, titlecolors[titlecolor], GFX_COLOR_WHITE, "Platinum Music Tracker", -1, 1, 1, GFX_DRAW_BAR_CENTERTEXT);
+        gfx_draw_bar(0, GFX_COLOR(titlecolors[titlecolor], GFX_COLOR_WHITE), "Platinum Music Tracker", -1, 1, 1, GFX_DRAW_BAR_CENTERTEXT);
     }
     if (gfx_getlineredraw(1)) {
-        gfx_draw_bar(1, GFX_COLOR_BLACK, GFX_COLOR_WHITE, " File  Edit  Song  Page  Track  Help ", -1, 1, 1, 0);
+        gfx_draw_bar(1, GFX_NCOLOR(BLACK, WHITE), " File  Edit  Song  Page  Track  Help ", -1, 1, 1, 0);
     }
     if (gfx_getlineredraw(gfx.screen.h - 1)) {
-        gfx_draw_bar(gfx.screen.h - 1, GFX_COLOR_BLACK, GFX_COLOR_WHITE, "Idle", -1, 1, 1, 0);
+        gfx_draw_bar(gfx.screen.h - 1, GFX_NCOLOR(BLACK, WHITE), "Pattern editor - Idle", -1, 1, 1, 0);
+    }
+    if (gfx_getregionbyszredraw(26, 11, 32, 11)) {
+        unsigned bdrf = rand() & GFX_DRAW_BOX_DBLBORDER;
+        gfx_draw_box(26, 11, 30, 10, rand(), rand(), GFX_DRAW_BOX_SHADOW | bdrf);
+    }
+    if (gfx_getregionbyszredraw(17, 14, 32, 11)) {
+        unsigned bdrf = rand() & GFX_DRAW_BOX_DBLBORDER;
+        gfx_draw_box(17, 14, 30, 10, rand(), rand(), GFX_DRAW_BOX_SHADOW | bdrf);
+    }
+    if (gfx_getregionbyszredraw(20, 8, 32, 11)) {
+        unsigned bdrf = rand() & GFX_DRAW_BOX_DBLBORDER;
+        gfx_draw_box(20, 8, 30, 10, rand(), rand(), GFX_DRAW_BOX_SHADOW | bdrf);
     }
 }
 
@@ -78,11 +80,11 @@ static void run(void) {
         EV_NOTHING,
         EV_TITLE
     };
-    timer_new(250000, (void*)EV_TITLE);
+    ptimer_new(500000, (void*)EV_TITLE);
     while (1) {
         uint64_t tt;
         void* td;
-        int ti = timer_getnext(&tt, &td);
+        int ti = ptimer_getnext(&tt, &td);
         recalctimer:;
         int selret = (ti >= 0) ? tty_waituntil(tt) : tty_pause();
         if (selret > 0) kbuf_update();
@@ -127,9 +129,10 @@ static void run(void) {
 }
 
 static inline void setup() {
+    srand(time(NULL) ^ altutime());
     tty_setup();
     gfx_setup();
-    timer_init();
+    ptimer_init();
     gfx_update(draw);
 }
 static inline void cleanup() {
@@ -138,7 +141,12 @@ static inline void cleanup() {
 }
 
 static void sigh(int sig) {
-    (void)sig;
+    #if defined(SIGABRT)
+    if (sig == SIGABRT) {
+        char c;
+        read(0, &c, 1);
+    }
+    #endif
     cleanup();
     exit(0);
 }
@@ -234,19 +242,26 @@ int main(int argc, char** argv) {
             filename = strdup("untitled.ptm");
         }
     }
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) die(argv[0], "Not running under a tty");
     signal(SIGINT, sigh);
     signal(SIGTERM, sigh);
     #ifdef SIGQUIT
     signal(SIGQUIT, sigh);
+    #endif
+    #ifdef SIGABRT
+    signal(SIGABRT, sigh);
+    #endif
+    #ifdef SIGHUP
+    signal(SIGHUP, sigh);
+    #endif
+    #ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
     #endif
     #ifdef SIGUSR1
     signal(SIGUSR1, SIG_IGN);
     #endif
     #ifdef SIGUSR2
     signal(SIGUSR2, SIG_IGN);
-    #endif
-    #ifdef SIGPIPE
-    signal(SIGPIPE, SIG_IGN);
     #endif
     setup();
     run();
