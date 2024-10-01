@@ -1,3 +1,5 @@
+export
+
 DIRS := $(patsubst %/,%,$(dir $(wildcard */Makefile)))
 
 BUILD := $(DIRS:%=build\ %)

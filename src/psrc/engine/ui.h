@@ -170,8 +170,8 @@ struct uielem_list {
     int currow;
     int hoverrow;
     int sortcolumn;
-    uint8_t sortreversed : 1;
     uint8_t hidecolnames : 1;
+    uint8_t sortreversed : 1;
     float* seppos; // # of cols - 1
     char** colnames;
     char** data;
@@ -233,8 +233,8 @@ struct uievent_data {
 struct uielem {
     enum uielemtype type;
     int refs;
-    uint8_t hidden : 1;
     uint8_t disabled : 1;
+    uint8_t hidden : 1;
     void (*callback)(enum uievent, struct uievent_data*, void*);
     void* userdata;
     char* size[2];

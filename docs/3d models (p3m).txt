@@ -32,8 +32,8 @@ Format:
 
     Material:
         <u8:
-            { P3M_RENDMODE_NORMAL
-            | P3M_RENDMODE_ADD }
+            { P3M_MATRENDMODE_NORMAL
+            | P3M_MATRENDMODE_ADD }
         >
         <u8: Texture index (0xFF for none)>
         <u8[4]: RGBA color>
@@ -56,11 +56,11 @@ Format:
         <u8: Child count>
     Bone part:
         <<String>: Part name>
-        <Bone part weights>...
-    Bone part weights:
+        <Bone part weight range>...
+    Bone part weight range:
         <u16: Vertices to skip>
         <u16: Weight count (0 to terminate)>
-        [u8: Weight]...
+        [u8: Weight ((W+1)/256)]...
 
     Animation:
         <<String>: Name>
@@ -77,10 +77,10 @@ Format:
         <u8: Part count> <<String>: Part name>...
         <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
     Action data:
-        <u8: Translation count> [u16: Frame]... [Animation interp type]... [float[3]: Translation]...
-        <u8: Rotation count> [u16: Frame]... [Animation interp type]... [float[3]: Rotation]...
-        <u8: Scale count> [u16: Frame]... [Animation interp type]... [float[3]: Scale]...
-    Animation interp type:
+        <u8: Translation count> [u16: Frame]... [Action interp type]... [float[3]: Translation]...
+        <u8: Rotation count> [u16: Frame]... [Action interp type]... [float[3]: Rotation]...
+        <u8: Scale count> [u16: Frame]... [Action interp type]... [float[3]: Scale]...
+    Action interp type:
         <u8:
             { P3M_ACTINTERP_NONE
             | P3M_ACTINTERP_LINEAR }

@@ -398,6 +398,9 @@ ifeq ($(USEGLES30),y)
 endif
 ifndef DEBUG
     _CPPFLAGS += -DNDEBUG
+    ifneq ($(CROSS),nxdk)
+        _LDFLAGS += -Wl,--gc-sections
+    endif
     ifndef O
         O := 2
         ifeq ($(CROSS),)

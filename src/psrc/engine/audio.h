@@ -29,8 +29,8 @@
 struct audioemitter {
     int max;
     int uses;
-    uint8_t bg : 1;
     uint8_t paused : 1;
+    uint8_t bg : 1;
     float vol[2];
     float speed;
     float pos[3];
@@ -73,8 +73,8 @@ struct audiosound_alert {
 struct audiosound_3d {
     struct audiosound data;
     int emitter;
-    uint8_t fxchanged : 1;
     uint8_t flags : 7;
+    uint8_t fxchanged : 1;
     int fxoff;
     float vol[2];
     float speed;

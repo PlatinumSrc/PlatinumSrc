@@ -41,9 +41,9 @@ struct datastream {
             void* ctx;
         };
     };
-    uint8_t atend : 1;
-    uint8_t unget : 1;
     enum ds_mode mode : 6;
+    uint8_t unget : 1;
+    uint8_t atend : 1;
 };
 
 #define DS_OPENFILE_BINARY (1 << 0)

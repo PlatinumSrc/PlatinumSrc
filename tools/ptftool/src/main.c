@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
         printf("USAGE: %s <COMMAND> ...\n", argv[0]);
         putchar('\n');
         puts("COMMANDS:");
-        puts("    {c|convert} [ARGUMENT]... <FILE>...");
+        puts("    c, convert [ARGUMENT]... <FILE>...");
         puts("    Convert from an existing image format (using stb_image) to PTF");
         puts("        -o, --overwrite     Overwrite output");
         puts("        -a, --force-alpha   Force an alpha channel");

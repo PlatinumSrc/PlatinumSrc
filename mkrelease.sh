@@ -22,11 +22,15 @@ pause
 tsk "Building..."
 ./buildrelease.sh || _exit
 inf "Making psrc_docs.zip..."
-_zip_r "psrc_docs" docs/
-inf "Making psrc_reqired_files.zip..."
-_zip_r "psrc_reqired_files" internal/
-#inf "Making psrc_reqired_server_files.zip..."
-#_zip_r "psrc_reqired_files" internal/scripts/
+_zip_r "psrc_docs" docs/ || _exit
+inf "Making psrc_base.zip..."
+_zip_r "psrc_base" internal/ || _exit
+inf "Making psrc_base_server.zip..."
+_zip_r "psrc_base_server" internal/scripts/ || _exit
+cd tools
+inf "Making psrc_tools.zip..."
+_zip_r "../psrc_tools" blender/addons/*/*.txt blender/addons/*/*.py gtksourceview/*.lang || _exit
+cd ..
 pause
 
 tsk "Pushing..."

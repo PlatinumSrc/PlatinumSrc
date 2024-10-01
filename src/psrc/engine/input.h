@@ -93,9 +93,9 @@ struct inputkey {
             enum inputdevpart_gamepad part;
             union {
                 struct {
+                    uint8_t id : 6;
                     uint8_t whole : 1;
                     uint8_t negative : 1;
-                    uint8_t id : 6;
                 } axis;
                 #if defined(PSRC_USESDL1) && PLATFORM == PLAT_DREAMCAST
                 uint16_t button;

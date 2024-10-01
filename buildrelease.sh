@@ -17,7 +17,7 @@ FPLATDESC="$(printf '%s' "${PLATDESC// /_}" | tr '[:upper:]' '[:lower:]')"
 FPLATDESC32="$(printf '%s' "${PLATDESC32// /_}" | tr '[:upper:]' '[:lower:]')"
 
 debmake() {
-    # debrun runs commands inside a debian oldoldstable chroot
+    # debrun runs commands inside a debian buster chroot
     debrun '' make "${@}"
 }
 
@@ -28,11 +28,10 @@ build_engine() {
     ARCHIVER=_tar_u
 
     FILES=(psrc)
-    MAKE=debmake
     OUTPUT="${BASE}_${FPLATDESC}"
-    buildrel "${1}" "${PLATDESC}" "${@:2}"
+    MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
     OUTPUT="${BASE}_${FPLATDESC32}"
-    buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
+    MAKE=debmake buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
     unset MAKE
 
     ARCHIVER=_zip_u
@@ -53,16 +52,15 @@ build_server() {
     ARCHIVER=_tar_u
 
     FILES=(psrc-server)
-    MAKE=debmake
     OUTPUT="${BASE}_${FPLATDESC}"
-    buildrel "${1}" "${PLATDESC}" "${@:2}"
+    MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
     unset MAKE
 
     ARCHIVER=_zip_u
 
     FILES=(psrc-server.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' inc.null=NUL
 }
 build_editor() {
     BASE="psrc_editor"
@@ -70,16 +68,15 @@ build_editor() {
     ARCHIVER=_tar_u
 
     FILES=(psrc-editor)
-    MAKE=debmake
     OUTPUT="${BASE}_${FPLATDESC}"
-    buildrel "${1}" "${PLATDESC}" "${@:2}"
+    MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
     unset MAKE
 
     ARCHIVER=_zip_u
 
     FILES=(psrc-editor.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' AR=gcc-ar inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' inc.null=NUL
 }
 build_tools() {
     BASE="psrc_tools"
@@ -87,16 +84,15 @@ build_tools() {
     ARCHIVER=_tar
 
     FILES=(tools/platinum/platinum tools/ptftool/ptftool)
-    MAKE=debmake
     OUTPUT="${BASE}_${FPLATDESC}"
-    buildrel "${1}" "${PLATDESC}" -C tools "${@:2}"
+    MAKE=debmake buildrel "${1}" "${PLATDESC}" -C tools "${@:2}"
     unset MAKE
 
     ARCHIVER=_zip
 
     FILES=(tools/platinum/platinum.exe tools/ptftool/ptftool.exe)
-    OUTPUT="${BASE}_windows_x86_64"
-    buildrel "${1}" "Windows x86_64" -C tools "${@:2}" TOOLCHAIN='x86_64-w64-mingw32-'
+    OUTPUT="${BASE}_windows_i686"
+    buildrel "${1}" "Windows i686" -C tools "${@:2}" OS=Windows_NT CC=gcc CFLAGS+=-m32 TOOLCHAIN='wine ' null=NUL
 }
 
 for i in "${modules[@]}"; do

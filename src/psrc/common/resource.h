@@ -105,8 +105,8 @@ struct rc_sound {
     int len; // length in samples
     int freq;
     int channels;
-    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
     uint8_t stereo : 1;
+    uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
     uint8_t sdlfree : 1; // use SDL_FreeWAV
 };
 #pragma pack(push, 1)

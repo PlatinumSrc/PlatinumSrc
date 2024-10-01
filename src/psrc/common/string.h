@@ -48,6 +48,13 @@ static inline void cb_addfake(struct charbuf* b) {
     }
     ++b->len;
 }
+static inline void cb_addmultifake(struct charbuf* b, unsigned long l) {
+    b->len += l;
+    if (b->len > b->size) {
+        do {b->size *= 2;} while (b->len > b->size);
+        b->data = realloc(b->data, b->size);
+    }
+}
 static inline char* cb_finalize(struct charbuf* b) {
     b->data = realloc(b->data, b->len + 1);
     ((volatile char*)b->data)[b->len] = 0;

@@ -86,6 +86,8 @@ static inline uint16_t gfx_getxy(int x, int y) {
     return gfx.screen.data[x + y * gfx.screen.w];
 }
 
+void gfx_setscissor(int x, int y, int w, int h);
+
 void gfx_update(void (*draw)(void));
 
 #define GFX_DRAW_NOMARKDRAWN (1 << 16)
