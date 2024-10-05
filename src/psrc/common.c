@@ -1,6 +1,7 @@
 #include "common.h"
 #include "platform.h"
 #include "version.h"
+#include "filesystem.h"
 
 #include "common/filesystem.h"
 #include "common/logging.h"
@@ -16,8 +17,6 @@
     #include <windows.h>
 #elif PLATFORM == PLAT_DREAMCAST
     #include <dirent.h>
-#elif PLATFORM == PLAT_EMSCR
-    #include <libgen.h>
 #endif
 
 #include <stdlib.h>
@@ -160,7 +159,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
             tmp = d;
         }
         tmp = strpath(tmp);
-        n = basename(tmp);
+        n = basepathname(tmp);
         if (!n[0] || (ispathsep(n[0]) && !n[1]) || (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2])))) {
             cb_addstr(err, "Invalid game dir '");
             cb_addstr(err, d);

@@ -10,6 +10,9 @@ OUTDIR := .
 
 ifeq ($(OS),Windows_NT)
     CROSS := win32
+    KERNEL := NT
+else
+    KERNEL := $(shell uname -s)
 endif
 
 ifeq ($(CROSS),)
@@ -30,7 +33,13 @@ ifeq ($(CROSS),)
     endif
     USESR := y
     USEGL := y
-    USEWEAKGL := y
+    ifeq ($(KERNEL),Darwin)
+        USEGLAD := y
+        WL_FORCE_LOAD := -Wl\,-force_load\,
+    endif
+    ifneq ($(USEGLAD),y)
+        USEWEAKGL := y
+    endif
 else ifeq ($(CROSS),win32)
     ifneq ($(M32),y)
         ifneq ($(OS),Windows_NT)
@@ -772,12 +781,16 @@ ifneq ($(XBE_XTIMAGE),)
 endif
 	@$(_OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
 else
+ifneq ($(KERNEL),Darwin)
 	@$(_LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
+else
+	@$(_LD) $(_LDFLAGS) $(patsubst %.a,$(WL_FORCE_LOAD)%.a,$^) $(_WROBJ) $(_LDLIBS) -o $@
+endif
 ifneq ($(NOSTRIP),y)
-	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
+	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || $(_STRIP) -s $@ || exit 0
 endif
 ifeq ($(USEWEAKGL),y)
-	@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@
+	@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@ || exit 0
 endif
 endif
 	@echo Linked $@

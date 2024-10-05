@@ -60,6 +60,27 @@ long getFileSize(FILE* f, bool c) {
     return ret;
 }
 
+char* basepathname(char* p) {
+    int i = 0;
+    char* r = p;
+    while (1) {
+        int o = i;
+        while (ispathsep(p[i])) {
+            ++i;
+        }
+        if (!p[i]) {
+            p[o] = 0;
+            return r;
+        }
+        r = &p[i];
+        ++i;
+        while (!ispathsep(p[i])) {
+            if (!p[i]) return r;
+            ++i;
+        }
+    }
+}
+
 void replpathsep(struct charbuf* b, const char* s, bool first) {
     if (first) {
         #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)

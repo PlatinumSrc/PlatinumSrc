@@ -31,17 +31,19 @@
 
 <User dir>/ - A directory (specified by the 'userdir' variable in game.cfg) most likely inside of the system/user's
               program data directory.
-    cosmetics/
-    custom/ - Custom content from other users
-        <First 4 hex digits of %016x CRC64>/
-            <Next 4 hex digits of %016x CRC64>/
-                <Last 8 hex digits of %016x CRC64>/
-    downloads/ - Custom content from servers
-        <First 4 hex digits of %016x CRC64>/
-            <Next 4 hex digits of %016x CRC64>/
-                <Last 8 hex digits of %016x CRC64>/ - Files overlay <Game dir>.
+    downloads/ - Custom content
+        player/ - From players
+            <First 4 hex digits of %016x CRC64>/
+                <Next 4 hex digits of %016x CRC64>/
+                    <Last 8 hex digits of %016x CRC64>/
+        server/ - From servers
+            <First 4 hex digits of %016x CRC64>/
+                <Next 4 hex digits of %016x CRC64>/
+                    <Last 8 hex digits of %016x CRC64>/ - Files overlay <Game dir>.
     mods/
-    playermodels/
+    resources/ - This layout is optional.
+        cosmetics/
+        playermodels/
     autorun.bas - Optional script to run after autorun.bas in <Main dir>/internal/.
     config.cfg - Optional config loaded after config.cfg in <Main dir>/internal/.
 

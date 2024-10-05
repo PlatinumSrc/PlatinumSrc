@@ -7,8 +7,13 @@
 #else
     #ifndef PSRC_USEGLAD
         #define GL_GLEXT_PROTOTYPES
-        #include <GL/gl.h>
-        #include <GL/glext.h>
+        #if PLATFORM != PLAT_MACOS
+            #include <GL/gl.h>
+            #include <GL/glext.h>
+        #else
+            #include <OpenGL/gl.h>
+            #include <OpenGL/glext.h>
+        #endif
         #if defined(GLAPIENTRY)
             #define GLDBGCB GLAPIENTRY
         #elif defined(APIENTRY)

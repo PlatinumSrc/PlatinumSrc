@@ -49,6 +49,7 @@ struct lsstate {
 
 int isFile(const char*);
 long getFileSize(FILE* file, bool close);
+char* basepathname(char*);
 void replpathsep(struct charbuf* cb, const char*, bool first);
 char* mkpath(const char*, ...);
 char* strpath(const char*);

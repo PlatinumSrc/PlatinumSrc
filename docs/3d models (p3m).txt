@@ -64,9 +64,9 @@ Format:
 
     Animation:
         <<String>: Name>
-        <u32: Microseconds per frame>
         <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
     Action:
+        <u32: Microseconds per frame>
         <u16: Max frame>
         <u8:
             { P3M_ACTPARTVIS_DEFAULTWHITE (use vis mask and add listed)

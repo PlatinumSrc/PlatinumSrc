@@ -56,26 +56,3 @@ double atof(const char *s) {
     return a;
 }
 #endif
-
-#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-char* basename(char* p) {
-    int i = 0;
-    char* r = p;
-    while (1) {
-        int o = i;
-        while (ispathsep(p[i])) {
-            ++i;
-        }
-        if (!p[i]) {
-            p[o] = 0;
-            return r;
-        }
-        r = &p[i];
-        ++i;
-        while (!ispathsep(p[i])) {
-            if (!p[i]) return r;
-            ++i;
-        }
-    }
-}
-#endif

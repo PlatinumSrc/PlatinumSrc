@@ -17,7 +17,6 @@
     #endif
     #define mkdir(x) CreateDirectory(x, NULL)
     #define fileno _fileno
-    char* basename(char*);
 #endif
 
 #ifndef _WIN32
