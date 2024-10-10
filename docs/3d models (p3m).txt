@@ -1,7 +1,7 @@
 P3M - PlatinumSrc 3D Model File/Format
 
 - .p3m file extension
-- Current revision is 0
+- Current version is 0.0
 - All data should be little endian
 
 Format:
@@ -10,7 +10,7 @@ Format:
 
     Header:
         <char[3]: {'P', '3', 'M'}>
-        <u8: Revision>
+        <u8: Major version>
         <u8:
             <7 bits: 0>
             <1 bit: Has normals>
@@ -67,7 +67,6 @@ Format:
         <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
     Action:
         <u32: Microseconds per frame>
-        <u16: Max frame>
         <u8:
             { P3M_ACTPARTVIS_DEFAULTWHITE (use vis mask and add listed)
             | P3M_ACTPARTVIS_DEFAULTBLACK (use vis mask and remove listed)
@@ -75,12 +74,13 @@ Format:
             | P3M_ACTPARTVIS_BLACK (all parts except listed) }
         >
         <u8: Part count> <<String>: Part name>...
-        <u8: Bone count> [ <<String>: Bone name> <Action data> ]...
+        <u8: Bone count> [Action data]...
     Action data:
-        <u8: Translation count> [u16: Frame]... [Action interp type]... [float[3]: Translation]...
-        <u8: Rotation count> [u16: Frame]... [Action interp type]... [float[3]: Rotation]...
-        <u8: Scale count> [u16: Frame]... [Action interp type]... [float[3]: Scale]...
-    Action interp type:
+        <<String>: Bone name>
+        <u8: Translation count> [ <u8: Frame skip> <Action interp mode> <float[3]: Translation> ]...
+        <u8: Rotation count> [ <u8: Frame skip> <Action interp mode> <float[3]: Rotation> ]...
+        <u8: Scale count> [ <u8: Frame skip> <Action interp mode> <float[3]: Scale> ]...
+    Action interp mode:
         <u8:
             { P3M_ACTINTERP_NONE
             | P3M_ACTINTERP_LINEAR }

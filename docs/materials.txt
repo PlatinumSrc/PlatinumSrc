@@ -1,4 +1,0 @@
-base=materials/wood         # Use values from given material as defaults.
-texture=textures/env/planks # Texture to use.
-color=1,1,1                 # Color to multiply the texture by in R,G,B (any value defaults to 1.0 if not provided)
-alpha=1                     # Alpha to multiply the texture by (defaults to 1.0)

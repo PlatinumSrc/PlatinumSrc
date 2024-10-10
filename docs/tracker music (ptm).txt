@@ -1,7 +1,7 @@
 PTM - PlatinumSrc Tracker Music
 
 - .ptm file extension
-- Current revision is 0
+- Current revision is 0.0
 - All data should be little endian
 
 Format:
@@ -10,7 +10,7 @@ Format:
 
     Header:
         <char[3]: {'P', 'T', 'M'}>
-        <u8: Revision>
+        <u8: Major version>
         <char[0...]: Song name {..., 0}>
         <char[0...]: Author {..., 0}>
         <char[0...]: Comments {..., 0}>

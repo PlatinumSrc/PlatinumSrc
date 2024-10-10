@@ -4,15 +4,15 @@ Low-level protocol:
 
     - Used to transport basic info and the high-level protocol
     - Uses UDP with a default port of 45555
-    - Current revision is 0
+    - Current version is 0.0
 
     client to server:
 
         query: <u8: 0b10000000>
         query players: <u8: 0b10001000>
 
-        login: <u8: 0b00000011><u8: protocol revision><char[0..127]: username><char: 0><char[0..127]: game>
-        login with encryption: <u8: 0b00001111><u8: protocol revision><u8[128]: public key><char[0..127]: username>
+        login: <u8: 0b00000011><u8: protocol major version><char[0..127]: username><char: 0><char[0..127]: game>
+        login with encryption: <u8: 0b00001111><u8: protocol major version><u8[128]: public key><char[0..127]: username>
                                <char: 0><char[0..127]: game>
 
         data: <u8: 0b00000101><u32: message #><u8: user index><u32: UID><u64: rand from server><u16: # of
@@ -25,8 +25,8 @@ Low-level protocol:
 
     server to client:
 
-        info 1: <u8: 0b10000000><u8: protocol revision><u32: engine revision><u8: game version type><u32: game version>
-                <u8: players><u8: max players><char[0..127]: game>
+        info 1: <u8: 0b10000000><u8: protocol major version><u32: engine version><u8: game version type><u32: game
+                version><u8: players><u8: max players><char[0..127]: game>
         info 2: <u8: 0b10000001><char[0..507]: <char[]: server name><char: 0><char[]: description>>
         info 3: <u8: 0b10000010><char[0..507]: game name>
         info 4: <u8: 0b10000011><char[0..507]: map>
