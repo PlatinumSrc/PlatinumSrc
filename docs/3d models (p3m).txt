@@ -11,10 +11,7 @@ Format:
     Header:
         <char[3]: {'P', '3', 'M'}>
         <u8: Major version>
-        <u8:
-            <7 bits: 0>
-            <1 bit: Has normals>
-        >
+        <u8: 0>
     Data:
         <u8: Part count> <u8[0..32]: Part visibility bitmask (LSB to MSB)> [Part]...
         <u8: Material count> [Material]...
@@ -25,10 +22,22 @@ Format:
         <char[1...]: String table {..., 0}>
 
     Part:
+        <u8:
+            <7 bits: 0>
+            <1 bit: Has normals>
+        >
         <<String>: Name>
         <u8: Material index>
         <u16: Vertex count> [Vertex]... [ [Normal]... ]
         <u16: Index count> [u16: Index]...
+        <u8: Weight group count> [Part weight group]...
+    Part weight group:
+        <<String>: Bone name>
+        <Part weight range>...
+    Part weight range:
+        <u16: Vertices to skip>
+        <u16: Weight count (0 to terminate)>
+        [u8: Weight ((W+1)/256)]...
 
     Material:
         <u8:
@@ -40,7 +49,7 @@ Format:
         <u8[3]: RGB emission>
         <u8: Shading>
     Texture:
-        { <u8: P3M_TEXTYPE_EMBEDDED> <PTF texture (See 'textures (ptf).txt')>
+        { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <PTF texture (See 'textures (ptf).txt')>
         | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path (recommended to omit the prefix)> }
 
     Vertex:
@@ -52,15 +61,7 @@ Format:
     Bone:
         <<String>: Name>
         <float[3]: Head position> <float[3]: Tail position>
-        <u8: Affected part count> [Bone part]...
         <u8: Child count>
-    Bone part:
-        <<String>: Part name>
-        <Bone part weight range>...
-    Bone part weight range:
-        <u16: Vertices to skip>
-        <u16: Weight count (0 to terminate)>
-        [u8: Weight ((W+1)/256)]...
 
     Animation:
         <<String>: Name>
@@ -77,9 +78,10 @@ Format:
         <u8: Bone count> [Action data]...
     Action data:
         <<String>: Bone name>
-        <u8: Translation count> [ <u8: Frame skip> <Action interp mode> <float[3]: Translation> ]...
-        <u8: Rotation count> [ <u8: Frame skip> <Action interp mode> <float[3]: Rotation> ]...
-        <u8: Scale count> [ <u8: Frame skip> <Action interp mode> <float[3]: Scale> ]...
+        <u8: Translation keyframe count> <u8: Rotation keyframe count> <u8: Scale keyframe count>
+        [u8: Translation frame skip]... [u8: Rotation frame skip]... [u8: Scale frame skip]...
+        [Translation <Action interp mode>]... [Rotation <Action interp mode>]... [Scale <Action interp mode>]...
+        [float[3]: Translation data]... [float[3]: Rotation data]... [float[3]: Scale data]...
     Action interp mode:
         <u8:
             { P3M_ACTINTERP_NONE

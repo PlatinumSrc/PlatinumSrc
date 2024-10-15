@@ -2,5 +2,6 @@
 !/addons/
 !/addons/*/
 !/addons/*/*.py
+!/addons/*/README.*
 .**
 !/.gitignore
