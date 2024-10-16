@@ -30,12 +30,13 @@ class p3m:
             HASNORMALS = 1 << 0
 
         def __init__(
-            self, name: str, nameind: int, *,
+            self, name: str, nameind: int, *, flags: int = 0,
             mat: int = 0, verts: list[float] = [], norms: list[float] = [], inds: list[int] = [],
             weights: list[(int, list[(int, array)])] = None
         ):
             self.name = name
             self.nameind = nameind
+            self.flags = flags
             self.mat = mat
             self.verts = array('f', verts) # [][5] (x, y, z, u, v)
             self.norms = array('f', norms) # [][3] (x, y, z)
@@ -43,7 +44,7 @@ class p3m:
             self.weights = weights if weights is not None else []
 
         def tofile(self, f):
-            f.write(pack('<BHB', p3m.part.flags.HASNORMALS if len(self.norms) else 0, self.nameind, self.mat))
+            f.write(pack('<BHB', self.flags, self.nameind, self.mat))
             if byteorder == 'little':
                 f.write(pack(f'<H', len(self.verts) // 5))
                 self.verts.tofile(f)

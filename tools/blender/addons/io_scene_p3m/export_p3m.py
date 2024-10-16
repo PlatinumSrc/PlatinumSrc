@@ -282,6 +282,7 @@ def save(operator, context, report, filepath,
         uvl = bm.loops.layers.uv.active
         indmap = []
         if mesh.get('p3m:normals', export_norms):
+            outp.flags |= p3m.part.flags.HASNORMALS
             for f in bm.faces:
                 for l in f.loops:
                     vert = l.vert
