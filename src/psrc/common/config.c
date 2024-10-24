@@ -1,12 +1,10 @@
 #include "config.h"
-#include "filesystem.h"
 #include "string.h"
 #include "crc.h"
 #include "logging.h"
 #include "../debug.h"
 
 #include <stddef.h>
-#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
@@ -261,9 +259,8 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
-    uint32_t crc;
     if (sect) {
-        crc = strcasecrc32(sect);
+        uint32_t crc = strcasecrc32(sect);
         for (int i = 0; i < cfg->sectcount; ++i) {
             struct cfg_sect* ptr = &cfg->sectdata[i];
             if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, sect)) {
@@ -288,10 +285,9 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
     }
     for (int i = 0; i < sectptr->varcount; ++i) {
         struct cfg_var* ptr = &sectptr->vardata[i];
-        if (ptr->name) {
-            free(ptr->name);
-            free(ptr->data);
-        }
+        if (!ptr->name) continue;
+        free(ptr->name);
+        free(ptr->data);
     }
     free(sectptr->name);
     sectptr->name = NULL;
@@ -301,12 +297,26 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
     #endif
 }
 
-static int fgetc_skip(FILE* f) {
-    int c;
-    do {
-        c = fgetc(f);
-    } while (!c);
-    return c;
+void cfg_delall(struct cfg* cfg) {
+    #ifndef PSRC_NOMT
+    lockMutex(&cfg->lock);
+    #endif
+    for (int i = 0; i < cfg->sectcount; ++i) {
+        struct cfg_sect* sectptr = &cfg->sectdata[i];
+        if (!sectptr->name) continue;
+        for (int j = 0; j < sectptr->varcount; ++j) {
+            struct cfg_var* ptr = &sectptr->vardata[j];
+            if (!ptr->name) continue;
+            free(ptr->name);
+            free(ptr->data);
+        }
+        free(sectptr->name);
+        sectptr->name = NULL;
+        free(sectptr->vardata);
+    }
+    #ifndef PSRC_NOMT
+    unlockMutex(&cfg->lock);
+    #endif
 }
 
 static inline int gethex(int c) {
@@ -314,9 +324,9 @@ static inline int gethex(int c) {
     return (c >= '0' && c <= '9') ? c - 48 : ((c >= 'A' && c <= 'F') ? c - 55 : -1);
 }
 
-static inline int interpesc(FILE* f, int c, char* out) {
+static int interpesc(struct datastream* ds, int c, char* out) {
     switch (c) {
-        case EOF:
+        case DS_END:
             return -1;
         case 'a':
             *out++ = '\a'; *out = 0; return 1;
@@ -335,10 +345,10 @@ static inline int interpesc(FILE* f, int c, char* out) {
         case 'v':
             *out++ = '\v'; *out = 0; return 1;
         case 'x': {
-            int c1 = fgetc_skip(f);
-            if (c1 == EOF) return -1;
-            int c2 = fgetc_skip(f);
-            if (c2 == EOF) return -1;
+            int c1 = ds_text_getc_fullinline(ds);
+            if (c1 == DS_END) return -1;
+            int c2 = ds_text_getc_fullinline(ds);
+            if (c2 == DS_END) return -1;
             int h1, h2;
             if ((h1 = gethex(c1)) == -1 || (h2 = gethex(c2)) == -1) {
                 *out++ = 'x'; *out++ = c1; *out++ = c2; *out = 0;
@@ -379,7 +389,7 @@ static void interpfinal(char* s, struct charbuf* b) {
     }
 }
 
-void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
+void cfg_read(struct cfg* cfg, struct datastream* ds, bool overwrite) {
     struct cfg_sect* sectptr = NULL;
     {
         for (int i = 0; i < cfg->sectcount; ++i) {
@@ -423,29 +433,29 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
         cb_clear(&var);
         cb_clear(&data);
         do {
-            c = fgetc_skip(f);
+            c = ds_text_getc_inline(ds);
         } while (c == ' ' || c == '\t' || c == '\n');
-        if (c == EOF) goto endloop;
+        if (c == DS_END) goto endloop;
         if (c == '#') {
             while (1) {
-                c = fgetc_skip(f);
-                if (c == EOF) goto endloop;
+                c = ds_text_getc(ds);
+                if (c == DS_END) goto endloop;
                 if (c == '\n') goto newline;
             }
         } else if (c == '[') {
             do {
-                c = fgetc_skip(f);
+                c = ds_text_getc(ds);
                 if (c == '\n') goto newline;
             } while (c == ' ' || c == '\t');
-            if (c == EOF) goto endloop;
+            if (c == DS_END) goto endloop;
             while (1) {
                 if (inStr) {
                     if (c == '\\') {
-                        c = fgetc_skip(f);
-                        if (c == EOF) goto endloop;
+                        c = ds_text_getc(ds);
+                        if (c == DS_END) goto endloop;
                         if (c == '\n') goto newline;
                         char tmpbuf[4];
-                        c = interpesc(f, c, tmpbuf);
+                        c = interpesc(ds, c, tmpbuf);
                         if (c == -1) goto endloop;
                         if (c == 0) cb_add(&sect, '\\');
                         cb_addstr(&sect, tmpbuf);
@@ -456,14 +466,14 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                 } else {
                     if (c == ']') {
                         do {
-                            c = fgetc_skip(f);
+                            c = ds_text_getc_inline(ds);
                         } while (c == ' ' || c == '\t');
-                        if (c == EOF) goto endloop;
+                        if (c == DS_END) goto endloop;
                         if (c != '\n') {
                             int c2 = c;
                             do {
-                                c = fgetc_skip(f);
-                                if (c == EOF) goto endloop;
+                                c = ds_text_getc(ds);
+                                if (c == DS_END) goto endloop;
                             } while (c != '\n');
                             if (c2 != '#') goto newline;
                         }
@@ -512,19 +522,19 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                         if (c == '"') inStr = true;
                     }
                 }
-                c = fgetc_skip(f);
-                if (c == EOF) goto endloop;
+                c = ds_text_getc_fullinline(ds);
+                if (c == DS_END) goto endloop;
                 if (c == '\n') goto newline;
             }
         } else {
             while (1) {
                 if (inStr) {
                     if (c == '\\') {
-                        c = fgetc_skip(f);
-                        if (c == EOF) goto endloop;
+                        c = ds_text_getc(ds);
+                        if (c == DS_END) goto endloop;
                         if (c == '\n') goto newline;
                         char tmpbuf[4];
-                        c = interpesc(f, c, tmpbuf);
+                        c = interpesc(ds, c, tmpbuf);
                         if (c == -1) goto endloop;
                         if (c == 0) cb_add(&var, '\\');
                         cb_addstr(&var, tmpbuf);
@@ -535,19 +545,19 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                 } else {
                     if (c == '=') {
                         do {
-                            c = fgetc_skip(f);
+                            c = ds_text_getc_inline(ds);
                         } while (c == ' ' || c == '\t');
                         while (1) {
                             if (inStr) {
                                 if (c == '\\') {
-                                    c = fgetc_skip(f);
-                                    if (c == EOF) goto endloop;
+                                    c = ds_text_getc(ds);
+                                    if (c == DS_END) goto endloop;
                                     if (c == '\n') {
                                         cb_add(&data, '\\');
                                         cb_add(&data, '\n');
                                     } else {
                                         char tmpbuf[4];
-                                        c = interpesc(f, c, tmpbuf);
+                                        c = interpesc(ds, c, tmpbuf);
                                         if (c == -1) goto endloop;
                                         if (c == 0) cb_add(&sect, '\\');
                                         cb_addstr(&data, tmpbuf);
@@ -557,7 +567,7 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                                     if (c == '"') inStr = false;
                                 }
                             } else {
-                                if (c == '\n' || c == '#' || c == EOF) {
+                                if (c == '\n' || c == '#' || c == DS_END) {
                                     char* varstr;
                                     char* datastr;
                                     if (var.len > 0) {
@@ -618,8 +628,8 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                                     }
                                     if (c == '#') {
                                         while (1) {
-                                            c = fgetc_skip(f);
-                                            if (c == EOF) goto endloop;
+                                            c = ds_text_getc(ds);
+                                            if (c == DS_END) goto endloop;
                                             if (c == '\n') goto newline;
                                         }
                                     }
@@ -629,15 +639,15 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
                                     if (c == '"') inStr = true;
                                 }
                             }
-                            c = fgetc_skip(f);
+                            c = ds_text_getc_fullinline(ds);
                         }
                     } else {
                         cb_add(&var, c);
                         if (c == '"') inStr = true;
                     }
                 }
-                c = fgetc_skip(f);
-                if (c == EOF) goto endloop;
+                c = ds_text_getc_fullinline(ds);
+                if (c == DS_END) goto endloop;
                 if (c == '\n') goto newline;
             }
         }
@@ -649,72 +659,28 @@ void cfg_read(struct cfg* cfg, FILE* f, bool overwrite) {
 }
 
 static inline struct cfg* cfg_open_new(void) {
-    struct cfg* cfg = malloc(sizeof(*cfg));
+    struct cfg* cfg = calloc(1, sizeof(*cfg));
+    return cfg;
+}
+
+void cfg_open(struct cfg* cfg, struct datastream* ds) {
     memset(cfg, 0, sizeof(*cfg));
     #ifndef PSRC_NOMT
     createMutex(&cfg->lock);
     #endif
-    return cfg;
-}
-
-struct cfg* cfg_open(const char* p) {
-    if (p) {
-        FILE* f;
-        {
-            int tmp = isFile(p);
-            if (tmp < 1) {
-                if (tmp) {
-                    #if DEBUG(1)
-                    plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_NOEXIST(p));
-                    #endif
-                } else {
-                    plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
-                }
-                return NULL;
-            }
-            f = fopen(p, "r");
-            if (!f) {
-                plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-                return NULL;
-            }
-        }
+    if (ds) {
         #if DEBUG(1)
-        plog(LL_INFO | LF_DEBUG, "Reading config %s...", p);
+        plog(LL_INFO | LF_DEBUG, "Reading config from '%s'...", ds->path);
         #endif
-        struct cfg* cfg = cfg_open_new();
-        cfg_read(cfg, f, true);
-        fclose(f);
-        return cfg;
+        cfg_read(cfg, ds, true);
     }
-    return cfg_open_new();
 }
 
-bool cfg_merge(struct cfg* cfg, const char* p, bool overwrite) {
-    FILE* f;
-    {
-        int tmp = isFile(p);
-        if (tmp < 1) {
-            if (tmp) {
-                #if DEBUG(1)
-                plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_NOEXIST(p));
-                #endif
-            } else {
-                plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
-            }
-            return false;
-        }
-        f = fopen(p, "r");
-        if (!f) {
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-            return false;
-        }
-    }
+void cfg_merge(struct cfg* cfg, struct datastream* ds, bool overwrite) {
     #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) %s...", p);
+    plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) from '%s'...", ds->path);
     #endif
-    cfg_read(cfg, f, overwrite);
-    fclose(f);
-    return true;
+    cfg_read(cfg, ds, overwrite);
 }
 
 void cfg_mergemem(struct cfg* cfg, struct cfg* from, bool overwrite) {
@@ -752,5 +718,4 @@ void cfg_close(struct cfg* cfg) {
     #ifndef PSRC_NOMT
     destroyMutex(&cfg->lock);
     #endif
-    free(cfg);
 }

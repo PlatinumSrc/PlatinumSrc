@@ -1462,7 +1462,7 @@ bool startAudio(void) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    char* tmp = cfg_getvar(config, "Audio", "disable");
+    char* tmp = cfg_getvar(&config, "Audio", "disable");
     if (tmp) {
         bool disable = strbool(tmp, false);
         free(tmp);
@@ -1481,7 +1481,7 @@ bool startAudio(void) {
     inspec.channels = 2;
     #ifndef PSRC_USESDL1
     #ifndef PSRC_NOMT
-    tmp = cfg_getvar(config, "Audio", "callback");
+    tmp = cfg_getvar(&config, "Audio", "callback");
     if (tmp) {
         audiostate.usecallback = strbool(tmp, false);
         free(tmp);
@@ -1497,7 +1497,7 @@ bool startAudio(void) {
     #ifndef PSRC_USESDL1
     int flags = 0;
     #endif
-    tmp = cfg_getvar(config, "Audio", "freq");
+    tmp = cfg_getvar(&config, "Audio", "freq");
     if (tmp) {
         inspec.freq = atoi(tmp);
         free(tmp);
@@ -1513,7 +1513,7 @@ bool startAudio(void) {
         #endif
         #endif
     }
-    tmp = cfg_getvar(config, "Audio", "buffer");
+    tmp = cfg_getvar(&config, "Audio", "buffer");
     if (tmp) {
         inspec.samples = atoi(tmp);
         free(tmp);
@@ -1568,7 +1568,7 @@ bool startAudio(void) {
         }
         {
             int voicecount;
-            tmp = cfg_getvar(config, "Audio", "worldvoices");
+            tmp = cfg_getvar(&config, "Audio", "worldvoices");
             if (tmp) {
                 voicecount = atoi(tmp);
                 free(tmp);
@@ -1581,7 +1581,7 @@ bool startAudio(void) {
             audiostate.voices.world.playcount = voicecount;
             audiostate.voices.world.data = malloc(audiostate.voices.world.size * sizeof(*audiostate.voices.world.data));
             audiostate.voices.world.sortdata = malloc(audiostate.voices.world.size * sizeof(*audiostate.voices.world.sortdata));
-            tmp = cfg_getvar(config, "Audio", "worldbgvoices");
+            tmp = cfg_getvar(&config, "Audio", "worldbgvoices");
             if (tmp) {
                 voicecount = atoi(tmp);
                 free(tmp);
@@ -1594,7 +1594,7 @@ bool startAudio(void) {
             audiostate.voices.worldbg.playcount = voicecount;
             audiostate.voices.worldbg.data = malloc(audiostate.voices.worldbg.size * sizeof(*audiostate.voices.worldbg.data));
             audiostate.voices.worldbg.sortdata = malloc(audiostate.voices.worldbg.size * sizeof(*audiostate.voices.worldbg.sortdata));
-            tmp = cfg_getvar(config, "Audio", "alertvoices");
+            tmp = cfg_getvar(&config, "Audio", "alertvoices");
             if (tmp) {
                 voicecount = atoi(tmp);
                 free(tmp);
@@ -1618,21 +1618,21 @@ bool startAudio(void) {
         audiostate.emitters.len = 0;
         audiostate.emitters.size = 4;
         audiostate.emitters.data = malloc(audiostate.emitters.size * sizeof(*audiostate.emitters.data));
-        tmp = cfg_getvar(config, "Audio", "outbufcount");
+        tmp = cfg_getvar(&config, "Audio", "outbufcount");
         if (tmp) {
             audiostate.outbufcount = atoi(tmp);
             free(tmp);
         } else {
             audiostate.outbufcount = 2;
         }
-        tmp = cfg_getvar(config, "Audio", "decodebuf");
+        tmp = cfg_getvar(&config, "Audio", "decodebuf");
         if (tmp) {
             audiostate.audbuflen = atoi(tmp);
             free(tmp);
         } else {
             audiostate.audbuflen = 4096;
         }
-        tmp = cfg_getvar(config, "Audio", "decodewhole");
+        tmp = cfg_getvar(&config, "Audio", "decodewhole");
         if (tmp) {
             #if PLATFORM != PLAT_NXDK
             audiostate.soundrcopt.decodewhole = strbool(tmp, true);
@@ -1651,7 +1651,7 @@ bool startAudio(void) {
         audiostate.mixaudbufindex = -1;
         {
             char s[4];
-            #define sa_getvolcfg(v, d) ((cfg_getvarto(config, "Audio", (v), s, sizeof(s))) ? atoi(s) : (d))
+            #define sa_getvolcfg(v, d) ((cfg_getvarto(&config, "Audio", (v), s, sizeof(s))) ? atoi(s) : (d))
             audiostate.vol.master = sa_getvolcfg("mastervol", 100);
             audiostate.vol.ui = sa_getvolcfg("uivol", 100);
             audiostate.vol.alerts = sa_getvolcfg("alertvol", 100);

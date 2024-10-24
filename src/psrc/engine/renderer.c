@@ -25,36 +25,36 @@
 struct rendstate rendstate;
 
 const char* const* rendapi_names[RENDAPI__COUNT] = {
-    #ifdef PSRC_USESR
+    #ifdef PSRC_ENGINE_RENDERER_USESR
     (const char*[]){"sw", "Software rendering"},
     #endif
-    #ifdef PSRC_USEGL
+    #ifdef PSRC_ENGINE_RENDERER_USEGL
 
-    #ifdef PSRC_USEGL11
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     (const char*[]){"gl11", "OpenGL 1.1"},
     #endif
-    #ifdef PSRC_USEGL33
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
     (const char*[]){"gl33", "OpenGL 3.3"},
     #endif
-    #ifdef PSRC_USEGLES30
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
     (const char*[]){"gles30", "OpenGL ES 3.0"},
     #endif
     #endif
 
-    #ifdef PSRC_USEXGU
+    #ifdef PSRC_ENGINE_RENDERER_USEXGU
     (const char*[]){"xgu", "XGU"}
     #endif
 };
 
 static struct rc_model* testmodel;
 
-#ifdef PSRC_USESR
+#ifdef PSRC_ENGINE_RENDERER_USESR
     #include "renderer/sw.c"
 #endif
-#ifdef PSRC_USEGL
+#ifdef PSRC_ENGINE_RENDERER_USEGL
     #include "renderer/gl.c"
 #endif
-#ifdef PSRC_USEXGU
+#ifdef PSRC_ENGINE_RENDERER_USEXGU
     #include "renderer/xgu.c"
 #endif
 
@@ -66,23 +66,23 @@ static void* r_dummy_takeScreenshot(int* w, int* h, int* sz) {
 #endif
 
 static enum rendapi trylist[] = {
-    #ifdef PSRC_USEXGU
+    #ifdef PSRC_ENGINE_RENDERER_USEXGU
     RENDAPI_XGU,
     #endif
 
-    #ifdef PSRC_USEGL
-    #ifdef PSRC_USEGL33
+    #ifdef PSRC_ENGINE_RENDERER_USEGL
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
     RENDAPI_GL33,
     #endif
-    #ifdef PSRC_USEGLES30
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
     RENDAPI_GLES30,
     #endif
-    #ifdef PSRC_USEGL11
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     RENDAPI_GL11,
     #endif
     #endif
 
-    #ifdef PSRC_USESR
+    #ifdef PSRC_ENGINE_RENDERER_USESR
     RENDAPI_SW,
     #endif
 
@@ -321,7 +321,7 @@ static bool createWindow(void) {
 
 static bool startRenderer_internal(void) {
     switch (rendstate.api) {
-        #ifdef PSRC_USESR
+        #ifdef PSRC_ENGINE_RENDERER_USESR
         case RENDAPI_SW:
             return false; // TODO: implement
             //render = r_sw_render;
@@ -337,14 +337,14 @@ static bool startRenderer_internal(void) {
             break;
         #endif
 
-        #ifdef PSRC_USEGL
-        #ifdef PSRC_USEGL11
+        #ifdef PSRC_ENGINE_RENDERER_USEGL
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         case RENDAPI_GL11:
         #endif
-        #ifdef PSRC_USEGL33
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
         //case RENDAPI_GL33: // TODO: implement
         #endif
-        #ifdef PSRC_USEGLES30
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
         //case RENDAPI_GLES30: // TODO: implement
         #endif
             render = r_gl_render;
@@ -360,7 +360,7 @@ static bool startRenderer_internal(void) {
             break;
         #endif
 
-        #ifdef PSRC_USEXGU
+        #ifdef PSRC_ENGINE_RENDERER_USEXGU
         case RENDAPI_XGU:
             return false; // TODO: implement
             //render = r_xgu_render;
@@ -529,7 +529,7 @@ bool initRenderer(void) {
         return false;
         #endif
     }
-    char* tmp = cfg_getvar(config, "Renderer", "api");
+    char* tmp = cfg_getvar(&config, "Renderer", "api");
     if (tmp) {
         enum rendapi i = 0;
         while (1) {
@@ -547,7 +547,7 @@ bool initRenderer(void) {
     } else {
         rendstate.api = RENDAPI__INVALID;
     }
-    tmp = cfg_getvar(config, "Renderer", "resolution.windowed");
+    tmp = cfg_getvar(&config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
     rendstate.res.windowed = (struct rendres){960, 720};
     #elif PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST
@@ -563,7 +563,7 @@ bool initRenderer(void) {
         );
         free(tmp);
     }
-    tmp = cfg_getvar(config, "Renderer", "resolution.fullscreen");
+    tmp = cfg_getvar(&config, "Renderer", "resolution.fullscreen");
     rendstate.res.fullscr = (struct rendres){-1, -1};
     if (tmp) {
         sscanf(
@@ -573,7 +573,7 @@ bool initRenderer(void) {
         );
         free(tmp);
     }
-    tmp = cfg_getvar(config, "Renderer", "fps");
+    tmp = cfg_getvar(&config, "Renderer", "fps");
     rendstate.fps = -1;
     if (tmp) {
         sscanf(tmp, "%d", &rendstate.fps);
@@ -588,26 +588,26 @@ bool initRenderer(void) {
         if (rendstate.fps < 0) rendstate.fps = 60; // TODO: get the actual hz somehow?
     }
     #endif
-    tmp = cfg_getvar(config, "Renderer", "borderless");
+    tmp = cfg_getvar(&config, "Renderer", "borderless");
     if (tmp) {
         rendstate.borderless = strbool(tmp, false);
         free(tmp);
     } else {
         rendstate.borderless = false;
     }
-    tmp = cfg_getvar(config, "Renderer", "fullscreen");
+    tmp = cfg_getvar(&config, "Renderer", "fullscreen");
     rendstate.mode = (strbool(tmp, false)) ?
         ((rendstate.borderless) ? RENDMODE_BORDERLESS : RENDMODE_FULLSCREEN) :
         RENDMODE_WINDOWED;
     free(tmp);
-    tmp = cfg_getvar(config, "Renderer", "vsync");
+    tmp = cfg_getvar(&config, "Renderer", "vsync");
     if (tmp) {
         rendstate.vsync = strbool(tmp, true);
         free(tmp);
     } else {
         rendstate.vsync = true;
     }
-    tmp = cfg_getvar(config, "Renderer", "fov");
+    tmp = cfg_getvar(&config, "Renderer", "fov");
     if (tmp) {
         rendstate.fov = atof(tmp);
         free(tmp);

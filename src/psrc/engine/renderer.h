@@ -23,23 +23,23 @@
 enum rendapi {
     RENDAPI__INVALID = -1,
 
-    #ifdef PSRC_USESR
+    #ifdef PSRC_ENGINE_RENDERER_USESR
     RENDAPI_SW,
     #endif
 
-    #ifdef PSRC_USEGL
-    #ifdef PSRC_USEGL11
+    #ifdef PSRC_ENGINE_RENDERER_USEGL
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     RENDAPI_GL11,
     #endif
-    #ifdef PSRC_USEGL33
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
     RENDAPI_GL33,
     #endif
-    #ifdef PSRC_USEGLES30
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
     RENDAPI_GLES30,
     #endif
     #endif
 
-    #ifdef PSRC_USEXGU
+    #ifdef PSRC_ENGINE_RENDERER_USEXGU
     RENDAPI_XGU,
     #endif
 

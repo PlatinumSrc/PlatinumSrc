@@ -15,7 +15,8 @@ extern struct options {
     #ifndef PSRC_MODULE_SERVER
     char* icon;
     #endif
-    struct cfg* set;
+    bool set__setup;
+    struct cfg set;
     char* maindir;
     #ifndef PSRC_MODULE_SERVER
     char* userdir;
@@ -65,8 +66,7 @@ enum dir {
 extern char* dirs[DIR__COUNT];
 extern char* dirdesc[DIR__COUNT];
 
-extern struct cfg* config;
-extern struct cfg* gameconfig;
+extern struct cfg config;
 
 void setupBaseDirs(void);
 bool setGame(const char*, bool maybepath, struct charbuf* err);

@@ -31,13 +31,18 @@ Format:
         <u16: Vertex count> [Vertex]... [ [Normal]... ]
         <u16: Index count> [u16: Index]...
         <u8: Weight group count> [Weight group]...
+    Vertex:
+        <float[3]: Position XYZ>
+        <float[2]: Texture UV>
+    Normal:
+        <float[3]: Normal XYZ>
     Weight group:
         <<String>: Bone name>
         <Weight range>...
     Weight range:
         <u16: Vertices to skip>
         <u16: Weight count (0 to terminate)>
-        [u8: Weight ((W+1)/256)]...
+        [u8: Weight (round(W*256)-1)]...
 
     Material:
         <u8:
@@ -48,15 +53,10 @@ Format:
         <u8[4]: RGBA color>
         <u8[3]: RGB emission>
         <u8: Shading>
+
     Texture:
         { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <PTF texture (See 'textures (ptf).txt')>
         | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path (recommended to omit the prefix)> }
-
-    Vertex:
-        <float[3]: Position XYZ>
-        <float[2]: Texture UV>
-    Normal:
-        <float[3]: Normal XYZ>
 
     Bone:
         <<String>: Name>
@@ -66,6 +66,7 @@ Format:
     Animation:
         <<String>: Name>
         <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
+
     Action:
         <u32: Microseconds per frame>
         <u8:

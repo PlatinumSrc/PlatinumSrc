@@ -48,8 +48,7 @@ char* dirdesc[DIR__COUNT] = {
     #endif
 };
 
-struct cfg* config = NULL;
-struct cfg* gameconfig = NULL;
+struct cfg config;
 
 void setupBaseDirs(void) {
     if (options.maindir) {
@@ -181,21 +180,25 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
     }
     {
         char* tmp = mkpath(d, "game.cfg", NULL);
-        struct cfg* gc = cfg_open(tmp);
-        free(tmp);
-        if (!gc) {
-            cb_addstr(err, "Could not read game.cfg in '");
-            cb_addstr(err, d);
-            cb_add(err, '\'');
-            free(d);
-            free(n);
-            return false;
+        struct cfg gameconfig;
+        {
+            struct datastream ds;
+            bool ret = ds_openfile(&ds, tmp, 0);
+            free(tmp);
+            if (!ret) {
+                cb_addstr(err, "Could not read game.cfg in '");
+                cb_addstr(err, d);
+                cb_add(err, '\'');
+                free(d);
+                free(n);
+                return false;
+            }
+            cfg_open(&gameconfig, &ds);
+            ds_close(&ds);
         }
-        if (gameconfig) cfg_close(gameconfig);
-        gameconfig = gc;
         free(gameinfo.dir);
         gameinfo.dir = n;
-        tmp = cfg_getvar(gc, NULL, "name");
+        tmp = cfg_getvar(&gameconfig, NULL, "name");
         free(gameinfo.name);
         if (tmp && *tmp) {
             gameinfo.name = tmp;
@@ -205,19 +208,19 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
         }
         titlestr = gameinfo.name;
         free(gameinfo.author);
-        gameinfo.author = cfg_getvar(gc, NULL, "author");
+        gameinfo.author = cfg_getvar(&gameconfig, NULL, "author");
         free(gameinfo.desc);
-        gameinfo.desc = cfg_getvar(gc, NULL, "desc");
+        gameinfo.desc = cfg_getvar(&gameconfig, NULL, "desc");
         free(gameinfo.icon);
-        gameinfo.icon = cfg_getvar(gc, NULL, "icon");
-        tmp = cfg_getvar(gc, NULL, "version");
+        gameinfo.icon = cfg_getvar(&gameconfig, NULL, "icon");
+        tmp = cfg_getvar(&gameconfig, NULL, "version");
         if (tmp) {
             if (!strtover(tmp, &gameinfo.version)) gameinfo.version = MKVER_8_16_8(1, 0, 0);
             free(tmp);
         } else {
             gameinfo.version = MKVER_8_16_8(1, 0, 0);
         }
-        tmp = cfg_getvar(gc, NULL, "minver");
+        tmp = cfg_getvar(&gameconfig, NULL, "minver");
         if (tmp) {
             if (!strtover(tmp, &gameinfo.minver)) gameinfo.minver = gameinfo.version;
             free(tmp);
@@ -226,7 +229,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
         }
         #ifndef PSRC_MODULE_SERVER
         free(gameinfo.userdir);
-        tmp = cfg_getvar(gc, NULL, "userdir");
+        tmp = cfg_getvar(&gameconfig, NULL, "userdir");
         if (tmp) {
             gameinfo.userdir = restrictpath(tmp, "/", PATHSEP, '_');
             free(tmp);
@@ -234,6 +237,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
             gameinfo.userdir = sanfilename(gameinfo.name, '_');
         }
         #endif
+        cfg_close(&gameconfig);
     }
     free(dirs[DIR_GAME]);
     dirs[DIR_GAME] = d;

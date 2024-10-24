@@ -26,8 +26,7 @@ Notes:
                 - p3m:normals - An int or bool to override the 'Normals' export option.
 
             Materials:
-                - p3m:rendermode - A string of 'normal' or 'add' (only has an effect for transparency) (defaults to
-                  'normal').
+                - p3m:rendermode - A string of 'normal' or 'add' (defaults to 'normal').
                 - p3m:texture - A resource path string (external texture), or image or image texture object (embedded
                   texture) (defaults to no texture).
                 - p3m:color - A float (0.0 - 1.0) or int (0 - 255) array color of 3 (RGB) or 4 (RGBA) to multiply the

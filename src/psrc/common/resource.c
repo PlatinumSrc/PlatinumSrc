@@ -882,10 +882,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
     d = NULL;
     switch (t) {
         case RC_CONFIG: {
-            struct cfg* config = cfg_open(p);
-            if (config) {
+            struct datastream ds;
+            if (ds_openfile(&ds, p, 0)) {
                 LR_NEWPTR();
-                d->config.data.config = config;
+                cfg_open(&d->config.data.config, &ds);
+                ds_close(&ds);
             }
         } break;
         #ifndef PSRC_MODULE_SERVER
@@ -1182,10 +1183,11 @@ static struct rcdata* loadResource_internal(enum rctype t, const char* uri, unio
         } break;
         #endif
         case RC_VALUES: {
-            struct cfg* values = cfg_open(p);
-            if (values) {
+            struct datastream ds;
+            if (ds_openfile(&ds, p, 0)) {
                 LR_NEWPTR();
-                d->values.data.values = values;
+                cfg_open(&d->values.data.values, &ds);
+                ds_close(&ds);
             }
         } break;
         default: break;
@@ -1303,27 +1305,33 @@ static inline int loadMods_add(struct charbuf* cb) {
     }
     cb_add(cb, PATHSEP);
     cb_addstr(cb, "mod.cfg");
-    struct cfg* cfg = cfg_open(cb_peek(cb));
+    cb_nullterm(cb);
     cb->len -= 8;
-    if (!cfg) {
-        plog(LL_WARN, "No mod.cfg in '%s'", cb_peek(cb));
-        return -1;
+    struct cfg cfg;
+    {
+        struct datastream ds;
+        if (!ds_openfile(&ds, cb->data, 0)) {
+            plog(LL_WARN, "No mod.cfg in '%s'", cb_peek(cb));
+            return -1;
+        }
+        cfg_open(&cfg, &ds);
+        ds_close(&ds);
     }
     if (mods.len == mods.size) {
         mods.size = mods.size * 3 / 2;
         mods.data = realloc(mods.data, mods.size * sizeof(*mods.data));
     }
-    mods.data[mods.len].name = cfg_getvar(cfg, NULL, "name");
-    mods.data[mods.len].author = cfg_getvar(cfg, NULL, "author");
-    mods.data[mods.len].desc = cfg_getvar(cfg, NULL, "desc");
-    char* tmp = cfg_getvar(cfg, NULL, "version");
+    mods.data[mods.len].name = cfg_getvar(&cfg, NULL, "name");
+    mods.data[mods.len].author = cfg_getvar(&cfg, NULL, "author");
+    mods.data[mods.len].desc = cfg_getvar(&cfg, NULL, "desc");
+    char* tmp = cfg_getvar(&cfg, NULL, "version");
     if (tmp) {
         if (!strtover(tmp, &mods.data[mods.len].version)) mods.data[mods.len].version = MKVER_8_16_8(1, 0, 0);
         free(tmp);
     } else {
         mods.data[mods.len].version = MKVER_8_16_8(1, 0, 0);
     }
-    cfg_close(cfg);
+    cfg_close(&cfg);
     return mods.len++;
 }
 void loadMods(const char* const* l, int ct) {
@@ -1464,7 +1472,7 @@ bool initResource(void) {
 
     scriptopt_default.compileropt.findpv = common_findpv;
 
-    char* tmp = cfg_getvar(config, NULL, "lscache.size");
+    char* tmp = cfg_getvar(&config, NULL, "lscache.size");
     if (tmp) {
         lscache.size = atoi(tmp);
         if (lscache.size < 1) lscache.size = 1;

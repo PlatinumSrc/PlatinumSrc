@@ -187,6 +187,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
             <!--
             - `ps2` - PS2 using ps2dev sdk
             -->
+        - `ONLYBIN` - Set to `y` to skip making a disc image.
         - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
         - `M32` - Set to `y` to produce a 32-bit binary
         - `NATIVE` - Set to `y` to tune build for native system
@@ -202,7 +203,8 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `NOSIMD` - Set to `y` to not use SIMD
         - `NOMT` - Set to `y` to disable multithreading
     - Features and backends
-        - `USEDISCORDGAMESDK` - Set to `y` to use the Discord Game SDK
+        - `USESTDIODS` - Set to `y` to use fopen\(\), fread\(\), and fclose\(\) in place of open\(\), read\(\), and close\(\) in the datastream code
+        - `USEDISCORDGAMESDK` - Set to `y` to include the Discord Game SDK
         - `USEGL` - Set to `y` to include OpenGL support
         - `USEGL11` - Set to `y` to include OpenGL 1.1 support
         - `USEGL33` - Set to `y` to include OpenGL 3.3 support

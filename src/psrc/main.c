@@ -254,13 +254,19 @@ static int bootstrap(void) {
     }
 
     char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "config.cfg", NULL);
-    config = cfg_open(tmp);
-    free(tmp);
-    if (!config) {
-        plog(LL_WARN, "Failed to load main config");
-        config = cfg_open(NULL);
+    {
+        struct datastream ds;
+        bool ret = ds_openfile(&ds, tmp, 0);
+        free(tmp);
+        if (ret) {
+            cfg_open(&config, &ds);
+            ds_close(&ds);
+        } else {
+            plog(LL_WARN, "Failed to load main config");
+            cfg_open(&config, NULL);
+        }
     }
-    if (options.set) cfg_mergemem(config, options.set, true);
+    if (options.set__setup) cfg_mergemem(&config, &options.set, true);
 
     {
         struct charbuf err;
@@ -273,7 +279,7 @@ static int bootstrap(void) {
             }
             free(options.game);
             options.game = NULL;
-        } else if ((tmp = cfg_getvar(config, NULL, "defaultgame"))) {
+        } else if ((tmp = cfg_getvar(&config, NULL, "defaultgame"))) {
             if (!setGame(tmp, false, &err)) {
                 plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
                 cb_dump(&err);
@@ -295,12 +301,16 @@ static int bootstrap(void) {
     if (dirs[DIR_USER]) {
         if (!options.nouserconfig) {
             tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
-            if (cfg_merge(config, tmp, true)) {
-                if (options.set) cfg_mergemem(config, options.set, true);
+            struct datastream ds;
+            bool ret = ds_openfile(&ds, tmp, 0);
+            free(tmp);
+            if (ret) {
+                cfg_merge(&config, &ds, true);
+                ds_close(&ds);
+                if (options.set__setup) cfg_mergemem(&config, &options.set, true);
             } else {
                 plog(LL_WARN, "Failed to load user config");
             }
-            free(tmp);
         }
     }
     #endif
@@ -312,7 +322,7 @@ static int bootstrap(void) {
     }
 
     {
-        tmp = cfg_getvar(config, NULL, "mods");
+        tmp = cfg_getvar(&config, NULL, "mods");
         if (options.mods) {
             if (tmp) {
                 int ct1, ct2;
@@ -390,14 +400,12 @@ static void unstrap(void) {
     plog(LL_INFO, "Quitting resource manager...");
     quitResource();
 
-    cfg_close(gameconfig);
-
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USER]) {
         char* tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
         //cfg_write(config, tmp);
         free(tmp);
-        cfg_close(config);
+        cfg_close(&config);
     }
     #endif
 

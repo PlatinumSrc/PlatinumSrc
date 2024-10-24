@@ -5,7 +5,7 @@
     #endif
     #define GL_KHR_debug 0
 #else
-    #ifndef PSRC_USEGLAD
+    #ifndef PSRC_ENGINE_RENDERER_GL_USEGLAD
         #define GL_GLEXT_PROTOTYPES
         #if PLATFORM != PLAT_MACOS
             #include <GL/gl.h>
@@ -30,7 +30,7 @@
     #endif
 #endif
 #if GL_KHR_debug
-    #ifndef PSRC_USEGLAD
+    #ifndef PSRC_ENGINE_RENDERER_GL_USEGLAD
         #pragma weak glDebugMessageCallback
     #endif
     static void GLDBGCB r_gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
@@ -86,17 +86,17 @@ static struct {
     float projmat[4][4];
     float viewmat[4][4];
     union {
-        #ifdef PSRC_USEGL11
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         struct {
             bool oddframe;
         } gl11;
         #endif
-        #ifdef PSRC_USEGL33
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
         struct {
             char _placeholder;
         } gl33;
         #endif
-        #ifdef PSRC_USEGLES30
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
         struct {
             char _placeholder;
         } gles30;
@@ -181,7 +181,7 @@ static void r_gl_updateVSync(void) {
     #endif
 }
 
-#ifdef PSRC_USEGL11
+#ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
 static void r_gl_rendermodel_legacy(struct p3m* m, struct p3m_vertex* verts) {
     if (!verts) verts = m->vertices;
     long lt = SDL_GetTicks();
@@ -537,7 +537,7 @@ static void r_gl_render_legacy(void) {
 #endif
 #endif
 
-#if defined(PSRC_USEGL33) || defined(PSRC_USEGLES30)
+#if defined(PSRC_ENGINE_RENDERER_GL_USEGL33) || defined(PSRC_ENGINE_RENDERER_GL_USEGLES30)
 static void r_gl_render_advanced(void) {
     if (r_gl_data.fastclear) {
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -575,16 +575,16 @@ static void r_gl_render_advanced(void) {
 
 static void r_gl_render(void) {
     switch (rendstate.api) {
-        #ifdef PSRC_USEGL11
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         case RENDAPI_GL11:
             r_gl_render_legacy();
             break;
         #endif
-        #if defined(PSRC_USEGL33) || defined(PSRC_USEGLES30)
-        #ifdef PSRC_USEGL33
+        #if defined(PSRC_ENGINE_RENDERER_GL_USEGL33) || defined(PSRC_ENGINE_RENDERER_GL_USEGLES30)
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
         case RENDAPI_GL33:
         #endif
-        #ifdef PSRC_USEGLES30
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
         case RENDAPI_GLES30:
         #endif
             r_gl_render_advanced();
@@ -621,21 +621,21 @@ static void* r_gl_takeScreenshot(int* w, int* h, int* s) {
 static bool r_gl_beforeCreateWindow(unsigned* f) {
     switch (rendstate.api) {
         #if PLATFORM != PLAT_EMSCR && !defined(PSRC_USESDL1)
-            #ifdef PSRC_USEGL11
+            #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
             case RENDAPI_GL11:
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
                 break;
             #endif
-            #ifdef PSRC_USEGL33
+            #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
             case RENDAPI_GL33:
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
                 break;
             #endif
-            #ifdef PSRC_USEGLES30
+            #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
             case RENDAPI_GLES30:
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
                 SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -652,7 +652,7 @@ static bool r_gl_beforeCreateWindow(unsigned* f) {
         *f |= SDL_OPENGL;
     #endif
     char* tmp;
-    tmp = cfg_getvar(config, "Renderer", "gl.doublebuffer");
+    tmp = cfg_getvar(&config, "Renderer", "gl.doublebuffer");
     if (tmp) {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, strbool(tmp, 1));
         free(tmp);
@@ -661,11 +661,11 @@ static bool r_gl_beforeCreateWindow(unsigned* f) {
     }
     #if PLATFORM != PLAT_EMSCR && !defined(PSRC_USESDL1)
         unsigned flags;
-        tmp = cfg_getvar(config, "Renderer", "gl.forwardcompat");
+        tmp = cfg_getvar(&config, "Renderer", "gl.forwardcompat");
         if (strbool(tmp, 0)) flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
         else flags = 0;
         free(tmp);
-        tmp = cfg_getvar(config, "Renderer", "gl.debug");
+        tmp = cfg_getvar(&config, "Renderer", "gl.debug");
         if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
         free(tmp);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
@@ -683,7 +683,7 @@ static bool r_gl_afterCreateWindow(void) {
         }
         SDL_GL_MakeCurrent(rendstate.window, r_gl_data.ctx);
     #endif
-    #if PLATFORM != PLAT_EMSCR && defined(PSRC_USEGLAD)
+    #if PLATFORM != PLAT_EMSCR && defined(PSRC_ENGINE_RENDERER_GL_USEGLAD)
         if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
             plog(LL_CRIT | LF_FUNC, "Failed to load OpenGL");
             return false;
@@ -726,7 +726,7 @@ static bool r_gl_afterCreateWindow(void) {
     if (tmpstr) {
         plog(LL_INFO, "  Extensions:");
         char** tmplist = splitstr(tmpstr, " ", false, &tmpint[0]);
-        char* tmp = cfg_getvar(config, "Debug", "gl.allext");
+        char* tmp = cfg_getvar(&config, "Debug", "gl.allext");
         int max;
         if (strbool(tmp, false)) {
             max = tmpint[0];
@@ -768,21 +768,21 @@ static bool r_gl_afterCreateWindow(void) {
     #if GL_KHR_debug
         if (glDebugMessageCallback) plog(LL_INFO, "  glDebugMessageCallback is supported");
     #endif
-    tmpstr = cfg_getvar(config, "Renderer", "gl.near");
+    tmpstr = cfg_getvar(&config, "Renderer", "gl.near");
     if (tmpstr) {
         r_gl_data.nearplane = atof(tmpstr);
         free(tmpstr);
     } else {
         r_gl_data.nearplane = 0.1f;
     }
-    tmpstr = cfg_getvar(config, "Renderer", "gl.far");
+    tmpstr = cfg_getvar(&config, "Renderer", "gl.far");
     if (tmpstr) {
         r_gl_data.farplane = atof(tmpstr);
         free(tmpstr);
     } else {
         r_gl_data.farplane = 100.0f;
     }
-    tmpstr = cfg_getvar(config, "Renderer", "gl.fastclear");
+    tmpstr = cfg_getvar(&config, "Renderer", "gl.fastclear");
     #if DEBUG(1)
         // makes debugging easier
         r_gl_data.fastclear = strbool(tmpstr, false);

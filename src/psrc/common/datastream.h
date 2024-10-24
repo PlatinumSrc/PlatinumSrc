@@ -5,13 +5,8 @@
 #include "../platform.h"
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_DREAMCAST
-    #include <fcntl.h>
-    #include <unistd.h>
-#endif
 
 PACKEDENUM ds_mode {
     DS_MODE_MEM,
@@ -19,7 +14,11 @@ PACKEDENUM ds_mode {
     DS_MODE_CB
 };
 
-typedef bool (*ds_callback)(void* ctx, void* buf, size_t lenrq, size_t* lenout);
+#define DS_END (-1)
+
+typedef void (*ds_mem_freecb)(void* ctx, void* buf);
+typedef bool (*ds_cb_readcb)(void* ctx, void* buf, size_t lenrq, size_t* lenout);
+typedef void (*ds_cb_closecb)(void* ctx);
 
 struct datastream {
     uint8_t* buf;
@@ -28,92 +27,74 @@ struct datastream {
     size_t bufsz;
     union {
         struct {
-            size_t bufpos;
-            #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_DREAMCAST
+            ds_mem_freecb free;
+            void* freectx;
+        } mem;
+        struct {
+            #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
             int fd;
             #else
             FILE* f;
             #endif
-            uint8_t last;
-        };
+        } file;
         struct {
-            ds_callback cb;
-            void* ctx;
-        };
+            ds_cb_readcb read;
+            ds_cb_closecb close;
+            void* readctx;
+            void* closectx;
+        } cb;
     };
-    enum ds_mode mode : 6;
+    char* path;
     uint8_t unget : 1;
     uint8_t atend : 1;
+    enum ds_mode mode : 6;
+    uint8_t last;
 };
 
-#define DS_OPENFILE_BINARY (1 << 0)
+void ds_openmem(struct datastream*, void* buf, size_t sz, ds_mem_freecb freecb, void* freectx);
+bool ds_openfile(struct datastream*, const char* path, size_t bufsz);
+void ds_opencb(struct datastream*, ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx);
+size_t ds_bin_read(struct datastream*, void* outbuf, size_t len);
+int ds_text_getc(struct datastream*);
+void ds_close(struct datastream*);
 
-size_t ds_read(struct datastream* ds, void* b, size_t l);
-bool ds__refill_internal(struct datastream* ds);
+bool ds__refill(struct datastream*);
+int ds_text__getc(struct datastream*);
 
-static inline void ds_openmem(struct datastream* ds, void* b, size_t sz) {
-    ds->buf = b;
-    ds->pos = 0;
-    ds->datasz = sz;
-    ds->atend = 0;
-    ds->unget = 0;
-    ds->mode = DS_MODE_MEM;
-}
-static inline bool ds_openfile(struct datastream* ds, const char* p, unsigned f, size_t bufsz) {
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_DREAMCAST
-    if ((ds->fd = open(p, O_RDONLY, 0)) < 0) return false;
-    #else
-    ds->f = fopen(p, (f & DS_OPENFILE_BINARY) ? "rb" : "r");
-    if (!ds->f) return false;
-    #endif
-    if (!bufsz) {
-        #if PLATFORM == PLAT_DREAMCAST
-        bufsz = 2048 * 4;
-        #else
-        bufsz = 512 * 8;
-        #endif
-    }
-    ds->buf = malloc(bufsz);
-    ds->pos = 0;
-    ds->datasz = 0;
-    ds->bufsz = bufsz;
-    ds->atend = 0;
-    ds->unget = 0;
-    ds->mode = DS_MODE_FILE;
-    return true;
-}
-static inline void ds_opencb(struct datastream* ds, ds_callback cb, void* ctx, size_t bufsz) {
-    if (!bufsz) bufsz = 4096;
-    ds->buf = malloc(bufsz);
-    ds->pos = 0;
-    ds->datasz = 0;
-    ds->bufsz = bufsz;
-    ds->cb = cb;
-    ds->ctx = ctx;
-    ds->atend = 0;
-    ds->unget = 0;
-    ds->mode = DS_MODE_CB;
+static inline int ds_bin_getc(struct datastream* ds) {
+    if (ds->pos == ds->datasz && !ds__refill(ds)) return DS_END;
+    return ds->buf[ds->pos++];
 }
 
-static ALWAYSINLINE bool ds__refill(struct datastream* ds) {
-    if (ds->mode == DS_MODE_MEM) return false;
-    return ds__refill_internal(ds);
-}
-
-static inline int ds_getc(struct datastream* ds) {
-    if (!ds->unget) {
+static ALWAYSINLINE int ds_text__getc_inline(struct datastream* ds) {
+    if (ds->unget) {
         ds->unget = 0;
         return ds->last;
     }
-    if (ds->atend) return EOF;
-    if (ds->pos >= ds->datasz && !ds__refill(ds)) return EOF;
-    char c = ds->buf[ds->pos++];
-    ds->last = c;
+    if (ds->pos == ds->datasz && !ds__refill(ds)) return DS_END;
+    return ds->buf[ds->pos++];
+}
+static inline int ds_text_getc_inline(struct datastream* ds) {
+    int c;
+    do {
+        c = ds_text__getc(ds);
+    } while (c == '\r' || !c);
     return c;
 }
-static inline void ds_ungetc(struct datastream* ds, int c) {
-    ds->last = c;
+static inline int ds_text_getc_fullinline(struct datastream* ds) {
+    int c;
+    do {
+        c = ds_text__getc_inline(ds);
+    } while (c == '\r' || !c);
+    return c;
+}
+static inline void ds_text_ungetc(struct datastream* ds, uint8_t c) {
     ds->unget = 1;
+    ds->last = c;
+}
+
+static inline bool ds_atend(struct datastream* ds) {
+    return (!ds->unget && ds->atend);
 }
 
 #endif

@@ -1,6 +1,7 @@
-null := /dev/null
+default: build
+	@:
 
-ifneq ($(MKSUB),y)
+null := /dev/null
 
 MODULE := engine
 SRCDIR := src
@@ -18,12 +19,10 @@ endif
 ifeq ($(CROSS),)
     CC ?= gcc
     LD := $(CC)
-    AR ?= ar
     STRIP ?= strip
     OBJCOPY ?= objcopy
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
     ifneq ($(M32),y)
@@ -35,7 +34,6 @@ ifeq ($(CROSS),)
     USEGL := y
     ifeq ($(KERNEL),Darwin)
         USEGLAD := y
-        WL_FORCE_LOAD := -Wl\,-force_load\,
     endif
     ifneq ($(USEGLAD),y)
         USEWEAKGL := y
@@ -54,13 +52,11 @@ else ifeq ($(CROSS),win32)
     endif
     CC := gcc
     LD := $(CC)
-    AR := ar
     STRIP := strip
     OBJCOPY := objcopy
     WINDRES := windres
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
     _WINDRES := $(TOOLCHAIN)$(WINDRES)
@@ -75,7 +71,6 @@ else ifeq ($(CROSS),emscr)
     PLATFORM := Emscripten
     _CC := emcc
     _LD := $(_CC)
-    _AR := emar
     EMULATOR := emrun
     EMUPATHFLAG := --
     NOSTRIP := y
@@ -91,12 +86,10 @@ else ifeq ($(CROSS),nxdk)
     PLATFORM := NXDK
     CC := nxdk-cc
     LD := nxdk-link
-    AR := ar
     STRIP := strip
     OBJCOPY := objcopy
     _CC := $(CC)
     _LD := $(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     _OBJCOPY := $(TOOLCHAIN)$(OBJCOPY)
     EMULATOR := xemu
@@ -122,8 +115,6 @@ else ifeq ($(CROSS),nxdk)
     MKENV.NXDK := $(MKENV.NXDK) LIBPNG_SRCS="" LIBPNG_OBJS=""
     MKENV.NXDK := $(MKENV.NXDK) LIBJPEG_TURBO_OBJS="" LIBJPEG_TURBO_SRCS=""
     MKENV.NXDK := $(MKENV.NXDK) ZLIB_OBJS="" ZLIB_SRCS=""
-    _default: default
-	    @:
 else ifeq ($(CROSS),ps2)
     ifndef PS2DEV
         $(error Please define the PS2DEV environment variable)
@@ -137,11 +128,9 @@ else ifeq ($(CROSS),ps2)
     TOOLCHAIN := mips64r5900el-ps2-elf-
     CC := gcc
     LD := $(CC)
-    AR := ar
     STRIP := strip
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := pcsx2
     EMUPATHFLAG := --
@@ -153,12 +142,10 @@ else ifeq ($(CROSS),dc)
     PLATFORM := Dreamcast
     CC := $(KOS_CC)
     LD := $(CC)
-    AR := $(KOS_AR)
     STRIP := $(KOS_STRIP)
     OBJCOPY := $(KOS_OBJCOPY)
     _CC := $(CC)
     _LD := $(LD)
-    _AR := $(AR)
     _STRIP := $(STRIP)
     _OBJCOPY := $(OBJCOPY)
     EMULATOR := flycast
@@ -186,11 +173,9 @@ else ifeq ($(CROSS),3ds)
     TOOLCHAIN := $(DEVKITARM)/bin/arm-none-eabi-
     CC := gcc
     LD := $(CC)
-    AR := ar
     STRIP := strip
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := lime3ds
     SMDHTOOL := smdhtool
@@ -215,11 +200,9 @@ else ifeq ($(CROSS),wii)
     TOOLCHAIN := $(DEVKITPPC)/bin/powerpc-eabi-
     CC := gcc
     LD := $(CC)
-    AR := ar
     STRIP := strip
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
@@ -237,11 +220,9 @@ else ifeq ($(CROSS),gc)
     TOOLCHAIN := $(DEVKITPPC)/bin/powerpc-eabi-
     CC := gcc
     LD := $(CC)
-    AR := ar
     STRIP := strip
     _CC := $(TOOLCHAIN)$(CC)
     _LD := $(TOOLCHAIN)$(LD)
-    _AR := $(TOOLCHAIN)$(AR)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
@@ -337,7 +318,7 @@ ifneq ($(CROSS),nxdk)
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
-            _CPPFLAGS += -DPSRC_USEGLAD
+            _CPPFLAGS += -DPSRC_ENGINE_RENDERER_GL_USEGLAD
         else
             _LDLIBS += -lGL
         endif
@@ -352,7 +333,7 @@ ifneq ($(CROSS),nxdk)
             else
                 ifeq ($(USEWINPTHREAD),y)
                     _CFLAGS += -pthread
-                    _CPPFLAGS += -DPSRC_USEWINPTHREAD
+                    _CPPFLAGS += -DPSRC_COMMON_THREADING_USEWINPTHREAD
                     _LDLIBS += -l:libwinpthread.a
                 endif
             endif
@@ -387,23 +368,26 @@ endif
 ifeq ($(NOMT),y)
     _CPPFLAGS += -DPSRC_NOMT
 endif
+ifeq ($(USESTDIODS),y)
+    _CPPFLAGS += -DPSRC_COMMON_DATASTREAM_USESTDIO
+endif
 ifeq ($(USEMINIMP3),y)
     _CPPFLAGS += -DPSRC_USEMINIMP3
 endif
 ifeq ($(USESR),y)
-    _CPPFLAGS += -DPSRC_USESR
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_USESR
 endif
 ifeq ($(USEGL),y)
-    _CPPFLAGS += -DPSRC_USEGL
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_USEGL
 endif
 ifeq ($(USEGL11),y)
-    _CPPFLAGS += -DPSRC_USEGL11
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_GL_USEGL11
 endif
 ifeq ($(USEGL33),y)
-    _CPPFLAGS += -DPSRC_USEGL33
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_GL_USEGL33
 endif
 ifeq ($(USEGLES30),y)
-    _CPPFLAGS += -DPSRC_USEGLES30
+    _CPPFLAGS += -DPSRC_ENGINE_RENDERER_GL_USEGLES30
 endif
 ifndef DEBUG
     _CPPFLAGS += -DNDEBUG
@@ -452,15 +436,11 @@ else
     endif
 endif
 
-define so
-$(1)$(SOSUF)
-endef
-
 CPPFLAGS.dir.lz4 := -DXXH_NAMESPACE=LZ4_ -DLZ4_STATIC_LINKING_ONLY_ENDIANNESS_INDEPENDENT_OUTPUT
 
 CPPFLAGS.dir.psrc_common := 
 ifeq ($(USESTDTHREAD),y)
-    CPPFLAGS.dir.psrc_common += -DPSRC_USESTDTHREAD
+    CPPFLAGS.dir.psrc_common += -DPSRC_COMMON_THREADING_USESTDTHREAD
 endif
 LDLIBS.dir.psrc_common := 
 ifeq ($(CROSS),win32)
@@ -495,7 +475,7 @@ endif
 
 ifeq ($(USEDISCORDGAMESDK),y)
     CPPFLAGS.lib.discord_game_sdk := -DPSRC_USEDISCORDGAMESDK
-    LDLIBS.lib.discord_game_sdk := -l:$(call so,discord_game_sdk)
+    LDLIBS.lib.discord_game_sdk := -l:discord_game_sdk$(SOSUF)
 endif
 
 CFLAGS.lib.SDL := 
@@ -620,54 +600,32 @@ ifeq ($(CROSS),win32)
     endif
 endif
 
-ifeq ($(CROSS),nxdk)
-TARGET = $(XISO)
-else ifeq ($(CROSS),dc)
-TARGET = $(CDI)
-else ifeq ($(CROSS),3ds)
-TARGET = $(3DSX)
-else ifeq ($(CROSS),wii)
-TARGET = $(OUTDIR)/boot.dol
-else ifeq ($(CROSS),gc)
-TARGET = $(OUTDIR)/boot.dol
+ifneq ($(ONLYBIN),y)
+	ifeq ($(CROSS),nxdk)
+		TARGET = $(XISO)
+	else ifeq ($(CROSS),dc)
+		TARGET = $(CDI)
+	else ifeq ($(CROSS),3ds)
+		TARGET = $(3DSX)
+	else ifeq ($(CROSS),wii)
+		TARGET = $(OUTDIR)/boot.dol
+	else ifeq ($(CROSS),gc)
+		TARGET = $(OUTDIR)/boot.dol
+	else
+		TARGET = $(BINPATH)
+	endif
 else
-TARGET = $(BINPATH)
+	TARGET = $(BINPATH)
 endif
-
-__SRCDIR := $(SRCDIR)
-__OBJDIR := $(_OBJDIR)
-
-else
-
-TARGET = $(BINPATH)
-
-endif
-
-SOURCES := $(wildcard $(SRCDIR)/*.c)
-OBJECTS := $(patsubst $(SRCDIR)/%.c,$(_OBJDIR)/%.o,$(SOURCES))
-
-export MODULE
-export CROSS
-
-export _CC
-export _AR
-
-export _CFLAGS
-export _CPPFLAGS
-
-export SRCDIR
-export _OBJDIR
-export PLATFORM
-export PLATFORMDIR
 
 define mkdir
-if [ ! -d '$(1)' ]; then echo 'Creating $(1)/...'; mkdir -p '$(1)'; fi; true
+for d in $(1); do if [ ! -d $$d ]; then echo Creating $$d/...; mkdir -p -- $$d; fi; done
 endef
 define rm
-if [ -f '$(1)' ]; then echo 'Removing $(1)...'; rm -f '$(1)'; fi; true
+for f in $(1); do if [ -f $$f ]; then echo Removing $$f...; rm -f -- $$f; fi; done
 endef
 define rmdir
-if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
+for d in $(1); do if [ -d $$d ]; then echo Removing $$d/...; rm -rf -- $$d; fi; done
 endef
 ifndef EMULATOR
 define exec
@@ -681,79 +639,67 @@ endif
 
 .SECONDEXPANSION:
 
-define a
-$(shell [ -z "$$(ls -A '$(SRCDIR)/$(1)' 2> $(null))" ] || echo '$(_OBJDIR)/$(1).a')
-endef
 inc.null := $(null)
 define inc
 $$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -xc -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
 endef
 
-default: build
-
-ifneq ($(MKSUB),y)
-define a_path
-$(patsubst $(_OBJDIR)/%,%,$(1))
-endef
-$(_OBJDIR)/%.a: $$(wildcard $(SRCDIR)/$(call a_path,%)/*.c) $(call inc,$(SRCDIR)/$(call a_path,%)/*.c)
-	@'$(MAKE)' --no-print-directory MKSUB=y __SRCDIR=$(__SRCDIR) __OBJDIR=$(__OBJDIR) SRCDIR=$(SRCDIR)/$(call a_path,$*) _OBJDIR=$(_OBJDIR)/$(call a_path,$*) OUTDIR=$(_OBJDIR) BINPATH=$@
-endif
-
 ifeq ($(TR),y)
     TR_FILE := timereport.txt
     _TR_BEFORE := T="$$(mktemp)";env time -f%e --output="$$T" --
     _TR_AFTER = ;R=$$?;printf '%s: %ss\n' $< $$(cat "$$T") >> $(TR_FILE);rm "$$T";exit "$$R"
-ifneq ($(MKSUB),y)
     export _TR_STFILE := $(shell mktemp)
-endif
 $(TR_FILE):
 	@printf '%s\n' '--------- BUILD TIME REPORT ---------' > $(TR_FILE)
 	@date +%s%N > $(_TR_STFILE)
 endif
 
+SRCDIRS_PSRC_COMMON = $(SRCDIR)/psrc/common $(SRCDIR)/lz4
+ifneq ($(MODULE),server)
+    SRCDIRS_PSRC_COMMON += $(SRCDIR)/stb $(SRCDIR)/schrift
+    ifeq ($(USEMINIMP3),y)
+        SRCDIRS_PSRC_COMMON += $(SRCDIR)/minimp3
+    endif
+endif
+
+SRCDIRS_PSRC_EDITOR = $(SRCDIR)/psrc/editor $(SRCDIRS_PSRC_ENGINE)
+
+SRCDIRS_PSRC_ENGINE = $(SRCDIR)/psrc/engine $(SRCDIRS_PSRC_SERVER)
+ifeq ($(USEGL),y)
+    ifeq ($(USEGLAD),y)
+        SRCDIRS_PSRC_ENGINE += $(SRCDIR)/glad
+    endif
+endif
+
+SRCDIRS_PSRC_SERVER = $(SRCDIR)/psrc/server
+
+SRCDIRS = $(SRCDIR)/psrc
+ifeq ($(MODULE),engine)
+    SRCDIRS += $(SRCDIRS_PSRC_ENGINE)
+else ifeq ($(MODULE),server)
+    SRCDIRS += $(SRCDIRS_PSRC_SERVER)
+else ifeq ($(MODULE),editor)
+    SRCDIRS += $(SRCDIRS_PSRC_EDITOR)
+endif
+SRCDIRS += $(SRCDIRS_PSRC_COMMON) $(SRCDIR)/psrc
+
+SRCDIRS := $(SRCDIRS)
+SOURCES := $(wildcard $(addsuffix /*.c,$(SRCDIRS)))
+OBJDIRS := $(patsubst $(SRCDIR)/%,$(_OBJDIR)/%,$(SRCDIRS))
+OBJECTS := $(patsubst $(SRCDIR)/%.c,$(_OBJDIR)/%.o,$(SOURCES))
+
 $(OUTDIR):
 	@$(call mkdir,$@)
 
 $(_OBJDIR):
-	@$(call mkdir,$@)
+	@$(call mkdir,$@ $(OBJDIRS))
 
-$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(OUTDIR) $(TR_FILE)
-	@echo Compiling $(patsubst $(__SRCDIR)/%,%,$<)...
+$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(TR_FILE)
+	@echo Compiling $(patsubst $(SRCDIR)/%,%,$<)...
 	@$(_TR_BEFORE) $(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@ $(_TR_AFTER)
-	@echo Compiled $(patsubst $(__SRCDIR)/%,%,$<)
+	@echo Compiled $(patsubst $(SRCDIR)/%,%,$<)
 
-ifneq ($(MKSUB),y)
-
-a.dir.psrc_common = $(call a,psrc/common) $(call a,lz4)
-ifneq ($(MODULE),server)
-a.dir.psrc_common += $(call a,stb) $(call a,schrift)
-ifeq ($(USEMINIMP3),y)
-a.dir.psrc_common += $(call a,minimp3)
-endif
-endif
-
-a.dir.psrc_editor = $(call a,psrc/editor) $(a.dir.psrc_engine)
-
-a.dir.psrc_engine = $(call a,psrc/engine) $(a.dir.psrc_server)
-ifeq ($(USEGL),y)
-ifeq ($(USEGLAD),y)
-a.dir.psrc_engine += $(call a,glad)
-endif
-endif
-
-a.dir.psrc_server = $(call a,psrc/server)
-
-a.list = $(call a,psrc)
-ifeq ($(MODULE),engine)
-a.list += $(a.dir.psrc_engine)
-else ifeq ($(MODULE),server)
-a.list += $(a.dir.psrc_server)
-else ifeq ($(MODULE),editor)
-a.list += $(a.dir.psrc_editor)
-endif
-a.list += $(a.dir.psrc_common) $(call a,psrc)
-
-$(BINPATH): $(OBJECTS) $(a.list)
+$(BINPATH): $(OBJECTS) | $(OUTDIR)
 ifeq ($(TR),y)
 	@sort -r -k2 $(TR_FILE) -o $(TR_FILE)
 	@printf '%s\n' '-------------------------------------' >> $(TR_FILE)
@@ -768,7 +714,7 @@ endif
 	@echo Linking $@...
 ifeq ($(CROSS),win32)
 ifneq ($(_WINDRES),)
-	@$(_WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ) || exit 0
+	-@$(_WINDRES) $(_WRFLAGS) $(WRSRC) -o $(WROBJ)
 endif
 endif
 ifeq ($(CROSS),emscr)
@@ -777,32 +723,19 @@ ifeq ($(CROSS),emscr)
 else ifeq ($(CROSS),nxdk)
 	@$(_LD) $(_LDFLAGS) $^ '$(NXDK_DIR)'/lib/*.lib '$(NXDK_DIR)'/lib/xboxkrnl/libxboxkrnl.lib $(_LDLIBS) -out:$@ > $(null)
 ifneq ($(XBE_XTIMAGE),)
-	@$(_OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@ || exit 0
+	-@$(_OBJCOPY) --long-section-names=enable --update-section 'XTIMAGE=$(XBE_XTIMAGE)' $@
 endif
-	@$(_OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@ || exit 0
+	-@$(_OBJCOPY) --long-section-names=enable --rename-section 'XTIMAGE=$$$$XTIMAGE' --rename-section 'XSIMAGE=$$$$XSIMAGE' $@
 else
-ifneq ($(KERNEL),Darwin)
-	@$(_LD) $(_LDFLAGS) -Wl,--whole-archive $^ -Wl,--no-whole-archive $(_WROBJ) $(_LDLIBS) -o $@
-else
-	@$(_LD) $(_LDFLAGS) $(patsubst %.a,$(WL_FORCE_LOAD)%.a,$^) $(_WROBJ) $(_LDLIBS) -o $@
-endif
+	@$(_LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
-	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || $(_STRIP) -s $@ || exit 0
+	-@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || $(_STRIP) -s $@
 endif
 ifeq ($(USEWEAKGL),y)
-	@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@ || exit 0
+	-@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@
 endif
 endif
 	@echo Linked $@
-
-else
-
-$(BINPATH): $(OBJECTS) | $(OUTDIR)
-	@echo Building $(patsubst $(__OBJDIR)/%,%,$@)...
-	@$(_AR) rcs $@ $^
-	@echo Built $(patsubst $(__OBJDIR)/%,%,$@)
-
-endif
 
 build: $(TARGET)
 	@:
@@ -837,7 +770,7 @@ else
 	@'$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} clean
 endif
 
-.PHONY: default _default build run clean distclean externclean
+.PHONY: default build run clean distclean externclean $(_OBJDIR)
 
 ifeq ($(CROSS),nxdk)
 

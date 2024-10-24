@@ -41,12 +41,12 @@ PACKEDENUM rcprefix {
 
 // RC_CONFIG
 struct rc_config {
-    struct cfg* config;
+    struct cfg config;
 };
 
 // RC_VALUES
 struct rc_values {
-    struct cfg* values;
+    struct cfg values;
 };
 
 // RC_SCRIPT

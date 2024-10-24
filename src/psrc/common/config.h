@@ -2,6 +2,7 @@
 #define PSRC_COMMON_CONFIG_H
 
 #include "threading.h"
+#include "datastream.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,14 +30,15 @@ struct cfg {
     #endif
 };
 
-struct cfg* cfg_open(const char* path);
-bool cfg_merge(struct cfg*, const char* path, bool overwrite);
+void cfg_open(struct cfg*, struct datastream*);
+void cfg_merge(struct cfg*, struct datastream*, bool overwrite);
 void cfg_mergemem(struct cfg*, struct cfg* from, bool overwrite);
 char* cfg_getvar(struct cfg*, const char* sect, const char* var);
 bool cfg_getvarto(struct cfg*, const char* sect, const char* var, char* data, size_t size);
 void cfg_setvar(struct cfg*, const char* sect, const char* var, const char* data, bool overwrite);
 void cfg_delvar(struct cfg*, const char* sect, const char* var);
 void cfg_delsect(struct cfg*, const char* sect);
+void cfg_delall(struct cfg*);
 void cfg_write(struct cfg*, const char* path);
 void cfg_close(struct cfg*);
 

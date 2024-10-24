@@ -15,6 +15,10 @@ static int testemt_obj;
 static float lookspeed[2];
 static uint64_t toff;
 static uint64_t framestamp;
+#if DEBUG(1)
+    static bool printfps;
+    static bool printprof;
+#endif
 
 PACKEDENUM action {
     ACTION_NONE,
@@ -219,7 +223,7 @@ int initLoop(void) {
     newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
     free(k);
 
-    tmp = cfg_getvar(config, "Input", "lookspeed");
+    tmp = cfg_getvar(&config, "Input", "lookspeed");
     if (tmp) {
         sscanf(tmp, "%f,%f", &lookspeed[0], &lookspeed[1]);
         free(tmp);
@@ -229,9 +233,15 @@ int initLoop(void) {
     }
 
     #if DEBUG(1)
-    prof_init(&dbgprof, DBGPROF__COUNT, dbgprofstr);
-    prof_start(&dbgprof);
-    rendstate.dbgprof = &dbgprof;
+        tmp = cfg_getvar(&config, "Debug", "printfps");
+        printfps = strbool(tmp, true);
+        free(tmp);
+        tmp = cfg_getvar(&config, "Debug", "printprof");
+        printprof = strbool(tmp, false);
+        free(tmp);
+        prof_init(&dbgprof, DBGPROF__COUNT, dbgprofstr);
+        prof_start(&dbgprof);
+        rendstate.dbgprof = &dbgprof;
     #endif
 
     plog(LL_INFO, "All systems go!");
@@ -315,19 +325,6 @@ void doLoop(void) {
     #endif
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0f : 2.5f;
-
-    #if DEBUG(1)
-    bool printfps;
-    bool printprof;
-    {
-        char* tmp = cfg_getvar(config, "Debug", "printfps");
-        printfps = strbool(tmp, true);
-        free(tmp);
-        tmp = cfg_getvar(config, "Debug", "printprof");
-        printprof = strbool(tmp, false);
-        free(tmp);
-    }
-    #endif
 
     {
         // this can probably be optimized
@@ -560,7 +557,10 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            if (!options.set) options.set = cfg_open(NULL);
+            if (!options.set__setup) {
+                 cfg_open(&options.set, NULL);
+                 options.set__setup = true;
+             }
             char* sect = NULL;
             while (1) {
                 e = args_getvar(&a, &var, &err);
@@ -582,7 +582,7 @@ static int parseargs(int argc, char** argv) {
                     free(sect);
                     sect = cb_reinit(&var, 32);
                 } else {
-                    cfg_setvar(options.set, sect, cb_peek(&var), cb_peek(&val), true);
+                    cfg_setvar(&options.set, sect, cb_peek(&var), cb_peek(&val), true);
                     cb_clear(&val);
                 }
                 cb_clear(&var);

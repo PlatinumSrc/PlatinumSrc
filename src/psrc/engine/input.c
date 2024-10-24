@@ -188,14 +188,14 @@ bool initInput(void) {
     #ifndef PSRC_USESDL1
     char* tmp;
     if (!options.nocontroller) {
-        tmp = cfg_getvar(config, "Input", "nocontroller");
+        tmp = cfg_getvar(&config, "Input", "nocontroller");
         if (!strbool(tmp, false)) {
             if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
             SDL_GameControllerEventState(SDL_ENABLE);
         }
         free(tmp);
     }
-    tmp = cfg_getvar(config, "Input", "rawmouse");
+    tmp = cfg_getvar(&config, "Input", "rawmouse");
     SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, (strbool(tmp, true)) ? "1" : "0", SDL_HINT_OVERRIDE);
     free(tmp);
     inputstate.keystates = SDL_GetKeyboardState(&inputstate.keystatecount);
