@@ -602,8 +602,8 @@ static void* r_gl_takeScreenshot(int* w, int* h, int* s) {
     int linesz = rendstate.res.current.width * 3;
     int framesz = linesz * rendstate.res.current.height;
     if (s) *s = framesz;
-    uint8_t* line = malloc(linesz);
-    uint8_t* frame = malloc(framesz);
+    uint8_t* line = rcmgr_malloc(linesz);
+    uint8_t* frame = rcmgr_malloc(framesz);
     uint8_t* top = frame;
     uint8_t* bottom = &frame[linesz * (rendstate.res.current.height - 1)];
     glReadPixels(0, 0, rendstate.res.current.width, rendstate.res.current.height, GL_RGB, GL_UNSIGNED_BYTE, frame);
@@ -783,7 +783,7 @@ static bool r_gl_afterCreateWindow(void) {
         r_gl_data.farplane = 100.0f;
     }
     tmpstr = cfg_getvar(&config, "Renderer", "gl.fastclear");
-    #if DEBUG(1)
+    #if DEBUG(1) || PLATFORM == PLAT_EMSCR
         // makes debugging easier
         r_gl_data.fastclear = strbool(tmpstr, false);
     #else

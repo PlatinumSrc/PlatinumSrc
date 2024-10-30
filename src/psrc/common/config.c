@@ -1,3 +1,5 @@
+#include "../rcmgralloc.h"
+
 #include "config.h"
 #include "string.h"
 #include "crc.h"
@@ -663,7 +665,7 @@ static inline struct cfg* cfg_open_new(void) {
     return cfg;
 }
 
-void cfg_open(struct cfg* cfg, struct datastream* ds) {
+void cfg_open(struct datastream* ds, struct cfg* cfg) {
     memset(cfg, 0, sizeof(*cfg));
     #ifndef PSRC_NOMT
     createMutex(&cfg->lock);

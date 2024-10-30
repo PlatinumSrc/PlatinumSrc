@@ -46,6 +46,7 @@ enum {
     DBGPROF_SERVER,
     DBGPROF_AUDIO,
     DBGPROF_RENDERER,
+    DBGPROF_RCMGR,
     DBGPROF_RENDSWAP,
     DBGPROF__COUNT
 };
@@ -55,7 +56,8 @@ static const char* dbgprofstr[DBGPROF__COUNT] = {
     "Server",
     "Audio",
     "Renderer",
-    "Swap buffers",
+    "Resource Manager",
+    "Swap buffers"
 };
 static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, unsigned p, const char* n) {
     printf("\e[38;2;%u;%u;%um\u2588\u2588 - %5.02f%% (%.03fms) - %s\e[0m\n", r, g, b, p / 100.0, t / 1000.0, n);
@@ -84,12 +86,15 @@ int initLoop(void) {
     if (options.icon) {
         rendstate.icon = strpath(options.icon);
     } else {
+        // TODO: set icon from gameinfo.icon
+        /*
         if (gameinfo.icon) {
             rendstate.icon = getRcPath(RC_TEXTURE, gameinfo.icon, NULL, NULL, NULL);
             if (!rendstate.icon) rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
         } else {
             rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
         }
+        */
     }
 
     plog(LL_INFO, "Starting renderer...");
@@ -108,9 +113,9 @@ int initLoop(void) {
     {
         struct charbuf e;
         cb_init(&e, 128);
-        mainscript = loadResource(RC_SCRIPT, "main", NULL, &e);
+        mainscript = getRc(RC_SCRIPT, "main", NULL, 0, &e);
         if (!mainscript) {
-            plog(LL_CRIT | LF_MSGBOX, "Could not start main script: %s", cb_peek(&e));
+            plog(LL_CRIT /*| LF_MSGBOX*/, "Could not start main script: %s", cb_peek(&e));
             //return 1;
         }
         cb_dump(&e);
@@ -119,15 +124,18 @@ int initLoop(void) {
     testemt_map = newAudioEmitter(1, true, SOUNDFX_END);
     testemt_obj = newAudioEmitter(1, false, 0.0, 0.0, 4.0, SOUNDFX_END);
 
-    test = loadResource(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, NULL);
-    if (test) setAmbientSound(test);
-    freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, NULL);
-    if (test) playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
-    freeResource(test);
-    test = loadResource(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, NULL);
-    if (test) playSound(testemt_obj, test, SOUNDFLAG_LOOP, SOUNDFX_END);
-    freeResource(test);
+    if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
+        setAmbientSound(test);
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_obj, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+        rlsRc(test, false);
+    }
 
     // TODO: cleanup
     setInputMode(INPUTMODE_INGAME);
@@ -365,6 +373,10 @@ void doLoop(void) {
     #endif
     render();
     #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RCMGR);
+    #endif
+    runRcMgr(altutime());
+    #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_RENDSWAP);
     #endif
     display();
@@ -558,7 +570,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             if (!options.set__setup) {
-                 cfg_open(&options.set, NULL);
+                 cfg_open(NULL, &options.set);
                  options.set__setup = true;
              }
             char* sect = NULL;

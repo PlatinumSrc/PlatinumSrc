@@ -614,11 +614,11 @@ bool initRenderer(void) {
     } else {
         rendstate.fov = 90.0f;
     }
-    testmodel = loadResource(RC_MODEL, "game:test/test_model", NULL, NULL);
+    testmodel = getRc(RC_MODEL, "game:test/test_model", NULL, 0, NULL);
     return true;
 }
 
 void quitRenderer(void) {
-    freeResource(testmodel);
+    if (testmodel) rlsRc(testmodel, false);
     free(rendstate.icon);
 }

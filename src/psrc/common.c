@@ -183,7 +183,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
         struct cfg gameconfig;
         {
             struct datastream ds;
-            bool ret = ds_openfile(&ds, tmp, 0);
+            bool ret = ds_openfile(tmp, 0, &ds);
             free(tmp);
             if (!ret) {
                 cb_addstr(err, "Could not read game.cfg in '");
@@ -193,7 +193,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 free(n);
                 return false;
             }
-            cfg_open(&gameconfig, &ds);
+            cfg_open(&ds, &gameconfig);
             ds_close(&ds);
         }
         free(gameinfo.dir);

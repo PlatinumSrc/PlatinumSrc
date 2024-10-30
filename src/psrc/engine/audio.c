@@ -1,3 +1,5 @@
+#include "../rcmgralloc.h"
+
 #include "audio.h"
 
 #include "../common/logging.h"
@@ -265,7 +267,7 @@ static inline void stopSound_inline(struct audiosound* s) {
         } break;
         #endif
     }
-    releaseResource(s->rc);
+    unlockRc(s->rc);
     s->rc = NULL;
 }
 static inline void stop3DSound_inline(struct audiosound_3d* s) {
@@ -1365,7 +1367,7 @@ void playSound(int ei, struct rc_sound* rc, unsigned f, ...) {
         ++g->len;
     }
     found:;
-    grabResource(rc);
+    lockRc(rc);
     *s = (struct audiosound_3d){
         .emitter = ei,
         .flags = f,
@@ -1408,7 +1410,7 @@ void playUISound(struct rc_sound* rc) {
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (audiostate.voices.ui.rc) stopSound_inline(&audiostate.voices.ui);
-    grabResource(rc);
+    lockRc(rc);
     setSoundData(&audiostate.voices.ui, rc);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
@@ -1418,8 +1420,8 @@ void setAmbientSound(struct rc_sound* rc) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (audiostate.voices.ambience.queue) releaseResource(audiostate.voices.ambience.queue);
-    grabResource(rc);
+    if (audiostate.voices.ambience.queue) unlockRc(audiostate.voices.ambience.queue);
+    lockRc(rc);
     audiostate.voices.ambience.queue = rc;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
@@ -1707,7 +1709,7 @@ void stopAudio(void) {
             if (s->rc) stopSound_inline(s);
         }
         free(audiostate.voices.worldbg.data);
-        if (audiostate.voices.ambience.queue) releaseResource(audiostate.voices.ambience.queue);
+        if (audiostate.voices.ambience.queue) unlockRc(audiostate.voices.ambience.queue);
         if (audiostate.voices.ambience.data[0].rc) stopSound_inline(&audiostate.voices.ambience.data[0]);
         if (audiostate.voices.ambience.data[1].rc) stopSound_inline(&audiostate.voices.ambience.data[1]);
         free(audiostate.audbuf.data[0][0]);

@@ -70,92 +70,12 @@ union pbdata {
     } array;
 };
 
-struct pb_constref {
-    union {
-        uintptr_t pos;
-        union pbdata* data;
-    };
-    enum pbtype type;
-    unsigned dim;
-    union {
-        unsigned size;
-        unsigned sizeindex;
-    };
-};
-struct pb_script {
-    void* ops;
-    void* data;
-    struct pb_constref* consts;
-    unsigned subcount;
-    unsigned varcount;
-};
-
-struct pbvm;
-struct pbvm_ccall_arg;
-struct pbvm_ccall_ret;
-struct pbc;
-
-typedef void (*pb_cfunc)(struct pbvm*, void* data, struct pbvm_ccall_arg*, struct pbvm_ccall_ret**);
-typedef bool (*pb_findcmd)(struct pbc*, const char*, bool isfunc);
-typedef bool (*pb_findpv)(const char*, int*);
-
 struct pbc_opt {
-    pb_findcmd findcmd;
-    pb_findpv findpv;
-};
-struct pbc_stream { // TODO: add pb_compilemem() later if needed
-    FILE* f;
-    unsigned line;
-    unsigned col;
-    unsigned lastline;
-    unsigned lastcol;
-    int last;
-    bool undo;
-};
-struct pbc_name {
-    char* name;
-    uint32_t namecrc;
-};
-struct pbc_label {
-    char* name;
-    uint32_t namecrc;
-    int location;
-};
-struct pbc_scope {
-    struct {
-        int* data;
-        int len;
-        int size;
-    } locals;
-    struct {
-        struct pbc_label* data;
-        int len;
-        int size;
-    } labels;
-};
-struct pbc {
-    struct pbc_stream input;
-    struct pbc_opt* opt;
-    struct {
-        struct pbc_scope* data;
-        int current;
-        int size;
-    } scopes;
-    struct membuf ops;
-    struct membuf constdata;
-    struct {
-        struct pbc_name* data;
-        int len;
-        int size;
-    } vars;
-    struct {
-        struct pbc_name* data;
-        int len;
-        int size;
-    } subs;
+    char _placeholder;
 };
 
-bool pb_compilefile(const char*, struct pbc_opt*, struct pb_script* out, struct charbuf* err);
-void pb_deletescript(struct pb_script*);
+struct pb_script {
+    char _placeholder;
+};
 
 #endif

@@ -30,7 +30,7 @@ struct cfg {
     #endif
 };
 
-void cfg_open(struct cfg*, struct datastream*);
+void cfg_open(struct datastream*, struct cfg*);
 void cfg_merge(struct cfg*, struct datastream*, bool overwrite);
 void cfg_mergemem(struct cfg*, struct cfg* from, bool overwrite);
 char* cfg_getvar(struct cfg*, const char* sect, const char* var);

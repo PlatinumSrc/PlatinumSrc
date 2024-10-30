@@ -1,3 +1,5 @@
+#include "../rcmgralloc.h"
+
 #include "p3m.h"
 
 #include "../debug.h"

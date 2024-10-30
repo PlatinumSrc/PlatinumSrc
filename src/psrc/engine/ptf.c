@@ -1,3 +1,5 @@
+#include "../rcmgralloc.h"
+
 #include "ptf.h"
 
 #include "../../lz4/lz4file.h"

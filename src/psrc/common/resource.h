@@ -14,9 +14,19 @@
 #endif
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 #include "../attribs.h"
+
+PACKEDENUM rcprefix {
+    RCPREFIX_SELF = -1,
+    RCPREFIX_INTERNAL,
+    RCPREFIX_GAME,
+    RCPREFIX_USER,
+    RCPREFIX_NATIVE,
+    RCPREFIX__COUNT
+};
 
 PACKEDENUM rctype {
     RC_CONFIG,
@@ -31,30 +41,37 @@ PACKEDENUM rctype {
     RC__DIR = RC__COUNT
 };
 
-PACKEDENUM rcprefix {
-    RCPREFIX_SELF = -1,
-    RCPREFIX_INTERNAL,
-    RCPREFIX_GAME,
-    RCPREFIX_USER,
-    RCPREFIX__COUNT
-};
+struct rc_config;
+struct rc_font;
+struct rc_map;
+struct rc_model;
+struct rc_script;
+struct rc_sound;
+struct rc_texture;
+struct rc_values;
+
+//struct rcopt_config;
+//struct rcopt_font;
+struct rcopt_map;
+    PACKEDENUM rcopt_map_loadsect {
+        RCOPT_MAP_LOADSECT_ALL,
+        RCOPT_MAP_LOADSECT_CLIENT,
+        RCOPT_MAP_LOADSECT_SERVER,
+    };
+struct rcopt_model;
+struct rcopt_script;
+struct rcopt_sound;
+struct rcopt_texture;
+    enum rcopt_texture_qlt {
+        RCOPT_TEXTURE_QLT_HIGH, // 1x size
+        RCOPT_TEXTURE_QLT_MED, // 0.5x size
+        RCOPT_TEXTURE_QLT_LOW // 0.25x size
+    };
+//struct rcopt_values;
 
 // RC_CONFIG
 struct rc_config {
     struct cfg config;
-};
-
-// RC_VALUES
-struct rc_values {
-    struct cfg values;
-};
-
-// RC_SCRIPT
-struct rc_script {
-    struct pb_script script;
-};
-struct rcopt_script {
-    struct pbc_opt compileropt;
 };
 
 // RC_FONT
@@ -64,31 +81,34 @@ struct rc_font {
     #endif
 };
 
-// RC_TEXTURE
-enum rc_texture_frmt {
-    RC_TEXTURE_FRMT_RGB = 3,
-    RC_TEXTURE_FRMT_RGBA
-};
-struct rc_texture {
-    int width;
-    int height;
-    union {
-        enum rc_texture_frmt format;
-        int channels;
-    };
-    uint8_t* data;
-};
-enum rcopt_texture_qlt {
-    RCOPT_TEXTURE_QLT_HIGH, // 1x size
-    RCOPT_TEXTURE_QLT_MED, // 0.5x size
-    RCOPT_TEXTURE_QLT_LOW // 0.25x size
+// RC_MAP
+struct rc_map {
+    int _placeholder;
 };
 #pragma pack(push, 1)
-struct rcopt_texture {
-    bool needsalpha;
-    PACKEDENUM rcopt_texture_qlt quality;
+struct rcopt_map {
+    enum rcopt_map_loadsect loadsections;
+    enum rcopt_texture_qlt texture_quality;
 };
 #pragma pack(pop)
+
+// RC_MODEL
+struct rc_model {
+    struct p3m* model;
+};
+#pragma pack(push, 1)
+struct rcopt_model {
+    uint8_t flags;
+};
+#pragma pack(pop)
+
+// RC_SCRIPT
+struct rc_script {
+    struct pb_script script;
+};
+struct rcopt_script {
+    struct pbc_opt compileropt;
+};
 
 // RC_SOUND
 PACKEDENUM rc_sound_frmt {
@@ -115,45 +135,30 @@ struct rcopt_sound {
 };
 #pragma pack(pop)
 
-// RC_MODEL
-struct rc_model {
-    struct p3m* model;
-    struct rc_texture** textures;
+// RC_TEXTURE
+enum rc_texture_frmt {
+    RC_TEXTURE_FRMT_RGB = 3,
+    RC_TEXTURE_FRMT_RGBA
+};
+struct rc_texture {
+    int width;
+    int height;
+    union {
+        enum rc_texture_frmt format;
+        int channels;
+    };
+    uint8_t* data;
 };
 #pragma pack(push, 1)
-struct rcopt_model {
-    uint8_t flags;
-    PACKEDENUM rcopt_texture_qlt texture_quality;
+struct rcopt_texture {
+    bool needsalpha;
+    PACKEDENUM rcopt_texture_qlt quality;
 };
 #pragma pack(pop)
 
-// RC_MAP
-struct rc_map {
-    int _placeholder;
-};
-PACKEDENUM rcopt_map_loadsect {
-    RCOPT_MAP_LOADSECT_ALL,
-    RCOPT_MAP_LOADSECT_CLIENT,
-    RCOPT_MAP_LOADSECT_SERVER,
-};
-#pragma pack(push, 1)
-struct rcopt_map {
-    enum rcopt_map_loadsect loadsections;
-    enum rcopt_texture_qlt texture_quality;
-};
-#pragma pack(pop)
-
-struct rcheader {
-    enum rctype type;
-    enum rcprefix prefix;
-    char* rcpath; // sanitized resource path without prefix (e.g. /textures/icon.png)
-    char* path; // full file path (e.g. /usr/share/games/psrc/internal/resources/textures/icon.png)
-    uint32_t rcpathcrc;
-    uint32_t pathcrc;
-    bool hasdatacrc;
-    uint64_t datacrc;
-    unsigned refs;
-    unsigned index;
+// RC_VALUES
+struct rc_values {
+    struct cfg values;
 };
 
 struct customfile {
@@ -190,15 +195,24 @@ struct rcls {
     struct rcls_file* files[RC__DIR + 1];
 };
 
-bool initResource(void);
-void quitResource(void);
-void* loadResource(enum rctype type, const char* uri, void* opt, struct charbuf* err);
-void freeResource(void*);
-void grabResource(void*);
-#define releaseResource freeResource
-char* getRcPath(enum rctype type, const char* uri, enum rcprefix* p, char** rcpath, const char** ext);
-bool lsRc(const char* uri, struct rcls*);
+bool initRcMgr(void);
+void runRcMgr(uint64_t t);
+void* rcmgr_malloc(size_t);
+void* rcmgr_calloc(size_t, size_t);
+void* rcmgr_realloc(void*, size_t);
+void clRcCache(void);
+void quitRcMgr(void);
+
+#define LOADRC_FLAG_ALLOWNATIVE (1 << 0)
+
+void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, struct charbuf* err);
+void rlsRc(void*, bool force);
+void lockRc(void*);
+#define unlockRc(r) rlsRc(r, false)
+
+bool lsRc(const char* id, struct rcls*);
 void freeRcls(struct rcls*);
+
 void loadMods(const char* const* names, int count);
 struct modinfo* queryMods(int* count);
 void freeModList(struct modinfo*);

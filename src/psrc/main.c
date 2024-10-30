@@ -256,14 +256,14 @@ static int bootstrap(void) {
     char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "config.cfg", NULL);
     {
         struct datastream ds;
-        bool ret = ds_openfile(&ds, tmp, 0);
+        bool ret = ds_openfile(tmp, 0, &ds);
         free(tmp);
         if (ret) {
-            cfg_open(&config, &ds);
+            cfg_open(&ds, &config);
             ds_close(&ds);
         } else {
             plog(LL_WARN, "Failed to load main config");
-            cfg_open(&config, NULL);
+            cfg_open(NULL, &config);
         }
     }
     if (options.set__setup) cfg_mergemem(&config, &options.set, true);
@@ -302,7 +302,7 @@ static int bootstrap(void) {
         if (!options.nouserconfig) {
             tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
             struct datastream ds;
-            bool ret = ds_openfile(&ds, tmp, 0);
+            bool ret = ds_openfile(tmp, 0, &ds);
             free(tmp);
             if (ret) {
                 cfg_merge(&config, &ds, true);
@@ -316,7 +316,7 @@ static int bootstrap(void) {
     #endif
 
     plog(LL_INFO, "Initializing resource manager...");
-    if (!initResource()) {
+    if (!initRcMgr()) {
         plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
         return 1;
     }
@@ -398,7 +398,7 @@ static int bootstrap(void) {
 }
 static void unstrap(void) {
     plog(LL_INFO, "Quitting resource manager...");
-    quitResource();
+    quitRcMgr();
 
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USER]) {

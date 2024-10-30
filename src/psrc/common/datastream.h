@@ -51,9 +51,9 @@ struct datastream {
     uint8_t last;
 };
 
-void ds_openmem(struct datastream*, void* buf, size_t sz, ds_mem_freecb freecb, void* freectx);
-bool ds_openfile(struct datastream*, const char* path, size_t bufsz);
-void ds_opencb(struct datastream*, ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx);
+void ds_openmem(void* buf, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream*);
+bool ds_openfile(const char* path, size_t bufsz, struct datastream*);
+void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream*);
 size_t ds_bin_read(struct datastream*, void* outbuf, size_t len);
 int ds_text_getc(struct datastream*);
 void ds_close(struct datastream*);

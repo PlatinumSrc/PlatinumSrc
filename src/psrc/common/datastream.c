@@ -12,7 +12,7 @@
     #include <stdio.h>
 #endif
 
-void ds_openmem(struct datastream* ds, void* b, size_t sz, ds_mem_freecb freecb, void* freectx) {
+void ds_openmem(void* b, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
     ds->buf = b;
     ds->pos = 0;
     ds->datasz = sz;
@@ -23,7 +23,7 @@ void ds_openmem(struct datastream* ds, void* b, size_t sz, ds_mem_freecb freecb,
     ds->unget = 0;
     ds->mode = DS_MODE_MEM;
 }
-bool ds_openfile(struct datastream* ds, const char* p, size_t bufsz) {
+bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
     {
         int tmp = isFile(p);
         if (tmp < 1) {
@@ -65,7 +65,7 @@ bool ds_openfile(struct datastream* ds, const char* p, size_t bufsz) {
     ds->mode = DS_MODE_FILE;
     return true;
 }
-void ds_opencb(struct datastream* ds, ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx) {
+void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream* ds) {
     ds->buf = malloc(bufsz);
     ds->pos = 0;
     ds->datasz = 0;
