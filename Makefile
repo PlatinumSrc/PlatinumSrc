@@ -453,7 +453,7 @@ ifeq ($(CROSS),win32)
 endif
 
 ifeq ($(USEMINIMP3),y)
-    CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
+    CPPFLAGS.dir.minimp3 := 
     ifeq ($(NOSIMD),y)
         CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
     endif

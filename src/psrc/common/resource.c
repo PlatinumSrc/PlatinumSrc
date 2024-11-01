@@ -288,7 +288,11 @@ static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
     //return false;
 }
 static void delRcAcc(struct rcaccess* acc) {
-    (void)acc;
+    switch (acc->src) {
+        case RCSRC_FS:
+            free(acc->fs.path);
+            break;
+    }
 }
 
 static struct resource* newRc(enum rctype type) {
