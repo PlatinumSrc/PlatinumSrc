@@ -132,6 +132,10 @@ int initLoop(void) {
         playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
         rlsRc(test, false);
     }
+    if ((test = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, 0, SOUNDFX_POS, 0.0, 1.0, 0.0, SOUNDFX_END);
+        rlsRc(test, false);
+    }
     if ((test = getRc(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, 0, NULL))) {
         playSound(testemt_obj, test, SOUNDFLAG_LOOP, SOUNDFX_END);
         rlsRc(test, false);

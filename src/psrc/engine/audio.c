@@ -953,6 +953,9 @@ static void updsnds_world(struct audiovoicegroup_world* g) {
     if (glen == 1) {
         sortdata[0] = 0;
     } else {
+        for (int i = 0; i < g->size; ++i) {
+            sortdata[i] = i;
+        }
         struct qssi {
             int l, r;
         };

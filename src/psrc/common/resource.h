@@ -20,7 +20,7 @@
 #include "../attribs.h"
 
 PACKEDENUM rcprefix {
-    RCPREFIX_SELF = -1,
+    RCPREFIX_SELF,
     RCPREFIX_INTERNAL,
     RCPREFIX_GAME,
     RCPREFIX_USER,
@@ -178,19 +178,10 @@ struct modinfo {
 struct rcls_file {
     char* name;
     uint32_t namecrc;
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    uint8_t* dirbits;
-    #endif
 };
 struct rcls {
     char* names;
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    uint8_t* dirbmp;
-    #endif
     unsigned nameslen;
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    unsigned dirbmplen;
-    #endif
     unsigned count[RC__DIR + 1];
     struct rcls_file* files[RC__DIR + 1];
 };

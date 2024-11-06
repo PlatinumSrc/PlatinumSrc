@@ -44,6 +44,7 @@
 - Tools
     - Blender P3M plugin
         - Importing
+    - Blockbench P3M plugin
     - PTM music tracker
 
 ---

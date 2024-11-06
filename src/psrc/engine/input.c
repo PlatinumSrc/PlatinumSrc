@@ -196,7 +196,7 @@ bool initInput(void) {
         free(tmp);
     }
     tmp = cfg_getvar(&config, "Input", "rawmouse");
-    SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, (strbool(tmp, true)) ? "1" : "0", SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, (strbool(tmp, true)) ? "0" : "1", SDL_HINT_OVERRIDE);
     free(tmp);
     inputstate.keystates = SDL_GetKeyboardState(&inputstate.keystatecount);
     #else

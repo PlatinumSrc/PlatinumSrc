@@ -648,7 +648,7 @@ ifeq ($(TR),y)
     TR_FILE := timereport.txt
     _TR_BEFORE := T="$$(mktemp)";env time -f%e --output="$$T" --
     _TR_AFTER = ;R=$$?;printf '%s: %ss\n' $< $$(cat "$$T") >> $(TR_FILE);rm "$$T";exit "$$R"
-    export _TR_STFILE := $(shell mktemp)
+    _TR_STFILE := $(shell mktemp)
 $(TR_FILE):
 	@printf '%s\n' '--------- BUILD TIME REPORT ---------' > $(TR_FILE)
 	@date +%s%N > $(_TR_STFILE)
