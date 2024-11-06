@@ -203,9 +203,9 @@ char* sanfilename(const char* s, char r) {
     sanfilename_cb(s, r, &cb);
     return cb_finalize(&cb);
 }
-char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl) {
-    struct charbuf cb;
-    cb_init(&cb, 256);
+
+void restrictpath_cb(const char* s, const char* inseps, char outsep, char outrepl, struct charbuf* cb) {
+    long unsigned b = cb->len;
     int ct;
     char** dl = splitstr(s, inseps, false, &ct);
     for (int i = 0; i < ct; ++i) {
@@ -215,24 +215,29 @@ char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl)
             if (!d[1]) {
                 goto skip;
             } else if (d[1] == '.' && !d[2]) {
-                while (cb.len > 0) {
-                    --cb.len;
-                    if (cb.data[cb.len] == outsep) break;
+                while (cb->len > b) {
+                    --cb->len;
+                    if (cb->data[cb->len] == outsep) break;
                 }
                 goto skip;
             }
         }
-        cb_add(&cb, outsep);
+        cb_add(cb, outsep);
         #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         (void)outrepl;
-        cb_addstr(&cb, d);
+        cb_addstr(cb, d);
         #else
-        sanfilename_cb(d, outrepl, &cb);
+        sanfilename_cb(d, outrepl, cb);
         #endif
         skip:;
     }
     free(*dl);
     free(dl);
+}
+char* restrictpath(const char* s, const char* inseps, char outsep, char outrepl) {
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    restrictpath_cb(s, inseps, outsep, outrepl, &cb);
     return cb_finalize(&cb);
 }
 

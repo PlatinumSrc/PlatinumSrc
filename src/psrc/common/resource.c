@@ -43,7 +43,6 @@ static struct accesslock rclock;
 #endif
 
 static const char* const rcprefixnames[RCPREFIX__COUNT] = {
-    "self",
     "internal",
     "game",
     "user",
@@ -194,49 +193,45 @@ static struct {
     #endif
 } mods;
 
+#if 0
 static void* rcmgr_malloc_nolock(size_t);
 static void* rcmgr_calloc_nolock(size_t, size_t);
+#endif
 static void* rcmgr_realloc_nolock(void*, size_t);
 
 static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
-    struct charbuf cb;
-    cb_init(&cb, 128);
-    {
-        const char* tmp = id;
-        char c;
-        while ((c = *tmp)) {
-            ++tmp;
-            if (c == ':') {
-                cb_nullterm(&cb);
-                switch (*cb.data) {
-                    case 0: *p = RCPREFIX_SELF; goto match;
-                    case 's': if (!strcmp(cb.data + 1, "elf")) {*p = RCPREFIX_SELF; goto match;} break;
-                    case 'i': if (!strcmp(cb.data + 1, "nternal")) {*p = RCPREFIX_INTERNAL; goto match;} break;
-                    case 'g': if (!strcmp(cb.data + 1, "ame")) {*p = RCPREFIX_GAME; goto match;} break;
-                    case 'u': if (!strcmp(cb.data + 1, "ser")) {*p = RCPREFIX_USER; goto match;} break;
-                    case 'n': if (allownative && !strcmp(cb.data + 1, "ative")) {*p = RCPREFIX_NATIVE; goto nativematch;} break;
-                    default: break;
-                }
-                plog(LL_ERROR, "Unknown prefix '%s' in resource identifier '%s'", cb.data, id);
-                cb_dump(&cb);
-                return NULL;
-                match:;
-                cb_clear(&cb);
-                cb_addstr(&cb, tmp);
-                goto foundprefix;
-                nativematch:;
-                cb_clear(&cb);
-                return strpath(tmp);
-            } else {
-                cb_add(&cb, c);
+    int i = 0;
+    while (1) {
+        char c = id[i];
+        if (!c) break;
+        if (c == ':') {
+            switch (*id) {
+                case ':': ++id; goto selfmatch;
+                case 's': if (i == 4 && !strncmp(id + 1, "elf", 3)) {id += 5; goto selfmatch;} break;
+                case 'i': if (i == 8 && !strncmp(id + 1, "nternal", 7)) {*p = RCPREFIX_INTERNAL; id += 9; goto match;} break;
+                case 'g': if (i == 4 && !strncmp(id + 1, "ame", 3)) {*p = RCPREFIX_GAME; id += 5; goto match;} break;
+                case 'u': if (i == 4 && !strncmp(id + 1, "ser", 3)) {*p = RCPREFIX_USER; id += 5; goto match;} break;
+                case 'n': if (allownative && i == 6 && !strncmp(id + 1, "ative", 5)) {id += i + 7; goto nativematch;} break;
+                default: break;
             }
+            plog(LL_ERROR, "Unknown prefix '%.*s' in resource identifier '%s'", i, id, id);
+            return NULL;
         }
+        ++i;
     }
-    *p = RCPREFIX_SELF;
-    foundprefix:;
-    char* tmp2 = restrictpath(cb_peek(&cb), "/", '/', '_');
-    cb_dump(&cb);
-    return tmp2;
+    selfmatch:;
+        *p = RCPREFIX_GAME;
+        struct charbuf cb;
+        cb_init(&cb, 128);
+        cb_add(&cb, '/');
+        cb_addstr(&cb, gameinfo.dir);
+        restrictpath_cb(id, "/", '/', '_', &cb);
+        return cb_finalize(&cb);
+    nativematch:;
+        *p = RCPREFIX_NATIVE;
+        return strpath(id);
+    match:;
+        return restrictpath(id, "/", '/', '_');
 }
 
 static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* opt) {
@@ -325,16 +320,10 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
     }\
 } while (0)
 static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, uint32_t pathcrc, struct rcaccess* acc) {
+    (void)pathcrc;
     struct charbuf cb;
     cb_init(&cb, 256);
-    switch (prefix) {
-        default:
-            for (int i = 0; i < mods.len; ++i) {
-                GRA_TRYFS(mods.data[i].path, PATHSEPSTR "games" PATHSEPSTR, gameinfo.dir, path);
-                cb_clear(&cb);
-            }
-            GRA_TRYFS(dirs[DIR_GAME], path);
-            break;
+    switch ((uint8_t)prefix) {
         case RCPREFIX_INTERNAL:
             for (int i = 0; i < mods.len; ++i) {
                 GRA_TRYFS(mods.data[i].path, PATHSEPSTR "internal" PATHSEPSTR "resources", path);
@@ -474,7 +463,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     struct resource* rc = findRc(type, prefix, path, pathcrc, opt);
     if (rc) {
         #if DEBUG(2)
-        plog(LL_INFO | LF_DEBUG, "Found already loaded %s at resource identifier '%s'", rctypenames[type], id);
+        plog(LL_INFO | LF_DEBUG, "Found already loaded %s with resource identifier '%s'", rctypenames[type], id);
         #endif
         free(path);
         #ifndef PSRC_NOMT
@@ -493,12 +482,12 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     releaseReadAccess(&rclock);
     #endif
     #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Loading resource '%s:%s'...", rcprefixnames[prefix], path);
+    plog(LL_INFO | LF_DEBUG, "Loading %s at '%s:%s'...", rctypenames[type], rcprefixnames[prefix], path);
     #endif
     struct rcaccess acc;
     if (!getRcAcc(type, prefix, path, pathcrc, &acc)) {
+        plog(LL_ERROR, "Failed to find %s at '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
         free(path);
-        plog(LL_ERROR, "Failed to find %s at resource identifier '%s'", rctypenames[type], id);
         return NULL;
     }
     if (!opt) opt = defaultrcopts[type];
@@ -534,6 +523,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             struct pb_script s;
             goto fail;
             //if (!pb_compilefile(acc.fs.path, &o->compileropt, &s, err)) goto fail;
+            (void)err;
             rc = newRc(RC_SCRIPT);
             rc->script.script = s;
             rc->script_opt = *o;
@@ -815,9 +805,9 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     rc->header.pathcrc = pathcrc;
     return &rc->data;
     fail:;
+    plog(LL_ERROR, "Failed to load %s at '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
     delRcAcc(&acc);
     free(path);
-    plog(LL_ERROR, "Failed to load %s at resource identifier '%s'", rctypenames[type], id);
     return NULL;
 }
 
@@ -1081,7 +1071,7 @@ static void gcRcs_internal(bool ag) {
             while (1) {
                 if (occ & 1 && zref & 1) {
                     struct resource* rc = (void*)((char*)rcgroups[g].data + (i * 32 + j) * rcallocsz[g]);
-                    if (rctick - rc->header.zreftick >= 4) freeRc(g, rc);
+                    if (ag || rctick - rc->header.zreftick >= 4) freeRc(g, rc);
                 }
                 if (j == 31) break;
                 ++j;
@@ -1099,7 +1089,7 @@ static void gcRcs_internal(bool ag) {
         while (i != e2) {
             if (occ & 1 && zref & 1) {
                 struct resource* rc = (void*)((char*)rcgroups[g].data + (e * 32 + i) * rcallocsz[g]);
-                if (rctick - rc->header.zreftick >= 4) freeRc(g, rc);
+                if (ag || rctick - rc->header.zreftick >= 4) freeRc(g, rc);
             }
             ++i;
             occ >>= 1;
@@ -1136,6 +1126,7 @@ void* rcmgr_realloc(void* ptr, size_t size) {
     gcRcs(true);
     return realloc(ptr, size);
 }
+#if 0
 static void* rcmgr_malloc_nolock(size_t size) {
     void* tmp = malloc(size);
     if (tmp) return tmp;
@@ -1148,6 +1139,7 @@ static void* rcmgr_calloc_nolock(size_t nmemb, size_t size) {
     gcRcs_internal(true);
     return calloc(nmemb, size);
 }
+#endif
 static void* rcmgr_realloc_nolock(void* ptr, size_t size) {
     void* tmp = realloc(ptr, size);
     if (tmp) return tmp;

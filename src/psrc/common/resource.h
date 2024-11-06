@@ -20,7 +20,6 @@
 #include "../attribs.h"
 
 PACKEDENUM rcprefix {
-    RCPREFIX_SELF,
     RCPREFIX_INTERNAL,
     RCPREFIX_GAME,
     RCPREFIX_USER,

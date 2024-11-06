@@ -56,6 +56,7 @@ char* strpath(const char*);
 char* strrelpath(const char*);
 void sanfilename_cb(const char*, char repl, struct charbuf*);
 char* sanfilename(const char*, char repl);
+void restrictpath_cb(const char*, const char* inseps, char outsep, char outrepl, struct charbuf*);
 char* restrictpath(const char*, const char* inseps, char outsep, char outrepl);
 bool md(const char*);
 char** ls(const char*, bool longnames, int* l); // info flags are stored at [-1] of each string
