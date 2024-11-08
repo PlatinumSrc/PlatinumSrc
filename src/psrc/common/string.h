@@ -2,6 +2,7 @@
 #define PSRC_COMMON_STRING_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -16,6 +17,7 @@ char** splitstrlist(const char*, char delim, bool nullterm, int* len);
 char** splitstr(const char*, const char* delims, bool nullterm, int* len);
 char* makestrlist(const char* const* str, int len, char delim);
 int strbool(const char*, int);
+uint64_t strsec(const char*, uint64_t);
 
 static inline void cb_init(struct charbuf* b, unsigned long sz) {
     b->data = malloc(sz);

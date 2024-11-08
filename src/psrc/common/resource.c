@@ -132,7 +132,7 @@ struct resource {
     };
 };
 
-static size_t rcallocsz[RC__COUNT] = {
+static const size_t rcallocsz[RC__COUNT] = {
     offsetof(struct resource, config_end),
     offsetof(struct resource, font_end),
     offsetof(struct resource, map_end),
@@ -143,22 +143,16 @@ static size_t rcallocsz[RC__COUNT] = {
     offsetof(struct resource, values_end)
 };
 
-static struct {
+struct rcgrouppage {
     void* data;
-    uint32_t* occ;
-    uint32_t* zref;
-    int len;
-    int size;
-} rcgroups[RC__COUNT] = {
-    {.size = 2},
-    {.size = 1},
-    {.size = 1},
-    {.size = 8},
-    {.size = 4},
-    {.size = 16},
-    {.size = 16},
-    {.size = 16}
+    uint16_t occ;
+    uint16_t zref;
 };
+static struct {
+    struct rcgrouppage* pages;
+    unsigned pagect;
+    unsigned zrefct;
+} rcgroups[RC__COUNT];
 
 static const void* const defaultrcopts[RC__COUNT] = {
     NULL,
@@ -186,21 +180,21 @@ struct rcaccess {
 
 static struct {
     struct modinfo* data;
-    uint16_t len;
-    uint16_t size;
+    int len;
+    int size;
     #ifndef PSRC_NOMT
     struct accesslock lock;
     #endif
 } mods;
 
-#if 0
 static void* rcmgr_malloc_nolock(size_t);
+#if 0
 static void* rcmgr_calloc_nolock(size_t, size_t);
-#endif
 static void* rcmgr_realloc_nolock(void*, size_t);
+#endif
 
 static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
-    int i = 0;
+    unsigned i = 0;
     while (1) {
         char c = id[i];
         if (!c) break;
@@ -211,7 +205,7 @@ static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
                 case 'i': if (i == 8 && !strncmp(id + 1, "nternal", 7)) {*p = RCPREFIX_INTERNAL; id += 9; goto match;} break;
                 case 'g': if (i == 4 && !strncmp(id + 1, "ame", 3)) {*p = RCPREFIX_GAME; id += 5; goto match;} break;
                 case 'u': if (i == 4 && !strncmp(id + 1, "ser", 3)) {*p = RCPREFIX_USER; id += 5; goto match;} break;
-                case 'n': if (allownative && i == 6 && !strncmp(id + 1, "ative", 5)) {id += i + 7; goto nativematch;} break;
+                case 'n': if (allownative && i == 6 && !strncmp(id + 1, "ative", 5)) {id += 7; goto nativematch;} break;
                 default: break;
             }
             plog(LL_ERROR, "Unknown prefix '%.*s' in resource identifier '%s'", i, id, id);
@@ -248,33 +242,20 @@ static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* o
     //return true;
 }
 static struct resource* findRc(enum rctype type, enum rcprefix prefix, const char* path, uint32_t pathcrc, const void* opt) {
-    int e = rcgroups[type].len / 32;
-    for (int i = 0; i < e; ++i) {
-        register uint32_t occ = rcgroups[type].occ[i];
+    for (unsigned p = 0; p < rcgroups[type].pagect; ++p) {
+        register uint16_t occ = rcgroups[type].pages[p].occ;
         if (!occ) continue;
-        int j = 0;
+        unsigned i = 0;
         while (1) {
             if (occ & 1) {
-                struct resource* rc = (void*)((char*)rcgroups[type].data + (i * 32 + j) * rcallocsz[type]);
+                struct resource* rc = (void*)((char*)rcgroups[type].pages[p].data + i * rcallocsz[type]);
                 if (rc->header.prefix == prefix && rc->header.pathcrc == pathcrc && !strcmp(rc->header.path, path) && cmpRcOpt(type, rc, opt)) return rc;
             }
-            if (j == 31) break;
-            ++j;
+            if (i == 15) break;
+            ++i;
             occ >>= 1;
+            //if (!occ) break;
         }
-    }
-    int e2 = rcgroups[type].len % 32;
-    if (!e2) return NULL;
-    register uint32_t occ = rcgroups[type].occ[e];
-    if (!occ) return NULL;
-    int i = 0;
-    while (i == e2) {
-        if (occ & 1) {
-            struct resource* rc = (void*)((char*)rcgroups[type].data + (e * 32 + i) * rcallocsz[type]);
-            if (rc->header.prefix == prefix && rc->header.pathcrc == pathcrc && !strcmp(rc->header.path, path) && cmpRcOpt(type, rc, opt)) return rc;
-        }
-        ++i;
-        occ >>= 1;
     }
     return NULL;
 }
@@ -292,7 +273,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
     const char* const* exts = rcextensions[type];
     const char* tmp;
     while ((tmp = *exts)) {
-        int l = cb->len;
+        unsigned long l = cb->len;
         if (*tmp) {
             cb_add(cb, '.');
             cb_add(cb, *tmp++);
@@ -369,73 +350,41 @@ static struct resource* newRc(enum rctype type) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&rclock);
     #endif
-    do {
-        int e = rcgroups[type].len / 32;
-        for (int i = 0; i < e; ++i) {
-            register uint32_t unocc = ~rcgroups[type].occ[i];
-            if (!unocc) continue;
-            int j = 0;
-            while (1) {
-                if (unocc & 1) {
-                    int index = i * 32 + j;
-                    rcgroups[type].occ[index / 32] |= 1 << (index % 32);
-                    rcgroups[type].zref[index / 32] &= ~(1 << (index % 32));
-                    struct resource* rc = (void*)((char*)rcgroups[type].data + index * rcallocsz[type]);
-                    rc->header.type = type;
-                    rc->header.refs = 1;
-                    rc->header.index = index;
-                    rc->header.forcefree = 0;
-                    rc->header.hasdatacrc = 0;
-                    #ifndef PSRC_NOMT
-                    releaseWriteAccess(&rclock);
-                    #endif
-                    return rc;
-                }
-                if (j == 31) break;
-                ++j;
-                unocc >>= 1;
-            }
-        }
-        int e2 = rcgroups[type].len % 32;
-        if (!e2) break;
-        register uint32_t unocc = ~rcgroups[type].occ[e];
-        if (!unocc) break;
-        int i = 0;
-        while (i == e2) {
+    for (unsigned p = 0; p < rcgroups[type].pagect; ++p) {
+        register uint16_t unocc = ~rcgroups[type].pages[p].occ;
+        if (!unocc) continue;
+        unsigned i = 0;
+        while (1) {
             if (unocc & 1) {
-                int index = e * 32 + i;
-                rcgroups[type].occ[index / 32] |= 1 << (index % 32);
-                rcgroups[type].zref[index / 32] &= ~(1 << (index % 32));
-                struct resource* rc = (void*)((char*)rcgroups[type].data + index * rcallocsz[type]);
+                rcgroups[type].pages[p].occ |= 1 << i;
+                //rcgroups[type].pages[p].zref &= ~(1 << i);
+                struct resource* rc = (void*)((char*)rcgroups[type].pages[p].data + i * rcallocsz[type]);
                 rc->header.type = type;
                 rc->header.refs = 1;
-                rc->header.index = index;
+                rc->header.index = p * 16 + i;
                 rc->header.forcefree = 0;
-                rc->header.hasdatacrc = 0;
                 #ifndef PSRC_NOMT
                 releaseWriteAccess(&rclock);
                 #endif
                 return rc;
             }
+            if (i == 15) break;
             ++i;
             unocc >>= 1;
+            //if (!unocc) break;
         }
-    } while (0);
-    if (rcgroups[type].len == rcgroups[type].size) {
-        rcgroups[type].size *= 2;
-        rcgroups[type].data = rcmgr_realloc_nolock(rcgroups[type].data, rcgroups[type].size * rcallocsz[type]);
-        rcgroups[type].occ = rcmgr_realloc_nolock(rcgroups[type].occ, (rcgroups[type].size + 31) / 32 * sizeof(*rcgroups[type].occ));
-        rcgroups[type].zref = rcmgr_realloc_nolock(rcgroups[type].zref, (rcgroups[type].size + 31) / 32 * sizeof(*rcgroups[type].zref));
     }
-    int i = rcgroups[type].len++;
-    rcgroups[type].occ[i / 32] |= 1 << (i % 32);
-    rcgroups[type].zref[i / 32] &= ~(1 << (i % 32));
-    struct resource* rc = (void*)((char*)rcgroups[type].data + i * rcallocsz[type]);
+    int p = rcgroups[type].pagect++;
+    rcgroups[type].pages = realloc(rcgroups[type].pages, rcgroups[type].pagect * sizeof(*rcgroups[type].pages));
+    void* data = rcmgr_malloc_nolock(16 * rcallocsz[type]);
+    rcgroups[type].pages[p].data = data;
+    rcgroups[type].pages[p].occ = 1;
+    rcgroups[type].pages[p].zref = 0;
+    struct resource* rc = data;
     rc->header.type = type;
     rc->header.refs = 1;
-    rc->header.index = i;
+    rc->header.index = p * 16;
     rc->header.forcefree = 0;
-    rc->header.hasdatacrc = 0;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&rclock);
     #endif
@@ -462,7 +411,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     #endif
     struct resource* rc = findRc(type, prefix, path, pathcrc, opt);
     if (rc) {
-        #if DEBUG(2)
+        #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG, "Found already loaded %s with resource identifier '%s'", rctypenames[type], id);
         #endif
         free(path);
@@ -470,8 +419,9 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         readToWriteAccess(&rclock);
         #endif
         if (!rc->header.refs++) {
-            int i = rc->header.index;
-            rcgroups[rc->header.type].zref[i / 32] &= ~(1 << (i % 32));
+            unsigned i = rc->header.index;
+            rcgroups[rc->header.type].pages[i / 16].zref &= ~(1 << (i % 16));
+            --rcgroups[rc->header.type].zrefct;
         }
         #ifndef PSRC_NOMT
         releaseWriteAccess(&rclock);
@@ -482,11 +432,11 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     releaseReadAccess(&rclock);
     #endif
     #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Loading %s at '%s:%s'...", rctypenames[type], rcprefixnames[prefix], path);
+    plog(LL_INFO | LF_DEBUG, "Loading %s '%s:%s'...", rctypenames[type], rcprefixnames[prefix], path);
     #endif
     struct rcaccess acc;
     if (!getRcAcc(type, prefix, path, pathcrc, &acc)) {
-        plog(LL_ERROR, "Failed to find %s at '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
+        plog(LL_ERROR, "Failed to find %s '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
         free(path);
         return NULL;
     }
@@ -803,9 +753,10 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     rc->header.prefix = prefix;
     rc->header.path = path;
     rc->header.pathcrc = pathcrc;
+    rc->header.hasdatacrc = 0;
     return &rc->data;
     fail:;
-    plog(LL_ERROR, "Failed to load %s at '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
+    plog(LL_ERROR, "Failed to load %s '%s:%s'", rctypenames[type], rcprefixnames[prefix], path);
     delRcAcc(&acc);
     free(path);
     return NULL;
@@ -817,8 +768,8 @@ void lockRc(void* rp) {
     #endif
     struct resource* rc = (void*)((char*)rp - offsetof(struct resource, data));
     if (!rc->header.refs++) {
-        int i = rc->header.index;
-        rcgroups[rc->header.type].zref[i / 32] &= ~(1 << (i % 32));
+        rcgroups[rc->header.type].pages[rc->header.index / 16].zref &= ~(1 << (rc->header.index % 16));
+        --rcgroups[rc->header.type].zrefct;
     }
     #ifndef PSRC_NOMT
     releaseWriteAccess(&rclock);
@@ -851,9 +802,11 @@ static void freeRcData(enum rctype type, struct resource* rc) {
 static inline void freeRc(enum rctype type, struct resource* rc) {
     //printf("FREERC: %d %d %zu %p %p\n", type, rc->header.type, rcallocsz[type], rcgroups[type].data, rc);
     #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG, "Freeing resource '%s:%s'...", rcprefixnames[rc->header.prefix], rc->header.path);
+    plog(LL_INFO | LF_DEBUG, "Freeing %s '%s:%s'...", rctypenames[rc->header.type], rcprefixnames[rc->header.prefix], rc->header.path);
     #endif
-    rcgroups[type].occ[rc->header.index / 32] &= ~(1 << (rc->header.index % 32));
+    rcgroups[type].pages[rc->header.index / 16].occ &= ~(1 << (rc->header.index % 16));
+    rcgroups[type].pages[rc->header.index / 16].zref &= ~(1 << (rc->header.index % 16));
+    --rcgroups[type].zrefct;
     freeRcData(type, rc);
     freeRcHeader(&rc->header);
 }
@@ -871,7 +824,8 @@ void rlsRc(void* rp, bool force) {
             freeRc(type, rc);
         } else {
             rc->header.zreftick = rctick;
-            rcgroups[type].zref[rc->header.index / 32] |= 1 << (rc->header.index % 32);
+            rcgroups[type].pages[rc->header.index / 16].zref |= 1 << (rc->header.index % 16);
+            ++rcgroups[type].zrefct;
         }
     }
     #ifndef PSRC_NOMT
@@ -1031,7 +985,7 @@ struct modinfo* queryMods(int* len) {
     struct modinfo* data = rcmgr_malloc(mods.len * sizeof(*data));
     struct charbuf cb;
     cb_init(&cb, 256);
-    for (uint16_t i = 0; i < mods.len; ++i) {
+    for (int i = 0; i < mods.len; ++i) {
         data[i].path = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].path); cb_add(&cb, 0);
         data[i].dir = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].dir); cb_add(&cb, 0);
         data[i].name = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].name); cb_add(&cb, 0);
@@ -1043,7 +997,7 @@ struct modinfo* queryMods(int* len) {
     }
     --cb.len;
     cb_finalize(&cb);
-    for (uint16_t i = 0; i < mods.len; ++i) {
+    for (int i = 0; i < mods.len; ++i) {
         data[i].path += (uintptr_t)cb.data;
         data[i].dir += (uintptr_t)cb.data;
         data[i].name += (uintptr_t)cb.data;
@@ -1056,44 +1010,31 @@ struct modinfo* queryMods(int* len) {
     return data;
 }
 
+static uintptr_t gcrcs_freeafter = 3;
 static void gcRcs_internal(bool ag) {
     #if DEBUG(2)
     plog(LL_INFO | LF_DEBUG, "Running resource garbage collector...%s", (ag) ? " (aggressive)" : "");
     #endif
     for (int g = 0; g < RC__COUNT; ++g) {
-        int e = rcgroups[g].len / 32;
-        for (int i = 0; i < e; ++i) {
-            register uint32_t occ = rcgroups[g].occ[i];
-            if (!occ) continue;
-            register uint32_t zref = rcgroups[g].zref[i];
+        if (!rcgroups[g].zrefct) continue;
+        //printf("GC GROUP [%d]\n", g);
+        for (unsigned p = 0; p < rcgroups[g].pagect; ++p) {
+            register uint16_t zref = rcgroups[g].pages[p].zref;
             if (!zref) continue;
-            int j = 0;
+            register uint16_t occ = rcgroups[g].pages[p].occ;
+            if (!occ) continue;
+            unsigned i = 0;
             while (1) {
                 if (occ & 1 && zref & 1) {
-                    struct resource* rc = (void*)((char*)rcgroups[g].data + (i * 32 + j) * rcallocsz[g]);
-                    if (ag || rctick - rc->header.zreftick >= 4) freeRc(g, rc);
+                    struct resource* rc = (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]);
+                    if (ag || rctick - rc->header.zreftick >= gcrcs_freeafter) freeRc(g, rc);
                 }
-                if (j == 31) break;
-                ++j;
+                if (i == 15) break;
+                ++i;
                 occ >>= 1;
                 zref >>= 1;
+                //if (!occ || !zref) break;
             }
-        }
-        int e2 = rcgroups[g].len % 32;
-        if (!e2) continue;
-        register uint32_t occ = rcgroups[g].occ[e];
-        if (!occ) continue;
-        register uint32_t zref = rcgroups[g].zref[e];
-        if (!zref) continue;
-        int i = 0;
-        while (i != e2) {
-            if (occ & 1 && zref & 1) {
-                struct resource* rc = (void*)((char*)rcgroups[g].data + (e * 32 + i) * rcallocsz[g]);
-                if (ag || rctick - rc->header.zreftick >= 4) freeRc(g, rc);
-            }
-            ++i;
-            occ >>= 1;
-            zref >>= 1;
         }
     }
 }
@@ -1126,20 +1067,19 @@ void* rcmgr_realloc(void* ptr, size_t size) {
     gcRcs(true);
     return realloc(ptr, size);
 }
-#if 0
 static void* rcmgr_malloc_nolock(size_t size) {
     void* tmp = malloc(size);
     if (tmp) return tmp;
     gcRcs_internal(true);
     return malloc(size);
 }
+#if 0
 static void* rcmgr_calloc_nolock(size_t nmemb, size_t size) {
     void* tmp = calloc(nmemb, size);
     if (tmp) return tmp;
     gcRcs_internal(true);
     return calloc(nmemb, size);
 }
-#endif
 static void* rcmgr_realloc_nolock(void* ptr, size_t size) {
     void* tmp = realloc(ptr, size);
     if (tmp) return tmp;
@@ -1147,6 +1087,7 @@ static void* rcmgr_realloc_nolock(void* ptr, size_t size) {
     gcRcs_internal(true);
     return realloc(ptr, size);
 }
+#endif
 
 void clRcCache(void) {
     //lscDelAll();
@@ -1154,20 +1095,22 @@ void clRcCache(void) {
 }
 
 static uint64_t lasttick;
+static uint64_t ticktime = 1000000;
+static unsigned long alloccheck = 262144;
 void runRcMgr(uint64_t t) {
     {
         uint64_t tmp = t - lasttick;
-        if (tmp < 1000000) return;
-        lasttick += tmp / 1000000 * 1000000;
+        if (tmp < ticktime) return;
+        lasttick += tmp / ticktime * ticktime;
     }
-    static int counter = 0;
+    static unsigned counter = 0;
     ++counter;
     #ifndef PSRC_NOMT
     acquireWriteAccess(&rclock);
     #endif
     if (counter == 5) {
         counter = 0;
-        void* ptr = malloc(262144);
+        void* ptr = malloc(alloccheck);
         bool ag = (ptr == NULL);
         free(ptr);
         gcRcs_internal(ag);
@@ -1187,13 +1130,22 @@ bool initRcMgr(void) {
     //if (!createAccessLock(&lscache.lock)) return false;
     #endif
 
-    for (int i = 0; i < RC__COUNT; ++i) {
-        rcgroups[i].data = malloc(rcgroups[i].size * rcallocsz[i]);
-        rcgroups[i].occ = malloc((rcgroups[i].size + 31) / 32 * sizeof(*rcgroups[i].occ));
-        rcgroups[i].zref = malloc((rcgroups[i].size + 31) / 32 * sizeof(*rcgroups[i].zref));
+    char* tmp = cfg_getvar(&config, "Resource Manager", "gc.ticktime");
+    if (tmp) {
+        ticktime = strsec(tmp, ticktime);
+        free(tmp);
     }
-
-    char* tmp = cfg_getvar(&config, NULL, "lscache.size");
+    tmp = cfg_getvar(&config, "Resource Manager", "gc.freeafter");
+    if (tmp) {
+        gcrcs_freeafter = strtoul(tmp, NULL, 10);
+        free(tmp);
+    }
+    tmp = cfg_getvar(&config, "Resource Manager", "gc.alloccheck");
+    if (tmp) {
+        alloccheck = strtoul(tmp, NULL, 10);
+        free(tmp);
+    }
+    tmp = cfg_getvar(&config, "Resource Manager", "lscache.size");
     if (tmp) {
         //lscache.size = atoi(tmp);
         //if (lscache.size < 1) lscache.size = 1;

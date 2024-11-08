@@ -140,11 +140,11 @@ enum rc_texture_frmt {
     RC_TEXTURE_FRMT_RGBA
 };
 struct rc_texture {
-    int width;
-    int height;
+    unsigned width;
+    unsigned height;
     union {
-        enum rc_texture_frmt format;
-        int channels;
+        PACKEDENUM rc_texture_frmt format;
+        uint8_t channels;
     };
     uint8_t* data;
 };

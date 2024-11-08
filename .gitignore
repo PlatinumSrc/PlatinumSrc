@@ -7,7 +7,6 @@
 !/src/**
 !/tools/
 !/tools/**
-!/.github/
 !/*.sh
 !/CONTRIBUTING.md
 !/LICENSE
@@ -15,5 +14,6 @@
 !/README.md
 !/TODO.md
 .**
+!/.github/
 !/.gitattributes
 !/.gitignore

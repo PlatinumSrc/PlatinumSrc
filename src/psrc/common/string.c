@@ -163,3 +163,27 @@ int strbool(const char* s, int d) {
     }
     return d;
 }
+
+uint64_t strsec(const char* s, uint64_t d) {
+    uint64_t n = 0;
+    char c = *s;
+    if (!c) return d;
+    do {
+        if (c == '.') {
+            ++s;
+            uint64_t m = 100000;
+            while ((c = *s)) {
+                if (c < '0' || c > '9') return d;
+                n += (c - '0') * m;
+                m /= 10;
+                ++s;
+            }
+            return n;
+        }
+        if (c < '0' || c > '9') return d;
+        n *= 10;
+        n += (c - '0') * 1000000;
+        ++s;
+    } while ((c = *s));
+    return n;
+}

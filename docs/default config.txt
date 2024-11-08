@@ -1,9 +1,8 @@
 defaultgame = default # read before loading user config
 mods = 
-lscache.size = 32
 
 [ Renderer ]
-  backend = # platform-dependent
+  backend = # default is automatic
   resolution.windowed = 800x600
   resolution.fullscreen = 
   fullscreen = false
@@ -51,3 +50,9 @@ lscache.size = 32
   autodownload = false
   extralists = 
   extraservers = 
+
+[ Resource Manager ]
+  gc.ticktime = 1.0
+  gc.freeafter = 3
+  gc.alloccheck = 262144
+  lscache.size = 32
