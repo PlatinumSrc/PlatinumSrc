@@ -100,7 +100,6 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
     - Install [Make for Windows](https://sourceforge.net/projects/gnuwin32/files/make/3.81/make-3.81.exe/download) and add it to the `PATH`
     - Download MinGW and add it to the `PATH`
     - Donwload and extract MinGW SDL 2.x or 1.2.x into MinGW
-    - Pass `inc.null=NUL` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
 <details><summary>When building for older Windows</summary>
@@ -115,7 +114,6 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
 - If building for Windows 98
     - Download [SDL 1.2.x modified to be compatible with Windows 98](https://github.com/PQCraft/PQCraft/raw/master/SDL_1_2_Win98.zip), and extract it to `external/Windows_i686`
     - Pass `USESDL1=y NOMT=y` to the Makefile
-- Pass `inc.null=NUL` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
 <details><summary>When building for web browsers using Emscripten</summary>

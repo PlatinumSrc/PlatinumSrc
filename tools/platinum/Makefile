@@ -33,9 +33,11 @@ endef
 define rmdir
 if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
 endef
-null := /dev/null
-define inc
-$$(patsubst $(null)\:,,$$(patsubst $(null),,$$(wildcard $$(shell $(_CC) $(CFLAGS) $(CPPFLAGS) -x c -MM $(null) $$(wildcard $(1)) -MT $(null)))))
+
+deps.filter := %.c %.h
+deps.option := -MM
+define deps
+$$(filter $$(deps.filter),,$$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -E $(deps.option) $(1)))
 endef
 
 default: build
@@ -46,7 +48,7 @@ $(OUTDIR):
 $(OBJDIR):
 	@$(call mkdir,$@)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(call deps,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiling $<...
 	@$(_CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $<

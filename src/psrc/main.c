@@ -337,6 +337,7 @@ static int bootstrap(void) {
                 for (int i = 0; i < ct2; ++i) {
                     l1[i + ct1] = l2[i];
                 }
+                loadMods((const char* const *)l1, ct1 + ct2);
                 free(*l2);
                 free(l2);
                 free(*l1);

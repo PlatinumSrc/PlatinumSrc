@@ -157,7 +157,7 @@ static struct {
 static const void* const defaultrcopts[RC__COUNT] = {
     NULL,
     NULL,
-    NULL,
+    &(struct rcopt_map){0},
     &(struct rcopt_model){0},
     &(struct rcopt_script){0},
     &(struct rcopt_sound){true},
@@ -187,10 +187,408 @@ static struct {
     #endif
 } mods;
 
+struct lscache_dir {
+    enum rcprefix prefix;
+    char* path;
+    uint32_t pathcrc;
+    int prev;
+    int next;
+    struct rcls l;
+};
+static struct {
+    struct lscache_dir* data;
+    int size;
+    int head;
+    int tail;
+    #ifndef PSRC_NOMT
+    struct accesslock lock;
+    #endif
+} lscache;
+
 static void* rcmgr_malloc_nolock(size_t);
 #if 0
 static void* rcmgr_calloc_nolock(size_t, size_t);
 static void* rcmgr_realloc_nolock(void*, size_t);
+#endif
+
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path);
+#endif
+
+static void lsRc_dup(const struct rcls* in, struct rcls* out) {
+    char* onames = rcmgr_malloc(in->nameslen);
+    char* inames = in->names;
+    out->names = onames;
+    memcpy(onames, inames, in->nameslen);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    uint8_t* odirbmp = rcmgr_malloc(in->dirbmplen);
+    uint8_t* idirbmp = in->dirbmp;
+    out->dirbmp = odirbmp;
+    memcpy(odirbmp, idirbmp, in->dirbmplen);
+    #endif
+    for (int ri = 0; ri < RC__DIR + 1; ++ri) {
+        int ct = in->count[ri];
+        out->count[ri] = ct;
+        if (ct) {
+            struct rcls_file* ofl = rcmgr_malloc(ct * sizeof(*ofl));
+            out->files[ri] = ofl;
+            struct rcls_file* ifl = in->files[ri];
+            for (int i = 0; i < ct; ++i) {
+                ofl[i] = ifl[i];
+                ofl[i].name -= (uintptr_t)inames;
+                ofl[i].name += (uintptr_t)onames;
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                ofl[i].dirbits -= (uintptr_t)idirbmp;
+                ofl[i].dirbits += (uintptr_t)odirbmp;
+                #endif
+            }
+        } else {
+            out->files[ri] = NULL;
+        }
+    }
+}
+static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    const uint8_t* dirbits;
+    if (*r) {
+        if (!(dirbits = lscFind(RC__DIR, p, r))) return false;
+    } else {
+        dirbits = NULL;
+    }
+    #endif
+    struct {
+        int len;
+        int size;
+    } ld[RC__DIR + 1] = {0};
+    struct charbuf cb;
+    cb_init(&cb, 256);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    struct membuf dirbmp;
+    mb_init(&dirbmp, 8 * (mods.len + 1));
+    #endif
+    bool ret = false;
+    int dirind = 0;
+    char* dir;
+    while (1) {
+        struct lsstate s;
+        if (p != RCPREFIX_NATIVE) {
+            switch (p) {
+                default:
+                case RCPREFIX_INTERNAL:
+                    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
+                    #endif
+                    if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "internal" PATHSEPSTR "resources", r, NULL);
+                    else if (dirind == mods.len) dir = mkpath(dirs[DIR_INTERNALRC], r, NULL);
+                    else goto longbreak;
+                    break;
+                case RCPREFIX_GAME:
+                    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
+                    #endif
+                    if (dirind < mods.len) dir = mkpath(mods.data[dirind].path, "games", r, NULL);
+                    else if (dirind == mods.len) dir = mkpath(dirs[DIR_GAMES], r, NULL);
+                    else goto longbreak;
+                    break;
+                case RCPREFIX_USER:
+                    #ifndef PSRC_MODULE_SERVER
+                    if (dirind) goto longbreak;
+                    else dir = mkpath(dirs[DIR_USERRC], r, NULL);
+                    #else
+                    goto longbreak;
+                    #endif
+                    break;
+            }
+            bool status = startls(dir, &s);
+            free(dir);
+            if (!status) goto longcont;
+        } else {
+            if (!startls(r, &s)) goto longcont;
+        }
+        const char* n;
+        const char* ln;
+        while (getls(&s, &n, &ln)) {
+            int ind;
+            long unsigned ol = cb.len;
+            {
+                int isfile = isFile(ln);
+                if (isfile > 0) {
+                    cb_addstr(&cb, n);
+                    cb_add(&cb, 0);
+                    again:;
+                    --cb.len;
+                    if (cb.len == ol) continue;
+                    if (cb.data[cb.len] == '.') {
+                        char* tmp = &cb.data[cb.len + 1];
+                        for (int j = 0; j < RC__COUNT; ++j) {
+                            const char* const* exts = rcextensions[j];
+                            do {
+                                if (!strcmp(tmp, *exts)) {
+                                    ind = j;
+                                    goto foundext;
+                                }
+                                ++exts;
+                            } while (*exts);
+                        }
+                        cb.len = ol;
+                        continue;
+                        foundext:;
+                        cb_add(&cb, 0);
+                    } else {
+                        goto again;
+                    }
+                } else if (!isfile) {
+                    cb_addstr(&cb, n);
+                    cb_add(&cb, 0);
+                    ind = RC__DIR;
+                } else {
+                    continue;
+                }
+            }
+            int fi;
+            char* tmp = &cb.data[ol];
+            uint32_t crc = strcrc32(tmp);
+            if (ret) {
+                int i = 0;
+                again2:;
+                if (i < ld[ind].len) {
+                    struct rcls_file* f = &l->files[ind][i];
+                    if (crc == f->namecrc && !strcmp(tmp, &cb.data[(uintptr_t)f->name])) {
+                        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                        ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
+                        #endif
+                        cb.len = ol;
+                        continue;
+                    }
+                    ++i;
+                    goto again2;
+                }
+            }
+            fi = ld[ind].len++;
+            if (!fi) {
+                ld[ind].size = 4;
+                l->files[ind] = rcmgr_malloc(ld[ind].size * sizeof(**l->files));
+            } else if (ld[ind].len == ld[ind].size) {
+                ld[ind].size = ld[ind].size * 3 / 2;
+                l->files[ind] = rcmgr_realloc(l->files[ind], ld[ind].size * sizeof(**l->files));
+            }
+            struct rcls_file* f = &l->files[ind][fi];
+            f->name = (char*)(uintptr_t)ol;
+            f->namecrc = crc;
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            f->dirbits = (uint8_t*)(uintptr_t)dirbmp.len;
+            mb_putz(&dirbmp, (mods.len + 8) / 8);
+            ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
+            #endif
+            //printf("[%d]: [%d]: {%s}\n", fi, ind, &cb.data[ol]);
+        }
+        ret = true;
+        endls(&s);
+        longcont:;
+        ++dirind;
+    }
+    longbreak:;
+    if (ret) {
+        cb.data = rcmgr_realloc(cb.data, cb.len);
+        l->names = cb.data;
+        l->nameslen = cb.len;
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        dirbmp.data = rcmgr_realloc(dirbmp.data, dirbmp.len);
+        l->dirbmp = dirbmp.data;
+        l->dirbmplen = dirbmp.len;
+        #endif
+        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
+            int ct = ld[ri].len;
+            l->count[ri] = ct;
+            if (ct) {
+                struct rcls_file* fl = rcmgr_realloc(l->files[ri], ct * sizeof(**l->files));
+                l->files[ri] = fl;
+                for (int i = 0; i < ct; ++i) {
+                    fl[i].name += (uintptr_t)cb.data;
+                    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    fl[i].dirbits += (uintptr_t)dirbmp.data;
+                    #endif
+                }
+            } else {
+                l->files[ri] = NULL;
+            }
+        }
+    } else {
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        mb_dump(&dirbmp);
+        #endif
+        cb_dump(&cb);
+    }
+    return ret;
+}
+void freeRcLs(struct rcls* l) {
+    free(l->names);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    free(l->dirbmp);
+    #endif
+    for (int i = 0; i < RC__DIR + 1; ++i) {
+        free(l->files[i]);
+    }
+}
+
+static inline void lscFreeDir(struct lscache_dir* d) {
+    free(d->path);
+    freeRcLs(&d->l);
+}
+static inline void lscMoveToFront(int di, bool exists) {
+    #if 0
+    puts("STATE BEFORE");
+    for (int i = 0; i < lscache.size; ++i) {
+        printf("[%d]: [%d,%d]\n", i, lscache.data[i].prev, lscache.data[i].next);
+    }
+    printf("MOVE [%d:%d] TO FRONT [%d,%d]", di, exists, lscache.head, lscache.tail);
+    #endif
+    if (di != lscache.head) {
+        struct lscache_dir* d = &lscache.data[di];
+        d->next = lscache.head;
+        lscache.data[lscache.head].prev = di;
+        lscache.head = di;
+        if (di == lscache.tail) {
+            lscache.tail = d->prev;
+        } else if (exists) {
+            lscache.data[d->prev].next = d->next;
+            lscache.data[d->next].prev = d->prev;
+        }
+    }
+    #if 0
+    printf(" -> [%d,%d]\n", lscache.head, lscache.tail); 
+    puts("STATE AFTER");
+    for (int i = 0; i < lscache.size; ++i) {
+        printf("[%d]: [%d,%d]\n", i, lscache.data[i].prev, lscache.data[i].next);
+    }
+    #endif
+}
+static int lscAdd(void) {
+    if (!lscache.data) {
+        lscache.data = rcmgr_malloc(lscache.size * sizeof(*lscache.data));
+        for (int i = 0; i < lscache.size; ++i) {
+            lscache.data[i].path = NULL;
+        }
+        lscache.head = 0;
+        lscache.tail = 0;
+        return 0;
+    }
+    for (int i = 0; i < lscache.size; ++i) {
+        if (!lscache.data[i].path) {
+            lscMoveToFront(i, false);
+            return i;
+        }
+    }
+    int i = lscache.tail;
+    lscFreeDir(&lscache.data[i]);
+    lscMoveToFront(i, true);
+    return i;
+}
+static void lscDelAll(void) {
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&lscache.lock);
+    #endif
+    if (lscache.data) {
+        for (int i = 0; i < lscache.size; ++i) {
+            if (lscache.data[i].path) lscFreeDir(&lscache.data[i]);
+        }
+        free(lscache.data);
+        lscache.data = NULL;
+    }
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&lscache.lock);
+    #endif
+}
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+static struct rcls* lscGet_len(enum rcprefix p, const char* path, uint32_t crc, int len) {
+    if (!lscache.data) return NULL;
+    int di = lscache.head;
+    while (1) {
+        struct lscache_dir* d = &lscache.data[di];
+        if (d->prefix == p && d->pathcrc == crc && !strncmp(d->path, path, len)) {
+            #ifndef PSRC_NOMT
+            readToWriteAccess(&lscache.lock);
+            #endif
+            lscMoveToFront(di, true);
+            #ifndef PSRC_NOMT
+            writeToReadAccess(&lscache.lock);
+            #endif
+            return &d->l;
+        }
+        if (di == lscache.tail) break;
+        di = d->next;
+    }
+    return NULL;
+}
+#endif
+static struct rcls* lscGet(enum rcprefix p, const char* path, uint32_t crc) {
+    if (!lscache.data) return NULL;
+    int di = lscache.head;
+    while (1) {
+        struct lscache_dir* d = &lscache.data[di];
+        if (d->prefix == p && d->pathcrc == crc && !strcmp(d->path, path)) {
+            #ifndef PSRC_NOMT
+            readToWriteAccess(&lscache.lock);
+            #endif
+            lscMoveToFront(di, true);
+            #ifndef PSRC_NOMT
+            writeToReadAccess(&lscache.lock);
+            #endif
+            return &d->l;
+        }
+        if (di == lscache.tail) break;
+        di = d->next;
+    }
+    return NULL;
+}
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) {
+    //printf("LSCFIND: [%d] [%d] {%s}\n", t, p, path);
+    int spos = 0;
+    const char* f = path;
+    {
+        int i = 0;
+        while (1) {
+            char c = path[i];
+            if (c == '/') {spos = i; f = &path[i + 1];}
+            else if (!c) break;
+            ++i;
+        }
+    }
+    struct rcls* l = lscGet_len(p, path, crc32(path, spos), spos);
+    if (!l) {
+        struct rcls tl;
+        char* tmp = rcmgr_malloc(spos + 1);
+        memcpy(tmp, path, spos);
+        tmp[spos] = 0;
+        if (lsRc_norslv(p, tmp, &tl)) {
+            #ifndef PSRC_NOMT
+            readToWriteAccess(&lscache.lock);
+            #endif
+            int i = lscAdd();
+            lscache.data[i].prefix = p;
+            lscache.data[i].path = tmp;
+            lscache.data[i].pathcrc = strcrc32(tmp);
+            lscache.data[i].l = tl;
+            #ifndef PSRC_NOMT
+            writeToReadAccess(&lscache.lock);
+            #endif
+            l = &lscache.data[i].l;
+        } else {
+            free(tmp);
+            return NULL;
+        }
+    }
+    uint32_t fcrc = strcrc32(f);
+    //printf("FIND: [%08X] {%s}\n", fcrc, f);
+    int ct = l->count[t];
+    struct rcls_file* fl = l->files[t];
+    for (int i = 0; i < ct; ++i) {
+        //printf("CMP [%08X] {%s}\n", fl[i].namecrc, fl[i].name);
+        if (fl[i].namecrc == fcrc && !strcmp(fl[i].name, f)) return fl[i].dirbits;
+    }
+    return NULL;
+}
 #endif
 
 static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
@@ -226,6 +624,68 @@ static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
         return strpath(id);
     match:;
         return restrictpath(id, "/", '/', '_');
+}
+
+bool lsRc(const char* id, bool allownative, struct rcls* l) {
+    enum rcprefix p;
+    char* r = rcIdToPath(id, allownative, &p);
+    if (!r) return false;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    acquireReadAccess(&lscache.lock);
+    #endif
+    bool ret = lsRc_norslv(p, r, l);
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    releaseReadAccess(&lscache.lock);
+    #endif
+    free(r);
+    return ret;
+}
+bool lsCacheRc(const char* id, bool allownative, struct rcls* l) {
+    enum rcprefix p;
+    char* r = rcIdToPath(id, allownative, &p);
+    if (!r) return false;
+    uint32_t rcrc = strcrc32(r);
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&lscache.lock);
+    #endif
+    {
+        struct rcls* tl = lscGet(p, r, rcrc);
+        if (tl) {
+            lsRc_dup(tl, l);
+            #ifndef PSRC_NOMT
+            releaseReadAccess(&lscache.lock);
+            #endif
+            free(r);
+            return true;
+        }
+    }
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    releaseReadAccess(&lscache.lock);
+    #endif
+    bool ret = lsRc_norslv(p, r, l);
+    if (!ret) {
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+        releaseReadAccess(&lscache.lock);
+        #endif
+        free(r);
+        return false;
+    }
+    #ifndef PSRC_NOMT
+    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    acquireWriteAccess(&lscache.lock);
+    #else
+    readToWriteAccess(&lscache.lock);
+    #endif
+    #endif
+    int i = lscAdd();
+    lscache.data[i].prefix = p;
+    lscache.data[i].path = r;
+    lscache.data[i].pathcrc = rcrc;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&lscache.lock);
+    #endif
+    lsRc_dup(l, &lscache.data[i].l);
+    return true;
 }
 
 static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* opt) {
@@ -300,38 +760,102 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
         return true;\
     }\
 } while (0)
+#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) || defined(PSRC_NOMT)
+    #define GRA_TRYFS_UNLOCKLSCRD GRA_TRYFS
+#else
+    #define GRA_TRYFS_UNLOCKLSCRD(...) do {\
+        if (getRcAcc_findInFS(&cb, type, &acc->ext, __VA_ARGS__, NULL) == 1) {\
+            releaseReadAccess(&lscache.lock);\
+            acc->src = RCSRC_FS;\
+            acc->fs.path = cb_finalize(&cb);\
+            return true;\
+        }\
+    } while (0)
+#endif
 static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, uint32_t pathcrc, struct rcaccess* acc) {
     (void)pathcrc;
-    struct charbuf cb;
-    cb_init(&cb, 256);
-    switch ((uint8_t)prefix) {
-        case RCPREFIX_INTERNAL:
-            for (int i = 0; i < mods.len; ++i) {
-                GRA_TRYFS(mods.data[i].path, PATHSEPSTR "internal" PATHSEPSTR "resources", path);
-                cb_clear(&cb);
-            }
-            GRA_TRYFS(dirs[DIR_INTERNALRC], path);
-            break;
-        case RCPREFIX_GAME:
-            for (int i = 0; i < mods.len; ++i) {
-                GRA_TRYFS(mods.data[i].path, PATHSEPSTR "games", path);
-                cb_clear(&cb);
-            }
-            GRA_TRYFS(dirs[DIR_GAMES], path);
-            break;
-        case RCPREFIX_USER:
-            #ifndef PSRC_MODULE_SERVER
-            GRA_TRYFS(dirs[DIR_USERRC], path);
+    switch (prefix) {
+        default:
+        case RCPREFIX_INTERNAL: {
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            #ifndef PSRC_NOMT
+            acquireReadAccess(&lscache.lock);
             #endif
-            break;
-        case RCPREFIX_NATIVE:
-            GRA_TRYFS(path);
-            break;
+            const uint8_t* dirbits = lscFind(type, prefix, path);
+            if (!dirbits) {
+                #ifndef PSRC_NOMT
+                releaseReadAccess(&lscache.lock);
+                #endif
+                return false;
+            }
+            #endif
+            struct charbuf cb;
+            cb_init(&cb, 256);
+            for (int i = 0; i < mods.len; ++i) {
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
+                #endif
+                GRA_TRYFS_UNLOCKLSCRD(mods.data[i].path, PATHSEPSTR "internal" PATHSEPSTR "resources", path);
+                cb_clear(&cb);
+            }
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            bool tmp = !((dirbits[mods.len / 8] >> (mods.len % 8)) & 1);
+            #ifndef PSRC_NOMT
+            releaseReadAccess(&lscache.lock);
+            #endif
+            if (tmp) break;
+            #endif
+            GRA_TRYFS(dirs[DIR_INTERNALRC], path);
+            cb_dump(&cb);
+        } break;
+        case RCPREFIX_GAME: {
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            #ifndef PSRC_NOMT
+            acquireReadAccess(&lscache.lock);
+            #endif
+            const uint8_t* dirbits = lscFind(type, prefix, path);
+            if (!dirbits) {
+                #ifndef PSRC_NOMT
+                releaseReadAccess(&lscache.lock);
+                #endif
+                return false;
+            }
+            #endif
+            struct charbuf cb;
+            cb_init(&cb, 256);
+            for (int i = 0; i < mods.len; ++i) {
+                #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
+                #endif
+                GRA_TRYFS_UNLOCKLSCRD(mods.data[i].path, PATHSEPSTR "games", path);
+                cb_clear(&cb);
+            }
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            bool tmp = !((dirbits[mods.len / 8] >> (mods.len % 8)) & 1);
+            #ifndef PSRC_NOMT
+            releaseReadAccess(&lscache.lock);
+            #endif
+            if (tmp) break;
+            #endif
+            GRA_TRYFS(dirs[DIR_GAMES], path);
+            cb_dump(&cb);
+        } break;
+        case RCPREFIX_USER: {
+            #ifndef PSRC_MODULE_SERVER
+            struct charbuf cb;
+            cb_init(&cb, 256);
+            GRA_TRYFS(dirs[DIR_USERRC], path);
+            cb_dump(&cb);
+            #endif
+        } break;
+        case RCPREFIX_NATIVE: {
+            // TODO: detect `path`'s extension
+        } break;
     }
-    cb_dump(&cb);
     return false;
 }
 #undef GRA_TRYFS
+#undef GRA_TRYFS_UNLOCKLSCRD
 static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
     switch (acc->src) {
         case RCSRC_FS: return ds_openfile(acc->fs.path, 0, ds);
@@ -375,7 +899,7 @@ static struct resource* newRc(enum rctype type) {
         }
     }
     int p = rcgroups[type].pagect++;
-    rcgroups[type].pages = realloc(rcgroups[type].pages, rcgroups[type].pagect * sizeof(*rcgroups[type].pages));
+    rcgroups[type].pages = rcmgr_realloc(rcgroups[type].pages, rcgroups[type].pagect * sizeof(*rcgroups[type].pages));
     void* data = rcmgr_malloc_nolock(16 * rcallocsz[type]);
     rcgroups[type].pages[p].data = data;
     rcgroups[type].pages[p].occ = 1;
@@ -1090,7 +1614,7 @@ static void* rcmgr_realloc_nolock(void* ptr, size_t size) {
 #endif
 
 void clRcCache(void) {
-    //lscDelAll();
+    lscDelAll();
     gcRcs(true);
 }
 
@@ -1127,7 +1651,7 @@ bool initRcMgr(void) {
     #ifndef PSRC_NOMT
     if (!createAccessLock(&rclock)) return false;
     if (!createAccessLock(&mods.lock)) return false;
-    //if (!createAccessLock(&lscache.lock)) return false;
+    if (!createAccessLock(&lscache.lock)) return false;
     #endif
 
     char* tmp = cfg_getvar(&config, "Resource Manager", "gc.ticktime");
@@ -1147,13 +1671,13 @@ bool initRcMgr(void) {
     }
     tmp = cfg_getvar(&config, "Resource Manager", "lscache.size");
     if (tmp) {
-        //lscache.size = atoi(tmp);
-        //if (lscache.size < 1) lscache.size = 1;
+        lscache.size = atoi(tmp);
+        if (lscache.size < 1) lscache.size = 1;
     } else {
         #if PLATFORM != PLAT_NXDK && (PLATFLAGS & (PLATFLAG_UNIXLIKE | PLATFLAG_WINDOWSLIKE))
-        //lscache.size = 32;
+        lscache.size = 32;
         #else
-        //lscache.size = 12;
+        lscache.size = 12;
         #endif
     }
 
@@ -1165,11 +1689,11 @@ bool initRcMgr(void) {
 void quitRcMgr(void) {
     // TODO: del all rc
 
-    //lscDelAll();
+    lscDelAll();
 
     #ifndef PSRC_NOMT
     destroyAccessLock(&rclock);
     destroyAccessLock(&mods.lock);
-    //destroyAccessLock(&lscache.lock);
+    destroyAccessLock(&lscache.lock);
     #endif
 }

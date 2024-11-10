@@ -627,6 +627,7 @@ endef
 define rmdir
 for d in $(1); do if [ -d $$d ]; then echo Removing $$d/...; rm -rf -- $$d; fi; done
 endef
+
 ifndef EMULATOR
 define exec
 '$(dir $(1))$(notdir $(1))' $(RUNFLAGS)
@@ -639,9 +640,10 @@ endif
 
 .SECONDEXPANSION:
 
-inc.null := $(null)
-define inc
-$$(patsubst $(inc.null)\:,,$$(patsubst $(inc.null),,$$(wildcard $$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -xc -MM $(inc.null) $$(wildcard $(1)) -MT $(inc.null)))))
+deps.filter := %.c %.h
+deps.option := -MM
+define deps
+$$(filter $$(deps.filter),,$$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -E $(deps.option) $(1)))
 endef
 
 ifeq ($(TR),y)
@@ -694,7 +696,7 @@ $(OUTDIR):
 $(_OBJDIR):
 	@$(call mkdir,$@ $(OBJDIRS))
 
-$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call inc,$(SRCDIR)/%.c) | $(_OBJDIR) $(TR_FILE)
+$(_OBJDIR)/%.o: $(SRCDIR)/%.c $(call deps,$(SRCDIR)/%.c) | $(_OBJDIR) $(TR_FILE)
 	@echo Compiling $(patsubst $(SRCDIR)/%,%,$<)...
 	@$(_TR_BEFORE) $(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@ $(_TR_AFTER)
 	@echo Compiled $(patsubst $(SRCDIR)/%,%,$<)

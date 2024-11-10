@@ -175,12 +175,21 @@ struct modinfo {
 };
 
 struct rcls_file {
-    char* name;
+    const char* name;
     uint32_t namecrc;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    const uint8_t* dirbits;
+    #endif
 };
 struct rcls {
     char* names;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    uint8_t* dirbmp;
+    #endif
     unsigned nameslen;
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    unsigned dirbmplen;
+    #endif
     unsigned count[RC__DIR + 1];
     struct rcls_file* files[RC__DIR + 1];
 };
@@ -200,7 +209,8 @@ void rlsRc(void*, bool force);
 void lockRc(void*);
 #define unlockRc(r) rlsRc(r, false)
 
-bool lsRc(const char* id, struct rcls*);
+bool lsRc(const char* id, bool allownative, struct rcls*);
+bool lsCacheRc(const char* id, bool allownative, struct rcls* l);
 void freeRcls(struct rcls*);
 
 void loadMods(const char* const* names, int count);

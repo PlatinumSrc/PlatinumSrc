@@ -38,9 +38,9 @@ build_engine() {
 
     FILES=(psrc.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows 2000+ i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' inc.null=NUL
+    buildrel "${1}" "Windows 2000+ i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine '
     OUTPUT="${BASE}_win9x_i686"
-    buildrel "${1}" "Windows 95/98 i686" "${@:2}" CROSS=win32 M32=y USESDL1=y NOMT=y TOOLCHAIN='wine ' inc.null=NUL
+    buildrel "${1}" "Windows 95/98 i686" "${@:2}" CROSS=win32 M32=y USESDL1=y NOMT=y TOOLCHAIN='wine '
 
     FILES=(xiso/default.xbe)
     OUTPUT="${BASE}_nxdk"
@@ -60,7 +60,7 @@ build_server() {
 
     FILES=(psrc-server.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine '
 }
 build_editor() {
     BASE="psrc_editor"
@@ -76,7 +76,7 @@ build_editor() {
 
     FILES=(psrc-editor.exe)
     OUTPUT="${BASE}_windows_i686"
-    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine ' inc.null=NUL
+    buildrel "${1}" "Windows i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine '
 }
 build_tools() {
     BASE="psrc_tools"
@@ -96,7 +96,7 @@ build_tools() {
 }
 
 for i in "${modules[@]}"; do
-    "build_${i}" "${i}" MODULE="${i}" || _exit
+    "build_${i}" "${i}" MODULE="${i}" deps= || _exit
 done
 
 }
