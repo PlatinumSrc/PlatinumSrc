@@ -1018,7 +1018,7 @@ static unsigned int bit_reverse(unsigned int n)
   return (n >> 16) | (n << 16);
 }
 
-static float square(float x)
+static __forceinline float square(float x)
 {
    return x*x;
 }
@@ -1274,7 +1274,7 @@ static void compute_window(int n, float *window)
 {
    int n2 = n >> 1, i;
    for (i=0; i < n2; ++i)
-      window[i] = (float) sin(0.5 * M_PI * square((float) sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));
+      window[i] = (float) sin(0.5f * (float)M_PI * square((float) sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));
 }
 
 static void compute_bitreverse(int n, stbv_uint16 *rev)

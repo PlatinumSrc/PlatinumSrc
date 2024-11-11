@@ -138,12 +138,12 @@ static inline void r_gl_calcViewMat(void) {
     static float sinx, cosx;
     static float siny, cosy;
     static float sinz, cosz;
-    sinx = sin(rotradx);
-    cosx = cos(rotradx);
-    siny = sin(rotrady);
-    cosy = cos(rotrady);
-    sinz = sin(rotradz);
-    cosz = cos(rotradz);
+    sinx = sinf(rotradx);
+    cosx = cosf(rotradx);
+    siny = sinf(rotrady);
+    cosy = cosf(rotrady);
+    sinz = sinf(rotradz);
+    cosz = cosf(rotradz);
     up[0] = sinx * siny * cosz + cosy * sinz;
     up[1] = cosx * cosz;
     up[2] = -sinx * cosy * cosz + siny * sinz;

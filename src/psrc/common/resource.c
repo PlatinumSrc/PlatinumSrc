@@ -92,42 +92,42 @@ struct resource {
         struct {
             struct rc_config config;
             //struct rcopt_config config_opt;
-            void* config_end[];
+            void* config_end;
         };
         struct {
             struct rc_font font;
             //struct rcopt_font font_opt;
-            void* font_end[];
+            void* font_end;
         };
         struct {
             struct rc_map map;
             struct rcopt_map map_opt;
-            void* map_end[];
+            void* map_end;
         };
         struct {
             struct rc_model model;
             struct rcopt_model model_opt;
-            void* model_end[];
+            void* model_end;
         };
         struct {
             struct rc_script script;
             struct rcopt_script script_opt;
-            void* script_end[];
+            void* script_end;
         };
         struct {
             struct rc_sound sound;
             struct rcopt_sound sound_opt;
-            void* sound_end[];
+            void* sound_end;
         };
         struct {
             struct rc_texture texture;
             struct rcopt_texture texture_opt;
-            void* texture_end[];
+            void* texture_end;
         };
         struct {
             struct rc_values values;
             //struct rcopt_values values_opt;
-            void* values_end[];
+            void* values_end;
         };
     };
 };
@@ -312,7 +312,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
             long unsigned ol = cb.len;
             {
                 int isfile = isFile(ln);
-                if (isfile > 0) {
+                if (isfile == 1) {
                     cb_addstr(&cb, n);
                     cb_add(&cb, 0);
                     again:;
@@ -630,11 +630,11 @@ bool lsRc(const char* id, bool allownative, struct rcls* l) {
     enum rcprefix p;
     char* r = rcIdToPath(id, allownative, &p);
     if (!r) return false;
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     acquireReadAccess(&lscache.lock);
     #endif
     bool ret = lsRc_norslv(p, r, l);
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     releaseReadAccess(&lscache.lock);
     #endif
     free(r);
@@ -659,12 +659,12 @@ bool lsCacheRc(const char* id, bool allownative, struct rcls* l) {
             return true;
         }
     }
-    #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+    #if !!defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     releaseReadAccess(&lscache.lock);
     #endif
     bool ret = lsRc_norslv(p, r, l);
     if (!ret) {
-        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_NOMT)
+        #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         releaseReadAccess(&lscache.lock);
         #endif
         free(r);
@@ -744,7 +744,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
         }
         //printf("TRY: {%s}\n", cb_peek(cb));
         int status = isFile(cb_peek(cb));
-        if (status >= 1) {
+        if (status == 1) {
             if (ext) *ext = *exts;
             return status;
         }
@@ -760,7 +760,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
         return true;\
     }\
 } while (0)
-#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) || defined(PSRC_NOMT)
+#if defined(PSRC_NOMT) || !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #define GRA_TRYFS_UNLOCKLSCRD GRA_TRYFS
 #else
     #define GRA_TRYFS_UNLOCKLSCRD(...) do {\
@@ -849,7 +849,27 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             #endif
         } break;
         case RCPREFIX_NATIVE: {
-            // TODO: detect `path`'s extension
+            const char* tmpext = NULL;
+            {
+                const char* tmp = path;
+                char c = *tmp;
+                while (c) {
+                    if (c == '.') tmpext = tmp + 1;
+                    else if (ispathsep(c)) tmpext = NULL;
+                    c = *tmp;
+                }
+            }
+            if (!tmpext || !*tmpext) break;
+            const char* const* exts = rcextensions[type];
+            do {
+                if (!strcasecmp(tmpext, *exts) && isFile(path) == 1) {
+                    acc->src = RCSRC_FS;
+                    acc->ext = *exts;
+                    acc->fs.path = strdup(path);
+                    return true;
+                }
+                ++exts;
+            } while (*exts);
         } break;
     }
     return false;
@@ -881,7 +901,6 @@ static struct resource* newRc(enum rctype type) {
         while (1) {
             if (unocc & 1) {
                 rcgroups[type].pages[p].occ |= 1 << i;
-                //rcgroups[type].pages[p].zref &= ~(1 << i);
                 struct resource* rc = (void*)((char*)rcgroups[type].pages[p].data + i * rcallocsz[type]);
                 rc->header.type = type;
                 rc->header.refs = 1;
@@ -1328,9 +1347,6 @@ static inline void freeRc(enum rctype type, struct resource* rc) {
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Freeing %s '%s:%s'...", rctypenames[rc->header.type], rcprefixnames[rc->header.prefix], rc->header.path);
     #endif
-    rcgroups[type].pages[rc->header.index / 16].occ &= ~(1 << (rc->header.index % 16));
-    rcgroups[type].pages[rc->header.index / 16].zref &= ~(1 << (rc->header.index % 16));
-    --rcgroups[type].zrefct;
     freeRcData(type, rc);
     freeRcHeader(&rc->header);
 }
@@ -1340,11 +1356,13 @@ void rlsRc(void* rp, bool force) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&rclock);
     #endif
-    --rc->header.refs;
     if (force) rc->header.forcefree = 1;
-    if (!rc->header.refs) {
+    if (!--rc->header.refs) {
         enum rctype type = rc->header.type;
         if (rc->header.forcefree) {
+            rcgroups[type].pages[rc->header.index / 16].occ &= ~(1 << (rc->header.index % 16));
+            rcgroups[type].pages[rc->header.index / 16].zref &= ~(1 << (rc->header.index % 16));
+            --rcgroups[type].zrefct;
             freeRc(type, rc);
         } else {
             rc->header.zreftick = rctick;
@@ -1375,7 +1393,7 @@ static inline int loadMods_add(struct charbuf* cb) {
             #endif
             return -1;
         }
-        if (tmp >= 1) {
+        if (tmp) {
             plog(LL_WARN, "'%s' is a file", cb->data);
             return -1;
         }
@@ -1551,7 +1569,12 @@ static void gcRcs_internal(bool ag) {
             while (1) {
                 if (occ & 1 && zref & 1) {
                     struct resource* rc = (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]);
-                    if (ag || rctick - rc->header.zreftick >= gcrcs_freeafter) freeRc(g, rc);
+                    if (ag || rctick - rc->header.zreftick >= gcrcs_freeafter) {
+                        rcgroups[g].pages[p].occ &= ~(1 << i);
+                        rcgroups[g].pages[p].zref &= ~(1 << i);
+                        --rcgroups[g].zrefct;
+                        freeRc(g, rc);
+                    }
                 }
                 if (i == 15) break;
                 ++i;
@@ -1687,7 +1710,24 @@ bool initRcMgr(void) {
 }
 
 void quitRcMgr(void) {
-    // TODO: del all rc
+    for (unsigned g = 0; g < RC__COUNT; ++g) {
+        for (unsigned p = 0; p < rcgroups[g].pagect; ++p) {
+            register uint16_t occ = rcgroups[g].pages[p].occ;
+            if (!occ) continue;
+            unsigned i = 0;
+            while (1) {
+                if (occ & 1) freeRc(g, (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]));
+                if (i == 15) break;
+                ++i;
+                occ >>= 1;
+                //if (!occ) break;
+            }
+            free(rcgroups[g].pages[p].data);
+        }
+        rcgroups[g].pagect = 0;
+        rcgroups[g].zrefct = 0;
+        free(rcgroups[g].pages);
+    }
 
     lscDelAll();
 
