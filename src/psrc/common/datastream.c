@@ -109,7 +109,7 @@ int ds_text_getc(struct datastream* ds) {
     return c;
 }
 
-size_t ds_bin_read(struct datastream* ds, void* b, size_t l) {
+size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
     if (!l) return 0;
     size_t r;
     #if 0

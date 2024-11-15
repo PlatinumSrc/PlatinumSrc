@@ -182,8 +182,7 @@ static void r_gl_updateVSync(void) {
 }
 
 #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
-static void r_gl_rendermodel_legacy(struct p3m* m, struct p3m_vertex* verts) {
-    if (!verts) verts = m->vertices;
+static void r_gl_rendermodel_legacy(struct p3m* m, struct p3m_vertex** transverts) {
     long lt = SDL_GetTicks();
     #if 0
     int vertct = 0;
@@ -194,9 +193,10 @@ static void r_gl_rendermodel_legacy(struct p3m* m, struct p3m_vertex* verts) {
         float tsin = (float)sin(t * 0.179254 * M_PI) * 2.0f;
         float tsin2 = (float)fabs(sin(t * 0.374124 * M_PI));
         float tcos = (float)cos(t * 0.214682 * M_PI) * 0.5f;
-        for (int ig = 0; ig < m->indexgroupcount; ++ig) {
-            uint16_t indcount = m->indexgroups[ig].indexcount;
-            uint16_t* inds = m->indexgroups[ig].indices;
+        for (int p = 0; p < m->partcount; ++p) {
+            uint16_t indcount = m->parts[p].indexcount;
+            uint16_t* inds = m->parts[p].indices;
+            struct p3m_vertex* verts = (transverts) ? transverts[p] : m->parts[p].vertices;
             glBegin(GL_TRIANGLES);
             //glColor3f(1.0f, 1.0f, 1.0f);
             for (uint16_t i = 0; i < indcount; ++i) {
@@ -360,7 +360,7 @@ static void r_gl_render_legacy(void) {
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
-    if (testmodel) r_gl_rendermodel_legacy(testmodel->model, NULL);
+    if (testmodel) r_gl_rendermodel_legacy(&testmodel->model, NULL);
 
     glDepthMask(GL_FALSE);
     glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);

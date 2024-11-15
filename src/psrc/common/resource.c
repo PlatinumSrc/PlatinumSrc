@@ -1002,10 +1002,15 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         } break;
         #endif
         case RC_MODEL: {
-            if (acc.src != RCSRC_FS) goto fail;
             const struct rcopt_model* o = opt;
-            struct p3m* m = p3m_loadfile(acc.fs.path, o->flags);
-            if (!m) goto fail;
+            struct datastream ds;
+            if (!dsFromRcAcc(&acc, &ds)) goto fail;
+            struct p3m m;
+            if (!p3m_load(&ds, o->flags, &m)) {
+                ds_close(&ds);
+                goto fail;
+            }
+            ds_close(&ds);
             rc = newRc(RC_MODEL);
             rc->model.model = m;
             rc->model_opt = *o;
@@ -1326,7 +1331,7 @@ static inline void freeRcHeader(struct rcheader* rh) {
 static void freeRcData(enum rctype type, struct resource* rc) {
     switch (type) {
         case RC_MODEL: {
-            p3m_free(rc->model.model);
+            p3m_free(&rc->model.model);
         } break;
         case RC_SCRIPT: {
             //pb_deletescript(&rc->script.script);

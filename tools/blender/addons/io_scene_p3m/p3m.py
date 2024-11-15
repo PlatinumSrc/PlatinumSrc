@@ -48,6 +48,7 @@ class p3m:
             if byteorder == 'little':
                 f.write(pack(f'<H', len(self.verts) // 5))
                 self.verts.tofile(f)
+                self.norms.tofile(f)
                 f.write(pack(f'<H', len(self.inds)))
                 self.inds.tofile(f)
                 f.write(pack(f'<B', len(self.weights)))

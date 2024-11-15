@@ -3,240 +3,243 @@
 #include "p3m.h"
 
 #include "../debug.h"
+#include "../attribs.h"
 
 #include "filesystem.h"
 #include "logging.h"
 #include "byteorder.h"
+#include "vlb.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define P3M_FILEFLAG_HASANIMATIONS (1 << 0)
-
 #define _STR(x) #x
 #define STR(x) _STR(x)
+#define TOPTR(x) ((void*)(uintptr_t)(x))
 
-static inline bool get8(FILE* f, uint8_t* d) {
-    int tmp = fgetc(f);
-    if (tmp == EOF) return false;
-    *d = tmp;
-    return true;
+#define get8 ds_bin_getc_noerr
+static ALWAYSINLINE uint16_t get16(struct datastream* ds) {
+    uint16_t v;
+    v = ds_bin_getc_noerr(ds);
+    v |= ds_bin_getc_noerr(ds) << 8;
+    return v;
 }
-static inline bool get16(FILE* f, uint16_t* d) {
-    size_t tmp = fread(d, sizeof(*d), 1, f);
-    if (tmp < 1) return false;
-    swapinplacele16(d);
-    return true;
-}
-static inline bool get32(FILE* f, uint32_t* d) {
-    size_t tmp = fread(d, sizeof(*d), 1, f);
-    if (tmp < 1) return false;
-    swapinplacele32(d);
-    return true;
+static inline uint32_t get32(struct datastream* ds) {
+    uint32_t v;
+    v = ds_bin_getc_noerr(ds);
+    v |= ds_bin_getc_noerr(ds) << 8;
+    v |= ds_bin_getc_noerr(ds) << 16;
+    v |= ds_bin_getc_noerr(ds) << 24;
+    return v;
 }
 
 void p3m_free(struct p3m* m) {
-    free(m->vertices);
-    free(m->indices);
-    free(m->indexgroups);
-    free(m->boneverts);
-    free(m->bones);
-    free(m->actiontranslations);
-    free(m->actionrotations);
-    free(m->actionscales);
-    free(m->actioninterps);
-    free(m->actionbones);
-    free(m->actions);
-    free(m->animactions);
+    if (m->partcount) {
+        int i = 0;
+        do {
+            struct p3m_part* p = &m->parts[i++];
+            free(p->vertices);
+            free(p->normals);
+            free(p->indices);
+            if (p->weightgroupcount) {
+                int j = 0;
+                do {
+                    struct p3m_weightgroup* wg = &p->weightgroups[j++];
+                    if (!wg->ranges) continue;
+                    free(wg->ranges->weights);
+                    free(wg->ranges);
+                } while (j < p->weightgroupcount);
+            }
+        } while (i < m->partcount);
+        free(m->parts->weightgroups);
+    }
+    free(m->parts);
+    free(m->materials);
+    for (int i = 0; i < m->texturecount; ++i) {
+        struct p3m_texture* t = &m->textures[i];
+        switch (t->type) {
+            case P3M_TEXTYPE_EMBEDDED:
+                free(t->embedded.data);
+                break;
+            default:
+                break;
+        }
+    }
+    free(m->textures);
+    if (m->animationcount) {
+        free(m->animations->actions);
+    }
     free(m->animations);
+    if (m->actioncount) {
+        free(m->actions->partlist);
+        int i = 0;
+        do {
+            struct p3m_action* a = &m->actions[i++];
+            for (int j = 0; j < a->bonecount; ++j) {
+                struct p3m_actionbone* b = &a->bones[j];
+                free(b->translskips);
+                free(b->translinterps);
+                free(b->transldata);
+            }
+        } while (i < m->actioncount);
+        free(m->actions->bones);
+    }
+    free(m->actions);
     free(m->strings);
-    free(m);
 }
 
-struct p3m* p3m_loadfile(const char* p, uint8_t loadflags) {
-    FILE* f;
-    {
-        int tmp = isFile(p);
-        if (tmp < 1) {
-            if (tmp) {
-                #if DEBUG(1)
-                plog(LL_ERROR | LF_DEBUG | LF_FUNC, LE_NOEXIST(p));
-                #endif
-            } else {
-                plog(LL_ERROR | LF_FUNC, LE_ISDIR(p));
-            }
-            return NULL;
-        }
-        f = fopen(p, "rb");
-        if (!f) {
-            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-            return NULL;
-        }
-    }
-    struct p3m* m = calloc(1, sizeof(*m));
-    if (!m) {
-        plog(LL_ERROR | LF_FUNC, LE_MEMALLOC);
-        fclose(f);
-        return NULL;
-    }
+#define P3M_LOAD_EOSERR(lbl) do {plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream"); goto lbl;} while (0)
+#define P3M_LOAD_OOMERR(lbl) do {plog(LL_ERROR | LF_FUNCLN, LE_MEMALLOC); goto lbl;} while (0)
+bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG | LF_FUNC, "Checking header...");
     #endif
     {
-        char h[4];
-        fread(h, 1, 4, f);
-        if (h[0] != 'P' || h[1] != '3' || h[2] != 'M' || h[3] != 0) {
+        char h[3];
+        if (ds_bin_read(ds, 3, h) != 3) {
+            plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
+            return false;
+        }
+        if (h[0] != 'P' || h[1] != '3' || h[2] != 'M') {
             plog(
                 LL_ERROR | LF_FUNC,
-                "P3M header magic wrong (%02X %02X %02X %02X != 50 33 4D 00)",
-                h[0], h[1], h[2], h[3]
+                "P3M header magic wrong (expected 50 33 4D, got %02X %02X %02X)",
+                h[0], h[1], h[2]
             );
-            goto retnull;
+            return false;
         }
     }
     {
-        uint8_t v[2] = {fgetc(f), fgetc(f)};
-        if (v[0] != P3M_VER_MAJOR || v[1] != P3M_VER_MINOR) {
-            plog(LL_ERROR | LF_FUNC, "P3M version wrong (%d.%d != " STR(P3M_VER_MAJOR) "." STR(P3M_VER_MINOR) ")", v[0], v[1]);
-            goto retnull;
+        int v = ds_bin_getc(ds);
+        if (v == DS_END) {
+            plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
+            return false;
+        }
+        if (v != P3M_VER) {
+            plog(LL_ERROR | LF_FUNC, "P3M version wrong (expected " STR(P3M_VER) ", got %d)", v);
+            return false;
         }
     }
-    fseek(f, -1, SEEK_END);
-    #if DEBUG(1)
-    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Checking string table...");
-    #endif
-    if (fgetc(f) != 0) {
-        plog(LL_ERROR | LF_FUNC, "P3M string table is not null-terminated");
-        goto retnull;
+    {
+        int f = ds_bin_getc(ds);
+        if (f == DS_END) {
+            plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
+            return false;
+        }
     }
-    fseek(f, 6, SEEK_SET);
-    uint8_t flags = fgetc(f);
-    #if DEBUG(1)
-    if (flags & P3M_FILEFLAG_HASANIMATIONS) {
-        plog(LL_INFO | LF_DEBUG | LF_FUNC, "File has animations");
-    }
-    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading data...");
-    #endif
-    if (loadflags & P3M_LOADFLAG_IGNOREVERTS) {
-        #if DEBUG(1)
-        plog(LL_INFO | LF_DEBUG | LF_FUNC, "  Ignoring vertex data");
-        #endif
-        {
-            uint16_t vertexcount;
-            if (!get16(f, &vertexcount)) {
-                plog(LL_ERROR | LF_FUNC, LE_EOF);
-                goto retnull;
-            }
-            fseek(f, vertexcount * sizeof(struct p3m_vertex), SEEK_CUR);
-        }
-        {
-            uint8_t indexgroupcount;
-            if (!get8(f, &indexgroupcount)) {
-                plog(LL_ERROR | LF_FUNC, LE_EOF);
-                goto retnull;
-            }
-            for (int i = 0; i < indexgroupcount; ++i) {
-                fseek(f, sizeof(uint16_t), SEEK_CUR);
-                uint16_t indexcount;
-                if (!get16(f, &indexcount)) {
-                    plog(LL_ERROR | LF_FUNC, LE_EOF);
-                    goto retnull;
-                }
-                fseek(f, indexcount * sizeof(uint16_t), SEEK_CUR);
-            }
-        }
-    } else {
-        if (!get16(f, &m->vertexcount)) {
-            plog(LL_ERROR | LF_FUNC, LE_EOF);
-            goto retnull;
-        }
-        {
-            struct p3m_vertex* data = malloc(m->vertexcount * sizeof(*data));
-            if (!data) {
-                plog(LL_ERROR | LF_FUNC, LE_MEMALLOC);
-                goto retnull;
-            }
-            m->vertices = data;
-            fread(data, sizeof(*data), m->vertexcount, f);
-            #if BYTEORDER == BO_BE
-            for (int i = 0; i < m->vertexcount; ++i) {
-                swapinplacele32((uint32_t*)&data->x);
-                swapinplacele32((uint32_t*)&data->y);
-                swapinplacele32((uint32_t*)&data->z);
-                swapinplacele32((uint32_t*)&data->u);
-                swapinplacele32((uint32_t*)&data->v);
-                ++data;
-            }
-            #endif
-        }
-        if (!get8(f, &m->indexgroupcount)) {
-            plog(LL_ERROR | LF_FUNC, LE_EOF);
-            goto retnull;
-        }
-        {
-            struct p3m_indexgroup* data = malloc(m->indexgroupcount * sizeof(*data));
-            if (!data) {
-                plog(LL_ERROR | LF_FUNC, LE_MEMALLOC);
-                goto retnull;
-            }
-            m->indexgroups = data;
-            long fpos = ftell(f);
-            int indcount = 0;
-            for (int i = 0; i < m->indexgroupcount; ++i) {
-                uint16_t tmp;
-                if (!get16(f, &tmp)) {
-                    plog(LL_ERROR | LF_FUNC, LE_EOF);
-                    goto retnull;
-                }
-                data->texture = (char*)(uintptr_t)tmp;
-                if (!get16(f, &tmp)) {
-                    plog(LL_ERROR | LF_FUNC, LE_EOF);
-                    goto retnull;
-                }
-                data->indexcount = tmp;
-                fseek(f, tmp * sizeof(uint16_t), SEEK_CUR);
-                data->indices = (uint16_t*)(uintptr_t)indcount;
-                indcount += tmp;
-                ++data;
-            }
-            m->indices = malloc(indcount * sizeof(*m->indices));
-            if (!m->indices) {
-                plog(LL_ERROR | LF_FUNC, LE_MEMALLOC);
-                goto retnull;
-            }
-            data = m->indexgroups;
-            fseek(f, fpos, SEEK_SET);
-            for (int g = 0; g < m->indexgroupcount; ++g) {
-                fseek(f, 2 * sizeof(uint16_t), SEEK_CUR);
-                data->indices = &m->indices[(uintptr_t)data->indices];
-                uint16_t* data2 = data->indices;
-                fread(data2, sizeof(*data2), data->indexcount, f);
+    memset(m, 0, sizeof(*m));
+    if (!(lf & P3M_LOADFLAG_IGNOREGEOM)) {
+        uint8_t partct = get8(ds);
+        if (partct) {
+            if (ds_bin_read(ds, (partct + 7) / 8, m->vismask) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
+            if (!(m->parts = malloc(partct * sizeof(*m->parts)))) P3M_LOAD_OOMERR(retfalse);
+            unsigned totalwgct = 0;
+            unsigned parti = 0;
+            do {
+                struct p3m_part* p = &m->parts[parti++];
+                m->partcount = parti;
+                p->normals = NULL;
+                p->indices = NULL;
+                p->weightgroups = TOPTR(totalwgct);
+                p->weightgroupcount = 0;
+                uint8_t f = get8(ds);
+                p->name = TOPTR(get16(ds));
+                p->material = TOPTR(get8(ds));
+                uint16_t vertct = get16(ds);
+                if (!(p->vertices = malloc(vertct * sizeof(*p->vertices)))) P3M_LOAD_OOMERR(retfalse);
+                if (ds_bin_read(ds, vertct * 4 * 5, p->vertices) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
-                for (int i = 0; i < data->indexcount; ++i) {
-                    swapinplacele16(data2);
-                    ++data2;
+                for (unsigned i = 0; i < vertct; ++i) {
+                    struct p3m_vertex* v = &p->vertices[i];
+                    *(uint32_t*)v->x = swaple32(*(uint32_t*)v->x);
+                    *(uint32_t*)v->y = swaple32(*(uint32_t*)v->y);
+                    *(uint32_t*)v->z = swaple32(*(uint32_t*)v->z);
+                    *(uint32_t*)v->u = swaple32(*(uint32_t*)v->u);
+                    *(uint32_t*)v->v = swaple32(*(uint32_t*)v->v);
                 }
-                data2 = data->indices;
                 #endif
-                for (int i = 0; i < data->indexcount; ++i) {
-                    if (*data2 >= m->vertexcount) {
-                        plog(LL_ERROR | LF_FUNC, "Index %d of group %d is out of bounds (%d >= %d)", i, g, *data2, m->vertexcount);
-                        goto retnull;
+                if (f & P3M_FILEFLAG_PART_HASNORMS) {
+                    if (!(p->normals = malloc(vertct * sizeof(*p->vertices)))) P3M_LOAD_OOMERR(retfalse);
+                    if (ds_bin_read(ds, vertct * 4 * 3, p->normals) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
+                    #if BYTEORDER == BO_BE
+                    for (unsigned i = 0; i < vertct; ++i) {
+                        struct p3m_normal* n = &p->normals[i];
+                        *(uint32_t*)n->x = swaple32(*(uint32_t*)n->x);
+                        *(uint32_t*)n->y = swaple32(*(uint32_t*)n->y);
+                        *(uint32_t*)n->z = swaple32(*(uint32_t*)n->z);
                     }
-                    ++data2;
+                    #endif
                 }
-                ++data;
+                uint16_t indct = get16(ds);
+                p->indexcount = indct;
+                if (!(p->indices = malloc(indct * sizeof(*p->indices)))) P3M_LOAD_OOMERR(retfalse);
+                if (ds_bin_read(ds, indct * 2, p->indices) != indct * 2) P3M_LOAD_EOSERR(retfalse);
+                for (unsigned i = 0; i < indct; ++i) {
+                    #if BYTEORDER == BO_BE
+                    p->indices[i] = swaple16(p->indices[i]);
+                    #endif
+                    if (p->indices[i] >= vertct) {
+                        plog(LL_ERROR | LF_FUNCLN, "Index %u of part %u is out of range (%u >= %u)", i, parti - 1, p->indices[i], vertct);
+                        goto retfalse;
+                    }
+                }
+                uint8_t wgct = get8(ds);
+                if (wgct) {
+                    if (!(m->parts->weightgroups = realloc(m->parts->weightgroups, (totalwgct + wgct) * sizeof(*m->parts->weightgroups)))) P3M_LOAD_OOMERR(retfalse);
+                    unsigned wgi = 0;
+                    do {
+                        struct p3m_weightgroup* wg = &m->parts->weightgroups[totalwgct + wgi++];
+                        struct VLB(struct p3m_weightrange) wrvlb;
+                        VLB_INIT(wrvlb, 4, P3M_LOAD_OOMERR(retfalse););
+                        wrvlb.data->weights = NULL;
+                        struct VLB(uint8_t) wvlb;
+                        VLB_INIT(wvlb, 64, VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                        p->weightgroupcount = wgi;
+                        wg->name = TOPTR(get16(ds));
+                        wg->ranges = NULL;
+                        unsigned totalwct = 0;
+                        while (1) {
+                            struct p3m_weightrange* wr;
+                            VLB_NEXTPTR(wrvlb, wr, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                            totalwct += (wr->skip = get16(ds));
+                            totalwct += (wr->weightcount = get16(ds));
+                            if (totalwct > vertct) {
+                                VLB_FREE(wvlb);
+                                VLB_FREE(wrvlb);
+                                plog(LL_ERROR | LF_FUNCLN, "Weight group %u of part %u has too many weights (%u > %u)", wgi - 1, parti - 1, totalwct, vertct);
+                                goto retfalse;
+                            }
+                            if (!wr->weightcount) break;
+                            wr->weights = TOPTR(wvlb.len);
+                            VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                            if (ds_bin_read(ds, wr->weightcount, wvlb.data + wvlb.len) != wr->weightcount) {
+                                VLB_FREE(wvlb);
+                                VLB_FREE(wrvlb);
+                                P3M_LOAD_EOSERR(retfalse);
+                            }
+                        }
+                        VLB_SHRINK(wvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                        VLB_SHRINK(wrvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                        wg->ranges = wrvlb.data;
+                        wrvlb.data->weights = wvlb.data;
+                        ++wrvlb.data;
+                        while (wrvlb.data->weightcount) {
+                            wrvlb.data->weights = wvlb.data + (uintptr_t)wrvlb.data->weights;
+                            ++wrvlb.data;
+                        }
+                    } while (wgi < wgct);
+                    totalwgct += wgct;
+                }
+            } while (parti < partct);
+            for (parti = 1; parti < partct; ++parti) {
+                struct p3m_part* p = &m->parts[parti];
+                p->weightgroups = m->parts->weightgroups + (uintptr_t)p->weightgroups;
             }
         }
     }
-    if (flags & P3M_FILEFLAG_HASANIMATIONS) {
-        
-    }
-    fclose(f);
-    return m;
-    retnull:;
-    fclose(f);
+    return true;
+    retfalse:;
     p3m_free(m);
-    return NULL;
+    return false;
 }

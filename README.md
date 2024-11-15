@@ -188,7 +188,7 @@ https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5
         - `ONLYBIN` - Set to `y` to skip making a disc image.
         - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)
         - `M32` - Set to `y` to produce a 32-bit binary
-        - `NATIVE` - Set to `y` to tune build for native system
+        - `NATIVE` - Set to `y` to tune the build for the native system
         - `DEBUG` - Enable debug symbols and messages
             - `0` - Symbols only
             - `1` - Basic messages

@@ -54,15 +54,28 @@ struct datastream {
 void ds_openmem(void* buf, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream*);
 bool ds_openfile(const char* path, size_t bufsz, struct datastream*);
 void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream*);
-size_t ds_bin_read(struct datastream*, void* outbuf, size_t len);
+
+size_t ds_bin_read(struct datastream*, size_t len, void* outbuf);
+static ALWAYSINLINE int ds_bin_getc(struct datastream*);
+static ALWAYSINLINE bool ds_bin_atend(struct datastream*);
+
 int ds_text_getc(struct datastream*);
+static inline int ds_text_getc_inline(struct datastream*);
+static inline int ds_text_getc_fullinline(struct datastream*);
+static ALWAYSINLINE void ds_text_ungetc(struct datastream*, uint8_t);
+static ALWAYSINLINE bool ds_text_atend(struct datastream*);
+
 void ds_close(struct datastream*);
 
 bool ds__refill(struct datastream*);
 int ds_text__getc(struct datastream*);
 
-static inline int ds_bin_getc(struct datastream* ds) {
+static ALWAYSINLINE int ds_bin_getc(struct datastream* ds) {
     if (ds->pos == ds->datasz && !ds__refill(ds)) return DS_END;
+    return ds->buf[ds->pos++];
+}
+static ALWAYSINLINE uint8_t ds_bin_getc_noerr(struct datastream* ds) {
+    if (ds->pos == ds->datasz && !ds__refill(ds)) return 0;
     return ds->buf[ds->pos++];
 }
 
@@ -88,12 +101,15 @@ static inline int ds_text_getc_fullinline(struct datastream* ds) {
     } while (c == '\r' || !c);
     return c;
 }
-static inline void ds_text_ungetc(struct datastream* ds, uint8_t c) {
+static ALWAYSINLINE void ds_text_ungetc(struct datastream* ds, uint8_t c) {
     ds->unget = 1;
     ds->last = c;
 }
 
-static inline bool ds_atend(struct datastream* ds) {
+static ALWAYSINLINE bool ds_bin_atend(struct datastream* ds) {
+    return ds->atend;
+}
+static ALWAYSINLINE bool ds_text_atend(struct datastream* ds) {
     return (!ds->unget && ds->atend);
 }
 

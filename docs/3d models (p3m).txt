@@ -13,7 +13,7 @@ Format:
         <u8: Major version>
         <u8: Flags (reserved)>
     Data:
-        <u8: Part count> <u8[0..32]: Part visibility bitmask (LSB to MSB)> [Part]...
+        <u8: Part count> <u8[0..32]: Part visibility bitmask (LSByte to MSByte)> [Part]...
         <u8: Material count> [Material]...
         <u8: Texture count> [Texture]...
         <u8: Bone count> [Bone]...
@@ -70,10 +70,10 @@ Format:
     Action:
         <u32: Microseconds per frame>
         <u8:
-            { P3M_ACTPARTVIS_DEFAULTWHITE (use vis mask and add listed)
-            | P3M_ACTPARTVIS_DEFAULTBLACK (use vis mask and remove listed)
-            | P3M_ACTPARTVIS_WHITE (no parts except listed)
-            | P3M_ACTPARTVIS_BLACK (all parts except listed) }
+            { P3M_ACTPARTLISTMODE_DEFAULTWHITE (use vis mask and add listed)
+            | P3M_ACTPARTLISTMODE_DEFAULTBLACK (use vis mask and remove listed)
+            | P3M_ACTPARTLISTMODE_WHITE (no parts except listed)
+            | P3M_ACTPARTLISTMODE_BLACK (all parts except listed) }
         >
         <u8: Part count> <<String>: Part name>...
         <u8: Bone count> [Action data]...

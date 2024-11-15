@@ -93,7 +93,7 @@ struct rcopt_map {
 
 // RC_MODEL
 struct rc_model {
-    struct p3m* model;
+    struct p3m model;
 };
 #pragma pack(push, 1)
 struct rcopt_model {
