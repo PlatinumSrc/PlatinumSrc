@@ -142,6 +142,25 @@ size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
     ds->pos += l;
     return r + l;
 }
+size_t ds_bin_skip(struct datastream* ds, size_t l) {
+    if (!l) return 0;
+    size_t r = 0;
+    size_t a = ds->datasz - ds->pos;
+    if (!a) {
+        if (!ds__refill(ds)) return r;
+        a = ds->datasz - ds->pos;
+        if (!a) return r;
+    }
+    while (a < l) {
+        r += a;
+        l -= a;
+        if (!ds__refill(ds)) return r;
+        a = ds->datasz - ds->pos;
+        if (!a) return r;
+    }
+    ds->pos += l;
+    return r + l;
+}
 
 int ds_text__getc(struct datastream* ds) {
     return ds_text__getc_inline(ds);

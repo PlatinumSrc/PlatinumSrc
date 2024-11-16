@@ -57,6 +57,7 @@ void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb c
 
 size_t ds_bin_read(struct datastream*, size_t len, void* outbuf);
 static ALWAYSINLINE int ds_bin_getc(struct datastream*);
+size_t ds_bin_skip(struct datastream*, size_t len);
 static ALWAYSINLINE bool ds_bin_atend(struct datastream*);
 
 int ds_text_getc(struct datastream*);
