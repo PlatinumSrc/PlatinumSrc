@@ -33,17 +33,25 @@ static inline uint32_t get32(struct datastream* ds) {
     v |= ds_bin_getc_noerr(ds) << 24;
     return v;
 }
+static inline float getf32(struct datastream* ds) {
+    uint32_t v;
+    v = ds_bin_getc_noerr(ds);
+    v |= ds_bin_getc_noerr(ds) << 8;
+    v |= ds_bin_getc_noerr(ds) << 16;
+    v |= ds_bin_getc_noerr(ds) << 24;
+    return *(float*)&v;
+}
 
 void p3m_free(struct p3m* m) {
     if (m->partcount) {
-        int i = 0;
+        unsigned i = 0;
         do {
             struct p3m_part* p = &m->parts[i++];
             free(p->vertices);
             free(p->normals);
             free(p->indices);
             if (p->weightgroupcount) {
-                int j = 0;
+                unsigned j = 0;
                 do {
                     free(p->weightgroups[j].ranges->weights);
                     free(p->weightgroups[j].ranges);
@@ -55,7 +63,7 @@ void p3m_free(struct p3m* m) {
     }
     free(m->parts);
     free(m->materials);
-    for (int i = 0; i < m->texturecount; ++i) {
+    for (unsigned i = 0; i < m->texturecount; ++i) {
         struct p3m_texture* t = &m->textures[i];
         switch (t->type) {
             case P3M_TEXTYPE_EMBEDDED:
@@ -66,17 +74,17 @@ void p3m_free(struct p3m* m) {
         }
     }
     free(m->textures);
+    free(m->bones);
     if (m->animationcount) {
         free(m->animations->actions);
     }
-    free(m->bones);
     free(m->animations);
     if (m->actioncount) {
         free(m->actions->partlist);
-        int i = 0;
+        unsigned i = 0;
         do {
             struct p3m_action* a = &m->actions[i++];
-            for (int j = 0; j < a->bonecount; ++j) {
+            for (unsigned j = 0; j < a->bonecount; ++j) {
                 struct p3m_actionbone* b = &a->bones[j];
                 free(b->translskips);
                 free(b->translinterps);
@@ -266,8 +274,8 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         uint8_t matct = get8(ds);
         if (matct) {
-            m->materialcount = matct;
             if (!(m->materials = malloc(matct * sizeof(*m->materials)))) P3M_LOAD_OOMERR(retfalse);
+            m->materialcount = matct;
             unsigned mati = 0;
             do {
                 struct p3m_material* mat = &m->materials[mati];
@@ -279,8 +287,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 if (ds_bin_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
                 if (ds_bin_read(ds, 3, &mat->emission) != 3) P3M_LOAD_EOSERR(retfalse);
                 mat->shading = get8(ds);
-                ++mati;
-            } while (mati < matct);
+            } while (++mati < matct);
         }
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Validating part material indices...");
@@ -290,7 +297,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             if ((uintptr_t)p->material < matct) {
                 p->material = m->materials + (uintptr_t)p->material;
             } else {
-                plog(LL_ERROR | LF_FUNCLN, "Material of part %u is invalid (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
+                plog(LL_ERROR | LF_FUNCLN, "Material of part %u is out of bounds (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
                 goto retfalse;
             }
         }
@@ -339,7 +346,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             } else if ((uintptr_t)mat->texture < texct) {
                 mat->texture = m->textures + (uintptr_t)mat->texture;
             } else {
-                plog(LL_ERROR | LF_FUNCLN, "Texture of material %u is invalid (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
+                plog(LL_ERROR | LF_FUNCLN, "Texture of material %u is out of bounds (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
                 goto retfalse;
             }
         }
@@ -380,10 +387,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         uint8_t matct = get8(ds);
         for (unsigned mati = 0; mati < matct; ++mati) {
-            get8(ds);
-            get8(ds);
-            if (ds_bin_skip(ds, 7) != 7) P3M_LOAD_EOSERR(retfalse);
-            get8(ds);
+            if (ds_bin_skip(ds, 10) != 10) P3M_LOAD_EOSERR(retfalse);
         }
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping textures...");
@@ -412,8 +416,8 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         uint8_t bonect = get8(ds);
         if (bonect) {
-            m->bonecount = bonect;
             if (!(m->bones = malloc(bonect * sizeof(*m->bones)))) P3M_LOAD_OOMERR(retfalse);
+            m->bonecount = bonect;
             unsigned bonei = 0;
             do {
                 struct p3m_bone* b = &m->bones[bonei];
@@ -432,11 +436,10 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 #endif
                 b->childcount = get8(ds);
                 if (b->childcount >= bonect - bonei) {
-                    plog(LL_ERROR | LF_FUNCLN, "Child count of bone %u is invalid (got %u, expected less than %u)", bonei, b->childcount, bonect - bonei);
+                    plog(LL_ERROR | LF_FUNCLN, "Child count of bone %u is too large (got %u, expected less than %u)", bonei, b->childcount, bonect - bonei);
                     goto retfalse;
                 }
-                ++bonei;
-            } while (bonei < bonect);
+            } while (++bonei < bonect);
         }
     } else {
         #if DEBUG(1)
@@ -449,13 +452,191 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             get8(ds);
         }
     }
-    if (0 && !(lf & P3M_LOADFLAG_IGNOREANIMS)) {
+    if (!(lf & P3M_LOADFLAG_IGNOREANIMS)) {
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading animations...");
         #endif
+        uint8_t animct = get8(ds);
+        if (animct) {
+            if (!(m->animations = malloc(animct * sizeof(*m->animations)))) P3M_LOAD_OOMERR(retfalse);
+            struct VLB(struct p3m_animationactref) actrefvlb;
+            VLB_INIT(actrefvlb, 16, P3M_LOAD_OOMERR(retfalse););
+            m->animationcount = animct;
+            unsigned animi = 0;
+            do {
+                struct p3m_animation* a = &m->animations[animi];
+                a->name = TOPTR(get16(ds));
+                uint8_t actct = get8(ds);
+                a->actioncount = actct;
+                uintptr_t oldlen = actrefvlb.len;
+                a->actions = TOPTR(oldlen);
+                VLB_EXP(actrefvlb, actct, 3, 2, VLB_FREE(actrefvlb); P3M_LOAD_OOMERR(retfalse););
+                for (unsigned acti = 0; acti < actct; ++acti) {
+                    struct p3m_animationactref* r = &actrefvlb.data[oldlen + acti];
+                    r->action = TOPTR(get8(ds));
+                    r->speed = getf32(ds);
+                    r->start = get16(ds);
+                    r->end = get16(ds);
+                }
+            } while (++animi < animct);
+            VLB_SHRINK(actrefvlb, VLB_FREE(actrefvlb); P3M_LOAD_OOMERR(retfalse););
+            m->animations->actions = actrefvlb.data;
+            for (animi = 1; animi < animct; ++animi) {
+                struct p3m_animation* a = &m->animations[animi];
+                a->actions = actrefvlb.data + (uintptr_t)a->actions;
+            }
+        }
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading actions...");
         #endif
+        uint8_t actct = get8(ds);
+        if (actct) {
+            if (!(m->actions = malloc(actct * sizeof(*m->actions)))) P3M_LOAD_OOMERR(retfalse);
+            m->actions->partlist = NULL;
+            m->actions->bones = NULL;
+            struct VLB(char*) plvlb;
+            VLB_INIT(plvlb, 16, P3M_LOAD_OOMERR(retfalse););
+            m->actioncount = actct;
+            unsigned acti = 0;
+            do {
+                struct p3m_action* a = &m->actions[acti];
+                a->frametime = get32(ds);
+                a->partlistmode = get8(ds);
+                if (a->partlistmode >= P3M_ACTPARTLISTMODE__COUNT) {
+                    VLB_FREE(plvlb);
+                    plog(
+                        LL_ERROR | LF_FUNCLN,
+                        "Part list mode of action %u is invalid (got %u, expected less than %u)",
+                        acti - 1, a->partlistmode, P3M_ACTPARTLISTMODE__COUNT
+                    );
+                    goto retfalse;
+                }
+                uint8_t pllen = get8(ds);
+                a->partlistlen = pllen;
+                uintptr_t ploldlen = plvlb.len;
+                a->partlist = TOPTR(ploldlen);
+                VLB_EXP(plvlb, pllen, 3, 2, VLB_FREE(plvlb); P3M_LOAD_OOMERR(retfalse););
+                for (unsigned parti = 0; parti < pllen; ++parti) {
+                    plvlb.data[ploldlen + parti] = TOPTR(get16(ds));
+                }
+                uint8_t bonect = get8(ds);
+                a->bonecount = 0;
+                if (!(a->bones = malloc(bonect * sizeof(*a->bones)))) {
+                    VLB_FREE(plvlb);
+                    P3M_LOAD_OOMERR(retfalse);
+                }
+                unsigned bonei = 0;
+                do {
+                    struct p3m_actionbone* b = &a->bones[bonei++];
+                    b->name = TOPTR(get16(ds));
+                    uint8_t translct = get8(ds);
+                    uint8_t rotct = get8(ds);
+                    uint8_t scalect = get8(ds);
+                    size_t sz = translct + rotct + scalect;
+                    b->translcount = translct;
+                    b->rotcount = rotct;
+                    b->scalecount = scalect;
+                    if (!(b->translskips = malloc(sz * sizeof(*b->translskips)))) {
+                        VLB_FREE(plvlb);
+                        P3M_LOAD_OOMERR(retfalse);
+                    }
+                    a->bonecount = bonei;
+                    b->rotskips = b->translskips + translct;
+                    b->scaleskips = b->rotskips + rotct;
+                    if (!(b->translinterps = malloc(sz * sizeof(*b->translinterps)))) {
+                        VLB_FREE(plvlb);
+                        b->transldata = NULL;
+                        P3M_LOAD_OOMERR(retfalse);
+                    }
+                    b->rotinterps = b->translinterps + translct;
+                    b->scaleinterps = b->rotinterps + rotct;
+                    if (!(b->transldata = malloc(sz * sizeof(*b->transldata)))) {
+                        VLB_FREE(plvlb);
+                        P3M_LOAD_OOMERR(retfalse);
+                    }
+                    b->rotdata = b->transldata + translct;
+                    b->scaledata = b->rotdata + rotct;
+                    if (ds_bin_read(ds, sz, b->translskips) != sz) {
+                        VLB_FREE(plvlb);
+                        P3M_LOAD_OOMERR(retfalse);
+                    }
+                    for (size_t i = 0; i < translct; ++i) {
+                        uint8_t tmp = get8(ds);
+                        if (tmp >= P3M_ACTINTERP__COUNT) {
+                            VLB_FREE(plvlb);
+                            plog(
+                                LL_ERROR | LF_FUNCLN,
+                                "Translation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
+                                i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
+                            );
+                            goto retfalse;
+                        }
+                        b->translinterps[i] = tmp;
+                    }
+                    for (size_t i = 0; i < rotct; ++i) {
+                        uint8_t tmp = get8(ds);
+                        if (tmp >= P3M_ACTINTERP__COUNT) {
+                            VLB_FREE(plvlb);
+                            plog(
+                                LL_ERROR | LF_FUNCLN,
+                                "Rotation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
+                                i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
+                            );
+                            goto retfalse;
+                        }
+                        b->rotinterps[i] = tmp;
+                    }
+                    for (size_t i = 0; i < scalect; ++i) {
+                        uint8_t tmp = get8(ds);
+                        if (tmp >= P3M_ACTINTERP__COUNT) {
+                            VLB_FREE(plvlb);
+                            plog(
+                                LL_ERROR | LF_FUNCLN,
+                                "Scale interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
+                                i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
+                            );
+                            goto retfalse;
+                        }
+                        b->scaleinterps[i] = tmp;
+                    }
+                    if (ds_bin_read(ds, sz * 4 * 3, b->transldata) != sz * 4 * 3) {
+                        VLB_FREE(plvlb);
+                        P3M_LOAD_OOMERR(retfalse);
+                    }
+                    #if BYTEORDER == BO_BE
+                    for (size_t i = 0; i < sz; ++i) {
+                        *(uint32_t*)&b->transldata[i][0] = swaple32(*(uint32_t*)&b->transldata[i][0]);
+                        *(uint32_t*)&b->transldata[i][1] = swaple32(*(uint32_t*)&b->transldata[i][1]);
+                        *(uint32_t*)&b->transldata[i][2] = swaple32(*(uint32_t*)&b->transldata[i][2]);
+                    }
+                    #endif
+                } while (bonei < bonect);
+            } while (++acti < actct);
+            VLB_SHRINK(plvlb, VLB_FREE(plvlb); P3M_LOAD_OOMERR(retfalse););
+            for (acti = 0; acti < actct; ++acti) {
+                struct p3m_action* a = &m->actions[acti];
+                a->partlist = plvlb.data + (uintptr_t)a->partlist;
+            }
+        }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Validating animation action indices...");
+        #endif
+        for (unsigned animi = 0; animi < animct; ++animi) {
+            struct p3m_animation* a = &m->animations[animi];
+            for (unsigned acti = 0; acti < a->actioncount; ++acti) {
+                struct p3m_animationactref* r = &a->actions[acti];
+                if ((uintptr_t)r->action < actct) {
+                    r->action = m->actions + (uintptr_t)r->action;
+                } else {
+                    plog(
+                        LL_ERROR | LF_FUNCLN,
+                        "Action reference %u of animation %u is out of range (got %u, expected less than %u)",
+                        acti, animi, (unsigned)(uintptr_t)r->action, actct
+                    );
+                    goto retfalse;
+                }
+            }
+        }
     } else {
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping animations...");
@@ -465,7 +646,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             get16(ds);
             uint8_t actrefct = get8(ds);
             for (unsigned actrefi = 0; actrefi < actrefct; ++actrefi) {
-                if (ds_bin_skip(ds, 1 + 4 + 2 * 2) != 1 + 4 + 2 * 2) P3M_LOAD_EOSERR(retfalse);
+                if (ds_bin_skip(ds, 9) != 9) P3M_LOAD_EOSERR(retfalse);
             }
         }
         #if DEBUG(1)
@@ -483,7 +664,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 uint8_t translct = get8(ds);
                 uint8_t rotct = get8(ds);
                 uint8_t scalect = get8(ds);
-                size_t skipsz = (translct + rotct + scalect) * (1 + 1 + 3 * 4);
+                size_t skipsz = (translct + rotct + scalect) * 14;
                 if (ds_bin_skip(ds, skipsz) != skipsz) P3M_LOAD_EOSERR(retfalse);
             }
         } 
@@ -597,10 +778,11 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 );
                 goto retfalse;
             }
+            b->name = strtbl.data + (uintptr_t)b->name;
         }
     }
 
-    #if DEBUG(1)
+    #if DEBUG(3)
     plog(LL_INFO | LF_DEBUG | LF_FUNC, "Model info:");
     plog(LL_INFO | LF_DEBUG, "  Parts (%u):", m->partcount);
     for (unsigned i = 0; i < m->partcount; ++i) {
@@ -733,23 +915,23 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         } else {
             plog(LL_INFO | LF_DEBUG, "      Part list: (Empty)");
         }
-        plog(LL_INFO | LF_DEBUG, "    Bones (%u):", a->bonecount);
+        plog(LL_INFO | LF_DEBUG, "      Bones (%u):", a->bonecount);
         for (unsigned j = 0; j < a->bonecount; ++j) {
             struct p3m_actionbone* b = &a->bones[j];
-            plog(LL_INFO | LF_DEBUG, "      Bone %u (%s):", j, b->name);
+            plog(LL_INFO | LF_DEBUG, "        Bone %u (%s):", j, b->name);
             static const char* const interpnames[] = {"none", "linear"};
-            plog(LL_INFO | LF_DEBUG, "        Translation keyframes (%u):", b->translcount);
+            plog(LL_INFO | LF_DEBUG, "          Translation keyframes (%u):", b->translcount);
             if (b->translcount) {
-                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->translskips, b->translskips[b->translcount - 1]);
+                plog(LL_INFO | LF_DEBUG, "            Skips: %u ... %u", *b->translskips, b->translskips[b->translcount - 1]);
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    "            Interpolation modes: %u (%s) ... %u (%s)",
                     *b->translinterps, interpnames[*b->translinterps],
                     b->translinterps[b->translcount - 1], interpnames[b->translinterps[b->translcount - 1]]
                 );
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    "            Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
                     (double)b->transldata[0][0],
                     (double)b->transldata[0][1],
                     (double)b->transldata[0][2],
@@ -758,18 +940,18 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     (double)b->transldata[b->translcount - 1][2]
                 );
             }
-            plog(LL_INFO | LF_DEBUG, "        Rotation keyframes (%u):", b->rotcount);
+            plog(LL_INFO | LF_DEBUG, "          Rotation keyframes (%u):", b->rotcount);
             if (b->rotcount) {
-                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->rotskips, b->rotskips[b->rotcount - 1]);
+                plog(LL_INFO | LF_DEBUG, "            Skips: %u ... %u", *b->rotskips, b->rotskips[b->rotcount - 1]);
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    "            Interpolation modes: %u (%s) ... %u (%s)",
                     *b->rotinterps, interpnames[*b->rotinterps],
                     b->rotinterps[b->rotcount - 1], interpnames[b->rotinterps[b->rotcount - 1]]
                 );
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    "            Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
                     (double)b->rotdata[0][0],
                     (double)b->rotdata[0][1],
                     (double)b->rotdata[0][2],
@@ -778,18 +960,18 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     (double)b->rotdata[b->rotcount - 1][2]
                 );
             }
-            plog(LL_INFO | LF_DEBUG, "        Scale keyframes (%u):", b->scalecount);
+            plog(LL_INFO | LF_DEBUG, "          Scale keyframes (%u):", b->scalecount);
             if (b->scalecount) {
-                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->rotskips, b->rotskips[b->scalecount - 1]);
+                plog(LL_INFO | LF_DEBUG, "            Skips: %u ... %u", *b->rotskips, b->rotskips[b->scalecount - 1]);
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    "            Interpolation modes: %u (%s) ... %u (%s)",
                     *b->rotinterps, interpnames[*b->rotinterps],
                     b->rotinterps[b->scalecount - 1], interpnames[b->rotinterps[b->scalecount - 1]]
                 );
                 plog(
                     LL_INFO | LF_DEBUG,
-                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    "            Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
                     (double)b->rotdata[0][0],
                     (double)b->rotdata[0][1],
                     (double)b->rotdata[0][2],
