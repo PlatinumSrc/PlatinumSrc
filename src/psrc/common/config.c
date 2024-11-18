@@ -1,15 +1,20 @@
-#include "../rcmgralloc.h"
+#ifndef PSRC_REUSEABLE
+    #include "../rcmgralloc.h"
+#else
+    #define PSRC_NOMT
+#endif
 
 #include "config.h"
 #include "string.h"
 #include "crc.h"
-#include "logging.h"
-#include "../debug.h"
+#ifndef PSRC_REUSEABLE
+    #include "logging.h"
+    #include "../debug.h"
+#endif
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
-#include <errno.h>
 
 #include "../glue.h"
 
@@ -326,7 +331,7 @@ static inline int gethex(int c) {
     return (c >= '0' && c <= '9') ? c - 48 : ((c >= 'A' && c <= 'F') ? c - 55 : -1);
 }
 
-static int interpesc(struct datastream* ds, int c, char* out) {
+static int interpesc(PSRC_COMMON_CONFIG_DATASTREAM ds, int c, char* out) {
     switch (c) {
         case DS_END:
             return -1;
@@ -391,7 +396,7 @@ static void interpfinal(char* s, struct charbuf* b) {
     }
 }
 
-void cfg_read(struct cfg* cfg, struct datastream* ds, bool overwrite) {
+void cfg_read(struct cfg* cfg, PSRC_COMMON_CONFIG_DATASTREAM ds, bool overwrite) {
     struct cfg_sect* sectptr = NULL;
     {
         for (int i = 0; i < cfg->sectcount; ++i) {
@@ -660,12 +665,7 @@ void cfg_read(struct cfg* cfg, struct datastream* ds, bool overwrite) {
     cb_dump(&data);
 }
 
-static inline struct cfg* cfg_open_new(void) {
-    struct cfg* cfg = calloc(1, sizeof(*cfg));
-    return cfg;
-}
-
-void cfg_open(struct datastream* ds, struct cfg* cfg) {
+void cfg_open(PSRC_COMMON_CONFIG_DATASTREAM ds, struct cfg* cfg) {
     memset(cfg, 0, sizeof(*cfg));
     #ifndef PSRC_NOMT
     createMutex(&cfg->lock);
@@ -678,7 +678,7 @@ void cfg_open(struct datastream* ds, struct cfg* cfg) {
     }
 }
 
-void cfg_merge(struct cfg* cfg, struct datastream* ds, bool overwrite) {
+void cfg_merge(struct cfg* cfg, PSRC_COMMON_CONFIG_DATASTREAM ds, bool overwrite) {
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) from '%s'...", ds->path);
     #endif

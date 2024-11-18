@@ -50,7 +50,7 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call deps,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiling $<...
-	@$(_CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) $(CPPFLAGS) $< -c -o $@
+	@$(_CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) -DPSRC_REUSEABLE $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $<
 
 $(TARGET): $(OBJECTS) | $(OUTDIR)
