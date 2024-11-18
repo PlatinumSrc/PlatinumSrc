@@ -43,13 +43,13 @@
 } while (0)
 
 #define VLB_EXP(b, a, en, ed, onoom) do {\
-    uintptr_t VLB_EXP__t = (b).len + (a);\
-    if (VLB_EXP__t > (b).size) {\
+    (b).len += (a);\
+    if ((b).len > (b).size) {\
         do {\
-            register uintptr_t VLB_EXP__n = (b).size * en / ed;\
-            if (VLB_EXP__n != (b).size) (b).size = VLB_EXP__n;\
+            register uintptr_t VLB_EXP__t = (b).size * en / ed;\
+            if (VLB_EXP__t != (b).size) (b).size = VLB_EXP__t;\
             else ++(b).size;\
-        } while (VLB_EXP__t > (b).size);\
+        } while ((b).len > (b).size);\
         void* VLB_EXP__p = realloc((b).data, (b).size * sizeof(*(b).data));\
         if (!VLB_EXP__p) {onoom}\
         (b).data = VLB_EXP__p;\

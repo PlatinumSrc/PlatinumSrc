@@ -224,7 +224,7 @@ class p3m:
             self.data = data if data is not None else []
 
         def tofile(self, f):
-            f.write(pack('<IHB', self.frameus, self.partvis, len(self.partnameinds)))
+            f.write(pack('<I2B', self.frameus, self.partvis, len(self.partnameinds)))
             if byteorder == 'little':
                 self.partnameinds.tofile(f)
             else:

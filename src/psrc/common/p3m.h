@@ -121,8 +121,12 @@ struct p3m_texture {
 
 struct p3m_bone {
     char* name; // pointer in 'strings' of 'struct p3m'
-    float head[3];
-    float tail[3];
+    struct {
+        float x, y, z;
+    } head;
+    struct {
+        float x, y, z;
+    } tail;
     uint8_t childcount;
 };
 
@@ -139,7 +143,7 @@ struct p3m_animationactref {
 };
 
 struct p3m_action {
-    char** partlist; // owned by first
+    char** partlist; // owned by first, pointers in 'strings' of 'struct p3m'
     struct p3m_actionbone* bones; // owned by first
     uint32_t frametime;
     enum p3m_actpartlistmode partlistmode;
@@ -163,11 +167,10 @@ struct p3m_actionbone {
 };
 
 #define P3M_LOADFLAG_IGNOREGEOM    (1 << 0) // ignore verts, norms, inds, weights, mats, and textures
-#define P3M_LOADFLAG_IGNORENORMS   (1 << 1) // ignore norms only
-#define P3M_LOADFLAG_IGNOREMATS    (1 << 2) // ignore mats and textures
+#define P3M_LOADFLAG_IGNORENORMS   (1 << 1) // ignore norms
+#define P3M_LOADFLAG_IGNOREEMBTEXS (1 << 2) // ignore embedded textures
 #define P3M_LOADFLAG_IGNORESKEL    (1 << 3) // ignore weights and bones
-#define P3M_LOADFLAG_IGNOREEMBTEXS (1 << 4) // ignore embedded textures only
-#define P3M_LOADFLAG_IGNOREANIMS   (1 << 5) // ignore anims and acts
+#define P3M_LOADFLAG_IGNOREANIMS   (1 << 4) // ignore anims and acts
 
 #define P3M_FILEFLAG_PART_HASNORMS (1 << 0) 
 

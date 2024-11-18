@@ -28,8 +28,8 @@ const char* const* rendapi_names[RENDAPI__COUNT] = {
     #ifdef PSRC_ENGINE_RENDERER_USESR
     (const char*[]){"sw", "Software rendering"},
     #endif
-    #ifdef PSRC_ENGINE_RENDERER_USEGL
 
+    #ifdef PSRC_ENGINE_RENDERER_USEGL
     #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     (const char*[]){"gl11", "OpenGL 1.1"},
     #endif

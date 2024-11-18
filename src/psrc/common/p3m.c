@@ -69,6 +69,7 @@ void p3m_free(struct p3m* m) {
     if (m->animationcount) {
         free(m->animations->actions);
     }
+    free(m->bones);
     free(m->animations);
     if (m->actioncount) {
         free(m->actions->partlist);
@@ -129,6 +130,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     }
     memset(m, 0, sizeof(*m));
     if (!(lf & P3M_LOADFLAG_IGNOREGEOM)) {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading parts...");
+        #endif
         uint8_t partct = get8(ds);
         if (partct) {
             if (!(m->parts = malloc(partct * sizeof(*m->parts)))) P3M_LOAD_OOMERR(retfalse);
@@ -146,28 +150,29 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 p->name = TOPTR(get16(ds));
                 p->material = TOPTR(get8(ds));
                 uint16_t vertct = get16(ds);
+                p->vertexcount = vertct;
                 if (!(p->vertices = malloc(vertct * sizeof(*p->vertices)))) P3M_LOAD_OOMERR(retfalse);
                 if (ds_bin_read(ds, vertct * 4 * 5, p->vertices) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
                 for (unsigned i = 0; i < vertct; ++i) {
                     struct p3m_vertex* v = &p->vertices[i];
-                    *(uint32_t*)v->x = swaple32(*(uint32_t*)v->x);
-                    *(uint32_t*)v->y = swaple32(*(uint32_t*)v->y);
-                    *(uint32_t*)v->z = swaple32(*(uint32_t*)v->z);
-                    *(uint32_t*)v->u = swaple32(*(uint32_t*)v->u);
-                    *(uint32_t*)v->v = swaple32(*(uint32_t*)v->v);
+                    *(uint32_t*)&v->x = swaple32(*(uint32_t*)&v->x);
+                    *(uint32_t*)&v->y = swaple32(*(uint32_t*)&v->y);
+                    *(uint32_t*)&v->z = swaple32(*(uint32_t*)&v->z);
+                    *(uint32_t*)&v->u = swaple32(*(uint32_t*)&v->u);
+                    *(uint32_t*)&v->v = swaple32(*(uint32_t*)&v->v);
                 }
                 #endif
                 if (f & P3M_FILEFLAG_PART_HASNORMS) {
                     if (!(lf & P3M_LOADFLAG_IGNORENORMS)) {
-                        if (!(p->normals = malloc(vertct * sizeof(*p->vertices)))) P3M_LOAD_OOMERR(retfalse);
+                        if (!(p->normals = malloc(vertct * sizeof(*p->normals)))) P3M_LOAD_OOMERR(retfalse);
                         if (ds_bin_read(ds, vertct * 4 * 3, p->normals) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
                         #if BYTEORDER == BO_BE
                         for (unsigned i = 0; i < vertct; ++i) {
                             struct p3m_normal* n = &p->normals[i];
-                            *(uint32_t*)n->x = swaple32(*(uint32_t*)n->x);
-                            *(uint32_t*)n->y = swaple32(*(uint32_t*)n->y);
-                            *(uint32_t*)n->z = swaple32(*(uint32_t*)n->z);
+                            *(uint32_t*)&n->x = swaple32(*(uint32_t*)&n->x);
+                            *(uint32_t*)&n->y = swaple32(*(uint32_t*)&n->y);
+                            *(uint32_t*)&n->z = swaple32(*(uint32_t*)&n->z);
                         }
                         #endif
                     } else {
@@ -189,53 +194,66 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 }
                 uint8_t wgct = get8(ds);
                 if (wgct) {
-                    if (!(m->parts->weightgroups = realloc(m->parts->weightgroups, (totalwgct + wgct) * sizeof(*m->parts->weightgroups)))) P3M_LOAD_OOMERR(retfalse);
                     unsigned wgi = 0;
-                    do {
-                        struct p3m_weightgroup* wg = &m->parts->weightgroups[totalwgct + wgi++];
-                        struct VLB(struct p3m_weightrange) wrvlb;
-                        VLB_INIT(wrvlb, 4, P3M_LOAD_OOMERR(retfalse););
-                        wrvlb.data->weights = NULL;
-                        struct VLB(uint8_t) wvlb;
-                        VLB_INIT(wvlb, 64, VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                        wg->name = TOPTR(get16(ds));
-                        unsigned totalwct = 0;
-                        while (1) {
-                            struct p3m_weightrange* wr;
-                            VLB_NEXTPTR(wrvlb, wr, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                            totalwct += (wr->skip = get16(ds));
-                            totalwct += (wr->weightcount = get16(ds));
-                            if (totalwct > vertct) {
-                                VLB_FREE(wvlb);
-                                VLB_FREE(wrvlb);
-                                plog(
-                                    LL_ERROR | LF_FUNCLN,
-                                    "Weight group %u of part %u has too many weights (got %u, expected less than or equal to %u)",
-                                    wgi - 1, parti - 1, totalwct, vertct
-                                );
-                                goto retfalse;
+                    if (!(lf & P3M_LOADFLAG_IGNORESKEL)) {
+                        if (!(m->parts->weightgroups = realloc(m->parts->weightgroups, (totalwgct + wgct) * sizeof(*m->parts->weightgroups)))) P3M_LOAD_OOMERR(retfalse);
+                        do {
+                            struct p3m_weightgroup* wg = &m->parts->weightgroups[totalwgct + wgi++];
+                            struct VLB(struct p3m_weightrange) wrvlb;
+                            VLB_INIT(wrvlb, 4, P3M_LOAD_OOMERR(retfalse););
+                            wrvlb.data->weights = NULL;
+                            struct VLB(uint8_t) wvlb;
+                            VLB_INIT(wvlb, 64, VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                            wg->name = TOPTR(get16(ds));
+                            unsigned totalwct = 0;
+                            while (1) {
+                                struct p3m_weightrange* wr;
+                                VLB_NEXTPTR(wrvlb, wr, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                                totalwct += (wr->skip = get16(ds));
+                                totalwct += (wr->weightcount = get16(ds));
+                                if (totalwct > vertct) {
+                                    VLB_FREE(wvlb);
+                                    VLB_FREE(wrvlb);
+                                    plog(
+                                        LL_ERROR | LF_FUNCLN,
+                                        "Weight group %u of part %u has too many weights (got %u, expected less than or equal to %u)",
+                                        wgi - 1, parti - 1, totalwct, vertct
+                                    );
+                                    goto retfalse;
+                                }
+                                if (!wr->weightcount) break;
+                                wr->weights = TOPTR(wvlb.len);
+                                uintptr_t oldlen = wvlb.len;
+                                VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                                if (ds_bin_read(ds, wr->weightcount, wvlb.data + oldlen) != wr->weightcount) {
+                                    VLB_FREE(wvlb);
+                                    VLB_FREE(wrvlb);
+                                    P3M_LOAD_EOSERR(retfalse);
+                                }
                             }
-                            if (!wr->weightcount) break;
-                            wr->weights = TOPTR(wvlb.len);
-                            VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                            if (ds_bin_read(ds, wr->weightcount, wvlb.data + wvlb.len) != wr->weightcount) {
-                                VLB_FREE(wvlb);
-                                VLB_FREE(wrvlb);
-                                P3M_LOAD_EOSERR(retfalse);
-                            }
-                        }
-                        VLB_SHRINK(wvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                        VLB_SHRINK(wrvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                        p->weightgroupcount = wgi;
-                        wg->ranges = wrvlb.data;
-                        wrvlb.data->weights = wvlb.data;
-                        ++wrvlb.data;
-                        while (wrvlb.data->weightcount) {
-                            wrvlb.data->weights = wvlb.data + (uintptr_t)wrvlb.data->weights;
+                            VLB_SHRINK(wvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                            VLB_SHRINK(wrvlb, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                            p->weightgroupcount = wgi;
+                            wg->ranges = wrvlb.data;
+                            wrvlb.data->weights = wvlb.data;
                             ++wrvlb.data;
-                        }
-                    } while (wgi < wgct);
-                    totalwgct += wgct;
+                            while (wrvlb.data->weightcount) {
+                                wrvlb.data->weights = wvlb.data + (uintptr_t)wrvlb.data->weights;
+                                ++wrvlb.data;
+                            }
+                        } while (wgi < wgct);
+                        totalwgct += wgct;
+                    } else {
+                        do {
+                            get16(ds);
+                            while (1) {
+                                get16(ds);
+                                uint16_t wct = get16(ds);
+                                if (!wct) break;
+                                if (ds_bin_skip(ds, wct) != wct) P3M_LOAD_EOSERR(retfalse);
+                            }
+                        } while (wgi < wgct);
+                    }
                 }
             } while (parti < partct);
             for (parti = 1; parti < partct; ++parti) {
@@ -243,7 +261,92 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 p->weightgroups = m->parts->weightgroups + (uintptr_t)p->weightgroups;
             }
         }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading materials...");
+        #endif
+        uint8_t matct = get8(ds);
+        if (matct) {
+            m->materialcount = matct;
+            if (!(m->materials = malloc(matct * sizeof(*m->materials)))) P3M_LOAD_OOMERR(retfalse);
+            unsigned mati = 0;
+            do {
+                struct p3m_material* mat = &m->materials[mati];
+                if ((mat->rendmode = get8(ds)) >= P3M_MATRENDMODE__COUNT) {
+                    plog(LL_ERROR | LF_FUNCLN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
+                    goto retfalse;
+                }
+                mat->texture = TOPTR(get8(ds));
+                if (ds_bin_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
+                if (ds_bin_read(ds, 3, &mat->emission) != 3) P3M_LOAD_EOSERR(retfalse);
+                mat->shading = get8(ds);
+                ++mati;
+            } while (mati < matct);
+        }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Validating part material indices...");
+        #endif
+        for (unsigned parti = 0; parti < partct; ++parti) {
+            struct p3m_part* p = &m->parts[parti];
+            if ((uintptr_t)p->material < matct) {
+                p->material = m->materials + (uintptr_t)p->material;
+            } else {
+                plog(LL_ERROR | LF_FUNCLN, "Material of part %u is invalid (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
+                goto retfalse;
+            }
+        }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading textures...");
+        #endif
+        uint8_t texct = get8(ds);
+        if (texct) {
+            if (!(m->textures = malloc(texct * sizeof(*m->textures)))) P3M_LOAD_OOMERR(retfalse);
+            unsigned texi = 0;
+            do {
+                struct p3m_texture* t = &m->textures[texi++];
+                t->type = get8(ds);
+                switch (t->type) {
+                    case P3M_TEXTYPE_EMBEDDED: {
+                        uint32_t sz = get32(ds);
+                        if (!(lf & P3M_LOADFLAG_IGNOREEMBTEXS)) {
+                            // TODO: On OOM, do not completely fail
+                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                            t->embedded.data = NULL;
+                            m->texturecount = texi;
+                        } else {
+                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                            t->embedded.data = NULL;
+                            m->texturecount = texi;
+                        }
+                    } break;
+                    case P3M_TEXTYPE_EXTERNAL: {
+                        t->external.rcpath = TOPTR(get16(ds));
+                        m->texturecount = texi;
+                    } break;
+                    default: {
+                        plog(LL_ERROR | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, t->type, P3M_TEXTYPE__COUNT);
+                        goto retfalse;
+                    } break;
+                }
+            } while (texi < texct);
+        }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Validating material texture indices...");
+        #endif
+        for (unsigned mati = 0; mati < matct; ++mati) {
+            struct p3m_material* mat = &m->materials[mati];
+            if ((uintptr_t)mat->texture == 255) {
+                mat->texture = NULL;
+            } else if ((uintptr_t)mat->texture < texct) {
+                mat->texture = m->textures + (uintptr_t)mat->texture;
+            } else {
+                plog(LL_ERROR | LF_FUNCLN, "Texture of material %u is invalid (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
+                goto retfalse;
+            }
+        }
     } else {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping parts...");
+        #endif
         uint8_t partct = get8(ds);
         if (partct) {
             if (ds_bin_skip(ds, (partct + 7) / 8) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
@@ -272,76 +375,19 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 }
             } while (parti < partct);
         }
-    }
-    if (!(lf & P3M_LOADFLAG_IGNOREGEOM) && !(lf & P3M_LOADFLAG_IGNOREMATS)) {
-        uint8_t matct = get8(ds);
-        if (matct) {
-            m->materialcount = matct;
-            if (!(m->materials = malloc(matct * sizeof(*m->parts)))) P3M_LOAD_OOMERR(retfalse);
-            unsigned mati = 0;
-            do {
-                struct p3m_material* mat = &m->materials[mati];
-                if ((mat->rendmode = get8(ds)) >= P3M_MATRENDMODE__COUNT) {
-                    plog(LL_ERROR | LF_FUNCLN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
-                    goto retfalse;
-                }
-                mat->texture = TOPTR(get8(ds));
-                if (ds_bin_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
-                if (ds_bin_read(ds, 3, &mat->emission) != 3) P3M_LOAD_EOSERR(retfalse);
-                mat->shading = get8(ds);
-                ++mati;
-            } while (mati < matct);
-        }
-        for (unsigned parti = 0; parti < m->partcount; ++parti) {
-            struct p3m_part* p = &m->parts[parti];
-            if ((uintptr_t)p->material < matct) {
-                p->material = m->materials + (uintptr_t)p->material;
-            } else {
-                plog(LL_ERROR | LF_FUNCLN, "Material of part %u is invalid (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
-                goto retfalse;
-            }
-        }
-        uint8_t texct = get8(ds);
-        if (texct) {
-            if (!(m->textures = malloc(texct * sizeof(*m->textures)))) P3M_LOAD_OOMERR(retfalse);
-            unsigned texi = 0;
-            do {
-                struct p3m_texture* tex = &m->textures[texi++];
-                tex->type = get8(ds);
-                switch (tex->type) {
-                    case P3M_TEXTYPE_EMBEDDED: {
-                        uint32_t sz = get32(ds);
-                        if (!(lf & P3M_LOADFLAG_IGNOREEMBTEXS)) {
-                            // TODO: On OOM, do not completely fail
-                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
-                            tex->embedded.data = NULL;
-                            m->texturecount = texi;
-                        } else {
-                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
-                            tex->embedded.data = NULL;
-                            m->texturecount = texi;
-                        }
-                    } break;
-                    case P3M_TEXTYPE_EXTERNAL: {
-                        tex->external.rcpath = TOPTR(get16(ds));
-                        m->texturecount = texi;
-                    } break;
-                    default: {
-                        plog(LL_ERROR | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, tex->type, P3M_TEXTYPE__COUNT);
-                        goto retfalse;
-                    } break;
-                }
-            } while (texi < texct);
-        }
-    } else {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping materials...");
+        #endif
         uint8_t matct = get8(ds);
         for (unsigned mati = 0; mati < matct; ++mati) {
             get8(ds);
             get8(ds);
-            if (ds_bin_skip(ds, 4) != 4) P3M_LOAD_EOSERR(retfalse);
-            if (ds_bin_skip(ds, 3) != 3) P3M_LOAD_EOSERR(retfalse);
+            if (ds_bin_skip(ds, 7) != 7) P3M_LOAD_EOSERR(retfalse);
             get8(ds);
         }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping textures...");
+        #endif
         uint8_t texct = get8(ds);
         for (unsigned texi = 0; texi < texct; ++texi) {
             enum p3m_textype textype = get8(ds);
@@ -360,7 +406,408 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             }
         }
     }
+    if (!(lf & P3M_LOADFLAG_IGNORESKEL)) {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading bones...");
+        #endif
+        uint8_t bonect = get8(ds);
+        if (bonect) {
+            m->bonecount = bonect;
+            if (!(m->bones = malloc(bonect * sizeof(*m->bones)))) P3M_LOAD_OOMERR(retfalse);
+            unsigned bonei = 0;
+            do {
+                struct p3m_bone* b = &m->bones[bonei];
+                b->name = TOPTR(get16(ds));
+                if (ds_bin_read(ds, 3 * 4, &b->head) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
+                #if BYTEORDER == BO_BE
+                *(uint32_t*)&b->head[0] = swaple32(*(uint32_t*)&b->head[0]);
+                *(uint32_t*)&b->head[1] = swaple32(*(uint32_t*)&b->head[1]);
+                *(uint32_t*)&b->head[2] = swaple32(*(uint32_t*)&b->head[2]);
+                #endif
+                if (ds_bin_read(ds, 3 * 4, &b->tail) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
+                #if BYTEORDER == BO_BE
+                *(uint32_t*)&b->tail[0] = swaple32(*(uint32_t*)&b->tail[0]);
+                *(uint32_t*)&b->tail[1] = swaple32(*(uint32_t*)&b->tail[1]);
+                *(uint32_t*)&b->tail[2] = swaple32(*(uint32_t*)&b->tail[2]);
+                #endif
+                b->childcount = get8(ds);
+                if (b->childcount >= bonect - bonei) {
+                    plog(LL_ERROR | LF_FUNCLN, "Child count of bone %u is invalid (got %u, expected less than %u)", bonei, b->childcount, bonect - bonei);
+                    goto retfalse;
+                }
+                ++bonei;
+            } while (bonei < bonect);
+        }
+    } else {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping bones...");
+        #endif
+        uint8_t bonect = get8(ds);
+        for (unsigned bonei = 0; bonei < bonect; ++bonei) {
+            get16(ds);
+            if (ds_bin_skip(ds, 6 * 4) != 6 * 4) P3M_LOAD_EOSERR(retfalse);
+            get8(ds);
+        }
+    }
+    if (0 && !(lf & P3M_LOADFLAG_IGNOREANIMS)) {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading animations...");
+        #endif
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading actions...");
+        #endif
+    } else {
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping animations...");
+        #endif
+        uint8_t animct = get8(ds);
+        for (unsigned animi = 0; animi < animct; ++animi) {
+            get16(ds);
+            uint8_t actrefct = get8(ds);
+            for (unsigned actrefi = 0; actrefi < actrefct; ++actrefi) {
+                if (ds_bin_skip(ds, 1 + 4 + 2 * 2) != 1 + 4 + 2 * 2) P3M_LOAD_EOSERR(retfalse);
+            }
+        }
+        #if DEBUG(1)
+        plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping actions...");
+        #endif
+        uint8_t actct = get8(ds);
+        for (unsigned acti = 0; acti < actct; ++acti) {
+            get32(ds);
+            get8(ds);
+            uint8_t partct = get8(ds);
+            if (ds_bin_skip(ds, partct * 2) != partct * 2) P3M_LOAD_EOSERR(retfalse);
+            uint8_t bonect = get8(ds);
+            for (unsigned bonei = 0; bonei < bonect; ++bonei) {
+                get16(ds);
+                uint8_t translct = get8(ds);
+                uint8_t rotct = get8(ds);
+                uint8_t scalect = get8(ds);
+                size_t skipsz = (translct + rotct + scalect) * (1 + 1 + 3 * 4);
+                if (ds_bin_skip(ds, skipsz) != skipsz) P3M_LOAD_EOSERR(retfalse);
+            }
+        } 
+    }
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Reading string table...");
+    #endif
+    struct charbuf strtbl;
+    cb_init(&strtbl, 256);
+    while (!ds_bin_atend(ds)) {
+        unsigned long oldlen = strtbl.len;
+        cb_addmultifake(&strtbl, 256);
+        strtbl.len = ds_bin_read(ds, 256, strtbl.data + oldlen) + oldlen;
+        if (strtbl.len > 65535) {
+            cb_dump(&strtbl);
+            plog(LL_ERROR | LF_FUNCLN, "String table is too large (got %u, expected less than or equal to 65535)", strtbl.len);
+            goto retfalse;
+        }
+    }
+    if (strtbl.len && !strtbl.data[strtbl.len - 1]) --strtbl.len;
+    m->strings = cb_finalize(&strtbl);
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Validating strings...");
+    #endif
+    for (unsigned parti = 0; parti < m->partcount; ++parti) {
+        struct p3m_part* p = &m->parts[parti];
+        if ((uintptr_t)p->name > strtbl.len) {
+            plog(
+                LL_ERROR | LF_FUNCLN,
+                "Name string for part %u is out of bounds (got %u, expected less than or equal to %u)",
+                parti, (unsigned)(uintptr_t)p->name, strtbl.len
+            );
+            goto retfalse;
+        }
+        p->name = strtbl.data + (uintptr_t)p->name;
+        for (unsigned wgi = 0; wgi < p->weightgroupcount; ++wgi) {
+            struct p3m_weightgroup* wg = &p->weightgroups[wgi];
+            if ((uintptr_t)wg->name > strtbl.len) {
+                plog(
+                    LL_ERROR | LF_FUNCLN,
+                    "Name string for weight group %u under part %u is out of bounds (got %u, expected less than or equal to %u)",
+                    wgi, parti, (unsigned)(uintptr_t)wg->name, strtbl.len
+                );
+                goto retfalse;
+            }
+            wg->name = strtbl.data + (uintptr_t)wg->name;
+        }
+    }
+    for (unsigned texi = 0; texi < m->texturecount; ++texi) {
+        struct p3m_texture* t = &m->textures[texi];
+        switch (t->type) {
+            case P3M_TEXTYPE_EXTERNAL:
+                if ((uintptr_t)t->external.rcpath > strtbl.len) {
+                    plog(
+                        LL_ERROR | LF_FUNCLN,
+                        "Resource path string for texture %u is out of bounds (got %u, expected less than or equal to %u)",
+                        texi, (unsigned)(uintptr_t)t->external.rcpath, strtbl.len
+                    );
+                    goto retfalse;
+                }
+                t->external.rcpath = strtbl.data + (uintptr_t)t->external.rcpath;
+                break;
+            default:
+                break;
+        }
+    }
+    for (unsigned bonei = 0; bonei < m->bonecount; ++bonei) {
+        struct p3m_bone* b = &m->bones[bonei];
+        if ((uintptr_t)b->name > strtbl.len) {
+            plog(
+                LL_ERROR | LF_FUNCLN,
+                "Name string for bone %u is out of bounds (got %u, expected less than or equal to %u)",
+                bonei, (unsigned)(uintptr_t)b->name, strtbl.len
+            );
+            goto retfalse;
+        }
+        b->name = strtbl.data + (uintptr_t)b->name;
+    }
+    for (unsigned animi = 0; animi < m->animationcount; ++animi) {
+        struct p3m_animation* a = &m->animations[animi];
+        if ((uintptr_t)a->name > strtbl.len) {
+            plog(
+                LL_ERROR | LF_FUNCLN,
+                "Name string for animation %u is out of bounds (got %u, expected less than or equal to %u)",
+                animi, (unsigned)(uintptr_t)a->name, strtbl.len
+            );
+            goto retfalse;
+        }
+        a->name = strtbl.data + (uintptr_t)a->name;
+    }
+    for (unsigned acti = 0; acti < m->actioncount; ++acti) {
+        struct p3m_action* a = &m->actions[acti];
+        for (unsigned parti = 0; parti < a->partlistlen; ++parti) {
+            if ((uintptr_t)a->partlist[parti] > strtbl.len) {
+                plog(
+                    LL_ERROR | LF_FUNCLN,
+                    "Part name string %u under action %u is out of bounds (got %u, expected less than or equal to %u)",
+                    parti, acti, (unsigned)(uintptr_t)a->partlist[parti], strtbl.len
+                );
+                goto retfalse;
+            }
+            a->partlist[parti] = strtbl.data + (uintptr_t)a->partlist[parti];
+        }
+        for (unsigned bonei = 0; bonei < a->bonecount; ++bonei) {
+            struct p3m_actionbone* b = &a->bones[bonei];
+            if ((uintptr_t)b->name > strtbl.len) {
+                plog(
+                    LL_ERROR | LF_FUNCLN,
+                    "Name string for bone action data %u under action %u is out of bounds (got %u, expected less than or equal to %u)",
+                    bonei, acti, (unsigned)(uintptr_t)b->name, strtbl.len
+                );
+                goto retfalse;
+            }
+        }
+    }
+
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Model info:");
+    plog(LL_INFO | LF_DEBUG, "  Parts (%u):", m->partcount);
+    for (unsigned i = 0; i < m->partcount; ++i) {
+        struct p3m_part* p = &m->parts[i];
+        plog(LL_INFO | LF_DEBUG, "    Part %u (%s):", i, p->name);
+        plog(LL_INFO | LF_DEBUG, "      Material: %u", (unsigned)(((uintptr_t)p->material - (uintptr_t)m->materials) / sizeof(*p->material)));
+        plog(
+            LL_INFO | LF_DEBUG,
+            "      Vertices (%u): (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+            p->vertexcount,
+            (double)p->vertices->x, (double)p->vertices->y, (double)p->vertices->z,
+            (double)p->vertices[p->vertexcount - 1].x, (double)p->vertices[p->vertexcount - 1].y, (double)p->vertices[p->vertexcount - 1].z
+        );
+        if (p->normals) {
+            plog(
+                LL_INFO | LF_DEBUG,
+                "      Normals: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                (double)p->normals->x, (double)p->normals->y, (double)p->normals->z,
+                (double)p->normals[p->vertexcount - 1].x, (double)p->normals[p->vertexcount - 1].y, (double)p->normals[p->vertexcount - 1].z
+            );
+        } else {
+            plog(LL_INFO | LF_DEBUG, "      Normals: (None)");
+        }
+        plog(LL_INFO | LF_DEBUG, "      Indices (%u): %u ... %u", p->indexcount, *p->indices, p->indices[p->indexcount - 1]);
+        plog(LL_INFO | LF_DEBUG, "      Weight groups (%u):", p->weightgroupcount);
+        for (unsigned j = 0; j < p->weightgroupcount; ++j) {
+            struct p3m_weightgroup* wg = &p->weightgroups[j];
+            plog(LL_INFO | LF_DEBUG, "        Weight group %u (%s):", j, wg->name);
+            struct p3m_weightrange* wr = wg->ranges;
+            while (wr->weightcount) {
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Skip: %u; Weights (%u): %u ... %u",
+                    wr->skip, wr->weightcount, *wr->weights + 1, wr->weights[wr->weightcount - 1] + 1
+                );
+                ++wr;
+            }
+            plog(LL_INFO | LF_DEBUG, "          Skip: %u", wr->skip);
+        }
+    }
+    plog(LL_INFO | LF_DEBUG, "  Materials (%u):", m->materialcount);
+    for (unsigned i = 0; i < m->materialcount; ++i) {
+        struct p3m_material* mat = &m->materials[i];
+        plog(LL_INFO | LF_DEBUG, "    Material %u:", i);
+        plog(LL_INFO | LF_DEBUG, "      Render mode: %u (%s)", mat->rendmode, ((const char* const[]){"normal", "additive"})[mat->rendmode]);
+        if (mat->texture) {
+            plog(LL_INFO | LF_DEBUG, "      Texture: %u", (unsigned)(((uintptr_t)mat->texture - (uintptr_t)m->textures) / sizeof(*mat->texture)));
+        } else {
+            plog(LL_INFO | LF_DEBUG, "      Texture: (None)");
+        }
+        plog(LL_INFO | LF_DEBUG, "      Color: #%02x%02x%02x%02x", mat->color[0], mat->color[1], mat->color[2], mat->color[3]);
+        plog(LL_INFO | LF_DEBUG, "      Emission: #%02x%02x%02x", mat->emission[0], mat->emission[1], mat->emission[2]);
+        plog(LL_INFO | LF_DEBUG, "      Shading: %u", mat->shading);
+    }
+    plog(LL_INFO | LF_DEBUG, "  Texture (%u):", m->texturecount);
+    for (unsigned i = 0; i < m->texturecount; ++i) {
+        struct p3m_texture* t = &m->textures[i];
+        switch ((uint8_t)t->type) {
+            case P3M_TEXTYPE_EMBEDDED: {
+                if (t->embedded.data) {
+                    plog(LL_INFO | LF_DEBUG, "    Texture %u (embedded): %ux%u@%ubpp", i, t->embedded.res, t->embedded.res, t->embedded.ch * 8);
+                } else {
+                    plog(LL_INFO | LF_DEBUG, "    Texture %u (embedded): (Failed to load)", i);
+                }
+            } break;
+            case P3M_TEXTYPE_EXTERNAL: {
+                plog(LL_INFO | LF_DEBUG, "    Texture %u (external): %s", i, t->external.rcpath);
+            } break;
+        }
+    }
+    {
+        plog(LL_INFO | LF_DEBUG, "  Bones (%u):", m->bonecount);
+        struct charbuf cb;
+        cb_init(&cb, 16);
+        cb_nullterm(&cb);
+        struct VLB(uint8_t) chctvlb;
+        VLB_INIT(chctvlb, 4, VLB_OOM_NOP);
+        for (unsigned i = 0; i < m->bonecount; ++i) {
+            struct p3m_bone* b = &m->bones[i];
+            plog(LL_INFO | LF_DEBUG, "%s    Bone %u (%s):", cb.data, i, b->name);
+            plog(LL_INFO | LF_DEBUG, "%s      Head: (%.3f, %.3f, %.3f)", cb.data, (double)b->head.x, (double)b->head.y, (double)b->head.z);
+            plog(LL_INFO | LF_DEBUG, "%s      Tail: (%.3f, %.3f, %.3f)", cb.data, (double)b->tail.x, (double)b->tail.y, (double)b->tail.z);
+            if (b->childcount) {
+                plog(LL_INFO | LF_DEBUG, "%s      Children (%u):", cb.data, b->childcount);
+                VLB_ADD(chctvlb, b->childcount, 3, 2, VLB_OOM_NOP);
+                cb_add(&cb, ' ');
+                cb_add(&cb, ' ');
+                cb_add(&cb, ' ');
+                cb_add(&cb, ' ');
+                cb_nullterm(&cb);
+            }
+            if (chctvlb.len && !chctvlb.data[chctvlb.len - 1]--) {
+                do {
+                    --chctvlb.len;
+                    cb.len -= 4;
+                } while (chctvlb.len && !chctvlb.data[chctvlb.len - 1]--);
+                cb_nullterm(&cb);
+            }
+        }
+        cb_dump(&cb);
+        VLB_FREE(chctvlb);
+    }
+    plog(LL_INFO | LF_DEBUG, "  Animations (%u):", m->animationcount);
+    for (unsigned i = 0; i < m->animationcount; ++i) {
+        struct p3m_animation* a = &m->animations[i];
+        plog(LL_INFO | LF_DEBUG, "    Animation %u (%s):", i, a->name);
+        plog(LL_INFO | LF_DEBUG, "      Action references (%u):", a->actioncount);
+        for (unsigned j = 0; j < a->actioncount; ++j) {
+            struct p3m_animationactref* r = &a->actions[j];
+            plog(
+                LL_INFO | LF_DEBUG, 
+                "        Reference %u: Action: %u; Speed: %.2fx; Range: %u ... %u",
+                j, (unsigned)(((uintptr_t)r->action - (uintptr_t)m->actions) / sizeof(*r->action)), (double)r->speed, r->start, r->end
+            );
+        }
+    }
+    plog(LL_INFO | LF_DEBUG, "  Actions (%u):", m->actioncount);
+    for (unsigned i = 0; i < m->actioncount; ++i) {
+        struct p3m_action* a = &m->actions[i];
+        plog(LL_INFO | LF_DEBUG, "    Action %u:", i);
+        plog(LL_INFO | LF_DEBUG, "      Frame time: %uus", (unsigned)a->frametime);
+        plog(
+            LL_INFO | LF_DEBUG,
+            "      Part list mode: %u (%s)",
+            a->partlistmode,
+            ((const char* const[]){"defaults + whitelist", "defaults - blacklist", "none + whitelist", "all - blacklist"})[a->partlistmode]
+        );
+        if (a->partlistlen) {
+            plog(LL_INFO | LF_DEBUG, "      Part list: %s ... %s", a->partlist);
+        } else {
+            plog(LL_INFO | LF_DEBUG, "      Part list: (Empty)");
+        }
+        plog(LL_INFO | LF_DEBUG, "    Bones (%u):", a->bonecount);
+        for (unsigned j = 0; j < a->bonecount; ++j) {
+            struct p3m_actionbone* b = &a->bones[j];
+            plog(LL_INFO | LF_DEBUG, "      Bone %u (%s):", j, b->name);
+            static const char* const interpnames[] = {"none", "linear"};
+            plog(LL_INFO | LF_DEBUG, "        Translation keyframes (%u):", b->translcount);
+            if (b->translcount) {
+                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->translskips, b->translskips[b->translcount - 1]);
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    *b->translinterps, interpnames[*b->translinterps],
+                    b->translinterps[b->translcount - 1], interpnames[b->translinterps[b->translcount - 1]]
+                );
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    (double)b->transldata[0][0],
+                    (double)b->transldata[0][1],
+                    (double)b->transldata[0][2],
+                    (double)b->transldata[b->translcount - 1][0],
+                    (double)b->transldata[b->translcount - 1][1],
+                    (double)b->transldata[b->translcount - 1][2]
+                );
+            }
+            plog(LL_INFO | LF_DEBUG, "        Rotation keyframes (%u):", b->rotcount);
+            if (b->rotcount) {
+                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->rotskips, b->rotskips[b->rotcount - 1]);
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    *b->rotinterps, interpnames[*b->rotinterps],
+                    b->rotinterps[b->rotcount - 1], interpnames[b->rotinterps[b->rotcount - 1]]
+                );
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    (double)b->rotdata[0][0],
+                    (double)b->rotdata[0][1],
+                    (double)b->rotdata[0][2],
+                    (double)b->rotdata[b->rotcount - 1][0],
+                    (double)b->rotdata[b->rotcount - 1][1],
+                    (double)b->rotdata[b->rotcount - 1][2]
+                );
+            }
+            plog(LL_INFO | LF_DEBUG, "        Scale keyframes (%u):", b->scalecount);
+            if (b->scalecount) {
+                plog(LL_INFO | LF_DEBUG, "          Skips: %u ... %u", *b->rotskips, b->rotskips[b->scalecount - 1]);
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Interpolation modes: %u (%s) ... %u (%s)",
+                    *b->rotinterps, interpnames[*b->rotinterps],
+                    b->rotinterps[b->scalecount - 1], interpnames[b->rotinterps[b->scalecount - 1]]
+                );
+                plog(
+                    LL_INFO | LF_DEBUG,
+                    "          Data: (%.3f, %.3f, %.3f) ... (%.3f, %.3f, %.3f)",
+                    (double)b->rotdata[0][0],
+                    (double)b->rotdata[0][1],
+                    (double)b->rotdata[0][2],
+                    (double)b->rotdata[b->scalecount - 1][0],
+                    (double)b->rotdata[b->scalecount - 1][1],
+                    (double)b->rotdata[b->scalecount - 1][2]
+                );
+            }
+        }
+    }
+    plog(LL_INFO | LF_DEBUG, "  String table length: %u", (unsigned)strtbl.len);
+    #endif
+
+    #if DEBUG(1)
+    plog(LL_INFO | LF_DEBUG | LF_FUNC, "Done");
+    #endif
     return true;
+
     retfalse:;
     p3m_free(m);
     return false;
