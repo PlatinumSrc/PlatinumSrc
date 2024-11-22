@@ -121,23 +121,23 @@ int initLoop(void) {
         cb_dump(&e);
     }
 
-    testemt_map = newAudioEmitter(1, true, SOUNDFX_END);
-    testemt_obj = newAudioEmitter(1, false, 0.0, 0.0, 4.0, SOUNDFX_END);
+    testemt_map = newAudioEmitter(1, true);
+    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 4.0));
 
     if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
         setAmbientSound(test);
         rlsRc(test, false);
     }
     if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS, 0.0, 0.0, 2.0, SOUNDFX_END);
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, 0.0, 2.0));
         rlsRc(test, false);
     }
     if ((test = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, 0, SOUNDFX_POS, 0.0, 1.0, 0.0, SOUNDFX_END);
+        playSound(testemt_map, test, 0, SOUNDFX_POS(0.0, 1.0, 0.0));
         rlsRc(test, false);
     }
     if ((test = getRc(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_obj, test, SOUNDFLAG_LOOP, SOUNDFX_END);
+        playSound(testemt_obj, test, SOUNDFLAG_LOOP);
         rlsRc(test, false);
     }
 
@@ -298,7 +298,7 @@ void doLoop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
-    editAudioEmitter(testemt_obj, false, SOUNDFX_POS, sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0, SOUNDFX_END);
+    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0));
     #if DEBUG(1)
     prof_end(&dbgprof);
     #endif

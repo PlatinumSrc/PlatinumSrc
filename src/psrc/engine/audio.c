@@ -2,6 +2,14 @@
 
 #include "audio.h"
 
+#undef SOUNDFX_VOL
+#undef SOUNDFX_SPEED
+#undef SOUNDFX_POS
+#undef SOUNDFX_RANGE
+#undef newAudioEmitter
+#undef editAudioEmitter
+#undef playSound
+
 #include "../common/logging.h"
 #include "../common/string.h"
 #include "../common/time.h"
@@ -167,7 +175,7 @@ static ALWAYSINLINE void getmp3at_mono(struct audiosound* s, int pos, int* out) 
 
 static inline void calc3DSoundFx(struct audiosound_3d* s) {
     struct audioemitter* e = &audiostate.emitters.data[s->emitter];
-    s->fx[1].speedmul = roundf(s->speed * 256.0f);
+    s->fx[1].speedmul = roundf(e->speed * s->speed * 32.0f);
     float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
     float pos[3];
     pos[0] = e->pos[0] + s->pos[0] - audiostate.cam.pos[0];
@@ -299,9 +307,9 @@ static ALWAYSINLINE void interpfx(struct audiosound_fx* sfx, struct audiosound_f
             if (!(p2oob)) {\
                 wp2;\
                 MIXSOUND_GETSAMPLE(pos2, o2);\
-                uint8_t tmpfrac = frac / 16 / audiostate.freq;\
-                uint8_t ifrac = 16 - tmpfrac;\
-                o1 = (o1 * ifrac + o2 * tmpfrac) / 16;\
+                uint8_t tmpfrac = frac / outfreq;\
+                uint8_t ifrac = 32 - tmpfrac;\
+                o1 = (o1 * ifrac + o2 * tmpfrac) / 32;\
             }\
         }\
         audbuf[0][i] += o1 * fx.volmul[0] / 32768;\
@@ -363,7 +371,6 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
         fx.volmul[0] = fx.volmul[0] * audiostate.vol.master / 100;
         fx.volmul[1] = fx.volmul[1] * audiostate.vol.master / 100;
     }
-    #if 0
     int outfreq = audiostate.freq;
     {
         int outfreq2 = outfreq, gcd = freq;
@@ -375,8 +382,7 @@ static bool mixsound_3d(struct audiosound_3d* s, int** audbuf) {
         outfreq /= gcd;
         freq /= gcd;
     }
-    #endif
-    int div = audiostate.freq * 256;
+    int div = outfreq * 32;
     long pos;
     long pos2;
     bool stereo = rc->stereo;
@@ -491,7 +497,18 @@ static bool mixsound_3d_fake(struct audiosound_3d* s) {
     } else {
         fx = s->fx[1];
     }
-    int div = audiostate.freq * 256;
+    int outfreq = audiostate.freq;
+    {
+        int outfreq2 = outfreq, gcd = freq;
+        while (outfreq2) {
+            int tmp = gcd % outfreq2;
+            gcd = outfreq2;
+            outfreq2 = tmp;
+        }
+        outfreq /= gcd;
+        freq /= gcd;
+    }
+    int div = outfreq * 32;
     long pos;
     if (flags & SOUNDFLAG_LOOP) {
         if (flags & SOUNDFLAG_WRAP) {
@@ -528,10 +545,10 @@ static bool mixsound_3d_fake(struct audiosound_3d* s) {
 #undef MIXSOUND3D_CALCPOS
 
 #define MIXSOUND2D_CALCPOS() do {\
-    offset += freq / audiostate.freq;\
-    frac += freq % audiostate.freq;\
-    offset += frac / audiostate.freq;\
-    frac %= audiostate.freq;\
+    offset += freq / outfreq;\
+    frac += freq % outfreq;\
+    offset += frac / outfreq;\
+    frac %= outfreq;\
     pos = offset;\
 } while (0)
 #define MIXSOUND2D_LOOP_COMMON(wp, wp2, poob, p2oob, v) do {\
@@ -543,10 +560,10 @@ static bool mixsound_3d_fake(struct audiosound_3d* s) {
             if (!(p2oob)) {\
                 wp2;\
                 MIXSOUND_GETSAMPLE(pos2, l2, r2);\
-                uint8_t tmpfrac = frac * 16 / audiostate.freq;\
-                uint8_t ifrac = 16 - tmpfrac;\
-                l1 = (l1 * ifrac + l2 * tmpfrac) / 16;\
-                r1 = (r1 * ifrac + r2 * tmpfrac) / 16;\
+                uint8_t tmpfrac = frac * 32 / outfreq;\
+                uint8_t ifrac = 32 - tmpfrac;\
+                l1 = (l1 * ifrac + l2 * tmpfrac) / 32;\
+                r1 = (r1 * ifrac + r2 * tmpfrac) / 32;\
             }\
         }\
         audbuf[0][i] += l1 * v / 32768;\
@@ -586,6 +603,17 @@ static bool mixsound_2d(struct audiosound* s, int** audbuf, uint8_t flags, int o
     int freq = rc->freq;
     long offset = s->offset;
     int frac = s->frac;
+    int outfreq = audiostate.freq;
+    {
+        int outfreq2 = outfreq, gcd = freq;
+        while (outfreq2) {
+            int tmp = gcd % outfreq2;
+            gcd = outfreq2;
+            outfreq2 = tmp;
+        }
+        outfreq /= gcd;
+        freq /= gcd;
+    }
     long pos;
     long pos2;
     bool stereo = rc->stereo;
@@ -681,6 +709,17 @@ static bool mixsound_2d_fake(struct audiosound* s, uint8_t flags) {
     int freq = rc->freq;
     long offset = s->offset;
     int frac = s->frac;
+    int outfreq = audiostate.freq;
+    {
+        int outfreq2 = outfreq, gcd = freq;
+        while (outfreq2) {
+            int tmp = gcd % outfreq2;
+            gcd = outfreq2;
+            outfreq2 = tmp;
+        }
+        outfreq /= gcd;
+        freq /= gcd;
+    }
     long pos;
     if (flags & SOUNDFLAG_LOOP) {
         #define MIXSOUND_POSCHECK 0
@@ -1134,7 +1173,7 @@ int newAudioEmitter(int max, unsigned bg, ... /*soundfx*/) {
     va_list args;
     va_start(args, bg);
     enum soundfx fx;
-    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX__END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 e->vol[0] = va_arg(args, double);
@@ -1265,7 +1304,7 @@ void editAudioEmitter(int ei, unsigned immediate, ...) {
     va_list args;
     va_start(args, immediate);
     enum soundfx fx;
-    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX__END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 e->vol[0] = va_arg(args, double);
@@ -1383,7 +1422,7 @@ void playSound(int ei, struct rc_sound* rc, unsigned f, ...) {
     va_list args;
     va_start(args, f);
     enum soundfx fx;
-    while ((fx = va_arg(args, int)) != SOUNDFX_END) {
+    while ((fx = va_arg(args, int)) != SOUNDFX__END) {
         switch ((uint8_t)fx) {
             case SOUNDFX_VOL:
                 s->vol[0] = va_arg(args, double);
@@ -1404,6 +1443,7 @@ void playSound(int ei, struct rc_sound* rc, unsigned f, ...) {
     }
     va_end(args);
     calc3DSoundFx(s);
+    s->fxoff = s->fx[1].posoff;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif

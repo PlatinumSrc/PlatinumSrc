@@ -50,7 +50,7 @@ struct audiosound_audbuf {
 #pragma pack(push, 1)
 struct audiosound_fx {
     int posoff; // position offset in output freq samples (based on the dist between campos and pos)
-    int speedmul; // position mult in units of 256 (based on speed)
+    int speedmul; // position mult in units of 32 (based on speed)
     int volmul[3]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
 };
 #pragma pack(pop)
@@ -181,20 +181,27 @@ void quitAudio(void);
 #define SOUNDFLAG_NODOPPLER (1 << 2)
 
 enum soundfx {
-    SOUNDFX_END,
+    SOUNDFX__END,
     SOUNDFX_VOL, // double, double
     SOUNDFX_SPEED, // double
     SOUNDFX_POS, // double, double, double
     SOUNDFX_RANGE, // double
 };
+#define SOUNDFX_VOL(l, r) SOUNDFX_VOL, (double)(l), (double)(r)
+#define SOUNDFX_SPEED(m) SOUNDFX_SPEED, (double)(m)
+#define SOUNDFX_POS(x, y, z) SOUNDFX_POS, (double)(x), (double)(y), (double)(z)
+#define SOUNDFX_RANGE(a) SOUNDFX_RANGE, (double)(a)
 
 int newAudioEmitter(int max, unsigned /*bool*/ bg, ... /*soundfx*/);
+#define newAudioEmitter(...) newAudioEmitter(__VA_ARGS__, SOUNDFX__END)
 void editAudioEmitter(int, unsigned /*bool*/ immediate, ... /*soundfx*/);
+#define editAudioEmitter(...) editAudioEmitter(__VA_ARGS__, SOUNDFX__END)
 void pauseAudioEmitter(int, bool);
 void stopAudioEmitter(int);
 void deleteAudioEmitter(int);
 
 void playSound(int emitter, struct rc_sound* rc, unsigned /*uint8_t*/ flags, ... /*soundfx*/);
+#define playSound(...) playSound(__VA_ARGS__, SOUNDFX__END)
 void playUISound(struct rc_sound* rc);
 void playAlertSound(struct rc_sound* rc); // TODO: maybe add speed?
 void setAmbientSound(struct rc_sound* rc);
