@@ -56,7 +56,7 @@ static void draw(void) {
         gfx_draw_bar(0, GFX_COLOR(titlecolors[titlecolor], GFX_COLOR_WHITE), "Platinum Music Tracker", -1, 1, 1, GFX_DRAW_BAR_CENTERTEXT);
     }
     if (gfx_getlineredraw(1)) {
-        gfx_draw_bar(1, GFX_NCOLOR(BLACK, WHITE), " File  Edit  Song  Page  Track  Help ", -1, 1, 1, 0);
+        gfx_draw_bar(1, GFX_NCOLOR(BLACK, WHITE), " File  Edit  Song  Pattern  Track  Window  Help ", -1, 1, 1, 0);
     }
     if (gfx_getlineredraw(gfx.screen.h - 1)) {
         gfx_draw_bar(gfx.screen.h - 1, GFX_NCOLOR(BLACK, WHITE), "Pattern editor - Idle", -1, 1, 1, 0);

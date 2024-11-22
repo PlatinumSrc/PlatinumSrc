@@ -8,6 +8,10 @@
     - Rendering
         - Libraries/APIs
             - GL 1.1...
+                - Optional extensions:
+                    - `GL_ARB_multitexture`
+                    - `GL_ARB_texture_border_clamp`
+                        - Fall back to `GL_CLAMP`
             - GL 3.3/GLES 3.0/WebGL 2.0
             - D3D 7 or 8 \(Windows and XDK\)
             - D3D 9 \(Windows and GDK\)

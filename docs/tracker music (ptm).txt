@@ -1,7 +1,7 @@
 PTM - PlatinumSrc Tracker Music
 
 - .ptm file extension
-- Current revision is 0.0
+- Current version is 0.0
 - All data should be little endian
 
 Format:
@@ -17,68 +17,81 @@ Format:
     Data:
         <u8: BPM>
         <u8: Notes per beat>
-        <u8: Pattern size>
-        <u8: Pattern count>
-        <u8: Song pattern count> [u8: Pattern]... <u8: Loop Pattern>
-        <u8: Track count> [Track]...
-        <u8: Group count> [Group]...
-        <u8: Instrument count> [Instrument]...
         <u8: Sample count> [Sample]...
+        <u8: Instrument count> [Instrument]...
+        <u8: Track count> <u8[0..32]: Tracks enabled bitmask (LSByte to MSByte)> [Track info]...
+        <u8: Group count> [Group]...
+        <u8: Pattern count> [Pattern]...
+        <u8: Sequence length> <u8: Loop index> [u8: Pattern index]...
 
-    Track:
+    Sample:
+        <char[1...]: Name {..., 0}>
+        <u32: Rate>
+        <u32: Loop start> <u32: Loop end>
+        <u8: <7 bits: 0> <1 bit: 16-bit>>
+        <u8:
+            { PTM_SMPTYPE_WAV_U8
+            | PTM_SMPTYPE_WAV_I16 }
+        >
+        <u32: Data length>
+        { <u8[]: Sample data> | <i16[]: Sample data> }
+
+    Instrument:
+        <char[1...]: Name {..., 0}>
+        <u8: Sample count> [ <u8: Minimum note> <u8: Sample> (Should be sorted from highest minimum to lowest) ]...
+        <float: Attack duration (in seconds)> <float: Note influence>
+        <float: Decay duration (in seconds)> <float: Note influence>
+        <float[2]: Sustain volume> <float[2]: Note influence>
+        <float: Release duration (in seconds)> <float: Note influence>
+
+    Track info:
         <u8: <7 bits: 0> <1 bit: Enabled>>
-        <u8: Group (0xFF for none)>
         <u8: Instrument>
         <u8[2]: Volume>
-        [Pattern data]...
-
-    Pattern data:
-        <u8: Note count> [Note]...
-    Note:
-        <u8: Duration>
-        <i8: Note (Half steps from C0; -128 for silence, any other negative number for no change)>
-        <Local volume command>
-        <Local pitch command>
-
-    Global command:
-        { <u8: PTM_CMD_SETVOL> <u8: New value>
-        | <u8: PTM_CMD_SETVOLGRAD> <u8: New value>
-        | <u8: PTM_CMD_SETBPM> <u8: Amount>
-        | <u8: PTM_CMD_SETBPMGRAD> <u8: Amount>
-        | <u8: PTM_CMD_ENABLETRACK> <u8: Track (0xFF for all)>
-        | <u8: PTM_CMD_DISABLETRACK> <u8: Track (0xFF for all)>
-        | <u8: PTM_CMD_TOGGLETRACK> <u8: Track (0xFF for all)> }
-    Local volume command:
-        { <u8: PTM_VCMD_NONE> <u8[2]: {0, 0}>
-        | <u8: PTM_VCMD_SETVOL> <u8[2]: Amount>
-        | <u8: PTM_VCMD_SETVOLGRAD> <u8[2]: Amount> }
-    Local pitch command:
-        { <u8: PTM_PCMD_NONE> <u8: 0>
-        | <u8: PTM_PCMD_GLIDE> <u8: { PTM_PCMD_GLIDE_OFF | PTM_PCMD_GLIDE_LEGATO | PTM_PCMD_GLIDE_ALL }>
-        | <u8: PTM_PCMD_BENDUP> <u8: Semitones>
-        | <u8: PTM_PCMD_BENDDOWN> <u8: Semitones>
-        | <u8: PTM_PCMD_BENDUPGRAD> <u8: Semitones>
-        | <u8: PTM_PCMD_BENDDOWNGRAD> <u8: Semitones> }
 
     Group:
         <char[1...]: Name {..., 0}>
         <float: BPM multiplier>
         <float[2]: Global volume multiplier>
+        <u8[0..32]: Tracks enabled bitmask (LSByte to MSByte)>
 
-    Instrument:
-        <char[1...]: Name {..., 0}>
-        <u8: Sample count> [ <u8: Minimum note> <u8: Sample> (Should be sorted from highest minimum to lowest) ]...
-        <float: Attack duration> <float: Note influence>
-        <float: Decay duration> <float: Note influence>
-        <float[2]: Sustain volume> <float[2]: Note influence>
-        <float: Release duration> <float: Note influence>
+    Pattern:
+        <u8: Pattern duration (in notes) decremented by 1>
+        <u8: Global command count> [ <Global command> <u8: Duration decremented by 1> ]...
+        [Pattern track data]...
+    Pattern track data:
+        <u8: Note count decremented by 1> <Note>...
 
-    Sample:
-        <char[1...]: Name {..., 0}>
-        <u16: Rate>
-        <u32: Length>
-        <u32: Loop start> <u32: Loop end>
-        <u8: <7 bits: 0> <1 bit: 16-bit>>
-        { <i8[]: Sample data> | <i16[]: Sample data> }
+    Note:
+        <i8: Note (Half steps from C0; -128 for silence, any other negative number for no change)>
+        <u8: Duration decremented by 1>
+        <u8: Local command count> [Local command]...
+
+    Global command:
+        { <u8: PTM_GCMD_VOL> <u8: New value>
+        | <u8: PTM_GCMD_VOL_L> <u8: New value>
+        | <u8: PTM_GCMD_VOL_R> <u8: New value>
+        | <u8: PTM_GCMD_GLIDEVOL> <u8: New value>
+        | <u8: PTM_GCMD_GLIDEVOL_L> <u8: New value>
+        | <u8: PTM_GCMD_GLIDEVOL_R> <u8: New value>
+        | <u8: PTM_GCMD_VOLGLIDESPEED> <u8: Duration in notes>
+        | <u8: PTM_GCMD_BPM> <u8: New value>
+        | <u8: PTM_GCMD_GLIDEBPM> <u8: New value>
+        | <u8: PTM_GCMD_BPMGLIDESPEED> <u8: Duration in notes>
+        | <u8: PTM_GCMD_ENABLETRACK> <u8: Track (0xFF for all)>
+        | <u8: PTM_GCMD_DISABLETRACK> <u8: Track (0xFF for all)>
+        | <u8: PTM_GCMD_TOGGLETRACK> <u8: Track (0xFF for all)> }
+    Local command:
+        { <u8: PTM_LCMD_VOL> <u8: New value>
+        | <u8: PTM_LCMD_VOL_L> <u8: New value>
+        | <u8: PTM_LCMD_VOL_R> <u8: New value>
+        | <u8: PTM_LCMD_GLIDEVOL> <u8: New value>
+        | <u8: PTM_LCMD_GLIDEVOL_L> <u8: New value>
+        | <u8: PTM_LCMD_GLIDEVOL_R> <u8: New value>
+        | <u8: PTM_LCMD_VOLGLIDESPEED> <u8: Duration in notes>
+        | <u8: PTM_LCMD_PITCH> <u8: New note>
+        | <u8: PTM_LCMD_GLIDEPITCH> <u8: New value>
+        | <u8: PTM_LCMD_PITCHGLIDESPEED> <u8: Duration in notes>
+        | <u8: PTM_LCMD_INSTR> <u8: Instrument (0xFF to reset)> }
 
 

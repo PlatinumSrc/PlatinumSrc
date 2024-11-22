@@ -280,8 +280,8 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             do {
                 struct p3m_material* mat = &m->materials[mati];
                 if ((mat->rendmode = get8(ds)) >= P3M_MATRENDMODE__COUNT) {
-                    plog(LL_ERROR | LF_FUNCLN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
-                    goto retfalse;
+                    plog(LL_WARN | LF_FUNCLN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
+                    mat->rendmode = P3M_MATRENDMODE_NORMAL;
                 }
                 mat->texture = TOPTR(get8(ds));
                 if (ds_bin_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
@@ -310,6 +310,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             unsigned texi = 0;
             do {
                 struct p3m_texture* t = &m->textures[texi++];
+                m->texturecount = texi;
                 t->type = get8(ds);
                 switch (t->type) {
                     case P3M_TEXTYPE_EMBEDDED: {
@@ -318,20 +319,20 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                             // TODO: On OOM, do not completely fail
                             if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                             t->embedded.data = NULL;
-                            m->texturecount = texi;
                         } else {
                             if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                             t->embedded.data = NULL;
-                            m->texturecount = texi;
                         }
                     } break;
                     case P3M_TEXTYPE_EXTERNAL: {
                         t->external.rcpath = TOPTR(get16(ds));
-                        m->texturecount = texi;
                     } break;
                     default: {
-                        plog(LL_ERROR | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, t->type, P3M_TEXTYPE__COUNT);
-                        goto retfalse;
+                        plog(LL_WARN | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, t->type, P3M_TEXTYPE__COUNT);
+                        t->type = P3M_TEXTYPE_EMBEDDED;
+                        t->embedded.data = NULL;
+                        uint32_t sz = get32(ds);
+                        if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                     } break;
                 }
             } while (texi < texct);
@@ -404,8 +405,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     get16(ds);
                 } break;
                 default: {
-                    plog(LL_ERROR | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi, textype, P3M_TEXTYPE__COUNT);
-                    goto retfalse;
+                    plog(LL_WARN | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi, textype, P3M_TEXTYPE__COUNT);
+                    uint32_t sz = get32(ds);
+                    if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                 } break;
             }
         }
@@ -503,13 +505,12 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 a->frametime = get32(ds);
                 a->partlistmode = get8(ds);
                 if (a->partlistmode >= P3M_ACTPARTLISTMODE__COUNT) {
-                    VLB_FREE(plvlb);
                     plog(
-                        LL_ERROR | LF_FUNCLN,
+                        LL_WARN | LF_FUNCLN,
                         "Part list mode of action %u is invalid (got %u, expected less than %u)",
                         acti - 1, a->partlistmode, P3M_ACTPARTLISTMODE__COUNT
                     );
-                    goto retfalse;
+                    a->partlistmode = P3M_ACTPARTLISTMODE_DEFAULTWHITE;
                 }
                 uint8_t pllen = get8(ds);
                 a->partlistlen = pllen;
@@ -563,39 +564,36 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     for (size_t i = 0; i < translct; ++i) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
-                            VLB_FREE(plvlb);
                             plog(
-                                LL_ERROR | LF_FUNCLN,
+                                LL_WARN | LF_FUNCLN,
                                 "Translation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
-                            goto retfalse;
+                            tmp = P3M_ACTINTERP_LINEAR;
                         }
                         b->translinterps[i] = tmp;
                     }
                     for (size_t i = 0; i < rotct; ++i) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
-                            VLB_FREE(plvlb);
                             plog(
-                                LL_ERROR | LF_FUNCLN,
+                                LL_WARN | LF_FUNCLN,
                                 "Rotation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
-                            goto retfalse;
+                            tmp = P3M_ACTINTERP_LINEAR;
                         }
                         b->rotinterps[i] = tmp;
                     }
                     for (size_t i = 0; i < scalect; ++i) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
-                            VLB_FREE(plvlb);
                             plog(
-                                LL_ERROR | LF_FUNCLN,
+                                LL_WARN | LF_FUNCLN,
                                 "Scale interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
-                            goto retfalse;
+                            tmp = P3M_ACTINTERP_LINEAR;
                         }
                         b->scaleinterps[i] = tmp;
                     }

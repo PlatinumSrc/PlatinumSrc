@@ -186,7 +186,7 @@ static void sigh(int sig) {
         #endif
         {
             plog(LL_CRIT, "Received signal: %s", signame);
-            #ifndef PSRC_USESDL1
+            #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && !defined(PSRC_USESDL1)
             SDL_MessageBoxButtonData btndata[] = {
                 {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
                 {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"}
@@ -219,7 +219,7 @@ static void sigh(int sig) {
                 }
                 puts(cb_peek(&cb));
                 #if PLATFORM == PLAT_WIN32
-                ShellExecute(NULL, NULL, cb_peek(&cb), NULL, NULL, SW_NORMAL);
+                ShellExecute(NULL, "open", cb_peek(&cb), NULL, NULL, SW_NORMAL);
                 #elif PLATFORM == PLAT_ANDROID
                 execlp("am", "am", "start", "-a", "android.intent.action.VIEW", "-d", cb_peek(&cb), NULL);
                 #else

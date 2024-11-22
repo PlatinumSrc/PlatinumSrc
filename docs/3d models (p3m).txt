@@ -42,7 +42,7 @@ Format:
     Weight range:
         <u16: Vertices to skip>
         <u16: Weight count (0 to terminate)>
-        [u8: Weight (round(W*256)-1)]...
+        [u8: Weight (round(weight * 256) - 1)]...
 
     Material:
         <u8:
