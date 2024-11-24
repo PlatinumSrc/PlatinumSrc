@@ -35,6 +35,8 @@ struct audioemitter {
     float speed;
     float pos[3];
     float range;
+    float lpfilt;
+    float hpfilt;
 };
 
 struct audiosound_audbuf {
@@ -47,13 +49,13 @@ struct audiosound_audbuf {
         #endif
     };
 };
-#pragma pack(push, 1)
 struct audiosound_fx {
     int posoff; // position offset in output freq samples (based on the dist between campos and pos)
     int speedmul; // position mult in units of 32 (based on speed)
     int volmul[3]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
+    int lpfiltmul; // from 0 to output freq
+    int hpfiltmul; // from 0 to output freq
 };
-#pragma pack(pop)
 struct audiosound {
     struct rc_sound* rc;
     union {
@@ -80,8 +82,13 @@ struct audiosound_3d {
     float speed;
     float pos[3];
     float range;
+    float lpfilt;
+    float hpfilt;
     struct audiosound_fx fx[2];
     int maxvol;
+    int16_t lplastout;
+    int16_t hplastout;
+    int16_t hplastin;
 };
 
 struct audiovoicegroup_world {
@@ -152,6 +159,36 @@ struct audiostate {
         uint8_t voice;
     } vol;
     struct {
+        uint_fast8_t cur;
+        uint_fast8_t next;
+        struct {
+            float amount[2];
+            int16_t lastout[2];
+        } lpfilt;
+        struct {
+            float amount[2];
+            int16_t lastout[2];
+            int16_t lastin[2];
+        } hpfilt;
+        struct {
+            float delay[2];
+            float feedback[2];
+            float mix[2];
+            int16_t* buf;
+            int len;
+            int head;
+            struct {
+                float amount[2];
+                int16_t lastout[2];
+            } lpfilt;
+            struct {
+                float amount[2];
+                int16_t lastout[2];
+                int16_t lastin[2];
+            } hpfilt;
+        } reverb;
+    } env;
+    struct {
         float pos[3];
         float rot[3];
         float rotradx, rotrady, rotradz;
@@ -181,32 +218,59 @@ void quitAudio(void);
 #define SOUNDFLAG_NODOPPLER (1 << 2)
 
 enum soundfx {
-    SOUNDFX__END,
-    SOUNDFX_VOL, // double, double
-    SOUNDFX_SPEED, // double
-    SOUNDFX_POS, // double, double, double
-    SOUNDFX_RANGE, // double
+    SOUNDFXENUM__END,
+    SOUNDFXENUM_VOL, // double, double
+    SOUNDFXENUM_SPEED, // double
+    SOUNDFXENUM_POS, // double, double, double
+    SOUNDFXENUM_RANGE, // double
+    SOUNDFXENUM_LPFILT, // double
+    SOUNDFXENUM_HPFILT // double
 };
-#define SOUNDFX_VOL(l, r) SOUNDFX_VOL, (double)(l), (double)(r)
-#define SOUNDFX_SPEED(m) SOUNDFX_SPEED, (double)(m)
-#define SOUNDFX_POS(x, y, z) SOUNDFX_POS, (double)(x), (double)(y), (double)(z)
-#define SOUNDFX_RANGE(a) SOUNDFX_RANGE, (double)(a)
+#define SOUNDFX_VOL(l, r) SOUNDFXENUM_VOL, (double)(l), (double)(r)
+#define SOUNDFX_SPEED(m) SOUNDFXENUM_SPEED, (double)(m)
+#define SOUNDFX_POS(x, y, z) SOUNDFXENUM_POS, (double)(x), (double)(y), (double)(z)
+#define SOUNDFX_RANGE(a) SOUNDFXENUM_RANGE, (double)(a)
+#define SOUNDFX_LPFILT(a) SOUNDFXENUM_LPFILT, (double)(a)
+#define SOUNDFX_HPFILT(a) SOUNDFXENUM_HPFILT, (double)(a)
+
+enum soundenv {
+    SOUNDENVENUM__END,
+    SOUNDENVENUM_LPFILT, // double
+    SOUNDENVENUM_HPFILT, // double
+    SOUNDENVENUM_REVERB_DELAY, // double
+    SOUNDENVENUM_REVERB_FEEDBACK, // double
+    SOUNDENVENUM_REVERB_MIX, // double
+    SOUNDENVENUM_REVERB_LPFILT, // double
+    SOUNDENVENUM_REVERB_HPFILT, // double
+};
+#define SOUNDENV_LPFILT(a) SOUNDENVENUM_LPFILT, (double)(a)
+#define SOUNDENV_HPFILT(a) SOUNDENVENUM_HPFILT, (double)(a)
+#define SOUNDENV_REVERB(d, f, m, lp, hp) SOUNDENVENUM_REVERB_DELAY, (double)(d), SOUNDENVENUM_REVERB_FEEDBACK, (double)(f),\
+    SOUNDENVENUM_REVERB_MIX, (double)(m), SOUNDENVENUM_REVERB_LPFILT, (double)(lp), SOUNDENVENUM_REVERB_HPFILT, (double)(hp)
+#define SOUNDENV_REVERB_DELAY(d) SOUNDENVENUM_REVERB_DELAY, (double)(d)
+#define SOUNDENV_REVERB_FEEDBACK(f) SOUNDENVENUM_REVERB_FEEDBACK, (double)(f)
+#define SOUNDENV_REVERB_MIX(m) SOUNDENVENUM_REVERB_MIX, (double)(m)
+#define SOUNDENV_REVERB_LPFILT(lp) SOUNDENVENUM_REVERB_LPFILT, (double)(lp)
+#define SOUNDENV_REVERB_HPFILT(hp) SOUNDENVENUM_REVERB_HPFILT, (double)(hp)
 
 int newAudioEmitter(int max, unsigned /*bool*/ bg, ... /*soundfx*/);
-#define newAudioEmitter(...) newAudioEmitter(__VA_ARGS__, SOUNDFX__END)
+#define newAudioEmitter(...) newAudioEmitter(__VA_ARGS__, SOUNDFXENUM__END)
 void editAudioEmitter(int, unsigned /*bool*/ immediate, ... /*soundfx*/);
-#define editAudioEmitter(...) editAudioEmitter(__VA_ARGS__, SOUNDFX__END)
+#define editAudioEmitter(...) editAudioEmitter(__VA_ARGS__, SOUNDFXENUM__END)
 void pauseAudioEmitter(int, bool);
 void stopAudioEmitter(int);
 void deleteAudioEmitter(int);
 
 void playSound(int emitter, struct rc_sound* rc, unsigned /*uint8_t*/ flags, ... /*soundfx*/);
-#define playSound(...) playSound(__VA_ARGS__, SOUNDFX__END)
+#define playSound(...) playSound(__VA_ARGS__, SOUNDFXENUM__END)
 void playUISound(struct rc_sound* rc);
 void playAlertSound(struct rc_sound* rc); // TODO: maybe add speed?
 void setAmbientSound(struct rc_sound* rc);
 void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
 void setMusicStyle(const char*);
+
+void editSoundEnv(enum soundenv, ...);
+#define editSoundEnv(...) editSoundEnv(__VA_ARGS__, SOUNDENVENUM__END)
 
 void updateSounds(float framemult);
 
