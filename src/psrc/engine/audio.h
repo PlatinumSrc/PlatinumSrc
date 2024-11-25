@@ -51,7 +51,7 @@ struct audiosound_audbuf {
 };
 struct audiosound_fx {
     int posoff; // position offset in output freq samples (based on the dist between campos and pos)
-    int speedmul; // position mult in units of 32 (based on speed)
+    int speedmul; // speed mult in units of 32 (based on speed)
     int volmul[3]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
     int lpfiltmul; // from 0 to output freq
     int hpfiltmul; // from 0 to output freq
@@ -159,24 +159,25 @@ struct audiostate {
         uint8_t voice;
     } vol;
     struct {
-        uint_fast8_t cur;
-        uint_fast8_t next;
+        uint8_t filterchanged : 1;
+        uint8_t reverbchanged : 1;
         struct {
             float amount[2];
-            int16_t lastout[2];
+            int lastout[2];
         } lpfilt;
         struct {
             float amount[2];
-            int16_t lastout[2];
-            int16_t lastin[2];
+            int lastout[2];
+            int lastin[2];
         } hpfilt;
         struct {
             float delay[2];
             float feedback[2];
             float mix[2];
-            int16_t* buf;
-            int len;
-            int head;
+            int16_t* buf[2];
+            unsigned len;
+            unsigned size;
+            unsigned head;
             struct {
                 float amount[2];
                 int16_t lastout[2];

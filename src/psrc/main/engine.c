@@ -122,10 +122,10 @@ int initLoop(void) {
     }
 
     testemt_map = newAudioEmitter(1, true);
-    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 4.0));
+    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 3.0));
 
     if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
-        setAmbientSound(test);
+        //setAmbientSound(test);
         rlsRc(test, false);
     }
     if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
@@ -136,18 +136,28 @@ int initLoop(void) {
         playSound(testemt_map, test, 0, SOUNDFX_POS(0.0, 1.0, 0.0));
         rlsRc(test, false);
     }
-    if ((test = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL))) {
+    if ((test = getRc(RC_SOUND, "sounds/env/fan1", &audiostate.soundrcopt, 0, NULL))) {
         playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
         rlsRc(test, false);
     }
-    if ((test = getRc(RC_SOUND, "sounds/env/buzz2", &audiostate.soundrcopt, 0, NULL))) {
+    if ((test = getRc(RC_SOUND, "sounds/env/vent1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, -1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL))) {
         playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(5.0, 1.0, -20.0));
         rlsRc(test, false);
     }
-    if ((test = getRc(RC_SOUND, "sounds/healthstation", &audiostate.soundrcopt, 0, NULL))) {
+    if ((test = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL))) {
         playSound(testemt_obj, test, SOUNDFLAG_LOOP);
         rlsRc(test, false);
     }
+    //editSoundEnv(SOUNDENV_REVERB(0.01, 1.0, 0.5, 0.25, 0.1));
+    editSoundEnv(SOUNDENV_REVERB(0.07, 0.99, 0.75, 0.6, 0.15));
 
     // TODO: cleanup
     setInputMode(INPUTMODE_INGAME);
@@ -306,7 +316,7 @@ void doLoop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
-    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 4.0, 0.0, cos(t * 2.5) * 4.0));
+    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
     #if 0
     {
         float v = sin(t * 0.989);
