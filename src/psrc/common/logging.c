@@ -152,19 +152,19 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
             #if PLATFORM != PLAT_WIN32
             case LL_INFO:
                 if (lvl & LF_DEBUG) {
-                    fputs("\e[34m<\e[1mD\e[22m>:\e[0m", f);
+                    fputs("\x1b[34m<\x1b[1mD\x1b[22m>:\x1b[0m", f);
                 } else {
-                    fputs("\e[36m(\e[1mi\e[22m):\e[0m", f);
+                    fputs("\x1b[36m(\x1b[1mi\x1b[22m):\x1b[0m", f);
                 }
                 break;
             case LL_WARN:
-                fputs("\e[33m/\e[1m!\e[22m\\:\e[0m", f);
+                fputs("\x1b[33m/\x1b[1m!\x1b[22m\\:\x1b[0m", f);
                 break;
             case LL_ERROR:
-                fputs("\e[31m[\e[1mE\e[22m]:\e[0m", f);
+                fputs("\x1b[31m[\x1b[1mE\x1b[22m]:\x1b[0m", f);
                 break;
             case LL_CRIT:
-                fputs("\e[1;31m{X}:\e[0m", f);
+                fputs("\x1b[1;31m{X}:\x1b[0m", f);
                 break;
             #else
             case LL_INFO:

@@ -25,8 +25,6 @@
         - Entities and props
     - Audio
         - Music
-        - Filters
-        - Reverb
         - OpenAL support
     - Physics
     - UI
@@ -56,6 +54,8 @@
 - Engine
     - Audio
         - 3D effect
+        - Filters
+        - Reverb
     - Input
         - Keyboard and mouse
         - Controller

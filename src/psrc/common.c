@@ -248,7 +248,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 if (options.userdir) {
                     dirs[DIR_USER] = strpath(options.userdir);
                 } else {
-                    #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE
+                    #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE || PLATFORM == PLAT_EMSCR
                         dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
                     #elif !defined(PSRC_USESDL1)
                         char* tmp;

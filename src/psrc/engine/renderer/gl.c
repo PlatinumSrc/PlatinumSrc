@@ -88,7 +88,10 @@ static struct {
     union {
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         struct {
-            bool oddframe;
+            uint_fast8_t oddframe : 1;
+            uint_fast8_t has_ARB_multitexture : 1;
+            uint_fast8_t has_ARB_texture_border_clamp : 1;
+            int maxlights;
         } gl11;
         #endif
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
@@ -732,23 +735,49 @@ static bool r_gl_afterCreateWindow(void) {
             max = tmpint[0];
         } else {
             #if DEBUG(1)
-            max = 32;
+            max = 16;
             #else
-            max = 10;
+            max = 8;
             #endif
         }
         free(tmp);
         for (int i = 0, ct = 0; i < tmpint[0]; ++i) {
             if (!*tmplist[i]) continue;
+            if (ct == max) {
+                plog(LL_INFO, "    ... (enable gl.allext under [Debug] to show all)");
+                break;
+            }
             plog(LL_INFO, "    %s", tmplist[i]);
             ++ct;
-            if (ct == max) {
-                plog(LL_INFO, "    ...");
-                break;
+        }
+        if (rendstate.api == RENDAPI_GL11) {
+            for (int i = 0, foundext = 0; i < tmpint[0]; ++i) {
+                if (!*tmplist[i]) continue;
+                if (!strcasecmp(tmplist[i], "GL_ARB_multitexture")) {
+                    r_gl_data.gl11.has_ARB_multitexture = 1;
+                    ++foundext;
+                } else if (!strcasecmp(tmplist[i], "GL_ARB_texture_border_clamp")) {
+                    r_gl_data.gl11.has_ARB_texture_border_clamp = 1;
+                    ++foundext;
+                }
+                if (foundext == 2) break;
             }
         }
         free(*tmplist);
         free(tmplist);
+    }
+    if (rendstate.api == RENDAPI_GL11) {
+        plog(LL_INFO, "  GL_ARB_multitexture is %ssupported", (r_gl_data.gl11.has_ARB_multitexture) ? "" : "not ");
+        plog(LL_INFO, "  GL_ARB_texture_border_clamp is %ssupported", (r_gl_data.gl11.has_ARB_texture_border_clamp) ? "" : "not ");
+    }
+    #if GL_KHR_debug
+        plog(LL_INFO, "  GL_KHR_debug is %ssupported", (glDebugMessageCallback) ? "" : "not ");
+    #else
+        plog(LL_INFO, "  GL_KHR_debug is not supported");
+    #endif
+    if (rendstate.api == RENDAPI_GL11) {
+        glGetIntegerv(GL_MAX_LIGHTS, &r_gl_data.gl11.maxlights);
+        plog(LL_INFO, "  Max lights: %d", r_gl_data.gl11.maxlights);
     }
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
     if (cond[0]) plog(LL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
@@ -758,16 +787,17 @@ static bool r_gl_afterCreateWindow(void) {
     cond[1] = !SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &tmpint[1]);
     cond[2] = !SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &tmpint[2]);
     cond[3] = !SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &tmpint[3]);
-    if (cond[0] && cond[1] && cond[2] && cond[3]) {
-        plog(LL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
+    if (cond[0] && cond[1] && cond[2]) {
+        if (cond[3] && tmpint[3]) {
+            plog(LL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
+        } else {
+            plog(LL_INFO, "  Color buffer format: R%dG%dB%d", tmpint[0], tmpint[1], tmpint[2]);
+        }
     }
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &tmpint[0]);
     if (cond[0]) {
         plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
     }
-    #if GL_KHR_debug
-        if (glDebugMessageCallback) plog(LL_INFO, "  glDebugMessageCallback is supported");
-    #endif
     tmpstr = cfg_getvar(&config, "Renderer", "gl.near");
     if (tmpstr) {
         r_gl_data.nearplane = atof(tmpstr);

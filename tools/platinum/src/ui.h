@@ -110,6 +110,8 @@ enum ui_elemprop {
     UI_ELEMPROP_Y, // int
     UI_ELEMPROP_W, // int
     UI_ELEMPROP_H, // int
+    UI_ELEMPROP_COLOR, // enum ui_themecolor
+    UI_ELEMPROP_TITLE, // char*
     UI_ELEMPROP_TEXT, // char*
     UI_ELEMPROP_CHECKBOX_CHECKED, // unsigned
     UI_ELEMPROP_RADIO_SELECTED, // unsigned
@@ -123,10 +125,11 @@ void ui_elem_edit(int layer, int elem, ...);
 #define ui_elem_edit(...) ui_elem_edit(__VA_ARGS__, UI_ELEMPROP_END)
 void ui_elem_del(int layer, int elem);
 
-enum ui_color {
-    UI_COLOR_TEXT,
-    UI_COLOR__CONTINUE
+enum ui_themecolor {
+    UI_THEMECOLOR_TEXT,
+    UI_THEMECOLOR__CONTINUE
 };
+#define UI_COLOR_NOFGC
 void ui_setcolors(uint16_t*);
 
 #endif

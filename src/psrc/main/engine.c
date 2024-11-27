@@ -60,7 +60,7 @@ static const char* dbgprofstr[DBGPROF__COUNT] = {
     "Swap buffers"
 };
 static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, unsigned p, const char* n) {
-    printf("\e[38;2;%u;%u;%um\u2588\u2588 - %5.02f%% (%.03fms) - %s\e[0m\n", r, g, b, p / 100.0, t / 1000.0, n);
+    printf("\x1b[38;2;%u;%u;%um\u2588\u2588 - %5.02f%% (%.03fms) - %s\x1b[0m\n", r, g, b, p / 100.0, t / 1000.0, n);
 }
 #endif
 
@@ -478,7 +478,7 @@ void doLoop(void) {
                         putchar('\n');
                     }
                     for (int i = 0; i < profwait; ++i) {
-                        putchar('\e');
+                        putchar('\x1b');
                         putchar('[');
                         putchar('A');
                     }
