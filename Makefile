@@ -420,7 +420,10 @@ else
         ifndef O
             O := g
         endif
-        _CFLAGS += -O$(O) -g -Wdouble-promotion -fno-omit-frame-pointer -std=c11 -pedantic
+        _CFLAGS += -O$(O) -g -Wdouble-promotion -fno-omit-frame-pointer
+        ifneq ($(CROSS),emscr)
+            _CFLAGS += -std=c11 -pedantic
+        endif
     else
         _CFLAGS += -g -gdwarf-4
         _LDFLAGS += -debug

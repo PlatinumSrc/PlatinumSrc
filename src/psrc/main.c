@@ -560,8 +560,8 @@ int main(int argc, char** argv) {
         }
     #else
         EM_ASM(
-            FS.mkdir('/libsdl');
-            FS.mount(IDBFS, {}, '/libsdl');
+            FS.mkdir('/data');
+            FS.mount(IDBFS, {autoPersist: true}, '/data');
             FS.syncfs(true, function (e) {
                 if (e) console.error("FS.syncfs:", e);
                 ccall("syncfsok");

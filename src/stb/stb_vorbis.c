@@ -1063,7 +1063,7 @@ static float float32_unpack(stbv_uint32 x)
    stbv_uint32 sign = x & 0x80000000;
    stbv_uint32 exp = (x & 0x7fe00000) >> 21;
    double res = sign ? -(double)mantissa : (double)mantissa;
-   return (float) ldexp((float)res, (int)exp-788);
+   return (float) ldexpf((float)res, (int)exp-788);
 }
 
 
@@ -1242,12 +1242,12 @@ static int vorbis_validate(stbv_uint8 *data)
 // (formula implied by specification)
 static int lookup1_values(int entries, int dim)
 {
-   int r = (int) floor(exp((float) log((float) entries) / dim));
-   if ((int) floor(pow((float) r+1, dim)) <= entries)   // (int) cast for MinGW warning;
+   int r = (int) floorf(expf((float) logf((float) entries) / dim));
+   if ((int) floorf(powf((float) r+1, dim)) <= entries)   // (int) cast for MinGW warning;
       ++r;                                              // floor() to avoid _ftol() when non-CRT
-   if (pow((float) r+1, dim) <= entries)
+   if (powf((float) r+1, dim) <= entries)
       return -1;
-   if ((int) floor(pow((float) r, dim)) > entries)
+   if ((int) floorf(powf((float) r, dim)) > entries)
       return -1;
    return r;
 }
@@ -1274,7 +1274,7 @@ static void compute_window(int n, float *window)
 {
    int n2 = n >> 1, i;
    for (i=0; i < n2; ++i)
-      window[i] = (float) sin(0.5f * (float)M_PI * square((float) sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));
+      window[i] = (float) sinf(0.5f * (float)M_PI * square((float) sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));
 }
 
 static void compute_bitreverse(int n, stbv_uint16 *rev)

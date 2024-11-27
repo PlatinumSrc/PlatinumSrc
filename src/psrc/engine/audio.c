@@ -1842,7 +1842,7 @@ bool startAudio(void) {
         inspec.freq = 22050;
         #else
         inspec.freq = 44100;
-        #ifndef PSRC_USESDL1
+        #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_EMSCR
         flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE;
         #endif
         #endif

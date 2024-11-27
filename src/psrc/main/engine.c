@@ -382,8 +382,8 @@ void doLoop(void) {
 
     {
         // this can probably be optimized
-        float mul = atan2f(fabs(movex), fabs(movez));
-        mul = fabs(1 / (cosf(mul) + sinf(mul)));
+        float mul = atan2f(fabsf(movex), fabsf(movez));
+        mul = fabsf(1 / (cosf(mul) + sinf(mul)));
         movex *= mul;
         movez *= mul;
         float yrotrad = rendstate.camrot[1] * (float)M_PI / 180.0f;
