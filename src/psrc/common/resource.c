@@ -445,15 +445,15 @@ static inline void lscMoveToFront(int di, bool exists) {
     #endif
     if (di != lscache.head) {
         struct lscache_dir* d = &lscache.data[di];
-        d->next = lscache.head;
         lscache.data[lscache.head].prev = di;
-        lscache.head = di;
         if (di == lscache.tail) {
             lscache.tail = d->prev;
         } else if (exists) {
             lscache.data[d->prev].next = d->next;
             lscache.data[d->next].prev = d->prev;
         }
+        d->next = lscache.head;
+        lscache.head = di;
     }
     #if 0
     printf(" -> [%d,%d]\n", lscache.head, lscache.tail); 

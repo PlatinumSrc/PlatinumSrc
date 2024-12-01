@@ -8,6 +8,9 @@
 #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
     #include <fcntl.h>
     #include <unistd.h>
+    #ifndef O_BINARY
+        #define O_BINARY 0
+    #endif
 #else
     #include <stdio.h>
 #endif
@@ -38,7 +41,7 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
         }
     }
     #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
-    if ((ds->file.fd = open(p, O_RDONLY, 0)) < 0) {
+    if ((ds->file.fd = open(p, O_RDONLY | O_BINARY, 0)) < 0) {
         plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
         return false;
     }

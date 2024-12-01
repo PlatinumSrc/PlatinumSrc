@@ -31,22 +31,19 @@
     - Input
         - Touch UI
     - File I/O
-        - Read P3M 3D models...
         - Read PMF compiled maps
 - Server
 - Editor
-    - Read PMP map projects
-    - Write PMP map projects
+    - Read PMP and PMT map projects
+    - Write PMP and PMT map projects
     - Write PMF compiled maps
-    - Decompile PMF to PMP?
+    - Decompile PMF to PMP or PMT?
 - Common
     - Scripting...
-    - Logging
-        - Ring buffer
 - Tools
     - Blender P3M plugin
         - Importing
-    - Blockbench P3M plugin
+    - Blockbench P3M plugin?
     - PTM music tracker
 
 ---
@@ -59,7 +56,11 @@
     - Input
         - Keyboard and mouse
         - Controller
+    - File I/O
+        - Read P3M 3D models
 - Tools
     - Blender P3M plugin
         - Exporting
     - GTKSourceView file for PBASIC
+- Common
+    - Logging
