@@ -11,7 +11,7 @@ Progress can be found [here](TODO.md)
 ### Demo video
 Using [H-74](https://github.com/PQCraft/H-74), and [test_model.p3m](https://github.com/PQCraft/PQCraft/raw/master/test_model.p3m) in `games/test/`
 
-https://github.com/PQCraft/PQCraft/assets/58464017/c68cb59c-4f7d-460d-b744-8eee5044fe3e
+https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 ---
 ### Platform Support
