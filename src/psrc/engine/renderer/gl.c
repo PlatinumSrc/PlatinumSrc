@@ -35,7 +35,7 @@
     #endif
     static void GLDBGCB r_gl_dbgcb(GLenum src, GLenum type, GLuint id, GLenum sev, GLsizei l, const GLchar *m, const void *u) {
         (void)l; (void)u;
-        int ll = -1;
+        int ll;
         char* sevstr;
         switch (sev) {
             case GL_DEBUG_SEVERITY_HIGH: ll = LL_ERROR; sevstr = "error"; break;
@@ -46,9 +46,8 @@
             case GL_DEBUG_SEVERITY_NOTIFICATION: ll = LL_INFO; sevstr = "debug message"; break;
             #endif
             #endif
-            default: break;
+            default: return;
         }
-        if (ll == -1) return;
         char* srcstr;
         switch (src) {
             case GL_DEBUG_SOURCE_API: srcstr = "API"; break;
@@ -73,7 +72,7 @@
             default: typestr = "unknown"; break;
         }
         plog(ll, "OpenGL %s 0x%08X (%s %s): %s", sevstr, id, srcstr, typestr, m);
-    }   
+    }
 #endif
 
 static struct {

@@ -20,6 +20,160 @@
 
 struct audiostate audiostate;
 
+static inline void stopSound_inline(struct audiosound* s) {
+    switch ((uint8_t)s->rc->format) {
+        case RC_SOUND_FRMT_VORBIS: {
+            stb_vorbis_close(s->vorbis);
+            free(s->audbuf.data[0]);
+            free(s->audbuf.data[1]);
+        } break;
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3: {
+            mp3dec_ex_close(s->mp3);
+            free(s->mp3);
+            free(s->audbuf.data_mp3);
+        } break;
+        #endif
+    }
+    unlockRc(s->rc);
+    s->rc = NULL;
+}
+static inline void stop3DSound_inline(struct audiosound_3d* s) {
+    stopSound_inline(&s->data);
+    --audiostate.emitters.data[s->emitter].uses;
+}
+
+static bool adjfilters = true;
+#define ADJLPFILTMUL(a, m, f) do {\
+    if (m < audiostate.freq) {\
+        int m2 = (int)roundf(a * a * f);\
+        if (m2 < f) {\
+            if (audiostate.freq < f) {\
+                m += m2;\
+                m /= 2;\
+            } else {\
+                m = m2;\
+            }\
+            if (m > audiostate.freq) m = audiostate.freq;\
+        }\
+    }\
+} while (0)
+#define ADJHPFILTMUL(a, m, f) do {\
+    if (m > 0) {\
+        int m2 = (int)roundf(a * a * f);\
+        if (m2 > 0) {\
+            m += m2;\
+            m /= 2;\
+            if (m > audiostate.freq) m = audiostate.freq;\
+        }\
+    }\
+} while (0)
+
+static void calc3DSoundFx(struct audiosound_3d* s) {
+    struct audioemitter* e = &audiostate.emitters.data[s->emitter];
+    s->fx[1].speedmul = roundf(e->speed * s->speed * 32.0f);
+    float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
+    float pos[3];
+    pos[0] = e->pos[0] + s->pos[0] - audiostate.cam.pos[0];
+    pos[1] = e->pos[1] + s->pos[1] - audiostate.cam.pos[1];
+    pos[2] = e->pos[2] + s->pos[2] - audiostate.cam.pos[2];
+    float range = e->range * s->range;
+    if (isnormal(range)) {
+        float dist = sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        if (isnormal(dist)) {
+            if (dist < range) {
+                float loudness = 1.0f - (dist / range);
+                loudness *= loudness;
+                loudness *= loudness;
+                loudness *= loudness;
+                pos[0] /= dist;
+                pos[1] /= dist;
+                pos[2] /= dist;
+                vol[0] *= loudness;
+                vol[1] *= loudness;
+                if (s->flags & SOUNDFLAG_NODOPPLER) {
+                    s->fx[1].posoff = 0;
+                } else {
+                    s->fx[1].posoff = roundf(dist * -0.0025f * (float)audiostate.freq);
+                }
+                float tmp[3];
+                float mul[3][3];
+                mul[0][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.sinz + audiostate.cam.cosy * audiostate.cam.cosz;
+                mul[0][1] = audiostate.cam.cosx * -audiostate.cam.sinz;
+                mul[0][2] = audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.sinz + audiostate.cam.siny * audiostate.cam.cosz;
+                mul[1][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.cosz + audiostate.cam.cosy * audiostate.cam.sinz;
+                mul[1][1] = audiostate.cam.cosx * audiostate.cam.cosz;
+                mul[1][2] = -audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.cosz + audiostate.cam.siny * audiostate.cam.sinz;
+                mul[2][0] = audiostate.cam.cosx * -audiostate.cam.siny;
+                mul[2][1] = audiostate.cam.sinx;
+                mul[2][2] = audiostate.cam.cosx * audiostate.cam.cosy;
+                tmp[0] = pos[0] * mul[0][0] + pos[1] * mul[0][1] + pos[2] * mul[0][2];
+                tmp[1] = pos[0] * mul[1][0] + pos[1] * mul[1][1] + pos[2] * mul[1][2];
+                tmp[2] = pos[0] * mul[2][0] + pos[1] * mul[2][1] + pos[2] * mul[2][2];
+                //printf("ANGLE: {%+.03f, %+.03f, %+.03f} -> ", pos[0], pos[1], pos[2]);
+                //printf("{%+.03f, %+.03f, %+.03f}\n", tmp[0], tmp[1], tmp[2]);
+                pos[0] = tmp[0];
+                pos[1] = tmp[1];
+                pos[2] = tmp[2];
+                if (pos[2] > 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[2];
+                } else if (pos[2] < 0.0f) {
+                    pos[0] *= 1.0f - 0.25f * pos[2];
+                    vol[0] *= 1.0f + 0.25f * pos[2];
+                    vol[1] *= 1.0f + 0.25f * pos[2];
+                }
+                if (pos[1] > 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[1];
+                    vol[0] *= 1.0f - 0.1f * pos[1];
+                    vol[1] *= 1.0f - 0.1f * pos[1];
+                } else if (pos[1] < 0.0f) {
+                    pos[0] *= 1.0f - 0.2f * pos[1];
+                }
+                if (pos[0] > 0.0f) {
+                    vol[0] *= 1.0f - pos[0] * 0.75f;
+                } else if (pos[0] < 0.0f) {
+                    vol[1] *= 1.0f + pos[0] * 0.75f;
+                }
+                s->fx[1].volmul[0] = roundf(vol[0] * 32768.0f);
+                s->fx[1].volmul[1] = roundf(vol[1] * 32768.0f);
+                s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
+            } else {
+                s->fx[1].volmul[0] = 0;
+                s->fx[1].volmul[1] = 0;
+                s->fx[1].volmul[2] = 0;
+            }
+        } else {
+            s->fx[1].posoff = 0;
+            s->fx[1].volmul[0] = roundf(vol[0] * 32768.0f);
+            s->fx[1].volmul[1] = roundf(vol[1] * 32768.0f);
+            s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
+        }
+    } else {
+        s->fx[1].posoff = 0;
+        s->fx[1].volmul[0] = 0;
+        s->fx[1].volmul[1] = 0;
+        s->fx[1].volmul[2] = 0;
+    }
+    s->maxvol = (s->fx[0].volmul[2] > s->fx[1].volmul[2]) ? s->fx[0].volmul[2] : s->fx[1].volmul[2];
+    register float tmp = 1.0f - (1.0f - s->lpfilt) * (1.0f - e->lpfilt);
+    if (tmp > 0.0f) {
+        tmp = 1.0f - tmp;
+        int lpfiltmul = (int)roundf(tmp * tmp * audiostate.freq);
+        if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(tmp, lpfiltmul, 44100);
+        s->fx[1].lpfiltmul = lpfiltmul;
+    } else {
+        s->fx[1].lpfiltmul = audiostate.freq;
+    }
+    tmp = 1.0f - (1.0f - s->hpfilt) * (1.0f - e->hpfilt);
+    if (tmp > 0.0f) {
+        int hpfiltmul = (int)roundf(tmp * tmp * audiostate.freq);
+        if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(tmp, hpfiltmul, 44100);
+        s->fx[1].hpfiltmul = audiostate.freq - hpfiltmul;
+    } else {
+        s->fx[1].hpfiltmul = audiostate.freq;
+    }
+}
+
 static ALWAYSINLINE void getvorbisat_fillbuf(struct audiosound* s, int off, int len) {
     stb_vorbis_seek(s->vorbis, off);
     stb_vorbis_get_samples_short(s->vorbis, 2, s->audbuf.data, len);
@@ -169,130 +323,6 @@ static ALWAYSINLINE void getmp3at_mono(struct audiosound* s, int pos, int* out) 
 }
 
 #endif
-
-static void calc3DSoundFx(struct audiosound_3d* s) {
-    struct audioemitter* e = &audiostate.emitters.data[s->emitter];
-    s->fx[1].speedmul = roundf(e->speed * s->speed * 32.0f);
-    float vol[2] = {s->vol[0] * e->vol[0], s->vol[1] * e->vol[1]};
-    float pos[3];
-    pos[0] = e->pos[0] + s->pos[0] - audiostate.cam.pos[0];
-    pos[1] = e->pos[1] + s->pos[1] - audiostate.cam.pos[1];
-    pos[2] = e->pos[2] + s->pos[2] - audiostate.cam.pos[2];
-    float range = e->range * s->range;
-    if (isnormal(range)) {
-        float dist = sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-        if (isnormal(dist)) {
-            if (dist < range) {
-                float loudness = 1.0f - (dist / range);
-                loudness *= loudness;
-                loudness *= loudness;
-                loudness *= loudness;
-                pos[0] /= dist;
-                pos[1] /= dist;
-                pos[2] /= dist;
-                vol[0] *= loudness;
-                vol[1] *= loudness;
-                if (s->flags & SOUNDFLAG_NODOPPLER) {
-                    s->fx[1].posoff = 0;
-                } else {
-                    s->fx[1].posoff = roundf(dist * -0.0025f * (float)audiostate.freq);
-                }
-                float tmp[3];
-                float mul[3][3];
-                mul[0][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.sinz + audiostate.cam.cosy * audiostate.cam.cosz;
-                mul[0][1] = audiostate.cam.cosx * -audiostate.cam.sinz;
-                mul[0][2] = audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.sinz + audiostate.cam.siny * audiostate.cam.cosz;
-                mul[1][0] = audiostate.cam.sinx * audiostate.cam.siny * audiostate.cam.cosz + audiostate.cam.cosy * audiostate.cam.sinz;
-                mul[1][1] = audiostate.cam.cosx * audiostate.cam.cosz;
-                mul[1][2] = -audiostate.cam.sinx * audiostate.cam.cosy * audiostate.cam.cosz + audiostate.cam.siny * audiostate.cam.sinz;
-                mul[2][0] = audiostate.cam.cosx * -audiostate.cam.siny;
-                mul[2][1] = audiostate.cam.sinx;
-                mul[2][2] = audiostate.cam.cosx * audiostate.cam.cosy;
-                tmp[0] = pos[0] * mul[0][0] + pos[1] * mul[0][1] + pos[2] * mul[0][2];
-                tmp[1] = pos[0] * mul[1][0] + pos[1] * mul[1][1] + pos[2] * mul[1][2];
-                tmp[2] = pos[0] * mul[2][0] + pos[1] * mul[2][1] + pos[2] * mul[2][2];
-                //printf("ANGLE: {%+.03f, %+.03f, %+.03f} -> ", pos[0], pos[1], pos[2]);
-                //printf("{%+.03f, %+.03f, %+.03f}\n", tmp[0], tmp[1], tmp[2]);
-                pos[0] = tmp[0];
-                pos[1] = tmp[1];
-                pos[2] = tmp[2];
-                if (pos[2] > 0.0f) {
-                    pos[0] *= 1.0f - 0.2f * pos[2];
-                } else if (pos[2] < 0.0f) {
-                    pos[0] *= 1.0f - 0.25f * pos[2];
-                    vol[0] *= 1.0f + 0.25f * pos[2];
-                    vol[1] *= 1.0f + 0.25f * pos[2];
-                }
-                if (pos[1] > 0.0f) {
-                    pos[0] *= 1.0f - 0.2f * pos[1];
-                    vol[0] *= 1.0f - 0.1f * pos[1];
-                    vol[1] *= 1.0f - 0.1f * pos[1];
-                } else if (pos[1] < 0.0f) {
-                    pos[0] *= 1.0f - 0.2f * pos[1];
-                }
-                if (pos[0] > 0.0f) {
-                    vol[0] *= 1.0f - pos[0] * 0.75f;
-                } else if (pos[0] < 0.0f) {
-                    vol[1] *= 1.0f + pos[0] * 0.75f;
-                }
-                s->fx[1].volmul[0] = roundf(vol[0] * 32768.0f);
-                s->fx[1].volmul[1] = roundf(vol[1] * 32768.0f);
-                s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
-            } else {
-                s->fx[1].volmul[0] = 0;
-                s->fx[1].volmul[1] = 0;
-                s->fx[1].volmul[2] = 0;
-            }
-        } else {
-            s->fx[1].posoff = 0;
-            s->fx[1].volmul[0] = roundf(vol[0] * 32768.0f);
-            s->fx[1].volmul[1] = roundf(vol[1] * 32768.0f);
-            s->fx[1].volmul[2] = (s->fx[1].volmul[1] > s->fx[1].volmul[0]) ? s->fx[1].volmul[1] : s->fx[1].volmul[0];
-        }
-    } else {
-        s->fx[1].posoff = 0;
-        s->fx[1].volmul[0] = 0;
-        s->fx[1].volmul[1] = 0;
-        s->fx[1].volmul[2] = 0;
-    }
-    s->maxvol = (s->fx[0].volmul[2] > s->fx[1].volmul[2]) ? s->fx[0].volmul[2] : s->fx[1].volmul[2];
-    register float tmp = 1.0f - (1.0f - s->lpfilt) * (1.0f - e->lpfilt);
-    if (tmp > 0.0f) {
-        tmp = 1.0f - tmp;
-        s->fx[1].lpfiltmul = (int)roundf(tmp * tmp * audiostate.freq);
-    } else {
-        s->fx[1].lpfiltmul = audiostate.freq;
-    }
-    tmp = 1.0f - (1.0f - s->hpfilt) * (1.0f - e->hpfilt);
-    if (tmp > 0.0f) {
-        s->fx[1].hpfiltmul = audiostate.freq - (int)roundf(tmp * tmp * audiostate.freq);
-    } else {
-        s->fx[1].hpfiltmul = audiostate.freq;
-    }
-}
-
-static inline void stopSound_inline(struct audiosound* s) {
-    switch ((uint8_t)s->rc->format) {
-        case RC_SOUND_FRMT_VORBIS: {
-            stb_vorbis_close(s->vorbis);
-            free(s->audbuf.data[0]);
-            free(s->audbuf.data[1]);
-        } break;
-        #ifdef PSRC_USEMINIMP3
-        case RC_SOUND_FRMT_MP3: {
-            mp3dec_ex_close(s->mp3);
-            free(s->mp3);
-            free(s->audbuf.data_mp3);
-        } break;
-        #endif
-    }
-    unlockRc(s->rc);
-    s->rc = NULL;
-}
-static inline void stop3DSound_inline(struct audiosound_3d* s) {
-    stopSound_inline(&s->data);
-    --audiostate.emitters.data[s->emitter].uses;
-}
 
 static ALWAYSINLINE void interpfx(struct audiosound_fx* sfx, struct audiosound_fx* fx, int i, int ii, int samples) {
     fx->posoff = (sfx[0].posoff * ii + sfx[1].posoff * i) / samples;
@@ -792,8 +822,12 @@ static void doReverb(unsigned len, int* outl, int* outr) {
     register unsigned tail = (head + (audiostate.env.reverb.size - len)) % audiostate.env.reverb.size;
     register float filtamount = 1.0f - audiostate.env.reverb.lpfilt.amount[1];
     int lpmul = (int)roundf(filtamount * filtamount * audiostate.freq);
+    if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(filtamount, lpmul, 44100);
     filtamount = audiostate.env.reverb.hpfilt.amount[1];
-    int hpmul = audiostate.freq - (int)roundf(filtamount * filtamount * audiostate.freq);
+    int hpmul = (int)roundf(filtamount * filtamount * audiostate.freq);
+    if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(filtamount, hpmul, 44100);
+    hpmul = audiostate.freq - hpmul;
+    //printf("filtmul (high = off): [%d, %d]\n", lpmul, hpmul);
     int lplastoutl = audiostate.env.reverb.lpfilt.lastout[0];
     int lplastoutr = audiostate.env.reverb.lpfilt.lastout[1];
     int hplastoutl = audiostate.env.reverb.hpfilt.lastout[0];
@@ -872,10 +906,24 @@ static void doGradReverb(unsigned curlen, unsigned nextlen, int* outl, int* outr
     register float nextfiltamount = 1.0f - audiostate.env.reverb.lpfilt.amount[1];
     int curlpmul = (int)roundf(curfiltamount * curfiltamount * audiostate.freq);
     int nextlpmul = (int)roundf(nextfiltamount * nextfiltamount * audiostate.freq);
+    #if 1
+    if (adjfilters && audiostate.freq != 44100) {
+        ADJLPFILTMUL(curfiltamount, curlpmul, 44100);
+        ADJLPFILTMUL(nextfiltamount, nextlpmul, 44100);
+    }
+    #endif
     curfiltamount = audiostate.env.reverb.hpfilt.amount[0];
     nextfiltamount = audiostate.env.reverb.hpfilt.amount[1];
     int curhpmul = audiostate.freq - (int)roundf(curfiltamount * curfiltamount * audiostate.freq);
     int nexthpmul = audiostate.freq - (int)roundf(nextfiltamount * nextfiltamount * audiostate.freq);
+    #if 1
+    if (adjfilters && audiostate.freq != 44100) {
+        ADJHPFILTMUL(curfiltamount, curhpmul, 44100);
+        ADJHPFILTMUL(nextfiltamount, nexthpmul, 44100);
+    }
+    curhpmul = audiostate.freq - curhpmul;
+    nexthpmul = audiostate.freq - nexthpmul;
+    #endif
     int lplastoutl = audiostate.env.reverb.lpfilt.lastout[0];
     int lplastoutr = audiostate.env.reverb.lpfilt.lastout[1];
     int hplastoutl = audiostate.env.reverb.hpfilt.lastout[0];
@@ -1001,6 +1049,8 @@ static void mixsounds(int buf) {
         register float amount = audiostate.env.hpfilt.amount[1];
         if (amount > 0.0f) {
             int hpmul = audiostate.freq - (int)roundf(amount * amount * audiostate.freq);
+            if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(amount, hpmul, 44100);
+            hpmul = audiostate.freq - hpmul;
             if (hpmul != audiostate.freq) {
                 register int lastoutl = audiostate.env.hpfilt.lastout[0];
                 register int lastoutr = audiostate.env.hpfilt.lastout[1];
@@ -1039,8 +1089,14 @@ static void mixsounds(int buf) {
         register float curamount = audiostate.env.hpfilt.amount[0];
         register float nextamount = audiostate.env.hpfilt.amount[1];
         if (curamount > 0.0f || nextamount > 0.0f) {
-            int curhpmul = audiostate.freq - (int)roundf(curamount * curamount * audiostate.freq);
-            int nexthpmul = audiostate.freq - (int)roundf(nextamount * nextamount * audiostate.freq);
+            int curhpmul = (int)roundf(curamount * curamount * audiostate.freq);
+            int nexthpmul = (int)roundf(nextamount * nextamount * audiostate.freq);
+            if (adjfilters && audiostate.freq != 44100) {
+                ADJHPFILTMUL(curamount, curhpmul, 44100);
+                ADJHPFILTMUL(nextamount, nexthpmul, 44100);
+            }
+            curhpmul = audiostate.freq - curhpmul;
+            nexthpmul = audiostate.freq - nexthpmul;
             if (curhpmul != audiostate.freq || nexthpmul != audiostate.freq) {
                 register int lastoutl = audiostate.env.hpfilt.lastout[0];
                 register int lastoutr = audiostate.env.hpfilt.lastout[1];
@@ -1995,6 +2051,11 @@ bool startAudio(void) {
             audiostate.vol.music = sa_getvolcfg("musicvol", 50);
             audiostate.vol.voice = sa_getvolcfg("voicevol", 100);
             #undef sa_getvolcfg
+        }
+        tmp = cfg_getvar(&config, "Audio", "adjfilters");
+        if (tmp) {
+            adjfilters = strbool(tmp, adjfilters);
+            free(tmp);
         }
         audiostate.valid = true;
         #ifndef PSRC_USESDL1
