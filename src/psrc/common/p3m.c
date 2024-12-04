@@ -34,12 +34,9 @@ static inline uint32_t get32(struct datastream* ds) {
     return v;
 }
 static inline float getf32(struct datastream* ds) {
-    uint32_t v;
-    v = ds_bin_getc_noerr(ds);
-    v |= ds_bin_getc_noerr(ds) << 8;
-    v |= ds_bin_getc_noerr(ds) << 16;
-    v |= ds_bin_getc_noerr(ds) << 24;
-    return *(float*)&v;
+    float v;
+    ds_bin_read(ds, 4, &v);
+    return swaplefloat(v);
 }
 
 void p3m_free(struct p3m* m) {
@@ -164,11 +161,11 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 #if BYTEORDER == BO_BE
                 for (unsigned i = 0; i < vertct; ++i) {
                     struct p3m_vertex* v = &p->vertices[i];
-                    *(uint32_t*)&v->x = swaple32(*(uint32_t*)&v->x);
-                    *(uint32_t*)&v->y = swaple32(*(uint32_t*)&v->y);
-                    *(uint32_t*)&v->z = swaple32(*(uint32_t*)&v->z);
-                    *(uint32_t*)&v->u = swaple32(*(uint32_t*)&v->u);
-                    *(uint32_t*)&v->v = swaple32(*(uint32_t*)&v->v);
+                    v->x = swaplefloat(v->x);
+                    v->y = swaplefloat(v->y);
+                    v->z = swaplefloat(v->z);
+                    v->u = swaplefloat(v->u);
+                    v->v = swaplefloat(v->v);
                 }
                 #endif
                 if (f & P3M_FILEFLAG_PART_HASNORMS) {
@@ -178,9 +175,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         #if BYTEORDER == BO_BE
                         for (unsigned i = 0; i < vertct; ++i) {
                             struct p3m_normal* n = &p->normals[i];
-                            *(uint32_t*)&n->x = swaple32(*(uint32_t*)&n->x);
-                            *(uint32_t*)&n->y = swaple32(*(uint32_t*)&n->y);
-                            *(uint32_t*)&n->z = swaple32(*(uint32_t*)&n->z);
+                            n->x = swaplefloat(n->x);
+                            n->y = swaplefloat(n->y);
+                            n->z = swaplefloat(n->z);
                         }
                         #endif
                     } else {
@@ -426,15 +423,15 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 b->name = TOPTR(get16(ds));
                 if (ds_bin_read(ds, 3 * 4, &b->head) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
-                *(uint32_t*)&b->head[0] = swaple32(*(uint32_t*)&b->head[0]);
-                *(uint32_t*)&b->head[1] = swaple32(*(uint32_t*)&b->head[1]);
-                *(uint32_t*)&b->head[2] = swaple32(*(uint32_t*)&b->head[2]);
+                b->head.x = swaplefloat(b->head.x);
+                b->head.y = swaplefloat(b->head.y);
+                b->head.z = swaplefloat(b->head.z);
                 #endif
                 if (ds_bin_read(ds, 3 * 4, &b->tail) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
-                *(uint32_t*)&b->tail[0] = swaple32(*(uint32_t*)&b->tail[0]);
-                *(uint32_t*)&b->tail[1] = swaple32(*(uint32_t*)&b->tail[1]);
-                *(uint32_t*)&b->tail[2] = swaple32(*(uint32_t*)&b->tail[2]);
+                b->tail.x = swaplefloat(b->tail.x);
+                b->tail.y = swaplefloat(b->tail.y);
+                b->tail.z = swaplefloat(b->tail.z);
                 #endif
                 b->childcount = get8(ds);
                 if (b->childcount >= bonect - bonei) {
@@ -603,9 +600,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     }
                     #if BYTEORDER == BO_BE
                     for (size_t i = 0; i < sz; ++i) {
-                        *(uint32_t*)&b->transldata[i][0] = swaple32(*(uint32_t*)&b->transldata[i][0]);
-                        *(uint32_t*)&b->transldata[i][1] = swaple32(*(uint32_t*)&b->transldata[i][1]);
-                        *(uint32_t*)&b->transldata[i][2] = swaple32(*(uint32_t*)&b->transldata[i][2]);
+                        b->transldata[i][0] = swaplefloat(b->transldata[i][0]);
+                        b->transldata[i][1] = swaplefloat(b->transldata[i][1]);
+                        b->transldata[i][2] = swaplefloat(b->transldata[i][2]);
                     }
                     #endif
                 } while (bonei < bonect);
