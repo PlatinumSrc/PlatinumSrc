@@ -1,4 +1,4 @@
-#ifndef PSRC_RCMGRALLOC_H
+#if !defined(PSRC_RCMGRALLOC_H) && !defined(PSRC_REUSABLE)
 #define PSRC_RCMGRALLOC_H
 
 #include <stddef.h>

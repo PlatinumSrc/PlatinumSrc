@@ -2,6 +2,7 @@
 #include "filesystem.h"
 #include "logging.h"
 #include "../debug.h"
+#include "../platform.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 void ds_openmem(void* b, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
     ds->buf = b;
     ds->pos = 0;
+    ds->passed = 0;
     ds->datasz = sz;
     ds->mem.free = freecb;
     ds->mem.freectx = freectx;
@@ -59,7 +61,16 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
         #endif
     }
     ds->buf = malloc(bufsz);
+    if (!ds->buf) {
+        #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+        close(ds->file.fd);
+        #else
+        fclose(ds->file.f);
+        #endif
+        return false;
+    }
     ds->pos = 0;
+    ds->passed = 0;
     ds->datasz = 0;
     ds->bufsz = bufsz;
     ds->path = strpath(p);
@@ -68,11 +79,14 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
     ds->mode = DS_MODE_FILE;
     return true;
 }
-void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream* ds) {
+bool ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream* ds) {
+    if (!bufsz) bufsz = 4096;
     ds->buf = malloc(bufsz);
+    if (!ds->buf) return false;
     ds->pos = 0;
+    ds->passed = 0;
     ds->datasz = 0;
-    ds->bufsz = (!bufsz) ? 4096 : bufsz;
+    ds->bufsz = bufsz;
     ds->cb.read = readcb;
     ds->cb.readctx = readctx;
     ds->cb.close = closecb;
@@ -81,6 +95,23 @@ void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb c
     ds->atend = 0;
     ds->unget = 0;
     ds->mode = DS_MODE_CB;
+    return true;
+}
+bool ds_opensect(struct datastream* ids, size_t lim, size_t bufsz, struct datastream* ds) {
+    if (!bufsz) bufsz = 256;
+    ds->buf = malloc(bufsz);
+    if (!ds->buf) return false;
+    ds->pos = 0;
+    ds->passed = 0;
+    ds->datasz = 0;
+    ds->bufsz = bufsz;
+    ds->sect.ds = ids;
+    ds->sect.lim = lim;
+    ds->path = ids->path;
+    ds->atend = 0;
+    ds->unget = 0;
+    ds->mode = DS_MODE_SECT;
+    return true;
 }
 
 void ds_close(struct datastream* ds) {
@@ -100,6 +131,9 @@ void ds_close(struct datastream* ds) {
         case DS_MODE_CB:
             free(ds->buf);
             if (ds->cb.close) ds->cb.close(ds->cb.closectx);
+            break;
+        case DS_MODE_SECT:
+            free(ds->buf);
             break;
     }
 }
@@ -130,7 +164,7 @@ size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
     size_t a = ds->datasz - ds->pos;
     if (!a) {
         if (!ds__refill(ds)) return r;
-        a = ds->datasz - ds->pos;
+        a = ds->datasz/* - ds->pos*/;
         if (!a) return r;
     }
     while (a < l) {
@@ -138,7 +172,7 @@ size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
         r += a;
         l -= a;
         if (!ds__refill(ds)) return r;
-        a = ds->datasz - ds->pos;
+        a = ds->datasz/* - ds->pos*/;
         if (!a) return r;
     }
     memcpy((uint8_t*)b + r, ds->buf + ds->pos, l);
@@ -151,14 +185,14 @@ size_t ds_bin_skip(struct datastream* ds, size_t l) {
     size_t a = ds->datasz - ds->pos;
     if (!a) {
         if (!ds__refill(ds)) return r;
-        a = ds->datasz - ds->pos;
+        a = ds->datasz/* - ds->pos*/;
         if (!a) return r;
     }
     while (a < l) {
         r += a;
         l -= a;
         if (!ds__refill(ds)) return r;
-        a = ds->datasz - ds->pos;
+        a = ds->datasz/* - ds->pos*/;
         if (!a) return r;
     }
     ds->pos += l;
@@ -175,27 +209,46 @@ bool ds__refill(struct datastream* ds) {
         ds->atend = 1;
         return false;
     }
+    ds->passed += ds->datasz;
+    ds->pos = 0;
     if (ds->mode == DS_MODE_FILE) {
         #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
             ssize_t r = read(ds->file.fd, ds->buf, ds->bufsz);
             if (r == 0 || r == -1) {
+                ds->datasz = 0;
                 ds->atend = 1;
                 return false;
             }
             ds->datasz = r;
         #else
             if (feof(ds->file.f)) {
+                ds->datasz = 0;
                 ds->atend = 1;
                 return false;
             }
             ds->datasz = fread(ds->buf, 1, ds->bufsz, ds->file.f);
         #endif
-    } else {
+    } else if (ds->mode == DS_MODE_CB) {
         if (!ds->cb.read(ds->cb.readctx, ds->buf, ds->bufsz, &ds->datasz)) {
+            ds->datasz = 0;
             ds->atend = 1;
             return false;
         }
+    } else {
+        size_t tmp = ds->sect.lim - ds->passed;
+        if (!tmp) {
+            ds->datasz = 0;
+            ds->atend = 1;
+            return false;
+        }
+        if (tmp > ds->bufsz) tmp = ds->bufsz;
+        size_t r = ds_bin_read(ds->sect.ds, tmp, ds->buf);
+        if (!r && ds_bin_atend(ds->sect.ds)) {
+            ds->datasz = 0;
+            ds->atend = 1;
+            return false;
+        }
+        ds->datasz = r;
     }
-    ds->pos = 0;
     return true;
 }

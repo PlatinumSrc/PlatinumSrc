@@ -1,21 +1,10 @@
 #ifndef PSRC_COMMON_CONFIG_H
 #define PSRC_COMMON_CONFIG_H
 
-#ifndef PSRC_REUSEABLE
+#ifndef PSRC_REUSABLE
     #include "threading.h"
-    #include "datastream.h"
-    #define PSRC_COMMON_CONFIG_DATASTREAM struct datastream*
-#else
-    #include <stdio.h>
-    #define PSRC_COMMON_CONFIG_DATASTREAM FILE*
-    #define DS_END EOF
-    #define ds_text_getc fgetc
-    #define ds_text_getc_inline fgetc
-    #define ds_text_getc_fullinline fgetc
-    #define ds_text_ungetc(ds, c) ungetc(c, ds)
-    #define ds_text_atend feof
-    #define DEBUG(x) 0
 #endif
+#include "datastream.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -38,14 +27,14 @@ struct cfg {
     bool changed;
     int sectcount;
     struct cfg_sect* sectdata;
-    #if !defined(PSRC_REUSEABLE) && !defined(PSRC_NOMT)
+    #if !defined(PSRC_REUSABLE) && !defined(PSRC_NOMT)
     mutex_t lock;
     #endif
 };
 
-#ifndef PSRC_REUSEABLE
-    void cfg_open(PSRC_COMMON_CONFIG_DATASTREAM, struct cfg*);
-    void cfg_merge(struct cfg*, PSRC_COMMON_CONFIG_DATASTREAM, bool overwrite);
+#ifndef PSRC_REUSABLE
+    void cfg_open(PSRC_DATASTREAM_T, struct cfg*);
+    void cfg_merge(struct cfg*, PSRC_DATASTREAM_T, bool overwrite);
 #else
     void cfg_open(FILE*, struct cfg*);
     void cfg_merge(struct cfg*, FILE*, bool overwrite);

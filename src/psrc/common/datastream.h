@@ -1,8 +1,9 @@
 #ifndef PSRC_COMMON_DATASTREAM_H
 #define PSRC_COMMON_DATASTREAM_H
 
+#ifndef PSRC_REUSABLE
+
 #include "../attribs.h"
-#include "../platform.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -11,7 +12,8 @@
 PACKEDENUM ds_mode {
     DS_MODE_MEM,
     DS_MODE_FILE,
-    DS_MODE_CB
+    DS_MODE_CB,
+    DS_MODE_SECT
 };
 
 #define DS_END (-1)
@@ -23,6 +25,7 @@ typedef void (*ds_cb_closecb)(void* ctx);
 struct datastream {
     uint8_t* buf;
     size_t pos;
+    size_t passed;
     size_t datasz;
     size_t bufsz;
     union {
@@ -43,6 +46,10 @@ struct datastream {
             void* readctx;
             void* closectx;
         } cb;
+        struct {
+            struct datastream* ds;
+            size_t lim;
+        } sect;
     };
     char* path;
     uint8_t unget : 1;
@@ -53,7 +60,8 @@ struct datastream {
 
 void ds_openmem(void* buf, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream*);
 bool ds_openfile(const char* path, size_t bufsz, struct datastream*);
-void ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream*);
+bool ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream*);
+bool ds_opensect(struct datastream*, size_t lim, size_t bufsz, struct datastream*);
 
 size_t ds_bin_read(struct datastream*, size_t len, void* outbuf);
 static ALWAYSINLINE int ds_bin_getc(struct datastream*);
@@ -65,6 +73,8 @@ static inline int ds_text_getc_inline(struct datastream*);
 static inline int ds_text_getc_fullinline(struct datastream*);
 static ALWAYSINLINE void ds_text_ungetc(struct datastream*, uint8_t);
 static ALWAYSINLINE bool ds_text_atend(struct datastream*);
+
+static inline size_t ds_tell(struct datastream*);
 
 void ds_close(struct datastream*);
 
@@ -113,5 +123,28 @@ static ALWAYSINLINE bool ds_bin_atend(struct datastream* ds) {
 static ALWAYSINLINE bool ds_text_atend(struct datastream* ds) {
     return (!ds->unget && ds->atend);
 }
+
+static inline size_t ds_tell(struct datastream* ds) {
+    return ds->passed + ds->pos;
+}
+
+#define PSRC_DATASTREAM_T struct datastream*
+
+#else
+
+#include <stdio.h>
+#define PSRC_DATASTREAM_T FILE*
+#define DS_END EOF
+#define ds_bin_read(ds, l, o) fread((o), 1, (l), (ds))
+#define ds_bin_getc fgetc
+static inline size_t ds_bin_skip(FILE* f, size_t l) {size_t d = ftell(f); fseek(f, l, SEEK_CUR); return ftell(f) - d;}
+#define ds_bin_atend feof
+#define ds_text_getc fgetc
+#define ds_text_getc_inline fgetc
+#define ds_text_getc_fullinline fgetc
+#define ds_text_ungetc(ds, c) ungetc((c), (ds))
+#define ds_text_atend feof
+
+#endif
 
 #endif

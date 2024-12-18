@@ -76,7 +76,7 @@ static uintptr_t rctick; // using uintptr_t to get 64 bits on 64-bit windows
 struct rcheader {
     enum rctype type;
     enum rcprefix prefix;
-    char* path; // sanitized resource path without prefix (e.g. /textures/icon.png)
+    char* path; // sanitized resource path without prefix (e.g. /textures/icon)
     uint32_t pathcrc;
     uint64_t datacrc;
     unsigned refs;
@@ -1189,11 +1189,13 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             }
         } break;
         case RC_TEXTURE: {
-            if (acc.src != RCSRC_FS) goto fail;
             const struct rcopt_texture* o = opt;
             if (acc.ext == rcextensions[RC_TEXTURE][0]) {
+                struct datastream ds;
+                if (!dsFromRcAcc(&acc, &ds)) goto fail;
                 unsigned r, c;
-                uint8_t* data = ptf_loadfile(acc.fs.path, &r, &c);
+                uint8_t* data = ptf_load(&ds, &r, &c);
+                ds_close(&ds);
                 if (!data) goto fail;
                 if (o->needsalpha && c == 3) {
                     c = 4;
@@ -1238,6 +1240,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 rc->texture.data = data;
                 rc->texture_opt = *o;
             } else {
+                if (acc.src != RCSRC_FS) goto fail;
                 int w, h, c;
                 if (stbi_info(acc.fs.path, &w, &h, &c)) goto fail;
                 if (o->needsalpha) {

@@ -1,41 +1,8 @@
-/*
- * LZ4 file library
- * Copyright (C) 2022, Xiaomi Inc.
- *
- * BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * - Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above
- *   copyright notice, this list of conditions and the following disclaimer
- *   in the documentation and/or other materials provided with the
- *   distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You can contact the author at :
- * - LZ4 homepage : http://www.lz4.org
- * - LZ4 source repository : https://github.com/lz4/lz4
- */
 #include <stdlib.h>  /* malloc, free */
 #include <string.h>
 #include <assert.h>
 #include "lz4.h"
-#include "lz4file.h"
+#include "lz4ds.h"
 
 static LZ4F_errorCode_t returnErrorCode(LZ4F_errorCodes code)
 {
@@ -46,116 +13,116 @@ static LZ4F_errorCode_t returnErrorCode(LZ4F_errorCodes code)
 
 /* =====   read API   ===== */
 
-struct LZ4_readFile_s {
+struct LZ4_readDS_s {
   LZ4F_dctx* dctxPtr;
-  FILE* fp;
+  PSRC_DATASTREAM_T ds;
   LZ4_byte* srcBuf;
   size_t srcBufNext;
   size_t srcBufSize;
   size_t srcBufMaxSize;
 };
 
-static void LZ4F_freeReadFile(LZ4_readFile_t* lz4fRead)
+static void LZ4DS_freeReadDS(LZ4_readDS_t* lz4dsRead)
 {
-  if (lz4fRead==NULL) return;
-  LZ4F_freeDecompressionContext(lz4fRead->dctxPtr);
-  free(lz4fRead->srcBuf);
-  free(lz4fRead);
+  if (lz4dsRead==NULL) return;
+  LZ4F_freeDecompressionContext(lz4dsRead->dctxPtr);
+  free(lz4dsRead->srcBuf);
+  free(lz4dsRead);
 }
 
-static void LZ4F_freeAndNullReadFile(LZ4_readFile_t** statePtr)
+static void LZ4DS_freeAndNullReadDS(LZ4_readDS_t** statePtr)
 {
   assert(statePtr != NULL);
-  LZ4F_freeReadFile(*statePtr);
+  LZ4DS_freeReadDS(*statePtr);
   *statePtr = NULL;
 }
 
-LZ4F_errorCode_t LZ4F_readOpen(LZ4_readFile_t** lz4fRead, FILE* fp)
+LZ4F_errorCode_t LZ4DS_readOpen(LZ4_readDS_t** lz4dsRead, PSRC_DATASTREAM_T ds)
 {
   char buf[LZ4F_HEADER_SIZE_MAX];
   size_t consumedSize;
   LZ4F_errorCode_t ret;
 
-  if (fp == NULL || lz4fRead == NULL) {
+  if (ds == NULL || lz4dsRead == NULL) {
     RETURN_ERROR(parameter_null);
   }
 
-  *lz4fRead = (LZ4_readFile_t*)calloc(1, sizeof(LZ4_readFile_t));
-  if (*lz4fRead == NULL) {
+  *lz4dsRead = (LZ4_readDS_t*)calloc(1, sizeof(LZ4_readDS_t));
+  if (*lz4dsRead == NULL) {
     RETURN_ERROR(allocation_failed);
   }
 
-  ret = LZ4F_createDecompressionContext(&(*lz4fRead)->dctxPtr, LZ4F_VERSION);
+  ret = LZ4F_createDecompressionContext(&(*lz4dsRead)->dctxPtr, LZ4F_VERSION);
   if (LZ4F_isError(ret)) {
-    LZ4F_freeAndNullReadFile(lz4fRead);
+    LZ4DS_freeAndNullReadDS(lz4dsRead);
     return ret;
   }
 
-  (*lz4fRead)->fp = fp;
-  consumedSize = fread(buf, 1, sizeof(buf), (*lz4fRead)->fp);
+  (*lz4dsRead)->ds = ds;
+  consumedSize = ds_bin_read((*lz4dsRead)->ds, sizeof(buf), buf);
   if (consumedSize < LZ4F_HEADER_SIZE_MIN + LZ4F_ENDMARK_SIZE) {
-    LZ4F_freeAndNullReadFile(lz4fRead);
+    LZ4DS_freeAndNullReadDS(lz4dsRead);
     RETURN_ERROR(io_read);
   }
 
   { LZ4F_frameInfo_t info;
-    LZ4F_errorCode_t const r = LZ4F_getFrameInfo((*lz4fRead)->dctxPtr, &info, buf, &consumedSize);
+    LZ4F_errorCode_t const r = LZ4F_getFrameInfo((*lz4dsRead)->dctxPtr, &info, buf, &consumedSize);
     if (LZ4F_isError(r)) {
-      LZ4F_freeAndNullReadFile(lz4fRead);
+      LZ4DS_freeAndNullReadDS(lz4dsRead);
       return r;
     }
 
     switch (info.blockSizeID) {
       case LZ4F_default :
       case LZ4F_max64KB :
-        (*lz4fRead)->srcBufMaxSize = 64 * 1024;
+        (*lz4dsRead)->srcBufMaxSize = 64 * 1024;
         break;
       case LZ4F_max256KB:
-        (*lz4fRead)->srcBufMaxSize = 256 * 1024;
+        (*lz4dsRead)->srcBufMaxSize = 256 * 1024;
         break;
       case LZ4F_max1MB:
-        (*lz4fRead)->srcBufMaxSize = 1 * 1024 * 1024;
+        (*lz4dsRead)->srcBufMaxSize = 1 * 1024 * 1024;
         break;
       case LZ4F_max4MB:
-        (*lz4fRead)->srcBufMaxSize = 4 * 1024 * 1024;
+        (*lz4dsRead)->srcBufMaxSize = 4 * 1024 * 1024;
         break;
       default:
-        LZ4F_freeAndNullReadFile(lz4fRead);
+        LZ4DS_freeAndNullReadDS(lz4dsRead);
         RETURN_ERROR(maxBlockSize_invalid);
     }
   }
 
-  (*lz4fRead)->srcBuf = (LZ4_byte*)malloc((*lz4fRead)->srcBufMaxSize);
-  if ((*lz4fRead)->srcBuf == NULL) {
-    LZ4F_freeAndNullReadFile(lz4fRead);
+  (*lz4dsRead)->srcBuf = (LZ4_byte*)malloc((*lz4dsRead)->srcBufMaxSize);
+  if ((*lz4dsRead)->srcBuf == NULL) {
+    LZ4DS_freeAndNullReadDS(lz4dsRead);
     RETURN_ERROR(allocation_failed);
   }
 
-  (*lz4fRead)->srcBufSize = sizeof(buf) - consumedSize;
-  memcpy((*lz4fRead)->srcBuf, buf + consumedSize, (*lz4fRead)->srcBufSize);
+  (*lz4dsRead)->srcBufSize = sizeof(buf) - consumedSize;
+  memcpy((*lz4dsRead)->srcBuf, buf + consumedSize, (*lz4dsRead)->srcBufSize);
 
   return ret;
 }
 
-size_t LZ4F_read(LZ4_readFile_t* lz4fRead, void* buf, size_t size)
+size_t LZ4DS_read(LZ4_readDS_t* lz4dsRead, void* buf, size_t size)
 {
   LZ4_byte* p = (LZ4_byte*)buf;
   size_t next = 0;
 
-  if (lz4fRead == NULL || buf == NULL)
+  if (lz4dsRead == NULL || buf == NULL)
     RETURN_ERROR(parameter_null);
 
   while (next < size) {
-    size_t srcsize = lz4fRead->srcBufSize - lz4fRead->srcBufNext;
+    size_t srcsize = lz4dsRead->srcBufSize - lz4dsRead->srcBufNext;
     size_t dstsize = size - next;
     size_t ret;
 
     if (srcsize == 0) {
-      ret = fread(lz4fRead->srcBuf, 1, lz4fRead->srcBufMaxSize, lz4fRead->fp);
+      ret = ds_bin_read(lz4dsRead->ds, lz4dsRead->srcBufMaxSize, lz4dsRead->srcBuf);
       if (ret > 0) {
-        lz4fRead->srcBufSize = ret;
-        srcsize = lz4fRead->srcBufSize;
-        lz4fRead->srcBufNext = 0;
+        lz4dsRead->srcBufSize = ret;
+        srcsize = lz4dsRead->srcBufSize;
+        lz4dsRead->srcBufNext = 0;
       } else if (ret == 0) {
         break;
       } else {
@@ -163,16 +130,16 @@ size_t LZ4F_read(LZ4_readFile_t* lz4fRead, void* buf, size_t size)
       }
     }
 
-    ret = LZ4F_decompress(lz4fRead->dctxPtr,
+    ret = LZ4F_decompress(lz4dsRead->dctxPtr,
                           p, &dstsize,
-                          lz4fRead->srcBuf + lz4fRead->srcBufNext,
+                          lz4dsRead->srcBuf + lz4dsRead->srcBufNext,
                           &srcsize,
                           NULL);
     if (LZ4F_isError(ret)) {
         return ret;
     }
 
-    lz4fRead->srcBufNext += srcsize;
+    lz4dsRead->srcBufNext += srcsize;
     next += dstsize;
     p += dstsize;
   }
@@ -180,13 +147,15 @@ size_t LZ4F_read(LZ4_readFile_t* lz4fRead, void* buf, size_t size)
   return next;
 }
 
-LZ4F_errorCode_t LZ4F_readClose(LZ4_readFile_t* lz4fRead)
+LZ4F_errorCode_t LZ4DS_readClose(LZ4_readDS_t* lz4dsRead)
 {
-  if (lz4fRead == NULL)
+  if (lz4dsRead == NULL)
     RETURN_ERROR(parameter_null);
-  LZ4F_freeReadFile(lz4fRead);
+  LZ4DS_freeReadDS(lz4dsRead);
   return LZ4F_OK_NoError;
 }
+
+#if 0
 
 /* =====   write API   ===== */
 
@@ -339,3 +308,5 @@ out:
   LZ4F_freeWriteFile(lz4fWrite);
   return ret;
 }
+
+#endif

@@ -26,6 +26,10 @@
     - Audio
         - Music
         - OpenAL support
+        - SPU support
+            - Dreamcast
+                - [AICA reference](https://segaretro.org/images/d/de/AICA_E.pdf)
+                - [S3M player](https://github.com/Kochise/dreamcast-docs/blob/master/AICA/SRCS/libs3mplay/libs3mplay/s3mplay)
     - Physics
     - UI
     - Input

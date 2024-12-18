@@ -1,0 +1,8 @@
+This is an extension of 'maps.txt'
+
+Baked light info:
+
+    - Extention name is "bakedlights"
+    - Provides information about the lights that were used to bake the lightmaps.
+
+

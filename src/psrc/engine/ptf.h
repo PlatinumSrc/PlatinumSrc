@@ -3,6 +3,8 @@
 
 #define PTF_REV 0
 
-void* ptf_loadfile(const char* path, unsigned* res, unsigned* ch);
+#include "../common/datastream.h"
+
+void* ptf_load(PSRC_DATASTREAM_T, unsigned* res, unsigned* ch);
 
 #endif

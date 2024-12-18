@@ -6,8 +6,6 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include <../lz4/lz4file.h>
-
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <../stb/stb_image_write.h>
 
@@ -98,17 +96,9 @@ static void ptf2img(char* p) {
             free(np);
             return;
         }
-        FILE* f = fopen(p, "rb");
-        if (!f) {
-            fputs(" failed (could not open input: ", stdout);
-            fputs(strerror(errno), stdout);
-            fputs(")\n", stdout);
-            free(np);
-            return;
-        }
-        fclose(f);
         if (!opt.overwrite) {
-            if ((f = fopen(np, "rb"))) {
+            FILE* f = fopen(np, "rb");
+            if (f) {
                 fputs(" failed (output exists)\n", stdout);
                 fclose(f);
                 free(np);
@@ -117,11 +107,23 @@ static void ptf2img(char* p) {
         }
     }
     unsigned r, c;
-    void* data = ptf_loadfile(p, &r, &c);
-    if (!data) {
-        fputs(" failed (could not decode PTF)\n", stdout);
-        free(np);
-        return;
+    void* data;
+    {
+        FILE* f = fopen(p, "rb");
+        if (!f) {
+            fputs(" failed (could not open input: ", stdout);
+            fputs(strerror(errno), stdout);
+            fputs(")\n", stdout);
+            free(np);
+            return;
+        }
+        data = ptf_load(f, &r, &c);
+        fclose(f);
+        if (!data) {
+            fputs(" failed (could not decode PTF)\n", stdout);
+            free(np);
+            return;
+        }
     }
     switch (opt.format) {
         case FMT_PNG:

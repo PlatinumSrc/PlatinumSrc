@@ -26,6 +26,7 @@ Format:
 
     Sample:
         <char[1...]: Name {..., 0}>
+        <u8: Note>
         <u32: Rate>
         <u32: Loop start> <u32: Loop end>
         <u8: <7 bits: 0> <1 bit: 16-bit>>

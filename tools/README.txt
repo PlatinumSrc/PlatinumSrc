@@ -4,6 +4,7 @@
     Refer to the READMEs in each plugin's directory.
 
     1. Add the 'blender' folder as a script directory.
+    2. Hit 'Reload Script' in 'System' under the Blender icon menu.
 
 'gtksourceview':
 

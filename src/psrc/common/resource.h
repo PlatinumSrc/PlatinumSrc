@@ -1,8 +1,6 @@
 #ifndef PSRC_COMMON_RESOURCE_H
 #define PSRC_COMMON_RESOURCE_H
 
-// TODO: rewrite? (too much crust)
-
 #include "config.h"
 #include "pbasic.h"
 #include "p3m.h"

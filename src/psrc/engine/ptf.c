@@ -2,23 +2,19 @@
 
 #include "ptf.h"
 
-#include "../../lz4/lz4file.h"
+#include "../../lz4/lz4ds.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
-void* ptf_loadfile(const char* p, unsigned* res, unsigned* ch) {
-    FILE* f = fopen(p, "rb");
-    if (fgetc(f) != 'P') return NULL;
-    if (fgetc(f) != 'T') return NULL;
-    if (fgetc(f) != 'F') return NULL;
-    if (fgetc(f) != PTF_REV) return NULL;
-    int info = fgetc(f);
-    if (info == EOF) {
-        fclose(f);
-        return NULL;
-    }
+void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* res, unsigned* ch) {
+    if (ds_bin_getc(ds) != 'P') return NULL;
+    if (ds_bin_getc(ds) != 'T') return NULL;
+    if (ds_bin_getc(ds) != 'F') return NULL;
+    if (ds_bin_getc(ds) != PTF_REV) return NULL;
+    int info = ds_bin_getc(ds);
+    if (info == DS_END) return NULL;
     int sz = (info & 0xF);
     sz = 1 << sz;
     *res = sz;
@@ -27,19 +23,17 @@ void* ptf_loadfile(const char* p, unsigned* res, unsigned* ch) {
     *ch = tmpch;
     sz *= tmpch;
     void* data = malloc(sz);
-    LZ4_readFile_t* rf;
-    if (LZ4F_isError(LZ4F_readOpen(&rf, f))) {
+    if (!data) return NULL;
+    LZ4_readDS_t* rds;
+    if (LZ4F_isError(LZ4DS_readOpen(&rds, ds))) {
         free(data);
-        fclose(f);
         return NULL;
     }
-    if (LZ4F_isError(LZ4F_read(rf, data, sz))) {
-        LZ4F_readClose(rf);
+    if (LZ4F_isError(LZ4DS_read(rds, data, sz))) {
+        LZ4DS_readClose(rds);
         free(data);
-        fclose(f);
         return NULL;
     }
-    LZ4F_readClose(rf);
-    fclose(f);
+    LZ4DS_readClose(rds);
     return data;
 }

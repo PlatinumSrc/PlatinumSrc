@@ -1,11 +1,11 @@
 #ifndef PSRC_GLUE_H
 #define PSRC_GLUE_H
 
-#ifndef PSRC_REUSEABLE
+#ifndef PSRC_REUSABLE
     #include "platform.h"
 #endif
 
-#if !defined(PSRC_REUSEABLE) ? !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) : !defined(_WIN32)
+#if !defined(PSRC_REUSABLE) ? !(PLATFLAGS & PLATFLAG_WINDOWSLIKE) : !defined(_WIN32)
     #define mkdir(x) mkdir(x, (S_IRWXU) | (S_IRGRP | S_IXGRP) | (S_IROTH | S_IXOTH))
 #else
     #define pause() Sleep(INFINITE)

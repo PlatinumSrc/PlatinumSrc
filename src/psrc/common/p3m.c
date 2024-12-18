@@ -2,13 +2,17 @@
 
 #include "p3m.h"
 
-#include "../debug.h"
-#include "../attribs.h"
+#ifndef PSRC_MODULE_SERVER
+    #include "../engine/ptf.h"
+#endif
 
 #include "filesystem.h"
 #include "logging.h"
 #include "byteorder.h"
 #include "vlb.h"
+
+#include "../debug.h"
+#include "../attribs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,6 +98,7 @@ void p3m_free(struct p3m* m) {
     free(m->strings);
 }
 
+#define P3M_LOAD_INTERR(lbl) do {plog(LL_ERROR | LF_FUNCLN, "Internal error"); goto lbl;} while (0)
 #define P3M_LOAD_EOSERR(lbl) do {plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream"); goto lbl;} while (0)
 #define P3M_LOAD_OOMERR(lbl) do {plog(LL_ERROR | LF_FUNCLN, LE_MEMALLOC); goto lbl;} while (0)
 bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
@@ -108,7 +113,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         }
         if (h[0] != 'P' || h[1] != '3' || h[2] != 'M') {
             plog(
-                LL_ERROR | LF_FUNC,
+                LL_ERROR,
                 "P3M header magic wrong (expected 50 33 4D, got %02X %02X %02X)",
                 h[0], h[1], h[2]
             );
@@ -122,7 +127,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             return false;
         }
         if (v != P3M_VER) {
-            plog(LL_ERROR | LF_FUNC, "P3M version wrong (expected " STR(P3M_VER) ", got %d)", v);
+            plog(LL_ERROR, "P3M version wrong (expected " STR(P3M_VER) ", got %d)", v);
             return false;
         }
     }
@@ -193,7 +198,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     p->indices[i] = swaple16(p->indices[i]);
                     #endif
                     if (p->indices[i] >= vertct) {
-                        plog(LL_ERROR | LF_FUNCLN, "Index %u of part %u is out of range (got %u, expected less than %u)", i, parti - 1, p->indices[i], vertct);
+                        plog(LL_ERROR, "Index %u of part %u is out of range (got %u, expected less than %u)", i, parti - 1, p->indices[i], vertct);
                         goto retfalse;
                     }
                 }
@@ -220,7 +225,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                     VLB_FREE(wvlb);
                                     VLB_FREE(wrvlb);
                                     plog(
-                                        LL_ERROR | LF_FUNCLN,
+                                        LL_ERROR,
                                         "Weight group %u of part %u has too many weights (got %u, expected less than or equal to %u)",
                                         wgi - 1, parti - 1, totalwct, vertct
                                     );
@@ -277,7 +282,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             do {
                 struct p3m_material* mat = &m->materials[mati];
                 if ((mat->rendmode = get8(ds)) >= P3M_MATRENDMODE__COUNT) {
-                    plog(LL_WARN | LF_FUNCLN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
+                    plog(LL_WARN, "Render mode of material %u is invalid (got %u, expected less than %u)", mati, mat->rendmode, P3M_MATRENDMODE__COUNT);
                     mat->rendmode = P3M_MATRENDMODE_NORMAL;
                 }
                 mat->texture = TOPTR(get8(ds));
@@ -294,7 +299,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             if ((uintptr_t)p->material < matct) {
                 p->material = m->materials + (uintptr_t)p->material;
             } else {
-                plog(LL_ERROR | LF_FUNCLN, "Material of part %u is out of bounds (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
+                plog(LL_ERROR, "Material of part %u is out of bounds (got %u, expected less than %u)", parti, (unsigned)(uintptr_t)p->material, matct);
                 goto retfalse;
             }
         }
@@ -312,20 +317,47 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 switch (t->type) {
                     case P3M_TEXTYPE_EMBEDDED: {
                         uint32_t sz = get32(ds);
+                        #ifndef PSRC_MODULE_SERVER
                         if (!(lf & P3M_LOADFLAG_IGNOREEMBTEXS)) {
-                            // TODO: On OOM, do not completely fail
-                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
-                            t->embedded.data = NULL;
+                            size_t tmp = ds_tell(ds);
+                            unsigned r, c;
+                            {
+                                struct datastream tmpds;
+                                if (!ds_opensect(ds, sz, 0, &tmpds)) P3M_LOAD_INTERR(retfalse);
+                                t->embedded.data = ptf_load(&tmpds, &r, &c);
+                                ds_close(&tmpds);
+                            }
+                            tmp = ds_tell(ds) - tmp;
+                            if (t->embedded.data) {
+                                t->embedded.res = r;
+                                t->embedded.ch = c;
+                            } else {
+                                plog(LL_WARN, "Failed to decode texture %u", texi - 1);
+                            }
+                            if (tmp < sz) {
+                                if (t->embedded.data) plog(
+                                    LL_WARN, "Data of texture %u is smaller than expected (got %lu, expected %u)",
+                                    texi - 1, (long unsigned)tmp, (unsigned)sz
+                                );
+                                sz -= tmp;
+                                if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                            } else if (tmp > sz) {
+                                plog(LL_ERROR, "Data of texture %u is larger than expected (got %lu, expected %u)", texi - 1, (long unsigned)tmp, (unsigned)sz);
+                                goto retfalse;
+                            }
                         } else {
+                        #endif
                             if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                             t->embedded.data = NULL;
+                        #ifndef PSRC_MODULE_SERVER
                         }
+                        #endif
                     } break;
                     case P3M_TEXTYPE_EXTERNAL: {
                         t->external.rcpath = TOPTR(get16(ds));
                     } break;
                     default: {
-                        plog(LL_WARN | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, t->type, P3M_TEXTYPE__COUNT);
+                        plog(LL_WARN, "Type of texture %u is invalid (got %u, expected less than %u)", texi - 1, t->type, P3M_TEXTYPE__COUNT);
                         t->type = P3M_TEXTYPE_EMBEDDED;
                         t->embedded.data = NULL;
                         uint32_t sz = get32(ds);
@@ -344,7 +376,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             } else if ((uintptr_t)mat->texture < texct) {
                 mat->texture = m->textures + (uintptr_t)mat->texture;
             } else {
-                plog(LL_ERROR | LF_FUNCLN, "Texture of material %u is out of bounds (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
+                plog(LL_ERROR, "Texture of material %u is out of bounds (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
                 goto retfalse;
             }
         }
@@ -402,7 +434,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     get16(ds);
                 } break;
                 default: {
-                    plog(LL_WARN | LF_FUNCLN, "Type of texture %u is invalid (got %u, expected less than %u)", texi, textype, P3M_TEXTYPE__COUNT);
+                    plog(LL_WARN, "Type of texture %u is invalid (got %u, expected less than %u)", texi, textype, P3M_TEXTYPE__COUNT);
                     uint32_t sz = get32(ds);
                     if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                 } break;
@@ -435,7 +467,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 #endif
                 b->childcount = get8(ds);
                 if (b->childcount >= bonect - bonei) {
-                    plog(LL_ERROR | LF_FUNCLN, "Child count of bone %u is too large (got %u, expected less than %u)", bonei, b->childcount, bonect - bonei);
+                    plog(LL_ERROR, "Child count of bone %u is too large (got %u, expected less than %u)", bonei, b->childcount, bonect - bonei);
                     goto retfalse;
                 }
             } while (++bonei < bonect);
@@ -503,7 +535,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 a->partlistmode = get8(ds);
                 if (a->partlistmode >= P3M_ACTPARTLISTMODE__COUNT) {
                     plog(
-                        LL_WARN | LF_FUNCLN,
+                        LL_WARN,
                         "Part list mode of action %u is invalid (got %u, expected less than %u)",
                         acti - 1, a->partlistmode, P3M_ACTPARTLISTMODE__COUNT
                     );
@@ -562,7 +594,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
                             plog(
-                                LL_WARN | LF_FUNCLN,
+                                LL_WARN,
                                 "Translation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
@@ -574,7 +606,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
                             plog(
-                                LL_WARN | LF_FUNCLN,
+                                LL_WARN,
                                 "Rotation interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
@@ -586,7 +618,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         uint8_t tmp = get8(ds);
                         if (tmp >= P3M_ACTINTERP__COUNT) {
                             plog(
-                                LL_WARN | LF_FUNCLN,
+                                LL_WARN,
                                 "Scale interpolation mode %u of bone action data %u under action %u is invalid (got %u, expected less than %u)",
                                 i, bonei - 1, acti, tmp, P3M_ACTINTERP__COUNT
                             );
@@ -624,7 +656,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     r->action = m->actions + (uintptr_t)r->action;
                 } else {
                     plog(
-                        LL_ERROR | LF_FUNCLN,
+                        LL_ERROR,
                         "Action reference %u of animation %u is out of range (got %u, expected less than %u)",
                         acti, animi, (unsigned)(uintptr_t)r->action, actct
                     );
@@ -675,7 +707,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         strtbl.len = ds_bin_read(ds, 256, strtbl.data + oldlen) + oldlen;
         if (strtbl.len > 65535) {
             cb_dump(&strtbl);
-            plog(LL_ERROR | LF_FUNCLN, "String table is too large (got %u, expected less than or equal to 65535)", strtbl.len);
+            plog(LL_ERROR, "String table is too large (got %u, expected less than or equal to 65535)", strtbl.len);
             goto retfalse;
         }
     }
@@ -688,7 +720,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         struct p3m_part* p = &m->parts[parti];
         if ((uintptr_t)p->name > strtbl.len) {
             plog(
-                LL_ERROR | LF_FUNCLN,
+                LL_ERROR,
                 "Name string for part %u is out of bounds (got %u, expected less than or equal to %u)",
                 parti, (unsigned)(uintptr_t)p->name, strtbl.len
             );
@@ -699,7 +731,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             struct p3m_weightgroup* wg = &p->weightgroups[wgi];
             if ((uintptr_t)wg->name > strtbl.len) {
                 plog(
-                    LL_ERROR | LF_FUNCLN,
+                    LL_ERROR,
                     "Name string for weight group %u under part %u is out of bounds (got %u, expected less than or equal to %u)",
                     wgi, parti, (unsigned)(uintptr_t)wg->name, strtbl.len
                 );
@@ -714,7 +746,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             case P3M_TEXTYPE_EXTERNAL:
                 if ((uintptr_t)t->external.rcpath > strtbl.len) {
                     plog(
-                        LL_ERROR | LF_FUNCLN,
+                        LL_ERROR,
                         "Resource path string for texture %u is out of bounds (got %u, expected less than or equal to %u)",
                         texi, (unsigned)(uintptr_t)t->external.rcpath, strtbl.len
                     );
@@ -730,7 +762,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         struct p3m_bone* b = &m->bones[bonei];
         if ((uintptr_t)b->name > strtbl.len) {
             plog(
-                LL_ERROR | LF_FUNCLN,
+                LL_ERROR,
                 "Name string for bone %u is out of bounds (got %u, expected less than or equal to %u)",
                 bonei, (unsigned)(uintptr_t)b->name, strtbl.len
             );
@@ -742,7 +774,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         struct p3m_animation* a = &m->animations[animi];
         if ((uintptr_t)a->name > strtbl.len) {
             plog(
-                LL_ERROR | LF_FUNCLN,
+                LL_ERROR,
                 "Name string for animation %u is out of bounds (got %u, expected less than or equal to %u)",
                 animi, (unsigned)(uintptr_t)a->name, strtbl.len
             );
@@ -755,7 +787,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         for (unsigned parti = 0; parti < a->partlistlen; ++parti) {
             if ((uintptr_t)a->partlist[parti] > strtbl.len) {
                 plog(
-                    LL_ERROR | LF_FUNCLN,
+                    LL_ERROR,
                     "Part name string %u under action %u is out of bounds (got %u, expected less than or equal to %u)",
                     parti, acti, (unsigned)(uintptr_t)a->partlist[parti], strtbl.len
                 );
@@ -767,7 +799,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             struct p3m_actionbone* b = &a->bones[bonei];
             if ((uintptr_t)b->name > strtbl.len) {
                 plog(
-                    LL_ERROR | LF_FUNCLN,
+                    LL_ERROR,
                     "Name string for bone action data %u under action %u is out of bounds (got %u, expected less than or equal to %u)",
                     bonei, acti, (unsigned)(uintptr_t)b->name, strtbl.len
                 );
@@ -777,7 +809,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         }
     }
 
-    #if DEBUG(3)
+    #if DEBUG(2)
     plog(LL_INFO | LF_DEBUG | LF_FUNC, "Model info:");
     plog(LL_INFO | LF_DEBUG, "  Parts (%u):", m->partcount);
     for (unsigned i = 0; i < m->partcount; ++i) {

@@ -18,7 +18,7 @@ FPLATDESC32="$(printf '%s' "${PLATDESC32// /_}" | tr '[:upper:]' '[:lower:]')"
 
 debmake() {
     # debrun runs commands inside a debian buster chroot
-    debrun '' make "${@}"
+    debrun make "${@}"
 }
 
 # Platforms that require disc images or similar file storage methods will not be included here (Emscripten, Dreamcast, etc.).
