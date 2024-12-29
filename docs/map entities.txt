@@ -6,15 +6,19 @@ This is an extension of 'maps.txt'
 - For global or level entities with positions, the position is relative to the center of the center chunk. For sector
   entities, the position is relative to the center of that sector.
 
-Entity: <<String>: Name> <u8: <Entity type>> <Entity data>
+Entity:
+    <u32: Gamemodes bitmask>
+    <u32: Size of following data>
+    <<String>: Name>
+    <u8: <Entity type>> <Entity data>
+    <u32: Custom property count> [ <Entity property data type> <Entity property data> ]
 
 Entity type:
     { ENT_HEADLESS
-    | ENT_NPC
+    | ENT_GENERIC
     | ENT_CUBE
     | ENT_PROP
     | ENT_DOOR
-    | ENT_CLIMBABLE
     | ENT_TRIGGERBOX
     | ENT_BEAM
     | ENT_PARTICLES
@@ -26,23 +30,16 @@ Entity type:
     | ENT_BUTTON
     | ENT_SWITCH
     | ENT_VALVE
+    | ENT_MOUNTABLE
+    | ENT_HITTABLE
+    | ENT_PROJECTILES
     | ENT_PROJECTILE
-    | ENT_CONVEYOR
-    | ENT_VEHICHLECTL
     | ENT_BROADCASTER
     | ENT_COUNTER
     | ENT_EXCOUNTER
     | ENT_TIMER
     | ENT_EXTIMER
-    | ENT_AND
-    | ENT_OR
-    | ENT_FILTER
     | ENT_SETTER
-    | ENT_CHLEVEL
-    | ENT_CHMAP
-    | ENT_AUTOSAVE
-    | ENT_ENDGAME
-    | ENT_SETMUSIC
     | ENT_AUDIOEMITTER
     | ENT_DYNLIGHTCTL
     | ENT_FASTLIGHTCTL
@@ -51,21 +48,51 @@ Entity type:
     | ENT_GRAVITYENV
     | ENT_POINT
     | ENT_SPAWNAREA }
+
 Entity data:
-    <u8: Difficulties>
-    <u16: Gamemodes>
     { <Headless entity data>
     | <Generic entity data>
-    | <Scriptable entity data>
+    | <Cube entity data>
     | <Prop entity data>
-    | ... }
+    | <Door entity data>
+    | <Trigger box entity data>
+    | <Beam entity data>
+    | <Particle emitter entity data>
+    | <Gib emitter entity data>
+    | <Glow entity data>
+    | <Text entity data>
+    | <Billboard entity data>
+    | <Decal entity data>
+    | <Button entity data>
+    | <Switch entity data>
+    | <Valve entity data>
+    | <Mountable entity data>
+    | <Hittable entity data>
+    | <Projectile emitter entity data>
+    | <Projectile entity data>
+    | <Push entity data>
+    | <Broadcaster entity data>
+    | <Counter entity data>
+    | <Extended counter entity data>
+    | <Timer entity data>
+    | <Extended timer entity data>
+    | <Setter entity data>
+    | <Audio emitter entity data>
+    | <Dynamic light controller entity data>
+    | <Fast light controller entity data>
+    | <Sound environment entity data>
+    | <Weather environment entity data>
+    | <Gravity environment entity data>
+    | <Point entity data>
+    | <Spawn area entity data> }
 
 Headless entity data:
     <<String>: Script resource path>
-NPC entity data:
+
+Generic entity data:
     <u8:
         <7 bits: 0>
-        <1 bit: Active by default>
+        <1 bit: Inactive>
     >
     <float[3]: XYZ position>
     <float[3]: XYZ rotation>
@@ -74,10 +101,12 @@ NPC entity data:
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
+
 Cube entity data:
     <u8:
-        <7 bits: 0>
-        <1 bit: Collision>
+        <6 bits: 0>
+        <1 bit: No collision>
+        <1 bit: Hidden>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
@@ -106,11 +135,19 @@ Cube entity data:
     <float[2]: -Z bottom left texture UV> <float[2]: -Z bottom right texture UV>
     <<String>: +X physics material> <<String>: +Y physics material> <<String>: +Z physics material>
     <<String>: -X physics material> <<String>: -Y physics material> <<String>: -Z physics material>
+    <<String>: Signal to show>
+    <<String>: Signal to hide>
+    <<String>: Signal to toggle visibility>
+    <<String>: Signal to enable collision>
+    <<String>: Signal to disable collision>
+    <<String>: Signal to toggle collision>
+
 Prop entity data:
     <u8:
-        <6 bits: 0>
-        <1 bit: Collision>
-        <1 bit: Shown by default>
+        <5 bits: 0>
+        <1 bit: Do not loop animation>
+        <1 bit: No collision>
+        <1 bit: Hidden>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
@@ -121,10 +158,20 @@ Prop entity data:
     <<String>: Signal to show>
     <<String>: Signal to hide>
     <<String>: Signal to toggle visibility>
+    <<String>: Signal to enable collision>
+    <<String>: Signal to disable collision>
+    <<String>: Signal to toggle collision>
+    <<String>: Signal to start animation>
+    <<String>: Signal to pause animation>
+    <<String>: Signal to resume animation>
+    <<String>: Signal to stop animation>
+
 Door entity data:
     <u8:
-        <5 bits: 0>
-        <1 bit: Interactable>
+        <3 bits: 0>
+        <1 bit: Replace initiator with self when closed>
+        <1 bit: Replace initiator with self when opened>
+        <1 bit: Non-interactable>
         <1 bit: Locked>
         <1 bit: Open>
     >
@@ -157,10 +204,12 @@ Door entity data:
     <float[2]: -Z top left texture UV> <float[2]: -Z top right texture UV>
     <float[2]: -Z bottom left texture UV> <float[2]: -Z bottom right texture UV>
     <<String>: Physics material>
-    <float: Delay before opening>
-    <float: Open duration>
-    <float: Delay before closing>
-    <float: Close duration>
+    <u32: Delay in milliseconds before opening>
+    <u32: Open duration in milliseconds>
+    <u32: Delay in milliseconds before closing>
+    <u32: Close duration in milliseconds>
+    <<String>: Signal when opened>
+    <<String>: Signal when closed>
     <<String>: Signal to open>
     <<String>: Signal to close>
     <<String>: Signal to toggle open/closed>
@@ -170,7 +219,13 @@ Door entity data:
     <<String>: Signal to make interactable>
     <<String>: Signal to make non-interactable>
     <<String>: Signal to toggle interactability>
+
 Trigger box entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Replace initiator with self>
+        <1 bit: Inactive>
+    >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
@@ -182,6 +237,125 @@ Trigger box entity data:
     <float[3]: (-X, -Y, +Z) corner XYZ offset>
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <<String>: Output signal>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Beam entity data:
+    <u8:
+        <5 bits: 0>
+        <1 bit: Glow texture wrap is not relative to size>
+        <1 bit: Texture wrap is not relative to size>
+        <1 bit: Inactive>
+    >
+    <float[3]: Head XYZ position>
+    <float[3]: Head XYZ direction>
+    <<String>: Entity for head to follow>
+    <<String>: Bone for head to follow>
+    <float[3]: Tail XYZ position>
+    <float[3]: Tail XYZ direction>
+    <<String>: Entity for tail to follow>
+    <<String>: Bone for tail to follow>
+    <u32: Pattern bitmask>
+    <u32: Pattern advance time in milliseconds>
+    <u8: Segment count>
+    <u8: Curve>
+    <float: Radius>
+    <<String>: Material>
+    <float: Texture wrap>
+    <float: Scroll>
+    <float: Glow radius>
+    <<String>: Glow material>
+    <float: Glow texture wrap>
+    <float: Glow scroll>
+    <u32: Ripple noise seed>
+    <float: Max ripple noise at head>
+    <float: Max ripple noise at middle>
+    <float: Max ripple noise at tail>
+    <u8: Ripple noise smoothening>
+    <float: Ripple noise speed>
+    <u32: Alpha noise seed>
+    <u8: Max alpha noise>
+    <u8: Alpha noise smoothening>
+    <float: Alpha noise speed>
+    <u32: Glow alpha noise seed>
+    <u8: Max glow alpha noise>
+    <u8: Glow alpha noise smoothening>
+    <float: Glow alpha noise speed>
+    <u32: Radius noise seed>
+    <float: Max radius noise>
+    <u8: Radius noise smoothening>
+    <float: Radius noise speed>
+    <u32: Glow radius noise seed>
+    <float: Max glow radius noise>
+    <u8: Glow radius noise smoothening>
+    <float: Glow radius noise speed>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Particle emitter entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <u32: Random seed>
+    <u16: Particle count>
+    <float[3]: XYZ direction and velocity>
+    <float[3]: XYZ direction randomness>
+    <float[3]: XYZ velocity randomness>
+    <float: Gravity influence>
+    <float: Drag influence>
+    <u8: Trail segment count>
+    <u8: Trail duration in milliseconds>
+    <<String>: Material>
+    <float[2]: Top left texture UV> <float[2]: Top right texture UV>
+    <float[2]: Bottom left texture UV> <float[2]: Bottom right texture UV>
+    <<String>: Trail material>
+    <float[2]: Top left trail texture UV> <float[2]: Top right trail texture UV>
+    <float[2]: Bottom left trail texture UV> <float[2]: Bottom right trail texture UV>
+    <u32: Min fade in duration in milliseconds>
+    <u32: Max fade in duration in milliseconds>
+    <u8: Min initial alpha multiplier>
+    <u8: Max initial alpha multiplier>
+    <float[2]: Min initial XY size>
+    <float[2]: Max initial XY size>
+    <u32: Min duration in milliseconds>
+    <u32: Max duration in milliseconds>
+    <u8: Min alpha multiplier>
+    <u8: Max alpha multiplier>
+    <float[2]: Min XY size>
+    <float[2]: Max XY size>
+    <u32: Min fade out duration in milliseconds>
+    <u32: Max fade out duration in milliseconds>
+    <u8: Min final alpha multiplier>
+    <u8: Max final alpha multiplier>
+    <float[2]: Min final XY size>
+    <float[2]: Max final XY size>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Gib emitter entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Delete after activation>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Model resource path>
+    <<String>: Animation to use parts list from>
+    <float[3]: XYZ direction and velocity>
+    <float[3]: XYZ direction randomness>
+    <float[3]: XYZ velocity randomness>
+    <u32: Fade time in milliseconds>
+    <<String>: Signal to activate (activated immediately if empty)>
+
 Glow entity data:
     <float[3]: XYZ position>
     <<String>: Entity to follow>
@@ -192,36 +366,354 @@ Glow entity data:
     <float[3]: Bottom right corner offset XYZ>
     <<String>: Texture>
     <float[2]: XY radius>
+
+Text entity data:
+    <u8:
+        <4 bits: 0>
+        <1 bit: Interpret escape codes>
+        <1 bit: Vertical center>
+        <1 bit: Horizontal center>
+        <1 bit: Hidden>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float: View distance (less then or equal to 0 to be viewable at any distance)>
+    <float[4]: Left, right, top, and bottom offsets>
+    <<String>: Font resource path>
+    <float: Font size>
+    <u8[4]: RGBA font color>
+    <<String>: Text>
+    <<String>: Signal to show>
+    <<String>: Signal to hide>
+    <<String>: Signal to toggle visibility>
+
+Billboard entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Hidden>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float: View distance (less then or equal to 0 to be viewable at any distance)>
+    <float[2]: Top left XY offset> <float[2]: Top right XY offset>
+    <float[2]: Bottom left XY offset> <float[2]: Bottom right XY offset>
+    <<String>: Material>
+    <float[2]: Top left texture UV> <float[2]: Top right texture UV>
+    <float[2]: Bottom left texture UV> <float[2]: Bottom right texture UV>
+    <<String>: Signal to show>
+    <<String>: Signal to hide>
+    <<String>: Signal to toggle visibility>
+
 Decal entity data:
     <float[3]: XYZ origin>
-    <float[3]: XYZ direction>
+    <float[3]: XYZ spray direction>
     <<String>: Texture>
     <u8[4]: RGBA color>
     <u8[3]: RGB emission>
-    <float: Delay before fade>
-    <float: Fade duration>
-Setter entity data:
-    <<String>: Signal>
-    <<String>: Target entity (if empty, use initiator of signal)>
-    <<String>: Property>
-    <<String>: Value>
-Point entity data:
+    <u32: Delay in milliseconds before fade>
+    <u32: Fade duration in milliseconds>
+
+Button entity data:
     <u8:
         <7 bits: 0>
-        <1 bit: Start at position 2>
+        <1 bit: Inactive>
     >
-    <float[3]: XYZ position 1>
-    <float[3]: XYZ position 2>
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Press text>
+    <<String>: Output signal>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Switch entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: On>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Switch on text>
+    <<String>: Switch off text>
+    <<String>: Signal when switched on>
+    <<String>: Signal when switched off>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Valve entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Open>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Open text>
+    <<String>: Close text>
+    <u32: Open duration in milliseconds>
+    <u32: Close duration in milliseconds>
+    <<String>: Signal when started opening>
+    <<String>: Signal when stopped opening>
+    <<String>: Signal when opened>
+    <<String>: Signal when started closing>
+    <<String>: Signal when stopped closing>
+    <<String>: Signal when closed>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Mountable entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <<String>: Mount text>
+    <<String>: Dismount text>
+    <<String>: Signal when mounted>
+    <<String>: Signal when dismounted>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Hittable entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <<String>: Signal when hit>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Projectile emitter entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Replace initiator with self on hit>
+        <1 bit: Inactive>
+    >
+    <u32: Random seed>
+    <float[3]: XYZ initial projectile position offset>
+    <float[3]: XYZ initial projectile position randomness>
+    <float[3]: XYZ direction and velocity>
+    <float[3]: XYZ direction randomness>
+    <float[3]: XYZ velocity randomness>
+    <<String>: Model resource path>
+    <<String>: Animation>
+    <<String>: Signal on hit>
+    <<String>: Signal to fire>
+Projectile entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Replace initiator with self on hit>
+    >
+    <float[3]: XYZ initial position>
+    <float[3]: XYZ direction and velocity>
+    <<String>: Model resource path>
+    <<String>: Animation>
+    <<String>: Signal on hit>
+
+Broadcaster entity data:
+    <u8:
+        <2 bits: 0>
+        <1 bit: Replace initiator with self for output 2>
+        <1 bit: Replace initiator with self for output 1>
+        <1 bit: Team filter is blacklist>
+        <1 bit: Type filter is blacklist>
+        <1 bit: Enable type filter>
+        <1 bit: Inactive>
+    >
+    <<String>: Input signal>
+    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
+    <<String>: Team filter (if empty, do not filter team)>
+    <<String>: Output signal 1>
+    <<String>: Output signal 2>
+    <u8: Repeat>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Counter entity data:
+    <u8:
+        { ENT_COUNTER_CMP_EQ | ENT_COUNTER_CMP_NE
+        | ENT_COUNTER_CMP_LT | ENT_COUNTER_CMP_LE
+        | ENT_COUNTER_CMP_GT | ENT_COUNTER_CMP_GE }
+    >
+    <u32: Initial value>
+    <u32: Max value>
+    <<String>: Signal to increment>
+    <<String>: Signal to decrement>
+    <<String>: Signal to reset>
+    <<String>: Signal to compare to max (if empty, compares on every change)>
+    <<String>: Output signal>
+Extended counter entity data:
+    <u8:
+        { ENT_COUNTER_CMP_EQ | ENT_COUNTER_CMP_NE
+        | ENT_COUNTER_CMP_LT | ENT_COUNTER_CMP_LE
+        | ENT_COUNTER_CMP_GT | ENT_COUNTER_CMP_GE }
+    >
+    <u64: Initial value>
+    <u64: Max value>
+    <<String>: Signal to increment>
+    <<String>: Signal to decrement>
+    <<String>: Signal to reset>
+    <<String>: Signal to compare to max (if empty, compares on every change)>
+    <<String>: Output signal>
+
+Timer entity data:
+    <u32: Initial value in milliseconds>
+    <<String>: Signal to reset>
+    <<String>: Output signal>
+Extended timer entity data:
+    <u64: Initial value in microseconds>
+    <<String>: Signal to reset>
+    <<String>: Output signal>
+
+Setter entity data:
+    <<String>: Target entity (if empty, use initiator of signal)>
+    <<String>: Property name>
+    <Entity property data type> <Entity property data>
+    <<String>: Signal to activate>
+
+Audio emitter entity data:
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[2]: Volume>
+    <float: Speed>
+    <float: Range>
+    <float: Low-pass filter>
+    <float: High-pass filter>
+    <<String>: Sound resource path>
+    <<String>: Signal to play>
+
+Dynamic light controller entity data:
+    <u32: Light global ID>
+    <<String>: Signal to turn on>
+    <<String>: Signal to turn off>
+    <<String>: Signal to toggle>
+
+Fast light controller entity data:
+    <u32: Light global ID>
+    <<String>: Signal to turn on>
+    <<String>: Signal to turn off>
+    <<String>: Signal to toggle>
+
+Sound environment entity data:
+    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <Sound environment>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Weather environment entity data:
+    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <Weather environment>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Gravity environment entity data:
+    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <Gravity environment>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Point entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Enable rotation>
+        <1 bit: Enable movement>
+    >
+    <float[3]: XYZ position>
+    <float[3]: XYZ rotation>
     <float[3]: XYZ velocity>
-    <<String>: Signal to go to position 1>
-    <<String>: Signal to go to position 2>
-    <<String>: Signal to toggle positions>
+    <float[3]: XYZ angular velocity>
+    <<String>: Signal to enable movement>
+    <<String>: Signal to disable movement>
+    <<String>: Signal to toggle movement>
+    <<String>: Signal to enable rotation>
+    <<String>: Signal to disable rotation>
+    <<String>: Signal to toggle movement>
+
 Spawn area entity data:
     <float[3]: XYZ positon>
     <float[2]: XZ area radius>
     <u8[2]: XZ grid size>
     <<String>: Team (empty for any)>
 
-String:
-    <u32: Offset in string table>
+Entity property data type:
+    <u8:
+        { ENTPROP_TYPE_BOOL
+        | ENTPROP_TYPE_I8
+        | ENTPROP_TYPE_I16
+        | ENTPROP_TYPE_I32
+        | ENTPROP_TYPE_I64
+        | ENTPROP_TYPE_U8
+        | ENTPROP_TYPE_U16
+        | ENTPROP_TYPE_U32
+        | ENTPROP_TYPE_U64
+        | ENTPROP_TYPE_F32
+        | ENTPROP_TYPE_F64
+        | ENTPROP_TYPE_VEC
+        | ENTPROP_TYPE_STR }
+    >
+    <u8: Dimensions>
+    [u32: Size]...
+Entity property data:
+    { <u8>
+    | <i8>
+    | <i16>
+    | <i32>
+    | <i64>
+    | <u8>
+    | <u16>
+    | <u32>
+    | <u64>
+    | <float>
+    | <double>
+    | <float[3]>
+    | <String>
+    | [u8: Bitmap]...
+    | [i8]...
+    | [i16]...
+    | [i32]...
+    | [i64]...
+    | [u8]...
+    | [u16]...
+    | [u32]...
+    | [u64]...
+    | [float]...
+    | [double]...
+    | [float[3]]...
+    | [String]... }
 

@@ -17,8 +17,7 @@ Format:
         <<char[1...]: {..., 0}>: Description>
         <<char[1...]: {..., 0}>: Authors>
         <<char[1...]: {..., 0}>: Compiler info>
-        <<u8: 1..16>: Gamemode count> <<char[2..16]: {..., 0}>: Gamemode name>...
-        <<u8: 1..8>: Difficulty count> <<char[2..16]: {..., 0}>: Difficulty name>...
+        <<u8: 1..32>: Gamemode count> <<char[2..16]: {..., 0}>: Gamemode name>...
     Data:
         <u32: String table size> <char[]: String table>
         <u32: Size of embedded resource archive> [Embedded resource PFA archive (See 'archives (pfa).txt')]
@@ -74,7 +73,31 @@ Format:
         [Client-side material]...
     Server-side data:
         <u32: String table size> <char[]: String table>
+        <<Sound environment>: Default sound environment>
+        <<Weather environment>: Default weather environment>
+        <<Gravity environment>: Default gravity environment>
         <u32: Entity count> [Entity (see 'map entities.txt')]...
+
+    Sound environment:
+        <float: Low pass filter>
+        <float: High pass filter>
+        <float: Reverb delay>
+        <float: Reverb feedback>
+        <float: Reverb mix>
+        <float: Reverb low pass filter>
+        <float: Reverb high pass filter>
+    Weather environment:
+        <float: Base wind amount>
+        <u8: Wind amount noise channel>
+        <float: Max wind amount noise>
+        <float: Wind amount noise speed>
+        <float[3]: XYZ wind direction>
+        <u8: Wind direction noise channel>
+        <float[3]: XYZ wind direction noise in degrees>
+        <float: Wind direction noise speed>
+    Gravity environment:
+        <float[3]: XYZ Gravity>
+        <float: Drag>
 
     Sector:
         <u32: String table size> <char[]: String table>
@@ -104,7 +127,8 @@ Format:
         <<String>: Name>
         <<String>: Type>
         <u8:
-            <6 bits: 0>
+            <5 bits: 0>
+            <1 bit: Liquid>
             <1 bit: Untextured>
             <1 bit: Transparent>
         >
@@ -119,15 +143,23 @@ Format:
         <u8: Alpha (ignored if 'transparent' bit is not set)>
         <u8[3]: RGB emission>
         <u8: Shading>
+        <Wave info (ignored if 'liquid' bit is not set)
+            <float: Amount>
+            <float: Wind influence>
+            <float: Offset>
+            <float: Scale>
+        >
 
     Physics material:
         <<String>: Name>
         <u8:
             <7 bits: 0>
-            <1 bit: Is fluid>
+            <1 bit: Not solid>
         >
         <float: Speed multiplier>
         <float: Acceleration multiplier>
+        <float: Gravity multiplier>
+        <float: Drag multiplier>
         <float: Minimum speed to cause damage>
         <float: Base damage>
         <float: Extra damage per meter per second>
@@ -158,8 +190,9 @@ Format:
 
     Fast light:
         <u8:
-            <7 bits: 0>
+            <6 bits: 0>
             <1 bit: Preserve>
+            <1 bit: Enabled>
         >
         <u8: Initial intensity>
         <u32: Global ID>
@@ -275,7 +308,7 @@ Format:
         <u8: Fast light count> [ <u8: Fast light index> <u8: Multiplier> ]...
 
     Cube pathfinding data:
-        <u8: Attribute count> [<String>: Attribute name]...
+        <u8: Attribute count> [ <<String>: Attribute name> <float[3]: XYZ direction to face> ]...
 
     String:
         <u32: Offset in respective string table>
