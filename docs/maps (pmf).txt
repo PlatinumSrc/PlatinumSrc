@@ -17,43 +17,49 @@ Format:
         <<char[1...]: {..., 0}>: Description>
         <<char[1...]: {..., 0}>: Authors>
         <<char[1...]: {..., 0}>: Compiler info>
-        <<u8: 1..32>: Gamemode count> <<char[2..16]: {..., 0}>: Gamemode name>...
+        <<u8: 0..32>: Gamemode count> [<char[2..16]: {..., 0}>: Gamemode name]...
     Data:
         <u32: String table size> <char[]: String table>
         <u32: Size of embedded resource archive> [Embedded resource PFA archive (See 'archives (pfa).txt')]
         <u16: Extension count> [u32: Size of extension]... [Extension]...
-        <u8: Level count (must be at least 1)> [u32: Level data size]... <Level data>...
+        <u8: Level count> [u32: Level data size]... [Level data]...
         <u32: Entity count> [Entity (see 'map entities.txt')]...
 
     Level data:
-        <u32: Size of compressed <Common data>>
-        <u32: Size of uncompressed <Common data>>
-        <Compressed <Common data>>
-        <u32:
-            <8 bits: Sector Y count minus 1>
-            <12 bits: Sector X count minus 1>
-            <12 bits: Sector Z count minus 1>
-        >
-        <<Sector index>: Center sector>
         <u8:
             <5 bits: 0>
             <1 bit: Keep player velocity>
             <1 bit: Keep player sector offset>
             <1 bit: Keep player in-sector offset>
         >
+        <u32: Size of compressed <Common level data>>
+        <u32: Size of compressed <Client-side level data>>
+        <u32: Size of compressed <Server-side level data>>
+        <u32: Size of uncompressed <Common level data>>
+        <u32: Size of uncompressed <Client-side level data>>
+        <u32: Size of uncompressed <Server-side level data>>
+        <Compressed <Common level data>>
+        <Compressed <Client-side level data>>
+        <Compressed <Server-side level data>>
+        <u32:
+            <8 bits: Sector Y count minus 1>
+            <12 bits: Sector X count minus 1>
+            <12 bits: Sector Z count minus 1>
+        >
+        <<Sector index>: Center sector>
         <
-            <u32: Size of compressed <Sector>>
-            <u32: Size of compressed <Client-side sector>>
-            <u32: Size of compressed <Server-side sector>>
-            <u32: Size of uncompressed <Sector>>
-            <u32: Size of uncompressed <Client-side sector>>
-            <u32: Size of uncompressed <Server-side sector>>
+            <u32: Size of compressed <Common sector data>>
+            <u32: Size of compressed <Client-side sector data>>
+            <u32: Size of compressed <Server-side sector data>>
+            <u32: Size of uncompressed <Common sector data>>
+            <u32: Size of uncompressed <Client-side sector data>>
+            <u32: Size of uncompressed <Server-side sector data>>
             (ordered by [Y][X][Z])
         >...
         <
-            <Compressed <Sector>>
-            <Compressed <Client-side sector>>
-            <Compressed <Server-side sector>>
+            <Compressed <Common sector data>>
+            <Compressed <Client-side sector data>>
+            <Compressed <Server-side sector data>>
             (ordered by [Y][X][Z])
         >...
 
@@ -64,18 +70,18 @@ Format:
             <12 bits: Sector Z>
         >
 
-    Common data:
+    Common level data:
         <u32: String table size> <char[]: String table>
         <u16: Material count> [Material]...
         <u16: Physics material count> [Physics material]...
-    Client-side data:
-        <u32: String table size> <char[]: String table>
-        [Client-side material]...
-    Server-side data:
-        <u32: String table size> <char[]: String table>
         <<Sound environment>: Default sound environment>
         <<Weather environment>: Default weather environment>
         <<Gravity environment>: Default gravity environment>
+    Client-side level data:
+        <u32: String table size> <char[]: String table>
+        [Client-side material]...
+    Server-side level data:
+        <u32: String table size> <char[]: String table>
         <u32: Entity count> [Entity (see 'map entities.txt')]...
 
     Sound environment:
@@ -87,32 +93,31 @@ Format:
         <float: Reverb low pass filter>
         <float: Reverb high pass filter>
     Weather environment:
-        <float: Base wind amount>
-        <u8: Wind amount noise channel>
-        <float: Max wind amount noise>
-        <float: Wind amount noise speed>
-        <float[3]: XYZ wind direction>
-        <u8: Wind direction noise channel>
-        <float[3]: XYZ wind direction noise in degrees>
-        <float: Wind direction noise speed>
+        <float[3]: XYZ direction and velocity>
+        <u32: Direction random seed>
+        <float[3]: XYZ direction randomness>
+        <float: Direction noise speed>
+        <u32: Velocity random seed>
+        <float[3]: XYZ velocity randomness>
+        <float: Velocity noise speed>
     Gravity environment:
-        <float[3]: XYZ Gravity>
+        <float[3]: XYZ gravity>
         <float: Drag>
 
-    Sector:
+    Common sector data:
         <u32: String table size> <char[]: String table>
-        <u8: Used material count> [u16: Material index]...
-        <u8: Used physics material count> [u16: Physics material index]...
+        <u8: Used material count> [<String>: Material name]...
+        <u8: Used physics material count> [<String>: Physics material name]...
         <u8: Dynamic light count> [Dynamic light]...
         <u8: Fast light count> [Fast light]...
         <u32: Cube count (must be at least 1)> <Cube>...
-    Client-side sector:
+    Client-side sector data:
         <u8: Lightmap count> [Lightmap]...
         <u32: Vertex count> [Vertex]...
         [Client-side dynamic light]...
         [Client-side fast light]...
         [Client-side cube]...
-    Server-side sector:
+    Server-side sector data:
         <u8: Region count> [Region]...
         [Server-side cube]...
         <u32: String table size> <char[]: String table>
@@ -133,9 +138,8 @@ Format:
             <1 bit: Transparent>
         >
         <u8: 
-            { ENTDATA_BOX_RENDMODE_NONE
-            | ENTDATA_BOX_RENDMODE_NORMAL
-            | ENTDATA_BOX_RENDMODE_ADD }
+            { ENTMAT_RENDMODE_NORMAL
+            | ENTMAT_RENDMODE_ADD }
         >
     Client-side material:
         <<String>: Texture (ignored if 'untextured' bit is set)>
@@ -156,8 +160,9 @@ Format:
             <7 bits: 0>
             <1 bit: Not solid>
         >
-        <float: Speed multiplier>
+        <float: Velocity multiplier>
         <float: Acceleration multiplier>
+        <float: Bounce>
         <float: Gravity multiplier>
         <float: Drag multiplier>
         <float: Minimum speed to cause damage>
@@ -235,13 +240,13 @@ Format:
         [u32: (+X, -Y, -Z) child index] [u32: (-X, -Y, -Z) child index]
 
     Geometry cube data:
-        <u16: Material>
-        <u16: Physics material>
+        <u8: Material>
+        <u8: Physics material>
     Extended geometry cube data:
-        <u16: +X material> <u16: +Y material> <u16: +Z material>
-        <u16: -X material> <u16: -Y material> <u16: -Z material>
-        <u16: +X physics material> <u16: +Y physics material> <u16: +Z physics material>
-        <u16: -X physics material> <u16: -Y physics material> <u16: -Z physics material>
+        <u8: +X material> <u8: +Y material> <u8: +Z material>
+        <u8: -X material> <u8: -Y material> <u8: -Z material>
+        <u8: +X physics material> <u8: +Y physics material> <u8: +Z physics material>
+        <u8: -X physics material> <u8: -Y physics material> <u8: -Z physics material>
     Client-side geometry cube data:
         <u8: Lightmap>
         <u8:
@@ -250,7 +255,7 @@ Format:
             <1 bit: -X has face> <1 bit: -Y has face> <1 bit: -Z has face>
         >
         <u32: Index of first quad's first vertex>
-    Extended client-side geometry cube data:
+    Client-side extended geometry cube data:
         <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
         <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
         <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
@@ -260,7 +265,7 @@ Format:
     Solid cube data:
         { <Geometry cube data> | <Extended geometry cube data> }
     Client-side solid cube data:
-        { <Client-side geometry cube data> | <Extended client-side geometry cube data> }
+        { <Client-side geometry cube data> | <Client-side extended geometry cube data> }
 
     Dynamic cube data:
         { <Geometry cube data> | <Extended geometry cube data> }
@@ -291,7 +296,7 @@ Format:
         [float: (+X, -Y, -Z) X] [float: (+X, -Y, -Z) Y] [float: (+X, -Y, -Z) Z]
         [float: (-X, -Y, -Z) X] [float: (-X, -Y, -Z) Y] [float: (-X, -Y, -Z) Z]
     Client-side dynamic cube data:
-        { <Client-side geometry cube data> | <Extended client-side geometry cube data> }
+        { <Client-side geometry cube data> | <Client-side extended geometry cube data> }
 
     Cube chunk data:
         <u32: Other visible cube count>
