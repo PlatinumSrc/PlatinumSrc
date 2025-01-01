@@ -204,10 +204,10 @@ Door entity data:
     <float[2]: -Z top left texture UV> <float[2]: -Z top right texture UV>
     <float[2]: -Z bottom left texture UV> <float[2]: -Z bottom right texture UV>
     <<String>: Physics material>
-    <u32: Delay in milliseconds before opening>
-    <u32: Open duration in milliseconds>
-    <u32: Delay in milliseconds before closing>
-    <u32: Close duration in milliseconds>
+    <u32: Delay in microseconds before opening>
+    <u32: Open duration in microseconds>
+    <u32: Delay in microseconds before closing>
+    <u32: Close duration in microseconds>
     <<String>: Signal when opened>
     <<String>: Signal when closed>
     <<String>: Signal to open>
@@ -263,7 +263,7 @@ Beam entity data:
     <<String>: Entity for tail to follow>
     <<String>: Bone for tail to follow>
     <u32: Pattern bitmask>
-    <u32: Pattern advance time in milliseconds>
+    <u32: Pattern advance time in microseconds>
     <u8: Segment count>
     <u8: Curve>
     <float: Radius>
@@ -320,24 +320,24 @@ Particle emitter entity data:
     <float[2]: Top left texture UV> <float[2]: Top right texture UV>
     <float[2]: Bottom left texture UV> <float[2]: Bottom right texture UV>
     <u8: Trail segment count>
-    <u8: Trail duration in milliseconds>
+    <u32: Trail duration in microseconds>
     <<String>: Trail material>
     <float[2]: Top left trail texture UV> <float[2]: Top right trail texture UV>
     <float[2]: Bottom left trail texture UV> <float[2]: Bottom right trail texture UV>
-    <u32: Min fade in duration in milliseconds>
-    <u32: Max fade in duration in milliseconds>
+    <u32: Min fade in duration in microseconds>
+    <u32: Max fade in duration in microseconds>
     <u8: Min initial alpha multiplier>
     <u8: Max initial alpha multiplier>
     <float[2]: Min initial XY size>
     <float[2]: Max initial XY size>
-    <u32: Min duration in milliseconds>
-    <u32: Max duration in milliseconds>
+    <u32: Min duration in microseconds>
+    <u32: Max duration in microseconds>
     <u8: Min alpha multiplier>
     <u8: Max alpha multiplier>
     <float[2]: Min XY size>
     <float[2]: Max XY size>
-    <u32: Min fade out duration in milliseconds>
-    <u32: Max fade out duration in milliseconds>
+    <u32: Min fade out duration in microseconds>
+    <u32: Max fade out duration in microseconds>
     <u8: Min final alpha multiplier>
     <u8: Max final alpha multiplier>
     <float[2]: Min final XY size>
@@ -362,7 +362,7 @@ Gib emitter entity data:
     <float: Gravity influence>
     <float: Drag influence>
     <float: Wind influence>
-    <u32: Fade time in milliseconds>
+    <u32: Fade time in microseconds>
     <<String>: Signal to activate (activated immediately if empty)>
 
 Glow entity data:
@@ -421,8 +421,8 @@ Decal entity data:
     <<String>: Texture>
     <u8[4]: RGBA color>
     <u8[3]: RGB emission>
-    <u32: Delay in milliseconds before fade>
-    <u32: Fade duration in milliseconds>
+    <u32: Delay in microseconds before fade>
+    <u32: Fade duration in microseconds>
 
 Button entity data:
     <u8:
@@ -466,8 +466,8 @@ Valve entity data:
     <<String>: Bone to follow>
     <<String>: Open text>
     <<String>: Close text>
-    <u32: Open duration in milliseconds>
-    <u32: Close duration in milliseconds>
+    <u32: Open duration in microseconds>
+    <u32: Close duration in microseconds>
     <<String>: Signal when started opening>
     <<String>: Signal when stopped opening>
     <<String>: Signal when opened>
@@ -604,7 +604,7 @@ Extended counter entity data:
     <<String>: Output signal>
 
 Timer entity data:
-    <u32: Initial value in milliseconds>
+    <u32: Initial value in microseconds>
     <<String>: Signal to reset>
     <<String>: Output signal>
 Extended timer entity data:

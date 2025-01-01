@@ -33,14 +33,14 @@ Format:
             <1 bit: Keep player in-sector offset>
         >
         <u32: Size of compressed <Common level data>>
-        <u32: Size of compressed <Client-side level data>>
-        <u32: Size of compressed <Server-side level data>>
-        <u32: Size of uncompressed <Common level data>>
-        <u32: Size of uncompressed <Client-side level data>>
-        <u32: Size of uncompressed <Server-side level data>>
+        <u32: Size of compressed <Client level data>>
+        <u32: Size of compressed <Server level data>>
+        <u32: Size of decompressed <Common level data>>
+        <u32: Size of decompressed <Client level data>>
+        <u32: Size of decompressed <Server level data>>
         <Compressed <Common level data>>
-        <Compressed <Client-side level data>>
-        <Compressed <Server-side level data>>
+        <Compressed <Client level data>>
+        <Compressed <Server level data>>
         <u32:
             <8 bits: Sector Y count minus 1>
             <12 bits: Sector X count minus 1>
@@ -49,17 +49,17 @@ Format:
         <<Sector index>: Center sector>
         <
             <u32: Size of compressed <Common sector data>>
-            <u32: Size of compressed <Client-side sector data>>
-            <u32: Size of compressed <Server-side sector data>>
-            <u32: Size of uncompressed <Common sector data>>
-            <u32: Size of uncompressed <Client-side sector data>>
-            <u32: Size of uncompressed <Server-side sector data>>
+            <u32: Size of compressed <Client sector data>>
+            <u32: Size of compressed <Server sector data>>
+            <u32: Size of decompressed <Common sector data>>
+            <u32: Size of decompressed <Client sector data>>
+            <u32: Size of decompressed <Server sector data>>
             (ordered by [Y][X][Z])
         >...
         <
             <Compressed <Common sector data>>
-            <Compressed <Client-side sector data>>
-            <Compressed <Server-side sector data>>
+            <Compressed <Client sector data>>
+            <Compressed <Server sector data>>
             (ordered by [Y][X][Z])
         >...
 
@@ -77,10 +77,10 @@ Format:
         <<Sound environment>: Default sound environment>
         <<Weather environment>: Default weather environment>
         <<Gravity environment>: Default gravity environment>
-    Client-side level data:
+    Client level data:
         <u32: String table size> <char[]: String table>
         [Client-side material]...
-    Server-side level data:
+    Server level data:
         <u32: String table size> <char[]: String table>
         <u32: Entity count> [Entity (see 'map entities.txt')]...
 
@@ -111,16 +111,16 @@ Format:
         <u8: Dynamic light count> [Dynamic light]...
         <u8: Fast light count> [Fast light]...
         <u32: Cube count (must be at least 1)> <Cube>...
-    Client-side sector data:
+    Client sector data:
         <u8: Lightmap count> [Lightmap]...
         <u32: Vertex count> [Vertex]...
         [Client-side dynamic light]...
         [Client-side fast light]...
         [Client-side cube]...
-    Server-side sector data:
+    Server sector data:
+        <u32: String table size> <char[]: String table>
         <u8: Region count> [Region]...
         [Server-side cube]...
-        <u32: String table size> <char[]: String table>
         <u32: Entity count> [Entity (see 'map entities.txt')]...
 
     Region:
@@ -132,9 +132,8 @@ Format:
         <<String>: Name>
         <<String>: Type>
         <u8:
-            <5 bits: 0>
+            <6 bits: 0>
             <1 bit: Liquid>
-            <1 bit: Untextured>
             <1 bit: Transparent>
         >
         <u8: 
@@ -142,8 +141,10 @@ Format:
             | ENTMAT_RENDMODE_ADD }
         >
     Client-side material:
-        <<String>: Texture (ignored if 'untextured' bit is set)>
-        <u8[3]: RGB>
+        <<String>: Texture (untextured if empty)>
+        <u8: Extra texture count> [<String>: Extra texture]...
+        <u32: Texture advance time in microseconds>
+        <u8[3]: RGB color>
         <u8: Alpha (ignored if 'transparent' bit is not set)>
         <u8[3]: RGB emission>
         <u8: Shading>

@@ -50,6 +50,8 @@ Format:
             | P3M_MATRENDMODE_ADD }
         >
         <u8: Texture index (0xFF for none)>
+        <u8: Extra texture count> [u8: Extra texture index]...
+        <u32: Texture advance time in microseconds>
         <u8[4]: RGBA color>
         <u8[3]: RGB emission>
         <u8: Shading>
