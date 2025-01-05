@@ -74,6 +74,7 @@ Format:
         <u32: String table size> <char[]: String table>
         <u16: Material count> [Material]...
         <u16: Physics material count> [Physics material]...
+        <<String>: Air physics material>
         <<Sound environment>: Default sound environment>
         <<Weather environment>: Default weather environment>
         <<Gravity environment>: Default gravity environment>
@@ -102,7 +103,6 @@ Format:
         <float: Velocity noise speed>
     Gravity environment:
         <float[3]: XYZ gravity>
-        <float: Drag>
 
     Common sector data:
         <u32: String table size> <char[]: String table>
@@ -161,11 +161,9 @@ Format:
             <7 bits: 0>
             <1 bit: Not solid>
         >
-        <float: Velocity multiplier>
-        <float: Acceleration multiplier>
-        <float: Bounce>
-        <float: Gravity multiplier>
-        <float: Drag multiplier>
+        <float: Friction (if 'not solid' bit is not set) or max speed (if 'not solid' bit is set)>
+        <float: Traction (ignored if 'not solid' bit is set)>
+        <float: Bounce (ignored if 'not solid' bit is set)>
         <float: Minimum speed to cause damage>
         <float: Base damage>
         <float: Extra damage per meter per second>
@@ -187,7 +185,7 @@ Format:
         >
         <u32: Global ID>
     Client-side dynamic light:
-        <u8[3]: Color>
+        <u8[3]: RGB color>
         <u8: Affected lightmap count>
         <
             <u8: Lightmap>
@@ -203,7 +201,7 @@ Format:
         <u8: Initial intensity>
         <u32: Global ID>
     Client-side fast light:
-        <u8[3]: Color>
+        <u8[3]: RGB color>
         <u32: Range count>
         <
             <u32: Vertices to skip>

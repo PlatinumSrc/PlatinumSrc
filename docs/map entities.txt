@@ -16,10 +16,15 @@ Entity:
 Entity type:
     { ENT_HEADLESS
     | ENT_GENERIC
-    | ENT_CUBE
     | ENT_PROP
+    | ENT_TRIGGER
+    | ENT_CUBE
     | ENT_DOOR
-    | ENT_TRIGGERBOX
+    | ENT_BUTTON
+    | ENT_SWITCH
+    | ENT_VALVE
+    | ENT_MOUNTABLE
+    | ENT_HITTABLE
     | ENT_BEAM
     | ENT_PARTICLES
     | ENT_GIBS
@@ -27,14 +32,12 @@ Entity type:
     | ENT_TEXT
     | ENT_BILLBLOARD
     | ENT_DECAL
-    | ENT_BUTTON
-    | ENT_SWITCH
-    | ENT_VALVE
-    | ENT_MOUNTABLE
-    | ENT_HITTABLE
     | ENT_PROJECTILES
     | ENT_PROJECTILE
+    | ENT_HEALTH
+    | ENT_PUSH
     | ENT_BROADCASTER
+    | ENT_DISPATCHER
     | ENT_COUNTER
     | ENT_EXCOUNTER
     | ENT_TIMER
@@ -52,10 +55,15 @@ Entity type:
 Entity data:
     { <Headless entity data>
     | <Generic entity data>
-    | <Cube entity data>
     | <Prop entity data>
-    | <Door entity data>
     | <Trigger box entity data>
+    | <Cube entity data>
+    | <Door entity data>
+    | <Button entity data>
+    | <Switch entity data>
+    | <Valve entity data>
+    | <Mountable entity data>
+    | <Hittable entity data>
     | <Beam entity data>
     | <Particle emitter entity data>
     | <Gib emitter entity data>
@@ -63,13 +71,9 @@ Entity data:
     | <Text entity data>
     | <Billboard entity data>
     | <Decal entity data>
-    | <Button entity data>
-    | <Switch entity data>
-    | <Valve entity data>
-    | <Mountable entity data>
-    | <Hittable entity data>
     | <Projectile emitter entity data>
     | <Projectile entity data>
+    | <Health emitter entity data>
     | <Push entity data>
     | <Broadcaster entity data>
     | <Counter entity data>
@@ -92,12 +96,77 @@ Headless entity data:
 Generic entity data:
     <u8:
         <7 bits: 0>
+        <1 bit: Do not render shadow>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
     <float[3]: XYZ rotation>
+    <float[3]: (+X, +Y, +Z) bounding box offset>
+    <float[3]: (-X, -Y, -Z) bounding box offset>
+    <float: Mass>
+    <float: Drag>
     <<String>: Script resource path>
     <<String>: Model resource path>
+    <float: Health>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Prop entity data:
+    <u8:
+        <2 bits: 0>
+        <1 bit: Do not loop animation>
+        <1 bit: Better physics (ignored if 'physics' bit is not set)>
+        <1 bit: Physics>
+        <1 bit: No collision>
+        <1 bit: Do not render shadow>
+        <1 bit: Hidden>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) bounding box offset>
+    <float[3]: (-X, -Y, -Z) bounding box offset>
+    <float: Mass>
+    <float: Drag>
+    <<String>: Model resource path>
+    <<String>: Animation>
+    <<String>: Signal to show>
+    <<String>: Signal to hide>
+    <<String>: Signal to toggle visibility>
+    <<String>: Signal to enable collision>
+    <<String>: Signal to disable collision>
+    <<String>: Signal to toggle collision>
+    <<String>: Signal to start animation>
+    <<String>: Signal to pause animation>
+    <<String>: Signal to resume animation>
+    <<String>: Signal to stop animation>
+
+Trigger box entity data:
+    <u8:
+        <1 bits: 0>
+        <1 bit: Continuous>
+        <1 bit: Mutual>
+        <1 bit: Replace initiator with self>
+        <1 bit: Team filter is blacklist>
+        <1 bit: Type filter is blacklist>
+        <1 bit: Enable type filter>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
+    <<String>: Team filter (if empty, do not filter team)>
+    <<String>: Output signal>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -141,30 +210,6 @@ Cube entity data:
     <<String>: Signal to enable collision>
     <<String>: Signal to disable collision>
     <<String>: Signal to toggle collision>
-
-Prop entity data:
-    <u8:
-        <5 bits: 0>
-        <1 bit: Do not loop animation>
-        <1 bit: No collision>
-        <1 bit: Hidden>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: XYZ hitbox radius>
-    <<String>: Model resource path>
-    <<String>: Animation>
-    <<String>: Signal to show>
-    <<String>: Signal to hide>
-    <<String>: Signal to toggle visibility>
-    <<String>: Signal to enable collision>
-    <<String>: Signal to disable collision>
-    <<String>: Signal to toggle collision>
-    <<String>: Signal to start animation>
-    <<String>: Signal to pause animation>
-    <<String>: Signal to resume animation>
-    <<String>: Signal to stop animation>
 
 Door entity data:
     <u8:
@@ -220,13 +265,63 @@ Door entity data:
     <<String>: Signal to make non-interactable>
     <<String>: Signal to toggle interactability>
 
-Trigger box entity data:
+Button entity data:
     <u8:
-        <3 bits: 0>
-        <1 bit: Replace initiator with self>
-        <1 bit: Team filter is blacklist>
-        <1 bit: Type filter is blacklist>
-        <1 bit: Enable type filter>
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Press text>
+    <<String>: Output signal>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Switch entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: On>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Switch on text>
+    <<String>: Switch off text>
+    <<String>: Signal when switched on>
+    <<String>: Signal when switched off>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Valve entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Open>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<String>: Open text>
+    <<String>: Close text>
+    <u32: Open duration in microseconds>
+    <u32: Close duration in microseconds>
+    <<String>: Signal when started opening>
+    <<String>: Signal when stopped opening>
+    <<String>: Signal when opened>
+    <<String>: Signal when started closing>
+    <<String>: Signal when stopped closing>
+    <<String>: Signal when closed>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Mountable entity data:
+    <u8:
+        <7 bits: 0>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -240,9 +335,31 @@ Trigger box entity data:
     <float[3]: (-X, -Y, +Z) corner XYZ offset>
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
-    <<String>: Team filter (if empty, do not filter team)>
-    <<String>: Output signal>
+    <<String>: Mount text>
+    <<String>: Dismount text>
+    <<String>: Signal when mounted>
+    <<String>: Signal when dismounted>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Hittable entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <<String>: Signal when hit>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -424,105 +541,6 @@ Decal entity data:
     <u32: Delay in microseconds before fade>
     <u32: Fade duration in microseconds>
 
-Button entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Press text>
-    <<String>: Output signal>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Switch entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: On>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Switch on text>
-    <<String>: Switch off text>
-    <<String>: Signal when switched on>
-    <<String>: Signal when switched off>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Valve entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Open>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Open text>
-    <<String>: Close text>
-    <u32: Open duration in microseconds>
-    <u32: Close duration in microseconds>
-    <<String>: Signal when started opening>
-    <<String>: Signal when stopped opening>
-    <<String>: Signal when opened>
-    <<String>: Signal when started closing>
-    <<String>: Signal when stopped closing>
-    <<String>: Signal when closed>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Mountable entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <<String>: Mount text>
-    <<String>: Dismount text>
-    <<String>: Signal when mounted>
-    <<String>: Signal when dismounted>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Hittable entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <<String>: Signal when hit>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
 Projectile emitter entity data:
     <u8:
         <6 bits: 0>
@@ -556,6 +574,50 @@ Projectile entity data:
     <<String>: Animation>
     <<String>: Signal on hit>
 
+Health entity data:
+    <u8:
+        <2 bits: 0>
+        <1 bit: One-time>
+        <1 bit: Team filter is blacklist>
+        <1 bit: Type filter is blacklist>
+        <1 bit: Enable type filter>
+        <1 bit: Cubic>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: Radius>
+    <float: Falloff>
+    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
+    <<String>: Team filter (if empty, do not filter team)>
+    <float: Health per interval>
+    <u32: Interval time in microseconds (if 0, the interval is 1 second and health is given each tick)>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Push entity data:
+    <u8:
+        <1 bits: 0>
+        <1 bit: Direction based on position>
+        <1 bit: Team filter is blacklist>
+        <1 bit: Type filter is blacklist>
+        <1 bit: Enable type filter>
+        <1 bit: Cubic>
+        <1 bit: Delete after activation>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: Radius>
+    <float: Falloff>
+    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
+    <<String>: Team filter (if empty, do not filter team)>
+    { <float[3]: XYZ velocity> | <float: Velocity> <float[2]: 0.0> }
+    <<String>: Signal to activate>
+
 Broadcaster entity data:
     <u8:
         <2 bits: 0>
@@ -572,6 +634,18 @@ Broadcaster entity data:
     <<String>: Output signal 1>
     <<String>: Output signal 2>
     <u8: Repeat>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Dispatcher entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
+    <<String>: Input signal>
+    <<String>: Output event name>
+    <<String>: Output event data>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -613,6 +687,10 @@ Extended timer entity data:
     <<String>: Output signal>
 
 Setter entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Multiply by tick time>
+    >
     <<String>: Target entity (if empty, use initiator of signal)>
     <<String>: Property name>
     <Entity property data type> <Entity property data>
@@ -631,33 +709,55 @@ Audio emitter entity data:
     <<String>: Signal to play>
 
 Dynamic light controller entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Advance pattern while off>
+    >
     <u32: Light global ID>
+    <u32: Pattern>
+    <u32: Pattern advance time in microseconds>
     <<String>: Signal to turn on>
     <<String>: Signal to turn off>
     <<String>: Signal to toggle>
 
 Fast light controller entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Do not interpolate pattern>
+        <1 bit: Advance pattern while off>
+    >
     <u32: Light global ID>
+    <u8[32]: Pattern>
+    <u32: Pattern advance time in microseconds>
     <<String>: Signal to turn on>
     <<String>: Signal to turn off>
     <<String>: Signal to toggle>
 
 Sound environment entity data:
-    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
     <Sound environment>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
 
 Weather environment entity data:
-    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
     <Weather environment>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
 
 Gravity environment entity data:
-    <u8: <7 bits: 0> <1 bit: Inactive> >
+    <u8:
+        <7 bits: 0>
+        <1 bit: Inactive>
+    >
     <Gravity environment>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
