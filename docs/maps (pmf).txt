@@ -11,7 +11,7 @@ Format:
 
     Header:
         <char[3]: {'P', 'M', 'F'}>
-        <u8: Major version>
+        <u16: Major version>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
         <<char[1...]: {..., 0}>: Name>
         <<char[1...]: {..., 0}>: Description>
@@ -144,12 +144,13 @@ Format:
         <<String>: Texture (untextured if empty)>
         <u8: Extra texture count> [<String>: Extra texture]...
         <u32: Texture advance time in microseconds>
+        <float[2]: Texture UV scroll>
         <u8[3]: RGB color>
         <u8: Alpha (ignored if 'transparent' bit is not set)>
         <u8[3]: RGB emission>
         <u8: Shading>
         <Wave info (ignored if 'liquid' bit is not set)
-            <float: Amount>
+            <float[3]: Velocity>
             <float: Wind influence>
             <float: Offset>
             <float: Scale>
@@ -216,22 +217,22 @@ Format:
             <1 bit: Has chunk data>
             <1 bit: Extended client-side>
             <1 bit: Extended>
-            <2 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_SOLID | PMF_CUBE_DYNAMIC }>
+            <2 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_GEOMETRY | PMF_CUBE_EXTGEOMETRY }>
         >
         [Cube chunk data]
-        [ { <Parent cube data> | <Solid cube data> | <Dynamic cube data> } ]
+        [ { <Parent cube data> | <Geometry cube data> | <Extended geometry cube data> } ]
     Client-side cube:
         [Cube lighting data]
-        [ { <Client-side solid cube data> | <Client-side dynamic cube data> } ]
+        [ { <Client-side geometry cube data> | <Client-side extended geometry cube data> } ]
     Server-side cube:
         [Cube pathfinding data]
 
     Parent cube data:
         <u8:
-            <1 bit: Has (+X, +Y, +Z) child> <1 bit: Has (-X, +Y, +Z) child>
-            <1 bit: Has (+X, +Y, -Z) child> <1 bit: Has (-X, +Y, -Z) child>
-            <1 bit: Has (+X, -Y, +Z) child> <1 bit: Has (-X, -Y, +Z) child>
-            <1 bit: Has (+X, -Y, -Z) child> <1 bit: Has (-X, -Y, -Z) child>
+            <1 bit: Has (-X, -Y, -Z) child> <1 bit: Has (+X, -Y, -Z) child>
+            <1 bit: Has (-X, -Y, +Z) child> <1 bit: Has (+X, -Y, +Z) child>
+            <1 bit: Has (-X, +Y, -Z) child> <1 bit: Has (+X, +Y, -Z) child>
+            <1 bit: Has (-X, +Y, +Z) child> <1 bit: Has (+X, +Y, +Z) child>
         >
         [u32: (+X, +Y, +Z) child index] [u32: (-X, +Y, +Z) child index]
         [u32: (+X, +Y, -Z) child index] [u32: (-X, +Y, -Z) child index]
@@ -241,61 +242,36 @@ Format:
     Geometry cube data:
         <u8: Material>
         <u8: Physics material>
+    Client-side geometry cube data:
+        <u8: Lightmap>
+        <u8:
+            <2 bits: 0>
+            <1 bit: -Z has face> <1 bit: -Y has face> <1 bit: -X has face>
+            <1 bit: +Z has face> <1 bit: +Y has face> <1 bit: +X has face>
+        >
+        <u32: Index of first quad's first vertex>
+
     Extended geometry cube data:
         <u8: +X material> <u8: +Y material> <u8: +Z material>
         <u8: -X material> <u8: -Y material> <u8: -Z material>
         <u8: +X physics material> <u8: +Y physics material> <u8: +Z physics material>
         <u8: -X physics material> <u8: -Y physics material> <u8: -Z physics material>
-    Client-side geometry cube data:
-        <u8: Lightmap>
         <u8:
-            <2 bits: 0>
-            <1 bit: +X has face> <1 bit: +Y has face> <1 bit: +Z has face>
-            <1 bit: -X has face> <1 bit: -Y has face> <1 bit: -Z has face>
+            <1 bit: (-X, -Y, -Z) point is moved> <1 bit: (+X, -Y, -Z) point is moved>
+            <1 bit: (-X, -Y, +Z) point is moved> <1 bit: (+X, -Y, +Z) point is moved>
+            <1 bit: (-X, +Y, -Z) point is moved> <1 bit: (+X, +Y, -Z) point is moved>
+            <1 bit: (-X, +Y, +Z) point is moved> <1 bit: (+X, +Y, +Z) point is moved>
         >
-        <u32: Index of first quad's first vertex>
+        [float[3]: (+X, +Y, +Z) XYZ] [float[3]: (-X, +Y, +Z) XYZ]
+        [float[3]: (+X, +Y, -Z) XYZ] [float[3]: (-X, +Y, -Z) XYZ]
+        [float[3]: (+X, -Y, +Z) XYZ] [float[3]: (-X, -Y, +Z) XYZ]
+        [float[3]: (+X, -Y, -Z) XYZ] [float[3]: (-X, -Y, -Z) XYZ]
     Client-side extended geometry cube data:
         <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
         <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
         <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
         <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
         <u32: Index of first triangle's first vertex>
-
-    Solid cube data:
-        { <Geometry cube data> | <Extended geometry cube data> }
-    Client-side solid cube data:
-        { <Client-side geometry cube data> | <Client-side extended geometry cube data> }
-
-    Dynamic cube data:
-        { <Geometry cube data> | <Extended geometry cube data> }
-        <u8:
-            <1 bit: (+X, +Y, +Z) point X is moved> <1 bit: (-X, +Y, +Z) point X is moved>
-            <1 bit: (+X, +Y, -Z) point X is moved> <1 bit: (-X, +Y, -Z) point X is moved>
-            <1 bit: (+X, -Y, +Z) point X is moved> <1 bit: (-X, -Y, +Z) point X is moved>
-            <1 bit: (+X, -Y, -Z) point X is moved> <1 bit: (-X, -Y, -Z) point X is moved>
-        >
-        <u8:
-            <1 bit: (+X, +Y, +Z) point Y is moved> <1 bit: (-X, +Y, +Z) point Y is moved>
-            <1 bit: (+X, +Y, -Z) point Y is moved> <1 bit: (-X, +Y, -Z) point Y is moved>
-            <1 bit: (+X, -Y, +Z) point Y is moved> <1 bit: (-X, -Y, +Z) point Y is moved>
-            <1 bit: (+X, -Y, -Z) point Y is moved> <1 bit: (-X, -Y, -Z) point Y is moved>
-        >
-        <u8:
-            <1 bit: (+X, +Y, +Z) point Z is moved> <1 bit: (-X, +Y, +Z) point Z is moved>
-            <1 bit: (+X, +Y, -Z) point Z is moved> <1 bit: (-X, +Y, -Z) point Z is moved>
-            <1 bit: (+X, -Y, +Z) point Z is moved> <1 bit: (-X, -Y, +Z) point Z is moved>
-            <1 bit: (+X, -Y, -Z) point Z is moved> <1 bit: (-X, -Y, -Z) point Z is moved>
-        >
-        [float: (+X, +Y, +Z) X] [float: (+X, +Y, +Z) Y] [float: (+X, +Y, +Z) Z]
-        [float: (-X, +Y, +Z) X] [float: (-X, +Y, +Z) Y] [float: (-X, +Y, +Z) Z]
-        [float: (+X, +Y, -Z) X] [float: (+X, +Y, -Z) Y] [float: (+X, +Y, -Z) Z]
-        [float: (-X, +Y, -Z) X] [float: (-X, +Y, -Z) Y] [float: (-X, +Y, -Z) Z]
-        [float: (+X, -Y, +Z) X] [float: (+X, -Y, +Z) Y] [float: (+X, -Y, +Z) Z]
-        [float: (-X, -Y, +Z) X] [float: (-X, -Y, +Z) Y] [float: (-X, -Y, +Z) Z]
-        [float: (+X, -Y, -Z) X] [float: (+X, -Y, -Z) Y] [float: (+X, -Y, -Z) Z]
-        [float: (-X, -Y, -Z) X] [float: (-X, -Y, -Z) Y] [float: (-X, -Y, -Z) Z]
-    Client-side dynamic cube data:
-        { <Client-side geometry cube data> | <Client-side extended geometry cube data> }
 
     Cube chunk data:
         <u32: Other visible cube count>
