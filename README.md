@@ -60,7 +60,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 ---
 ### How to run
-<details><summary>The engine</summary>
+<details><summary>Running the engine</summary>
 
 1. Download a game \(the engine will not run without a game\)
     - [H-74](https://github.com/PQCraft/H-74)
@@ -73,7 +73,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 ---
 ### Building from source
-<details open><summary>When building on Unix-like platforms for that same platform</summary>
+<details open><summary>Building on Unix-like platforms for that same platform</summary>
 
 - Install GNU Make
 - Install GCC with GNU Binutils, or Clang with LLVM
@@ -82,7 +82,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 - Install SDL 2.x or 1.2.x
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
-<details open><summary>When building for Windows</summary>
+<details open><summary>Building for Windows</summary>
 
 - If cross-compiling on a Unix-like platform
     - Install GNU Make
@@ -102,7 +102,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Donwload and extract MinGW SDL 2.x or 1.2.x into MinGW
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
-<details><summary>When building for older Windows</summary>
+<details><summary>Building for older Windows</summary>
 
 - Download [MinGW 7.1.0 win32 sjlj](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/7.1.0/threads-win32/sjlj/i686-7.1.0-release-win32-sjlj-rt_v5-rev2.7z/download) and add it to the `PATH`
     - It might work with other versions but they need to not require `___mb_cur_max_func` from msvcrt.dll or `AddVectoredExceptionHandler` from kernel32.dll
@@ -116,13 +116,13 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Pass `USESDL1=y NOMT=y` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
-<details><summary>When building for web browsers using Emscripten</summary>
+<details><summary>Building for web browsers using Emscripten</summary>
 
 - Install GNU Make
 - Install Emscripten
 - Pass `CROSS=emscr` to the Makefile
 </details>
-<details><summary>When building for the Xbox using the NXDK</summary>
+<details><summary>Building for the Xbox using the NXDK</summary>
 
 - Set up the [NXDK](https://github.com/XboxDev/nxdk)
     - [The modified CXBE from PR #655 is needed](https://github.com/PQCraft/nxdk/tree/master/tools/cxbe)
@@ -139,7 +139,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - There should be a directory \(or link\) called `games`, and if you have mods, a directory \(or link\) called `mods`
 - Pass `CROSS=nxdk` to the Makefile
 </details>
-<details><summary>When building for the Dreamcast using KallistiOS</summary>
+<details><summary>Building for the Dreamcast using KallistiOS</summary>
 
 - Set up [KallistiOS](http://gamedev.allusion.net/softprj/kos)
     - See [this wiki page](https://dreamcast.wiki/Getting_Started_with_Dreamcast_development) for a tutorial
@@ -155,7 +155,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 - Pass `CROSS=dc` to the Makefile
 </details>
 <!--
-<details><summary>When building for the PlayStation 2 using the ps2dev sdk</summary>
+<details><summary>Building for the PlayStation 2 using the ps2dev sdk</summary>
 - Set up the [ps2dev SDK](https://github.com/ps2dev/ps2dev)
     - See [this forum post](https://www.ps2-home.com/forum/viewtopic.php?t=9488) for a tutorial
 - Pass `CROSS=ps2` to the Makefile
@@ -245,6 +245,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
             - `IP_MRIMAGE` - Path to MR image \(default is `icons/engine.mr`\)
             - `CDI` - Path to write CDI to \(default is `$(OUTDIR)/$(IP_TITLE).cdi`\)
             - `CDIDIR` - Path to make the CDI from \(default is `$(OUTDIR)/cdi`\)
+</details>
 
 Examples:
 ```
@@ -259,4 +260,3 @@ make DEBUG=1 ASAN=y -j$(nproc) run
 ```
 make CROSS=nxdk DEBUG=0 -j$(nproc) run
 ```
-</details>
