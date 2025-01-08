@@ -25,7 +25,6 @@ void ds_openmem(void* b, size_t sz, ds_mem_freecb freecb, void* freectx, struct 
     ds->mem.freectx = freectx;
     ds->path = "<memory>";
     ds->atend = 0;
-    ds->unget = 0;
     ds->mode = DS_MODE_MEM;
 }
 bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
@@ -75,11 +74,10 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
     ds->bufsz = bufsz;
     ds->path = strpath(p);
     ds->atend = 0;
-    ds->unget = 0;
     ds->mode = DS_MODE_FILE;
     return true;
 }
-bool ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb closecb, void* closectx, struct datastream* ds) {
+bool ds_opencb(struct ds_cbfuncs* funcs, size_t bufsz, struct datastream* ds) {
     if (!bufsz) bufsz = 4096;
     ds->buf = malloc(bufsz);
     if (!ds->buf) return false;
@@ -87,13 +85,9 @@ bool ds_opencb(ds_cb_readcb readcb, void* readctx, size_t bufsz, ds_cb_closecb c
     ds->passed = 0;
     ds->datasz = 0;
     ds->bufsz = bufsz;
-    ds->cb.read = readcb;
-    ds->cb.readctx = readctx;
-    ds->cb.close = closecb;
-    ds->cb.closectx = closectx;
+    ds->cb = *funcs;
     ds->path = "<callback>";
     ds->atend = 0;
-    ds->unget = 0;
     ds->mode = DS_MODE_CB;
     return true;
 }
@@ -106,10 +100,10 @@ bool ds_opensect(struct datastream* ids, size_t lim, size_t bufsz, struct datast
     ds->datasz = 0;
     ds->bufsz = bufsz;
     ds->sect.ds = ids;
+    ds->sect.base = ds_tell(ids);
     ds->sect.lim = lim;
     ds->path = ids->path;
     ds->atend = 0;
-    ds->unget = 0;
     ds->mode = DS_MODE_SECT;
     return true;
 }
@@ -146,21 +140,9 @@ int ds_text_getc(struct datastream* ds) {
     return c;
 }
 
-size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
+size_t ds_read(struct datastream* ds, size_t l, void* b) {
     if (!l) return 0;
-    size_t r;
-    #if 0
-    if (ds->unget) {
-        ds->unget = 0;
-        *(uint8_t*)b = ds->last;
-        if (l == 1) return 1;
-        r = 1;
-    } else {
-        r = 0;
-    }
-    #else
-    r = 0;
-    #endif
+    size_t r = 0;
     size_t a = ds->datasz - ds->pos;
     if (!a) {
         if (!ds__refill(ds)) return r;
@@ -179,7 +161,7 @@ size_t ds_bin_read(struct datastream* ds, size_t l, void* b) {
     ds->pos += l;
     return r + l;
 }
-size_t ds_bin_skip(struct datastream* ds, size_t l) {
+size_t ds_skip(struct datastream* ds, size_t l) {
     if (!l) return 0;
     size_t r = 0;
     size_t a = ds->datasz - ds->pos;
@@ -197,6 +179,44 @@ size_t ds_bin_skip(struct datastream* ds, size_t l) {
     }
     ds->pos += l;
     return r + l;
+}
+
+bool ds_seek(struct datastream* ds, size_t o) {
+    switch (ds->mode) {
+        case DS_MODE_MEM: {
+            if (o >= ds->datasz) return false;
+            ds->pos = o;
+            return true;
+        } break;
+        case DS_MODE_FILE: {
+            #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+            off_t r = lseek(ds->file.fd, o, SEEK_SET);
+            if (r == -1) return false;
+            if ((size_t)r != o) {
+                lseek(ds->file.fd, ds->passed + ds->datasz, SEEK_SET);
+                return false;
+            }
+            #else
+            if (fseek(ds->file.f, o, SEEK_SET) == -1) return false;
+            if ((size_t)ftell(ds->file.f) != o) {
+                fseek(ds->file.f, ds->passed + ds->datasz, SEEK_SET);
+                return false;
+            }
+            #endif
+        } break;
+        case DS_MODE_CB: {
+            if (!ds->cb.seek) return false;
+            if (!ds->cb.seek(ds->cb.seekctx, o)) return false;
+        } break;
+        case DS_MODE_SECT: {
+            if (o >= ds->sect.lim) return false;
+            if (!ds_seek(ds->sect.ds, ds->sect.base + o)) return false;
+        } break;
+    }
+    ds->passed = o;
+    ds->pos = 0;
+    ds->datasz = 0;
+    return true;
 }
 
 int ds_text__getc(struct datastream* ds) {
@@ -242,8 +262,8 @@ bool ds__refill(struct datastream* ds) {
             return false;
         }
         if (tmp > ds->bufsz) tmp = ds->bufsz;
-        size_t r = ds_bin_read(ds->sect.ds, tmp, ds->buf);
-        if (!r && ds_bin_atend(ds->sect.ds)) {
+        size_t r = ds_read(ds->sect.ds, tmp, ds->buf);
+        if (!r && ds_atend(ds->sect.ds)) {
             ds->datasz = 0;
             ds->atend = 1;
             return false;

@@ -24,7 +24,7 @@ Entity type:
     | ENT_SWITCH
     | ENT_VALVE
     | ENT_MOUNTABLE
-    | ENT_HITTABLE
+    | ENT_HURTABLE
     | ENT_BEAM
     | ENT_PARTICLES
     | ENT_GIBS
@@ -63,7 +63,7 @@ Entity data:
     | <Switch entity data>
     | <Valve entity data>
     | <Mountable entity data>
-    | <Hittable entity data>
+    | <Hurtable entity data>
     | <Beam entity data>
     | <Particle emitter entity data>
     | <Gib emitter entity data>
@@ -343,9 +343,13 @@ Mountable entity data:
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
 
-Hittable entity data:
+Hurtable entity data:
     <u8:
-        <7 bits: 0>
+        <3 bits: 0>
+        <1 bit: Take healing from health emitter>
+        <1 bit: Do not take damage from health emitter>
+        <1 bit: Do not take damage from hitscan>
+        <1 bit: One-time>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -359,7 +363,9 @@ Hittable entity data:
     <float[3]: (-X, -Y, +Z) corner XYZ offset>
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <<String>: Signal when hit>
+    <float: Health>
+    <<String>: Signal when killed>
+    <<String>: Signal to reset>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -574,7 +580,7 @@ Projectile entity data:
     <<String>: Animation>
     <<String>: Signal on hit>
 
-Health entity data:
+Health emitter entity data:
     <u8:
         <2 bits: 0>
         <1 bit: One-time>

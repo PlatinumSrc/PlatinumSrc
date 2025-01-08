@@ -59,7 +59,7 @@ LZ4F_errorCode_t LZ4DS_readOpen(LZ4_readDS_t** lz4dsRead, PSRC_DATASTREAM_T ds)
   }
 
   (*lz4dsRead)->ds = ds;
-  consumedSize = ds_bin_read((*lz4dsRead)->ds, sizeof(buf), buf);
+  consumedSize = ds_read((*lz4dsRead)->ds, sizeof(buf), buf);
   if (consumedSize < LZ4F_HEADER_SIZE_MIN + LZ4F_ENDMARK_SIZE) {
     LZ4DS_freeAndNullReadDS(lz4dsRead);
     RETURN_ERROR(io_read);
@@ -118,7 +118,7 @@ size_t LZ4DS_read(LZ4_readDS_t* lz4dsRead, void* buf, size_t size)
     size_t ret;
 
     if (srcsize == 0) {
-      ret = ds_bin_read(lz4dsRead->ds, lz4dsRead->srcBufMaxSize, lz4dsRead->srcBuf);
+      ret = ds_read(lz4dsRead->ds, lz4dsRead->srcBufMaxSize, lz4dsRead->srcBuf);
       if (ret > 0) {
         lz4dsRead->srcBufSize = ret;
         srcsize = lz4dsRead->srcBufSize;

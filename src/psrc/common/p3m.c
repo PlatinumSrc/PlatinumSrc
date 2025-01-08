@@ -22,24 +22,24 @@
 #define STR(x) _STR(x)
 #define TOPTR(x) ((void*)(uintptr_t)(x))
 
-#define get8 ds_bin_getc_noerr
+#define get8 ds_getc_noerr
 static ALWAYSINLINE uint16_t get16(struct datastream* ds) {
     uint16_t v;
-    v = ds_bin_getc_noerr(ds);
-    v |= ds_bin_getc_noerr(ds) << 8;
+    v = ds_getc_noerr(ds);
+    v |= ds_getc_noerr(ds) << 8;
     return v;
 }
 static inline uint32_t get32(struct datastream* ds) {
     uint32_t v;
-    v = ds_bin_getc_noerr(ds);
-    v |= ds_bin_getc_noerr(ds) << 8;
-    v |= ds_bin_getc_noerr(ds) << 16;
-    v |= ds_bin_getc_noerr(ds) << 24;
+    v = ds_getc_noerr(ds);
+    v |= ds_getc_noerr(ds) << 8;
+    v |= ds_getc_noerr(ds) << 16;
+    v |= ds_getc_noerr(ds) << 24;
     return v;
 }
 static inline float getf32(struct datastream* ds) {
     float v;
-    ds_bin_read(ds, 4, &v);
+    ds_read(ds, 4, &v);
     return swaplefloat(v);
 }
 
@@ -107,7 +107,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     #endif
     {
         char h[3];
-        if (ds_bin_read(ds, 3, h) != 3) {
+        if (ds_read(ds, 3, h) != 3) {
             plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
             return false;
         }
@@ -121,7 +121,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         }
     }
     {
-        int v = ds_bin_getc(ds);
+        int v = ds_getc(ds);
         if (v == DS_END) {
             plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
             return false;
@@ -132,7 +132,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         }
     }
     {
-        int f = ds_bin_getc(ds);
+        int f = ds_getc(ds);
         if (f == DS_END) {
             plog(LL_ERROR | LF_FUNCLN, "Unexpected end of stream");
             return false;
@@ -146,7 +146,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         uint8_t partct = get8(ds);
         if (partct) {
             if (!(m->parts = malloc(partct * sizeof(*m->parts)))) P3M_LOAD_OOMERR(retfalse);
-            if (ds_bin_read(ds, (partct + 7) / 8, m->vismask) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
+            if (ds_read(ds, (partct + 7) / 8, m->vismask) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
             unsigned totalwgct = 0;
             unsigned parti = 0;
             do {
@@ -162,7 +162,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 uint16_t vertct = get16(ds);
                 p->vertexcount = vertct;
                 if (!(p->vertices = malloc(vertct * sizeof(*p->vertices)))) P3M_LOAD_OOMERR(retfalse);
-                if (ds_bin_read(ds, vertct * 4 * 5, p->vertices) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, vertct * 4 * 5, p->vertices) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
                 for (unsigned i = 0; i < vertct; ++i) {
                     struct p3m_vertex* v = &p->vertices[i];
@@ -176,7 +176,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 if (f & P3M_FILEFLAG_PART_HASNORMS) {
                     if (!(lf & P3M_LOADFLAG_IGNORENORMS)) {
                         if (!(p->normals = malloc(vertct * sizeof(*p->normals)))) P3M_LOAD_OOMERR(retfalse);
-                        if (ds_bin_read(ds, vertct * 4 * 3, p->normals) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
+                        if (ds_read(ds, vertct * 4 * 3, p->normals) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
                         #if BYTEORDER == BO_BE
                         for (unsigned i = 0; i < vertct; ++i) {
                             struct p3m_normal* n = &p->normals[i];
@@ -186,13 +186,13 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         }
                         #endif
                     } else {
-                        if (ds_bin_skip(ds, vertct * 4 * 3) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
+                        if (ds_skip(ds, vertct * 4 * 3) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
                     }
                 }
                 uint16_t indct = get16(ds);
                 p->indexcount = indct;
                 if (!(p->indices = malloc(indct * sizeof(*p->indices)))) P3M_LOAD_OOMERR(retfalse);
-                if (ds_bin_read(ds, indct * 2, p->indices) != indct * 2) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, indct * 2, p->indices) != indct * 2) P3M_LOAD_EOSERR(retfalse);
                 for (unsigned i = 0; i < indct; ++i) {
                     #if BYTEORDER == BO_BE
                     p->indices[i] = swaple16(p->indices[i]);
@@ -235,7 +235,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                 wr->weights = TOPTR(wvlb.len);
                                 uintptr_t oldlen = wvlb.len;
                                 VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
-                                if (ds_bin_read(ds, wr->weightcount, wvlb.data + oldlen) != wr->weightcount) {
+                                if (ds_read(ds, wr->weightcount, wvlb.data + oldlen) != wr->weightcount) {
                                     VLB_FREE(wvlb);
                                     VLB_FREE(wrvlb);
                                     P3M_LOAD_EOSERR(retfalse);
@@ -260,7 +260,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                 get16(ds);
                                 uint16_t wct = get16(ds);
                                 if (!wct) break;
-                                if (ds_bin_skip(ds, wct) != wct) P3M_LOAD_EOSERR(retfalse);
+                                if (ds_skip(ds, wct) != wct) P3M_LOAD_EOSERR(retfalse);
                             }
                         } while (wgi < wgct);
                     }
@@ -286,8 +286,8 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     mat->rendmode = P3M_MATRENDMODE_NORMAL;
                 }
                 mat->texture = TOPTR(get8(ds));
-                if (ds_bin_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
-                if (ds_bin_read(ds, 3, &mat->emission) != 3) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, 4, &mat->color) != 4) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, 3, &mat->emission) != 3) P3M_LOAD_EOSERR(retfalse);
                 mat->shading = get8(ds);
             } while (++mati < matct);
         }
@@ -340,14 +340,14 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                     texi - 1, (long unsigned)tmp, (unsigned)sz
                                 );
                                 sz -= tmp;
-                                if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                                if (ds_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                             } else if (tmp > sz) {
                                 plog(LL_ERROR, "Data of texture %u is larger than expected (got %lu, expected %u)", texi - 1, (long unsigned)tmp, (unsigned)sz);
                                 goto retfalse;
                             }
                         } else {
                         #endif
-                            if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                            if (ds_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                             t->embedded.data = NULL;
                         #ifndef PSRC_MODULE_SERVER
                         }
@@ -361,7 +361,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         t->type = P3M_TEXTYPE_EMBEDDED;
                         t->embedded.data = NULL;
                         uint32_t sz = get32(ds);
-                        if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                        if (ds_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                     } break;
                 }
             } while (texi < texct);
@@ -386,17 +386,17 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         uint8_t partct = get8(ds);
         if (partct) {
-            if (ds_bin_skip(ds, (partct + 7) / 8) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
+            if (ds_skip(ds, (partct + 7) / 8) != (partct + 7) / 8U) P3M_LOAD_EOSERR(retfalse);
             unsigned parti = 0;
             do {
                 uint8_t f = get8(ds);
                 get16(ds);
                 get8(ds);
                 uint16_t vertct = get16(ds);
-                if (ds_bin_skip(ds, vertct * 4 * 5) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
-                if (f & P3M_FILEFLAG_PART_HASNORMS && ds_bin_skip(ds, vertct * 4 * 3) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
+                if (ds_skip(ds, vertct * 4 * 5) != vertct * 4 * 5) P3M_LOAD_EOSERR(retfalse);
+                if (f & P3M_FILEFLAG_PART_HASNORMS && ds_skip(ds, vertct * 4 * 3) != vertct * 4 * 3) P3M_LOAD_EOSERR(retfalse);
                 uint16_t indct = get16(ds);
-                if (ds_bin_skip(ds, indct * 2) != indct * 2) P3M_LOAD_EOSERR(retfalse);
+                if (ds_skip(ds, indct * 2) != indct * 2) P3M_LOAD_EOSERR(retfalse);
                 uint8_t wgct = get8(ds);
                 if (wgct) {
                     unsigned wgi = 0;
@@ -406,7 +406,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                             get16(ds);
                             uint16_t wct = get16(ds);
                             if (!wct) break;
-                            if (ds_bin_skip(ds, wct) != wct) P3M_LOAD_EOSERR(retfalse);
+                            if (ds_skip(ds, wct) != wct) P3M_LOAD_EOSERR(retfalse);
                         }
                     } while (wgi < wgct);
                 }
@@ -417,7 +417,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         uint8_t matct = get8(ds);
         for (unsigned mati = 0; mati < matct; ++mati) {
-            if (ds_bin_skip(ds, 10) != 10) P3M_LOAD_EOSERR(retfalse);
+            if (ds_skip(ds, 10) != 10) P3M_LOAD_EOSERR(retfalse);
         }
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG | LF_FUNC, "Skipping textures...");
@@ -428,7 +428,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             switch (textype) {
                 case P3M_TEXTYPE_EMBEDDED: {
                     uint32_t sz = get32(ds);
-                    if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                    if (ds_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                 } break;
                 case P3M_TEXTYPE_EXTERNAL: {
                     get16(ds);
@@ -436,7 +436,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 default: {
                     plog(LL_WARN, "Type of texture %u is invalid (got %u, expected less than %u)", texi, textype, P3M_TEXTYPE__COUNT);
                     uint32_t sz = get32(ds);
-                    if (ds_bin_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
+                    if (ds_skip(ds, sz) != sz) P3M_LOAD_EOSERR(retfalse);
                 } break;
             }
         }
@@ -453,13 +453,13 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             do {
                 struct p3m_bone* b = &m->bones[bonei];
                 b->name = TOPTR(get16(ds));
-                if (ds_bin_read(ds, 3 * 4, &b->head) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, 3 * 4, &b->head) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
                 b->head.x = swaplefloat(b->head.x);
                 b->head.y = swaplefloat(b->head.y);
                 b->head.z = swaplefloat(b->head.z);
                 #endif
-                if (ds_bin_read(ds, 3 * 4, &b->tail) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
+                if (ds_read(ds, 3 * 4, &b->tail) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
                 b->tail.x = swaplefloat(b->tail.x);
                 b->tail.y = swaplefloat(b->tail.y);
@@ -479,7 +479,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         uint8_t bonect = get8(ds);
         for (unsigned bonei = 0; bonei < bonect; ++bonei) {
             get16(ds);
-            if (ds_bin_skip(ds, 6 * 4) != 6 * 4) P3M_LOAD_EOSERR(retfalse);
+            if (ds_skip(ds, 6 * 4) != 6 * 4) P3M_LOAD_EOSERR(retfalse);
             get8(ds);
         }
     }
@@ -586,7 +586,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     }
                     b->rotdata = b->transldata + translct;
                     b->scaledata = b->rotdata + rotct;
-                    if (ds_bin_read(ds, sz, b->translskips) != sz) {
+                    if (ds_read(ds, sz, b->translskips) != sz) {
                         VLB_FREE(plvlb);
                         P3M_LOAD_OOMERR(retfalse);
                     }
@@ -626,7 +626,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         }
                         b->scaleinterps[i] = tmp;
                     }
-                    if (ds_bin_read(ds, sz * 4 * 3, b->transldata) != sz * 4 * 3) {
+                    if (ds_read(ds, sz * 4 * 3, b->transldata) != sz * 4 * 3) {
                         VLB_FREE(plvlb);
                         P3M_LOAD_OOMERR(retfalse);
                     }
@@ -673,7 +673,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             get16(ds);
             uint8_t actrefct = get8(ds);
             for (unsigned actrefi = 0; actrefi < actrefct; ++actrefi) {
-                if (ds_bin_skip(ds, 9) != 9) P3M_LOAD_EOSERR(retfalse);
+                if (ds_skip(ds, 9) != 9) P3M_LOAD_EOSERR(retfalse);
             }
         }
         #if DEBUG(1)
@@ -684,7 +684,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
             get32(ds);
             get8(ds);
             uint8_t partct = get8(ds);
-            if (ds_bin_skip(ds, partct * 2) != partct * 2) P3M_LOAD_EOSERR(retfalse);
+            if (ds_skip(ds, partct * 2) != partct * 2) P3M_LOAD_EOSERR(retfalse);
             uint8_t bonect = get8(ds);
             for (unsigned bonei = 0; bonei < bonect; ++bonei) {
                 get16(ds);
@@ -692,7 +692,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 uint8_t rotct = get8(ds);
                 uint8_t scalect = get8(ds);
                 size_t skipsz = (translct + rotct + scalect) * 14;
-                if (ds_bin_skip(ds, skipsz) != skipsz) P3M_LOAD_EOSERR(retfalse);
+                if (ds_skip(ds, skipsz) != skipsz) P3M_LOAD_EOSERR(retfalse);
             }
         } 
     }
@@ -701,10 +701,10 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     #endif
     struct charbuf strtbl;
     cb_init(&strtbl, 256);
-    while (!ds_bin_atend(ds)) {
+    while (!ds_atend(ds)) {
         unsigned long oldlen = strtbl.len;
         cb_addmultifake(&strtbl, 256);
-        strtbl.len = ds_bin_read(ds, 256, strtbl.data + oldlen) + oldlen;
+        strtbl.len = ds_read(ds, 256, strtbl.data + oldlen) + oldlen;
         if (strtbl.len > 65535) {
             cb_dump(&strtbl);
             plog(LL_ERROR, "String table is too large (got %u, expected less than or equal to 65535)", strtbl.len);
