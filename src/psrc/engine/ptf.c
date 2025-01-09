@@ -2,7 +2,7 @@
 
 #include "ptf.h"
 
-#include "../../lz4/lz4ds.h"
+#include "../../lz4/lz4cb.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,16 +24,16 @@ void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* res, unsigned* ch) {
     sz *= tmpch;
     void* data = malloc(sz);
     if (!data) return NULL;
-    LZ4_readDS_t* rds;
-    if (LZ4F_isError(LZ4DS_readOpen(&rds, ds))) {
+    LZ4_readCB_t* rcb;
+    if (LZ4F_isError(LZ4CB_readOpen(&rcb, (LZ4CB_readcb)ds_read, ds))) {
         free(data);
         return NULL;
     }
-    if (LZ4F_isError(LZ4DS_read(rds, data, sz))) {
-        LZ4DS_readClose(rds);
+    if (LZ4F_isError(LZ4CB_read(rcb, data, sz))) {
+        LZ4CB_readClose(rcb);
         free(data);
         return NULL;
     }
-    LZ4DS_readClose(rds);
+    LZ4CB_readClose(rcb);
     return data;
 }
