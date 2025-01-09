@@ -1,9 +1,8 @@
-PMF - PlatinumSrc Map File/Format
+PFA - PlatinumSrc File Archive
 
-- .pmf file extension
+- .pfa file extension
 - Current version is 0.0
 - All data should be little endian
-- LZ4 should be used for compression
 
 Format:
 
@@ -13,5 +12,73 @@ Format:
         <char[3]: {'P', 'F', 'A'}>
         <u8: Major version>
     Data:
-        
+        <<Directory>: Root directory>
+        <Free space tracker>
+        [
+            { <Free space>
+            | <Directory>
+            | <Directory continuation>
+            | <File>
+            | <File continuation>
+            | <Free space tracker continuation> 
+            | <String> }
+        ]...
+
+        Free space:
+            <u8[]: Unused>
+
+        Free space tracker:
+            <u32: Total slots>
+            <u32: Slots in current segment>
+            <u32: Slots used in current segment>
+            <u32: Position of first <Free space tracker continuation>>
+            [Free space tracker slot]...
+        Free space tracker continuation:
+            <u32: Slots in current segment>
+            <u32: Slots used in current segment>
+            <u32: Position of next <Free space tracker continuation>>
+            [Free space tracker slot]...
+        Free space tracker slot:
+            <u32: Position of <Free space>>
+            <u32: Size>
+
+        Directory:
+            <u32: Total entries>
+            <u32: Entry slots in current segment>
+            <u32: Entry slots used in current segment>
+            <u32: Position of first <Directory continuation>>
+            [Directory entry]...
+        Directory continuation:
+            <u32: Entry slots in current segment>
+            <u32: Entry slots used in current segment>
+            <u32: Position of next <Directory continuation>>
+            [Directory entry]...
+        Directory entry:
+            <u8:
+                { PFA_DIRENT_DIR
+                | PFA_DIRENT_FILE
+                | PFA_DIRENT_LINK }
+            >
+            <u32: Position of <String> containing name>
+            <u32: 32-bit CRC of name>
+            <u32: Position of <Directory>, <File>, or position of <String> containing the link path>
+
+        File:
+            <u32: Total size of file>
+            <u32: Size of data array in current segment>
+            <u32: Bytes used in data array of current segment>
+            <u32: Position of first <File continuation>>
+            <u8[]: Data>
+        File continuation:
+            <u32: Size of data array in current segment>
+            <u32: Bytes used in data array of current segment>
+            <u32: Position of next <File continuation>>
+            <u32: Position of previous <File continuation> or <File>>
+            <u8[]: Data>
+
+        String:
+            <u32: Data array size>
+            <u32: String length>
+            <char[]: Data>
+
 

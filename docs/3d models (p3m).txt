@@ -21,77 +21,77 @@ Format:
         <u8: Action count> [Action]...
         <char[1...]: String table {..., 0}>
 
-    Part:
-        <u8:
-            <7 bits: 0>
-            <1 bit: Has normals>
-        >
-        <<String>: Name>
-        <u8: Material index>
-        <u16: Vertex count> [Vertex]... [ [Normal]... ]
-        <u16: Index count> [u16: Index]...
-        <u8: Weight group count> [Weight group]...
-    Vertex:
-        <float[3]: Position XYZ>
-        <float[2]: Texture UV>
-    Normal:
-        <float[3]: Normal XYZ>
-    Weight group:
-        <<String>: Bone name>
-        <Weight range>...
-    Weight range:
-        <u16: Vertices to skip>
-        <u16: Weight count (0 to terminate)>
-        [u8: Weight (round(weight * 256) - 1)]...
+        Part:
+            <u8:
+                <7 bits: 0>
+                <1 bit: Has normals>
+            >
+            <<String>: Name>
+            <u8: Material index>
+            <u16: Vertex count> [Vertex]... [ [Normal]... ]
+            <u16: Index count> [u16: Index]...
+            <u8: Weight group count> [Weight group]...
+        Vertex:
+            <float[3]: Position XYZ>
+            <float[2]: Texture UV>
+        Normal:
+            <float[3]: Normal XYZ>
+        Weight group:
+            <<String>: Bone name>
+            <Weight range>...
+        Weight range:
+            <u16: Vertices to skip>
+            <u16: Weight count (0 to terminate)>
+            [u8: Weight (round(weight * 256) - 1)]...
 
-    Material:
-        <u8:
-            { P3M_MATRENDMODE_NORMAL
-            | P3M_MATRENDMODE_ADD }
-        >
-        <u8: Texture index (0xFF for none)>
-        <u8: Extra texture count> [u8: Extra texture index]...
-        <u32: Texture advance time in microseconds>
-        <u8[4]: RGBA color>
-        <u8[3]: RGB emission>
-        <u8: Shading>
+        Material:
+            <u8:
+                { P3M_MATRENDMODE_NORMAL
+                | P3M_MATRENDMODE_ADD }
+            >
+            <u8: Texture index (0xFF for none)>
+            <u8: Extra texture count> [u8: Extra texture index]...
+            <u32: Texture advance time in microseconds>
+            <u8[4]: RGBA color>
+            <u8[3]: RGB emission>
+            <u8: Shading>
 
-    Texture:
-        { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <PTF texture (See 'textures (ptf).txt')>
-        | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path (recommended to omit the prefix)> }
+        Texture:
+            { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <PTF texture (See 'textures (ptf).txt')>
+            | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path (recommended to omit the prefix)> }
 
-    Bone:
-        <<String>: Name>
-        <float[3]: Head position> <float[3]: Tail position>
-        <u8: Child count>
+        Bone:
+            <<String>: Name>
+            <float[3]: Head position> <float[3]: Tail position>
+            <u8: Child count>
 
-    Animation:
-        <<String>: Name>
-        <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
+        Animation:
+            <<String>: Name>
+            <u8: Action count> [ <u8: Action index> <float: Speed> <u16: Start> <u16: End> ]...
 
-    Action:
-        <u32: Microseconds per frame>
-        <u8:
-            { P3M_ACTPARTLISTMODE_DEFAULTWHITE (use vis mask and add listed)
-            | P3M_ACTPARTLISTMODE_DEFAULTBLACK (use vis mask and remove listed)
-            | P3M_ACTPARTLISTMODE_WHITE (no parts except listed)
-            | P3M_ACTPARTLISTMODE_BLACK (all parts except listed) }
-        >
-        <u8: Part count> [<String>: Part name]...
-        <u8: Bone count> [Action data]...
-    Action data:
-        <<String>: Bone name>
-        <u8: Translation keyframe count> <u8: Rotation keyframe count> <u8: Scale keyframe count>
-        [u8: Translation frame skip]... [u8: Rotation frame skip]... [u8: Scale frame skip]...
-        [Translation <Action interp mode>]... [Rotation <Action interp mode>]... [Scale <Action interp mode>]...
-        [float[3]: Translation data]... [float[3]: Rotation data]... [float[3]: Scale data]...
-    Action interp mode:
-        <u8:
-            { P3M_ACTINTERP_NONE
-            | P3M_ACTINTERP_LINEAR }
-        >
+        Action:
+            <u32: Microseconds per frame>
+            <u8:
+                { P3M_ACTPARTLISTMODE_DEFAULTWHITE (use vis mask and add listed)
+                | P3M_ACTPARTLISTMODE_DEFAULTBLACK (use vis mask and remove listed)
+                | P3M_ACTPARTLISTMODE_WHITE (no parts except listed)
+                | P3M_ACTPARTLISTMODE_BLACK (all parts except listed) }
+            >
+            <u8: Part count> [<String>: Part name]...
+            <u8: Bone count> [Action data]...
+        Action data:
+            <<String>: Bone name>
+            <u8: Translation keyframe count> <u8: Rotation keyframe count> <u8: Scale keyframe count>
+            [u8: Translation frame skip]... [u8: Rotation frame skip]... [u8: Scale frame skip]...
+            [Translation <Action interp mode>]... [Rotation <Action interp mode>]... [Scale <Action interp mode>]...
+            [float[3]: Translation data]... [float[3]: Rotation data]... [float[3]: Scale data]...
+        Action interp mode:
+            <u8:
+                { P3M_ACTINTERP_NONE
+                | P3M_ACTINTERP_LINEAR }
+            >
 
-    String:
-        <u16: Offset in string table>
+        String:
+            <u16: Offset in string table>
 
 
