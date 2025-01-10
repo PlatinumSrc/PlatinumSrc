@@ -4,6 +4,7 @@
 #include "../attrib.h"
 
 PACKEDENUM ent {
+    ENT_DUMMY,
     ENT_HEADLESS,
     ENT_GENERIC,
     ENT_PROP,

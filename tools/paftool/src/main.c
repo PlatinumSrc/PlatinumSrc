@@ -16,20 +16,20 @@ int main(int argc, char** argv) {
             "    e, x, extract %s\n"
             "    m, modify %s\n"
             "    i, info %s\n",
-            pfatool_create_help,
-            pfatool_extract_help,
-            pfatool_modify_help,
-            pfatool_info_help
+            paftool_create_help,
+            paftool_extract_help,
+            paftool_modify_help,
+            paftool_info_help
         );
         return 0;
     } else if (!strcmp(argv[1], "c") || !strcmp(argv[1], "create")) {
-        return pfatool_create(argv[0], argc - 2, argv + 2);
+        return paftool_create(argv[0], argc - 2, argv + 2);
     } else if (!strcmp(argv[1], "e") || !strcmp(argv[1], "x") || !strcmp(argv[1], "extract")) {
-        return pfatool_extract(argv[0], argc - 2, argv + 2);
+        return paftool_extract(argv[0], argc - 2, argv + 2);
     } else if (!strcmp(argv[1], "m") || !strcmp(argv[1], "modify")) {
-        return pfatool_modify(argv[0], argc - 2, argv + 2);
+        return paftool_modify(argv[0], argc - 2, argv + 2);
     } else if (!strcmp(argv[1], "i") || !strcmp(argv[1], "info")) {
-        return pfatool_info(argv[0], argc - 2, argv + 2);
+        return paftool_info(argv[0], argc - 2, argv + 2);
     }
     fprintf(stderr, "%s: Unknown command '%s'\n", argv[0], argv[1]);
     return 1;

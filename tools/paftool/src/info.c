@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-const char* pfatool_info_help =
+const char* paftool_info_help =
    "<INPUT> <COMMAND> ... - Display information about the INPUT archive\n"
    "        ls, list [OPTION]... [--] [PATH]... - List all or a list of PATHs\n"
    "            -e, --escape    - Escape special characters\n"
@@ -9,7 +9,7 @@ const char* pfatool_info_help =
    "        u, usage - Display usage statistics"
 ;
 
-int pfatool_info(char* argv0, int argc, char** argv) {
+int paftool_info(char* argv0, int argc, char** argv) {
     if (argc < 1) {
         fprintf(stderr, "%s: Missing 'INPUT' param for 'info' command\n", argv0);
         return 1;

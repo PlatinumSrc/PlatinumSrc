@@ -1,6 +1,6 @@
-PFA - PlatinumSrc File Archive
+PAF - PlatinumSrc Archive File/Format
 
-- .pfa file extension
+- .paf file extension
 - Current version is 0.0
 - All data should be little endian
 
@@ -55,9 +55,9 @@ Format:
             [Directory entry]...
         Directory entry:
             <u8:
-                { PFA_DIRENT_DIR
-                | PFA_DIRENT_FILE
-                | PFA_DIRENT_LINK }
+                { PAF_DIRENT_DIR
+                | PAF_DIRENT_FILE
+                | PAF_DIRENT_LINK }
             >
             <u32: Position of <String> containing name>
             <u32: 32-bit CRC of name>

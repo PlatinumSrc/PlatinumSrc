@@ -1,8 +1,8 @@
 #include <stdio.h>
 
-const char* pfatool_modify_help =
+const char* paftool_modify_help =
    "<INPUT> <COMMAND> ... - Modify the INPUT archive\n"
-   "        u, update <PFA_PATH> <FS_PATH> - Replace a file in the archive\n"
+   "        u, update <PAF_PATH> <FS_PATH> - Replace a file in the archive\n"
    "        cp, copy [OPTIONS] [--] <SOURCE>... <DEST> - Copy the SOURCE path(s) to the DEST path\n"
    "            -f, --force     - Overwrite\n"
    "            -r, --recursive - Copy directories and files recursively\n"
@@ -15,7 +15,7 @@ const char* pfatool_modify_help =
    "            -w, --writing   - Optimize for writing"
 ;
 
-int pfatool_modify(char* argv0, int argc, char** argv) {
+int paftool_modify(char* argv0, int argc, char** argv) {
     if (argc < 1) {
         fprintf(stderr, "%s: Missing 'INPUT' param for 'modify' command\n", argv0);
         return 1;

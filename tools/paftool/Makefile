@@ -6,7 +6,7 @@ PSRCDIR := ../../src/psrc
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 
-BIN := pfatool
+BIN := paftool
 ifeq ($(OS),Windows_NT)
     BIN := $(BIN).exe
 endif

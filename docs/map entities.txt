@@ -14,7 +14,8 @@ Entity:
     <u32: Custom property count> [ <Entity property data type> <Entity property data> ]
 
 Entity type:
-    { ENT_HEADLESS
+    { ENT_DUMMY
+    | ENT_HEADLESS
     | ENT_GENERIC
     | ENT_PROP
     | ENT_CUBE
@@ -51,40 +52,42 @@ Entity type:
     | ENT_GRAVITYENV }
 
 Entity data:
-    { <Headless entity data>
-    | <Generic entity data>
-    | <Prop entity data>
-    | <Cube entity data>
-    | <Door entity data>
-    | <Trigger box entity data>
-    | <Button entity data>
-    | <Switch entity data>
-    | <Valve entity data>
-    | <Mountable entity data>
-    | <Hurtable entity data>
-    | <Beam entity data>
-    | <Particle emitter entity data>
-    | <Gib emitter entity data>
-    | <Glow entity data>
-    | <Text entity data>
-    | <Billboard entity data>
-    | <Decal entity data>
-    | <Projectile emitter entity data>
-    | <Projectile entity data>
-    | <Health emitter entity data>
-    | <Push entity data>
-    | <Broadcaster entity data>
-    | <Counter entity data>
-    | <Extended counter entity data>
-    | <Timer entity data>
-    | <Extended timer entity data>
-    | <Setter entity data>
-    | <Audio emitter entity data>
-    | <Dynamic light controller entity data>
-    | <Fast light controller entity data>
-    | <Sound environment entity data>
-    | <Weather environment entity data>
-    | <Gravity environment entity data> }
+    [
+        { <Headless entity data>
+        | <Generic entity data>
+        | <Prop entity data>
+        | <Cube entity data>
+        | <Door entity data>
+        | <Trigger box entity data>
+        | <Button entity data>
+        | <Switch entity data>
+        | <Valve entity data>
+        | <Mountable entity data>
+        | <Hurtable entity data>
+        | <Beam entity data>
+        | <Particle emitter entity data>
+        | <Gib emitter entity data>
+        | <Glow entity data>
+        | <Text entity data>
+        | <Billboard entity data>
+        | <Decal entity data>
+        | <Projectile emitter entity data>
+        | <Projectile entity data>
+        | <Health emitter entity data>
+        | <Push entity data>
+        | <Broadcaster entity data>
+        | <Counter entity data>
+        | <Extended counter entity data>
+        | <Timer entity data>
+        | <Extended timer entity data>
+        | <Setter entity data>
+        | <Audio emitter entity data>
+        | <Dynamic light controller entity data>
+        | <Fast light controller entity data>
+        | <Sound environment entity data>
+        | <Weather environment entity data>
+        | <Gravity environment entity data> }
+    ]
 
 Headless entity data:
     <<String>: Script resource path>
