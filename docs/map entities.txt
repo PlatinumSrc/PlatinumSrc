@@ -17,9 +17,9 @@ Entity type:
     { ENT_HEADLESS
     | ENT_GENERIC
     | ENT_PROP
-    | ENT_TRIGGER
     | ENT_CUBE
     | ENT_DOOR
+    | ENT_TRIGGER
     | ENT_BUTTON
     | ENT_SWITCH
     | ENT_VALVE
@@ -48,17 +48,15 @@ Entity type:
     | ENT_FASTLIGHTCTL
     | ENT_SOUNDENV
     | ENT_WEATHERENV
-    | ENT_GRAVITYENV
-    | ENT_POINT
-    | ENT_SPAWNAREA }
+    | ENT_GRAVITYENV }
 
 Entity data:
     { <Headless entity data>
     | <Generic entity data>
     | <Prop entity data>
-    | <Trigger box entity data>
     | <Cube entity data>
     | <Door entity data>
+    | <Trigger box entity data>
     | <Button entity data>
     | <Switch entity data>
     | <Valve entity data>
@@ -86,9 +84,7 @@ Entity data:
     | <Fast light controller entity data>
     | <Sound environment entity data>
     | <Weather environment entity data>
-    | <Gravity environment entity data>
-    | <Point entity data>
-    | <Spawn area entity data> }
+    | <Gravity environment entity data> }
 
 Headless entity data:
     <<String>: Script resource path>
@@ -114,12 +110,13 @@ Generic entity data:
 
 Prop entity data:
     <u8:
-        <2 bits: 0>
+        <1 bit: 0>
+        <1 bit: Do not render shadow>
         <1 bit: Do not loop animation>
         <1 bit: Better physics (ignored if 'physics' bit is not set)>
         <1 bit: Physics>
         <1 bit: No collision>
-        <1 bit: Do not render shadow>
+        <1 bit: Follow tail of bone>
         <1 bit: Hidden>
     >
     <float[3]: XYZ position>
@@ -142,39 +139,11 @@ Prop entity data:
     <<String>: Signal to resume animation>
     <<String>: Signal to stop animation>
 
-Trigger box entity data:
-    <u8:
-        <1 bits: 0>
-        <1 bit: Continuous>
-        <1 bit: Mutual>
-        <1 bit: Replace initiator with self>
-        <1 bit: Team filter is blacklist>
-        <1 bit: Type filter is blacklist>
-        <1 bit: Enable type filter>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
-    <<String>: Team filter (if empty, do not filter team)>
-    <<String>: Output signal>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
 Cube entity data:
     <u8:
-        <6 bits: 0>
+        <5 bits: 0>
         <1 bit: No collision>
+        <1 bit: Follow tail of bone>
         <1 bit: Hidden>
     >
     <float[3]: XYZ position>
@@ -265,9 +234,39 @@ Door entity data:
     <<String>: Signal to make non-interactable>
     <<String>: Signal to toggle interactability>
 
+Trigger box entity data:
+    <u8:
+        <1 bit: Continuous>
+        <1 bit: Mutual>
+        <1 bit: Replace initiator with self>
+        <1 bit: Team filter is blacklist>
+        <1 bit: Type filter is blacklist>
+        <1 bit: Enable type filter>
+        <1 bit: Follow tail of bone>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
+    <<String>: Team filter (if empty, do not filter team)>
+    <<String>: Output signal>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
 Button entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -281,8 +280,9 @@ Button entity data:
 
 Switch entity data:
     <u8:
-        <6 bits: 0>
+        <5 bits: 0>
         <1 bit: On>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -298,8 +298,9 @@ Switch entity data:
 
 Valve entity data:
     <u8:
-        <6 bits: 0>
+        <5 bits: 0>
         <1 bit: Open>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -321,7 +322,8 @@ Valve entity data:
 
 Mountable entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -345,11 +347,12 @@ Mountable entity data:
 
 Hurtable entity data:
     <u8:
-        <3 bits: 0>
+        <2 bits: 0>
         <1 bit: Take healing from health emitter>
         <1 bit: Do not take damage from health emitter>
         <1 bit: Do not take damage from hitscan>
         <1 bit: One-time>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -375,6 +378,8 @@ Beam entity data:
         <5 bits: 0>
         <1 bit: Glow texture wrap is not relative to size>
         <1 bit: Texture wrap is not relative to size>
+        <1 bit: Tail follows tail of bone>
+        <1 bit: Head follows tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: Head XYZ position>
@@ -425,7 +430,8 @@ Beam entity data:
 
 Particle emitter entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -471,7 +477,8 @@ Particle emitter entity data:
 
 Gib emitter entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
         <1 bit: Delete after activation>
     >
     <float[3]: XYZ position>
@@ -489,6 +496,10 @@ Gib emitter entity data:
     <<String>: Signal to activate (activated immediately if empty)>
 
 Glow entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Follow tail of bone>
+    >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
@@ -501,10 +512,11 @@ Glow entity data:
 
 Text entity data:
     <u8:
-        <4 bits: 0>
+        <3 bits: 0>
         <1 bit: Interpret escape codes>
         <1 bit: Vertical center>
         <1 bit: Horizontal center>
+        <1 bit: Follow tail of bone>
         <1 bit: Hidden>
     >
     <float[3]: XYZ position>
@@ -522,7 +534,8 @@ Text entity data:
 
 Billboard entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
         <1 bit: Hidden>
     >
     <float[3]: XYZ position>
@@ -582,12 +595,13 @@ Projectile entity data:
 
 Health emitter entity data:
     <u8:
-        <2 bits: 0>
+        <1 bit: 0>
         <1 bit: One-time>
         <1 bit: Team filter is blacklist>
         <1 bit: Type filter is blacklist>
         <1 bit: Enable type filter>
         <1 bit: Cubic>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -605,13 +619,13 @@ Health emitter entity data:
 
 Push entity data:
     <u8:
-        <1 bits: 0>
         <1 bit: Direction based on position>
         <1 bit: Team filter is blacklist>
         <1 bit: Type filter is blacklist>
         <1 bit: Enable type filter>
         <1 bit: Cubic>
         <1 bit: Delete after activation>
+        <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -703,6 +717,13 @@ Setter entity data:
     <<String>: Signal to activate>
 
 Audio emitter entity data:
+    <u8:
+        <4 bits: 0>
+        <1 bit: No doppler>
+        <1 bit: Wrap>
+        <1 bit: Loop>
+        <1 bit: Follow tail of bone>
+    >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
@@ -768,29 +789,6 @@ Gravity environment entity data:
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
-
-Point entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Enable rotation>
-        <1 bit: Enable movement>
-    >
-    <float[3]: XYZ position>
-    <float[3]: XYZ rotation>
-    <float[3]: XYZ velocity>
-    <float[3]: XYZ angular velocity>
-    <<String>: Signal to enable movement>
-    <<String>: Signal to disable movement>
-    <<String>: Signal to toggle movement>
-    <<String>: Signal to enable rotation>
-    <<String>: Signal to disable rotation>
-    <<String>: Signal to toggle movement>
-
-Spawn area entity data:
-    <float[3]: XYZ positon>
-    <float[2]: XZ area radius>
-    <u8[2]: XZ grid size>
-    <<String>: Team (empty for any)>
 
 Entity property data type:
     <u8:
