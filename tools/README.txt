@@ -29,3 +29,12 @@
     3. Run the 'ptftool' executable (pass --help for instructions).
 
 
+'paftool':
+
+    A utility to create and modify PAF archives.
+
+    1. Enter the 'paftool' folder.
+    2. Run 'make'.
+    3. Run the 'paftool' executable (pass --help for instructions).
+
+
