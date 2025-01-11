@@ -1,10 +1,13 @@
+#include "common.h"
+
+#include <common/paf.h>
+#include <common/byteorder.h>
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
-
-#include <common/paf.h>
-#include <common/byteorder.h>
 
 const char* paftool_create_help =
    "<OUTPUT> [PATH]... - Create an archive out of the provided PATHs"
@@ -25,6 +28,7 @@ int paftool_create(char* argv0, int argc, char** argv) {
     fputc('F', f);
     fputc(PAF_VER, f);
     if (argc == 1) {
+        puts("Creating archive optimized for writing...");
         static const unsigned freespaceslots = 16;
         static const unsigned rootdirentries = 16;
         uint32_t tmpu32 = swaple32(24 + freespaceslots * 8);
@@ -39,7 +43,6 @@ int paftool_create(char* argv0, int argc, char** argv) {
             fwrite(&tmpu32, 4, 1, f);
             fwrite(&tmpu32, 4, 1, f);
         }
-
         tmpu32 = swaple32(rootdirentries);
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
@@ -52,7 +55,9 @@ int paftool_create(char* argv0, int argc, char** argv) {
             fwrite(&tmpu32, 4, 1, f);
             fwrite(&tmpu32, 4, 1, f);
         }
+        puts("Done");
     } else {
+        puts("Creating archive optimized for size...");
         uint32_t tmpu32 = swaple32(24);
         fwrite(&tmpu32, 4, 1, f);
         tmpu32 = 0;
@@ -60,6 +65,8 @@ int paftool_create(char* argv0, int argc, char** argv) {
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
+        puts("Finding files...");
+        puts("Done");
     }
     fclose(f);
     return 0;

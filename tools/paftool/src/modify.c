@@ -8,6 +8,8 @@ const char* paftool_modify_help =
    "            -r, --recursive - Copy directories and files recursively\n"
    "        mv, move [OPTIONS] [--] <SOURCE>... <DEST> - Move the SOURCE path(s) to the DEST path\n"
    "            -f, --force     - Overwrite\n"
+   "        ln, link [OPTIONS] [--] <TARGET> <LINK> - Make a LINK pointing to TARGET\n"
+   "            -f, --force     - Overwrite\n"
    "        rm, remove [OPTIONS] [--] <PATH>...\n"
    "            -r, --recursive - Remove directories and files recursively\n"
    "        o, optimize [OPTIONS] [--] <OUTPUT> - Create an optimized version of the INPUT archive\n"

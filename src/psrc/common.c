@@ -43,6 +43,9 @@ char* dirdesc[DIR__COUNT] = {
     "user mods",
     "screenshots",
     "saves",
+    #endif
+    "databases",
+    #ifndef PSRC_MODULE_SERVER
     "server downloads",
     "player downloads"
     #endif
@@ -312,6 +315,8 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 free(dirs[DIR_SAVES]);
                 dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
             #endif
+            free(dirs[DIR_DATABASES]);
+            dirs[DIR_DATABASES] = mkpath(dirs[DIR_MAIN], "databases", gameinfo.userdir, NULL);
             for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
                 if (dirs[i]) {
                     if (i != DIR_SAVES && !dirs[DIR_USER]) {
@@ -389,6 +394,9 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 }
             #endif
         #endif
+    #else
+        free(dirs[DIR_DATABASES]);
+        dirs[DIR_DATABASES] = mkpath(dirs[DIR_MAIN], "databases", d, NULL);
     #endif
     logdirs(DIR__COUNT - 1);
     return true;
