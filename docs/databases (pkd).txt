@@ -10,6 +10,111 @@ PKD - PlatinumSrc Key-value Database
         <char[3]: {'P', 'K', 'D'}>
         <u8: Major version>
     Data:
-        
+        <u32: Position of root <Key>>
+        <Free space tracker>
+        { <Free space>
+        | <Free space tracker continuation> 
+        | <Key>
+        | <Key continuation>
+        | <Value>
+        | <Value continuation>
+        | <String>
+        | <String continuation> }...
+
+        Free space:
+            <u8[]: Unused>
+
+        Free space tracker:
+            <u32: Total slots>
+            <u32: Slots in current segment>
+            <u32: Slots used in current segment>
+            <u32: Position of first <Free space tracker continuation>>
+            [Free space tracker slot]...
+        Free space tracker continuation:
+            <u32: Slots in current segment>
+            <u32: Slots used in current segment>
+            <u32: Position of next <Free space tracker continuation>>
+            [Free space tracker slot]...
+        Free space tracker slot:
+            <u32: Position of <Free space>>
+            <u32: Size>
+
+        Key:
+            <u8:
+                <3 bits: 0>
+                <1 bit: Is array>
+                <4 bits:
+                    { PKD_TYPE_NONE
+                    | PKD_TYPE_I8
+                    | PKD_TYPE_I16
+                    | PKD_TYPE_I32
+                    | PKD_TYPE_I64
+                    | PKD_TYPE_U8
+                    | PKD_TYPE_U16
+                    | PKD_TYPE_U32
+                    | PKD_TYPE_U64
+                    | PKD_TYPE_F32
+                    | PKD_TYPE_F64
+                    | PKD_TYPE_STR }
+                >
+            >
+            <u32: Array size>
+            { <u32: 0> | <u32: Position of <Value>> | <u32: Position of <String>> }
+            <u32: Total sub-key count>
+            <u32: Sub-key slots in current segment>
+            <u32: Sub-key slots used in current segment>
+            <u32: Position of first <Key continuation>>
+            [u32: Position of sub-<Key>]...
+        Key continuation:
+            <u32: Sub-key slots in current segment>
+            <u32: Sub-key slots used in current segment>
+            <u32: Position of next <Key continuation>>
+            [u32: Position of sub-<Key>]...
+
+        Value:
+            <u32: Total size of data>
+            <u32: Size of data array in current segment>
+            <u32: Bytes used in data array of current segment>
+            <u32: Position of first <Value continuation>>
+            <u8[]: <Value data>>...
+        Value continuation:
+            <u32: Size of data array in current segment>
+            <u32: Bytes used in data array of current segment>
+            <u32: Position of next <Value continuation>>
+            <u8[]: <Value data>>...
+        Value data:
+            { <i8>
+            | <i16>
+            | <i32>
+            | <i64>
+            | <u8>
+            | <u16>
+            | <u32>
+            | <u64>
+            | <float>
+            | <double>
+            | [i8]...
+            | [i16]...
+            | [i32]...
+            | [i64]...
+            | [u8]...
+            | [u16]...
+            | [u32]...
+            | [u64]...
+            | [float]...
+            | [double]...
+            | [u32: Position of <String>]... }
+
+        String:
+            <u32: Total size of string>
+            <u32: Size of string part in current segment>
+            <u32: Bytes used in string part in current segment>
+            <u32: Position of first <String continuation>>
+            <char[]: String part>
+        String continuation:
+            <u32: Size of string part in current segment>
+            <u32: Bytes used in string part in current segment>
+            <u32: Position of next <String continuation>>
+            <char[]: String part>
 
 

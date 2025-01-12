@@ -31,7 +31,7 @@ int isFile(const char* p) {
 void ftree_init(struct ftree* tree, const char* argv0, int ct, const char** pl) {
     VLB_INIT(*tree, 16, VLB_OOM_NOP);
     for (int i = 0; i < ct; ++i) {
-        char* p = pl[i];
+        const char* p = pl[i];
         int t = isFile(p);
         if (t < 0) {
             fprintf(stderr, "%s: Could not stat '%s': %s\n", argv0, p, strerror(errno));

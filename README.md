@@ -24,11 +24,12 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 - HaikuOS
 - Emscripten
 </details>
-<details><summary>Untested</summary>
+<details open><summary>Untested</summary>
 
 - FreeBSD
 - NetBSD
 - OpenBSD
+- Windows 95
 </details>
 <details><summary>In progress</summary>
 
@@ -39,9 +40,9 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 - 3DS
     - Needs a Citro3D renderer
 - GameCube
-    - Needs an OpenGX renderer
+    - Needs a GX renderer
 - Wii
-    - Needs an OpenGX renderer
+    - Needs a GX renderer
 - PS2
     - Needs a GSKit renderer
 </details>

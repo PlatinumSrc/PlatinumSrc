@@ -19,7 +19,7 @@
             - GSKIT \(PS2\)
             - PVR \(Dreamcast\)
             - Citro3D \(3DS\)
-            - OpenGX \(GameCube and Wii\)
+            - GX \(GameCube and Wii\)
             - Software
         - Maps
         - Entities and props

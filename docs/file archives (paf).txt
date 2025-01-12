@@ -14,15 +14,13 @@ Format:
     Data:
         <u32: Position of root <Directory>>
         <Free space tracker>
-        [
-            { <Free space>
-            | <Directory>
-            | <Directory continuation>
-            | <File>
-            | <File continuation>
-            | <Free space tracker continuation> 
-            | <String> }
-        ]...
+        { <Free space>
+        | <Free space tracker continuation> 
+        | <Directory>
+        | <Directory continuation>
+        | <File>
+        | <File continuation>
+        | <String> }...
 
         Free space:
             <u8[]: Unused>
