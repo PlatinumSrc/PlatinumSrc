@@ -1,8 +1,8 @@
-#ifndef PSRC_COMMON_BYTEORDER
-#define PSRC_COMMON_BYTEORDER
+#ifndef PSRC_BYTEORDER_H
+#define PSRC_BYTEORDER_H
 
-#include "../platform.h"
-#include "../attribs.h"
+#include "platform.h"
+#include "attribs.h"
 
 #include <stdint.h>
 

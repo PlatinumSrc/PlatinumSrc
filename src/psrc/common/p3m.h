@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "datastream.h"
+#include "../datastream.h"
 
 #include "../attribs.h"
 

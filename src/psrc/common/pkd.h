@@ -58,8 +58,8 @@ int pkd_open(const char* p, struct pkd*);
 void pkd_close(struct pkd*);
 
 int pkd_querytype(struct pkd*, const char* const* p, struct pkd_keytype* t);
-void* pkd_get(struct pkd*, const char* const* p, unsigned i, struct pkd_ktype* t);
-int pkd_set(struct pkd*, const char* const* p, unsigned i, enum pkd_setop, const struct pkd_ktype* t, void* d);
+void* pkd_get(struct pkd*, const char* const* p, unsigned i, struct pkd_keytype* t);
+int pkd_set(struct pkd*, const char* const* p, unsigned i, enum pkd_setop, const struct pkd_keytype* t, void* d);
 int pkd_ren(struct pkd*, const char* const* oldp, const char* const* newp);
 int pkd_swap(struct pkd*, const char* const* p, unsigned i1, unsigned i2);
 int pkd_del(struct pkd*, const char* const* p);

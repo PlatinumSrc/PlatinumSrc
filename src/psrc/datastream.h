@@ -1,9 +1,9 @@
-#ifndef PSRC_COMMON_DATASTREAM_H
-#define PSRC_COMMON_DATASTREAM_H
+#ifndef PSRC_DATASTREAM_H
+#define PSRC_DATASTREAM_H
 
 #ifndef PSRC_REUSABLE
 
-#include "../attribs.h"
+#include "attribs.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -42,7 +42,7 @@ struct datastream {
             void* freectx;
         } mem;
         struct {
-            #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+            #ifndef PSRC_DATASTREAM_USESTDIO
             int fd;
             #else
             FILE* f;
@@ -124,9 +124,9 @@ static ALWAYSINLINE bool ds_atend(struct datastream* ds) {
 #include <stdio.h>
 #define PSRC_DATASTREAM_T FILE*
 #define DS_END EOF
-#define ds_read(ds, l, o) fread((o), 1, (l), (ds))
+static size_t ds_read(FILE* f, size_t l, void* o) {return fread(o, 1, l, f);}
+static size_t ds_skip(FILE* f, size_t l) {size_t d = ftell(f); fseek(f, l, SEEK_CUR); return ftell(f) - d;}
 #define ds_getc fgetc
-static inline size_t ds_skip(FILE* f, size_t l) {size_t d = ftell(f); fseek(f, l, SEEK_CUR); return ftell(f) - d;}
 #define ds_seek // TODO
 #define ds_atend feof
 #define ds_text_getc fgetc

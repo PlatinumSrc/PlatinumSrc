@@ -1,7 +1,7 @@
 #include "common.h"
 
-#include <common/paf.h>
-#include <common/byteorder.h>
+#include <psrc/common/paf.h>
+#include <psrc/byteorder.h>
 
 #include <stdlib.h>
 #include <stdio.h>

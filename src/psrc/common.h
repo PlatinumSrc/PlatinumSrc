@@ -1,9 +1,10 @@
-#ifndef PSRC_COMMON_COMMON_H
-#define PSRC_COMMON_COMMON_H
+#ifndef PSRC_COMMON_H
+#define PSRC_COMMON_H
+
+#include "versioning.h"
+#include "string.h"
 
 #include "common/config.h"
-#include "common/versioning.h"
-#include "common/string.h"
 
 #include <stdbool.h>
 

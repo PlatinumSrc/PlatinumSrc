@@ -4,9 +4,10 @@
 #include "../debug.h"
 #include "../common.h"
 
-#include "../common/logging.h"
-#include "../common/string.h"
-//#include "../common/threads.h"
+#include "../logging.h"
+#include "../string.h"
+//#include "../threading.h"
+
 #include "../common/p3m.h"
 
 #include "../../stb/stb_image.h"

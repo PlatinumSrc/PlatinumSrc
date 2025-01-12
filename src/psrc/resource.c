@@ -1,12 +1,12 @@
-#include "../rcmgralloc.h"
+#include "rcmgralloc.h"
 #include "string.h"
 #include "memory.h"
-#include "../undefalloc.h"
+#include "undefalloc.h"
 
 #include "resource.h"
 
-#include "../common.h"
-#include "../debug.h"
+#include "common.h"
+#include "debug.h"
 
 #include "logging.h"
 #include "filesystem.h"
@@ -15,13 +15,13 @@
 #include "time.h"
 
 #ifndef PSRC_MODULE_SERVER
-    #include "../../stb/stb_image.h"
-    #include "../../stb/stb_image_resize.h"
-    #include "../../stb/stb_vorbis.h"
+    #include "../stb/stb_image.h"
+    #include "../stb/stb_image_resize.h"
+    #include "../stb/stb_vorbis.h"
     #ifdef PSRC_USEMINIMP3
-        #include "../../minimp3/minimp3_ex.h"
+        #include "../minimp3/minimp3_ex.h"
     #endif
-    #include "../engine/ptf.h"
+    #include "engine/ptf.h"
 #endif
 
 #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../glue.h"
+#include "glue.h"
 
 #ifndef PSRC_NOMT
 static struct accesslock rclock;

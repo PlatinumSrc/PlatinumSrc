@@ -1,8 +1,7 @@
-#ifndef PSRC_COMMON_PROFILING
-#define PSRC_COMMON_PROFILING
+#ifndef PSRC_PROFILING_H
+#define PSRC_PROFILING_H
 
-#include "../attribs.h"
-
+#include "attribs.h"
 #include "time.h"
 #include "crc.h"
 

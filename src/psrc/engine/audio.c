@@ -7,9 +7,9 @@
 #undef playSound
 #undef editSoundEnv
 
-#include "../common/logging.h"
-#include "../common/string.h"
-#include "../common/time.h"
+#include "../logging.h"
+#include "../string.h"
+#include "../time.h"
 
 #include "../common.h"
 #include "../debug.h"

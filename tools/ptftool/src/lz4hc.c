@@ -1,1 +1,1 @@
-#include <../lz4/lz4hc.c>
+#include <lz4/lz4hc.c>

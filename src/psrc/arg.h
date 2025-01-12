@@ -1,5 +1,5 @@
-#ifndef PSRC_COMMON_ARG_H
-#define PSRC_COMMON_ARG_H
+#ifndef PSRC_ARG_H
+#define PSRC_ARG_H
 
 #include "string.h"
 

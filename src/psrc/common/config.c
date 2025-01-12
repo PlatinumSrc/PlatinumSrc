@@ -5,10 +5,11 @@
 #endif
 
 #include "config.h"
-#include "string.h"
-#include "crc.h"
+
+#include "../string.h"
+#include "../crc.h"
 #ifndef PSRC_REUSABLE
-    #include "logging.h"
+    #include "../logging.h"
     #include "../debug.h"
 #endif
 
@@ -671,16 +672,20 @@ void cfg_open(PSRC_DATASTREAM_T ds, struct cfg* cfg) {
     createMutex(&cfg->lock);
     #endif
     if (ds) {
+        #ifndef PSRC_REUSABLE
         #if DEBUG(1)
         plog(LL_INFO | LF_DEBUG, "Reading config from '%s'...", ds->path);
+        #endif
         #endif
         cfg_read(cfg, ds, true);
     }
 }
 
 void cfg_merge(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
-    #if DEBUG(1)
+    #ifndef PSRC_REUSABLE
+    #if !defined(PSRC_REUSABLE) && DEBUG(1)
     plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) from '%s'...", ds->path);
+    #endif
     #endif
     cfg_read(cfg, ds, overwrite);
 }

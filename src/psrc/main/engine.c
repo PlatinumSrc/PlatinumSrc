@@ -2,9 +2,9 @@
 #include "../engine/input.h"
 #include "../engine/ui.h"
 #include "../engine/audio.h"
-#include "../common/arg.h"
+#include "../arg.h"
 #if DEBUG(1)
-    #include "../common/profiling.h"
+    #include "../profiling.h"
 #endif
 
 struct rc_script* mainscript;

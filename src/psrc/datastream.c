@@ -1,12 +1,12 @@
 #include "datastream.h"
 #include "filesystem.h"
 #include "logging.h"
-#include "../debug.h"
-#include "../platform.h"
+#include "debug.h"
+#include "platform.h"
 
 #include <string.h>
 #include <stdlib.h>
-#ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+#ifndef PSRC_DATASTREAM_USESTDIO
     #include <fcntl.h>
     #include <unistd.h>
     #ifndef O_BINARY
@@ -41,7 +41,7 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
             return false;
         }
     }
-    #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+    #ifndef PSRC_DATASTREAM_USESTDIO
     if ((ds->file.fd = open(p, O_RDONLY | O_BINARY, 0)) < 0) {
         plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
         return false;
@@ -61,7 +61,7 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
     }
     ds->buf = malloc(bufsz);
     if (!ds->buf) {
-        #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+        #ifndef PSRC_DATASTREAM_USESTDIO
         close(ds->file.fd);
         #else
         fclose(ds->file.f);
@@ -115,7 +115,7 @@ void ds_close(struct datastream* ds) {
             break;
         case DS_MODE_FILE:
             free(ds->buf);
-            #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+            #ifndef PSRC_DATASTREAM_USESTDIO
             close(ds->file.fd);
             #else
             fclose(ds->file.f);
@@ -189,7 +189,7 @@ bool ds_seek(struct datastream* ds, size_t o) {
             return true;
         } break;
         case DS_MODE_FILE: {
-            #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+            #ifndef PSRC_DATASTREAM_USESTDIO
             off_t r = lseek(ds->file.fd, o, SEEK_SET);
             if (r == -1) return false;
             if ((size_t)r != o) {
@@ -232,7 +232,7 @@ bool ds__refill(struct datastream* ds) {
     ds->passed += ds->datasz;
     ds->pos = 0;
     if (ds->mode == DS_MODE_FILE) {
-        #ifndef PSRC_COMMON_DATASTREAM_USESTDIO
+        #ifndef PSRC_DATASTREAM_USESTDIO
             ssize_t r = read(ds->file.fd, ds->buf, ds->bufsz);
             if (r == 0 || r == -1) {
                 ds->datasz = 0;

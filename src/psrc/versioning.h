@@ -1,11 +1,12 @@
-#ifndef PSRC_COMMON_VERSIONING_H
-#define PSRC_COMMON_VERSIONING_H
+#ifndef PSRC_VERSIONING_H
+#define PSRC_VERSIONING_H
 
-#include "../attribs.h"
+#include "attribs.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 enum vertype {
     VERTYPE_32,

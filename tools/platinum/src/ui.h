@@ -2,7 +2,7 @@
 #define PLATINUM_UI_H
 
 #include <stdbool.h>
-#include <common/string.h>
+#include <psrc/string.h>
 
 enum ui_layerevent {
     UI_LAYEREVENT_DELETE,

@@ -6,15 +6,15 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include <../lz4/lz4file.h>
-#include <../lz4/lz4hc.h>
+#include <lz4/lz4file.h>
+#include <lz4/lz4hc.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <../stb/stb_image.h>
+#include <stb/stb_image.h>
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include <../stb/stb_image_resize.h>
+#include <stb/stb_image_resize.h>
 
-#include <engine/ptf.h>
+#include <psrc/engine/ptf.h>
 
 static struct {
     bool overwrite;

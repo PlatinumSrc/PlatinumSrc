@@ -6,7 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include <engine/ptf.h>
+#include <psrc/engine/ptf.h>
 
 static void ptfinf(char* p) {
     fputs(p, stdout);

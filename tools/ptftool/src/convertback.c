@@ -7,9 +7,9 @@
 #include <errno.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <../stb/stb_image_write.h>
+#include <stb/stb_image_write.h>
 
-#include <engine/ptf.h>
+#include <psrc/engine/ptf.h>
 
 static struct {
     bool overwrite;

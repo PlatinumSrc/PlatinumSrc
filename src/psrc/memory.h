@@ -1,7 +1,7 @@
-#ifndef PSRC_COMMON_MEMORY_H
-#define PSRC_COMMON_MEMORY_H
+#ifndef PSRC_MEMORY_H
+#define PSRC_MEMORY_H
 
-#include "../platform.h"
+#include "platform.h"
 
 #include <stdint.h>
 #include <string.h>

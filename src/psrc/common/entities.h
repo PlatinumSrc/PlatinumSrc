@@ -1,7 +1,7 @@
 #ifndef PSRC_COMMON_ENTITIES_H
 #define PSRC_COMMON_ENTITIES_H
 
-#include "../attrib.h"
+#include "attrib.h"
 
 PACKEDENUM ent {
     ENT_DUMMY,

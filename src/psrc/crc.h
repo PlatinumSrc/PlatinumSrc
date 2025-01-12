@@ -1,5 +1,5 @@
-#ifndef PSRC_COMMON_CRC_H
-#define PSRC_COMMON_CRC_H
+#ifndef PSRC_CRC_H
+#define PSRC_CRC_H
 
 #include <stdint.h>
 #include <stddef.h>

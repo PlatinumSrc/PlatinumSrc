@@ -1,7 +1,7 @@
-#ifndef PSRC_COMMON_TIME_H
-#define PSRC_COMMON_TIME_H
+#ifndef PSRC_TIME_H
+#define PSRC_TIME_H
 
-#include "../platform.h"
+#include "platform.h"
 
 #include <stdint.h>
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)

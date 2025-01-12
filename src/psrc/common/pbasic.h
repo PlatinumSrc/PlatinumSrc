@@ -1,15 +1,14 @@
 #ifndef PSRC_COMMON_PBASIC_H
 #define PSRC_COMMON_PBASIC_H
 
-#include "string.h"
-#include "memory.h"
-#include "threading.h"
+#include "../string.h"
+#include "../memory.h"
+#include "../threading.h"
+#include "../attribs.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-
-#include "../attribs.h"
 
 PACKEDENUM pbtype {
     PBTYPE__SPECIAL = -1,

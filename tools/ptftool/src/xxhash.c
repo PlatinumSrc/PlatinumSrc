@@ -1,1 +1,1 @@
-#include <../lz4/xxhash.c>
+#include <lz4/xxhash.c>

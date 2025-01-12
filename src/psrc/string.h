@@ -1,5 +1,5 @@
-#ifndef PSRC_COMMON_STRING_H
-#define PSRC_COMMON_STRING_H
+#ifndef PSRC_STRING_H
+#define PSRC_STRING_H
 
 #include <stdlib.h>
 #include <stdint.h>

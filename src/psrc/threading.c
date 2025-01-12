@@ -2,20 +2,20 @@
 
 #include "threading.h"
 #include "logging.h"
-#include "../debug.h"
+#include "debug.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "../glue.h"
+#include "glue.h"
 
-#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_COMMON_THREADING_USEWINPTHREAD) && !defined(PSRC_COMMON_THREADING_USESTDTHREAD)
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD) && !defined(PSRC_THREADING_USESTDTHREAD)
 DWORD WINAPI threadwrapper(LPVOID t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     ExitThread(0);
     return 0;
 }
-#elif defined(PSRC_COMMON_THREADING_USESTDTHREAD)
+#elif defined(PSRC_THREADING_USESTDTHREAD)
 static int threadwrapper(void* t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     thrd_exit(0);
@@ -23,8 +23,8 @@ static int threadwrapper(void* t) {
 }
 #else
 static void* threadwrapper(void* t) {
-    #ifndef PSRC_COMMON_THREADING_NONAMES
-        #ifndef PSRC_COMMON_THREADING_USESTDTHREAD
+    #ifndef PSRC_THREADING_NONAMES
+        #ifndef PSRC_THREADING_USESTDTHREAD
             #if defined(__GLIBC__)
                 pthread_setname_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_NETBSD
@@ -52,8 +52,8 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.args = a;
     t->data.shouldclose = false;
     bool fail;
-    #ifndef PSRC_COMMON_THREADING_USESTDTHREAD
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_COMMON_THREADING_USEWINPTHREAD)
+    #ifndef PSRC_THREADING_USESTDTHREAD
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
     fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
     #else
     fail = pthread_create(&t->thread, NULL, threadwrapper, t);
@@ -83,8 +83,8 @@ void destroyThread(thread_t* t, void** r) {
     plog(LL_INFO | LF_DEBUG, "Stopping thread %s...", (t->name) ? t->name : "(null)");
     #endif
     t->data.shouldclose = true;
-    #ifndef PSRC_COMMON_THREADING_USESTDTHREAD
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_COMMON_THREADING_USEWINPTHREAD)
+    #ifndef PSRC_THREADING_USESTDTHREAD
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
     WaitForSingleObject(t->thread, INFINITE);
     if (r) *r = t->ret;
     #else

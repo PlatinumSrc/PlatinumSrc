@@ -1,21 +1,22 @@
-#ifndef PSRC_COMMON_RESOURCE_H
-#define PSRC_COMMON_RESOURCE_H
+#ifndef PSRC_RESOURCE_H
+#define PSRC_RESOURCE_H
 
-#include "config.h"
-#include "pbasic.h"
-#include "p3m.h"
 #include "string.h"
 #include "versioning.h"
 
+#include "common/config.h"
+#include "common/pbasic.h"
+#include "common/p3m.h"
+
 #ifndef PSRC_MODULE_SERVER
-    #include "../../schrift/schrift.h"
+    #include "../schrift/schrift.h"
 #endif
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "../attribs.h"
+#include "attribs.h"
 
 PACKEDENUM rcprefix {
     RCPREFIX_INTERNAL,

@@ -5,7 +5,7 @@
     #include <ctype.h>
 #endif
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    #include "common/filesystem.h"
+    #include "filesystem.h"
 #endif
 
 #if PLATFORM == PLAT_NXDK

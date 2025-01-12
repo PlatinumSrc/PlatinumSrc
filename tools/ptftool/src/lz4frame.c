@@ -1,1 +1,1 @@
-#include <../lz4/lz4frame.c>
+#include <lz4/lz4frame.c>

@@ -2,13 +2,13 @@
 #include "platform.h"
 #include "debug.h"
 #include "common.h"
+#include "logging.h"
+#include "string.h"
+#include "filesystem.h"
+#include "resource.h"
+#include "time.h"
 
-#include "common/logging.h"
-#include "common/string.h"
-#include "common/filesystem.h"
 #include "common/config.h"
-#include "common/resource.h"
-#include "common/time.h"
 
 #ifndef PSRC_MODULE_SERVER
     #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK

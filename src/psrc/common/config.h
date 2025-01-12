@@ -2,9 +2,9 @@
 #define PSRC_COMMON_CONFIG_H
 
 #ifndef PSRC_REUSABLE
-    #include "threading.h"
+    #include "../threading.h"
 #endif
-#include "datastream.h"
+#include "../datastream.h"
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "../glue.h"
+#include "glue.h"
 
 // inefficient but it works
 char* strcombine(const char* s, ...) {

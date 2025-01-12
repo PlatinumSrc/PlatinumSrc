@@ -3,8 +3,8 @@
 
 #include "../platform.h"
 
-#include "../common/resource.h"
-#include "../common/threading.h"
+#include "../resource.h"
+#include "../threading.h"
 
 #include "../../stb/stb_vorbis.h"
 #ifdef PSRC_USEMINIMP3

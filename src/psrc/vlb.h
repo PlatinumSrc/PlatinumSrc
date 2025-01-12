@@ -1,5 +1,5 @@
-#ifndef PSRC_COMMON_VLB_H
-#define PSRC_COMMON_VLB_H
+#ifndef PSRC_VLB_H
+#define PSRC_VLB_H
 
 #include <stddef.h>
 

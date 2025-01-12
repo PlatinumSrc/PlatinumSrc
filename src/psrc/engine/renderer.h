@@ -5,9 +5,9 @@
 #include "../debug.h"
 
 #if DEBUG(1)
-    #include "../common/profiling.h"
+    #include "../profiling.h"
 #endif
-#include "../common/resource.h"
+#include "../resource.h"
 
 #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
     #include <SDL.h>

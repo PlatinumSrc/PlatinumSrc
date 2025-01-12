@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "../common/threading.h"
-#include "../common/string.h"
+#include "../threading.h"
+#include "../string.h"
 
 #include "../attribs.h"
 

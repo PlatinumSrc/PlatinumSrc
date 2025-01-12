@@ -29,7 +29,7 @@ int pkd_open(const char* p, struct pkd* d) {
         }
         close(fd);
     #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        HANDLE* h = CreateFile(lockpath, 0, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL);
+        HANDLE* h = CreateFile(lockpath, 0, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
         if (!h) {
             free(lockpath);
             return PKD_ERR_OPEN_LOCKED;

@@ -1,9 +1,9 @@
-#ifndef PSRC_COMMON_FILESYSTEM_H
-#define PSRC_COMMON_FILESYSTEM_H
+#ifndef PSRC_FILESYSTEM_H
+#define PSRC_FILESYSTEM_H
 
 #include "string.h"
 
-#include "../platform.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -14,7 +14,7 @@
     #include <windows.h>
 #endif
 
-#include "../attribs.h"
+#include "attribs.h"
 
 #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #define PATHSEP '/'

@@ -2,8 +2,8 @@
 #include "platform.h"
 #include "version.h"
 
-#include "common/filesystem.h"
-#include "common/logging.h"
+#include "filesystem.h"
+#include "logging.h"
 
 #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_3DS && PLATFORM != PLAT_WII && PLATFORM != PLAT_GAMECUBE
     #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
@@ -316,7 +316,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 dirs[DIR_SAVES] = mkpath("E:\\UDATA", titleidstr, NULL);
             #endif
             free(dirs[DIR_DATABASES]);
-            dirs[DIR_DATABASES] = mkpath(dirs[DIR_MAIN], "databases", gameinfo.userdir, NULL);
+            dirs[DIR_DATABASES] = mkpath(dirs[DIR_USER], "databases", NULL);
             for (enum dir i = DIR_USER; i < DIR__COUNT; ++i) {
                 if (dirs[i]) {
                     if (i != DIR_SAVES && !dirs[DIR_USER]) {
@@ -396,7 +396,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
         #endif
     #else
         free(dirs[DIR_DATABASES]);
-        dirs[DIR_DATABASES] = mkpath(dirs[DIR_MAIN], "databases", d, NULL);
+        dirs[DIR_DATABASES] = mkpath(dirs[DIR_MAIN], "databases", gameinfo.userdir, NULL);
     #endif
     logdirs(DIR__COUNT - 1);
     return true;

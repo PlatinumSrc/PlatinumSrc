@@ -1,14 +1,13 @@
-#ifndef PSRC_COMMON_LOGGING_H
-#define PSRC_COMMON_LOGGING_H
+#ifndef PSRC_LOGGING_H
+#define PSRC_LOGGING_H
 
-#include "../platform.h"
+#include "platform.h"
 #include "threading.h"
+#include "attribs.h"
 
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
-
-#include "../attribs.h"
 
 PACKEDENUM loglevel {
     LL_PLAIN,            // Print without a prefix

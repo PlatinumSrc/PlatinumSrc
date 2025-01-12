@@ -6,10 +6,10 @@
     #include "../engine/ptf.h"
 #endif
 
-#include "filesystem.h"
-#include "logging.h"
-#include "byteorder.h"
-#include "vlb.h"
+#include "../filesystem.h"
+#include "../logging.h"
+#include "../byteorder.h"
+#include "../vlb.h"
 
 #include "../debug.h"
 #include "../attribs.h"

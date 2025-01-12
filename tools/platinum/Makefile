@@ -1,7 +1,7 @@
 SRCDIR := src
 OBJDIR := obj
 OUTDIR := .
-PSRCDIR := ../../src/psrc
+PSRCDIR := ../../src
 
 SOURCES := $(wildcard $(SRCDIR)/*.c)
 OBJECTS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))

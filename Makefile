@@ -333,7 +333,7 @@ ifneq ($(CROSS),nxdk)
             else
                 ifeq ($(USEWINPTHREAD),y)
                     _CFLAGS += -pthread
-                    _CPPFLAGS += -DPSRC_COMMON_THREADING_USEWINPTHREAD
+                    _CPPFLAGS += -DPSRC_THREADING_USEWINPTHREAD
                     _LDLIBS += -l:libwinpthread.a
                 endif
             endif
@@ -369,7 +369,7 @@ ifeq ($(NOMT),y)
     _CPPFLAGS += -DPSRC_NOMT
 endif
 ifeq ($(USESTDIODS),y)
-    _CPPFLAGS += -DPSRC_COMMON_DATASTREAM_USESTDIO
+    _CPPFLAGS += -DPSRC_DATASTREAM_USESTDIO
 endif
 ifeq ($(USEMINIMP3),y)
     _CPPFLAGS += -DPSRC_USEMINIMP3
@@ -441,13 +441,13 @@ endif
 
 CPPFLAGS.dir.lz4 := -DXXH_NAMESPACE=LZ4_ -DLZ4_STATIC_LINKING_ONLY_ENDIANNESS_INDEPENDENT_OUTPUT
 
-CPPFLAGS.dir.psrc_common := 
+CPPFLAGS.dir.psrc := 
 ifeq ($(USESTDTHREAD),y)
-    CPPFLAGS.dir.psrc_common += -DPSRC_COMMON_THREADING_USESTDTHREAD
+    CPPFLAGS.dir.psrc += -DPSRC_THREADING_USESTDTHREAD
 endif
-LDLIBS.dir.psrc_common := 
+LDLIBS.dir.psrc := 
 ifeq ($(CROSS),win32)
-    LDLIBS.dir.psrc_common += -lwinmm
+    LDLIBS.dir.psrc += -lwinmm
 endif
 
 LDLIBS.dir.psrc_server := 
@@ -515,23 +515,23 @@ ifeq ($(MODULE),engine)
     _CPPFLAGS += -DPSRC_MODULE_ENGINE
     _WRFLAGS += -DPSRC_MODULE_ENGINE
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
+    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
 else ifeq ($(MODULE),server)
     _CPPFLAGS += -DPSRC_MODULE_SERVER
     _WRFLAGS += -DPSRC_MODULE_SERVER
     _CPPFLAGS += $(CPPFLAGS.dir.lz4)
     _CPPFLAGS += $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_common) $(LDLIBS.lib.discord_game_sdk)
+    _LDLIBS += $(LDLIBS.dir.psrc) $(LDLIBS.lib.discord_game_sdk)
 else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DPSRC_MODULE_EDITOR
     _WRFLAGS += -DPSRC_MODULE_EDITOR
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc_common)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
-    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc_common)
+    _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
 endif
 
@@ -659,34 +659,26 @@ $(TR_FILE):
 	@date +%s%N > $(_TR_STFILE)
 endif
 
-SRCDIRS_PSRC_COMMON = $(SRCDIR)/psrc/common $(SRCDIR)/lz4
-ifneq ($(MODULE),server)
-    SRCDIRS_PSRC_COMMON += $(SRCDIR)/stb $(SRCDIR)/schrift
-    ifeq ($(USEMINIMP3),y)
-        SRCDIRS_PSRC_COMMON += $(SRCDIR)/minimp3
-    endif
-endif
-
-SRCDIRS_PSRC_EDITOR = $(SRCDIR)/psrc/editor $(SRCDIRS_PSRC_ENGINE)
-
-SRCDIRS_PSRC_ENGINE = $(SRCDIR)/psrc/engine $(SRCDIRS_PSRC_SERVER)
-ifeq ($(USEGL),y)
-    ifeq ($(USEGLAD),y)
-        SRCDIRS_PSRC_ENGINE += $(SRCDIR)/glad
-    endif
-endif
-
-SRCDIRS_PSRC_SERVER = $(SRCDIR)/psrc/server
-
-SRCDIRS = $(SRCDIR)/psrc
+SRCDIRS := $(SRCDIR)/psrc
 ifeq ($(MODULE),engine)
-    SRCDIRS += $(SRCDIRS_PSRC_ENGINE)
+    SRCDIRS := $(SRCDIRS) $(SRCDIR)/psrc/engine $(SRCDIR)/psrc/server
 else ifeq ($(MODULE),server)
-    SRCDIRS += $(SRCDIRS_PSRC_SERVER)
+    SRCDIRS := $(SRCDIRS) $(SRCDIR)/psrc/server
 else ifeq ($(MODULE),editor)
-    SRCDIRS += $(SRCDIRS_PSRC_EDITOR)
+    SRCDIRS := $(SRCDIRS) $(SRCDIR)/psrc/engine $(SRCDIR)/psrc/server $(SRCDIR)/psrc/editor
 endif
-SRCDIRS += $(SRCDIRS_PSRC_COMMON) $(SRCDIR)/psrc
+SRCDIRS := $(SRCDIRS) $(SRCDIR)/psrc/common $(SRCDIR)/psrc $(SRCDIR)/lz4
+ifneq ($(MODULE),server)
+    SRCDIRS := $(SRCDIRS) $(SRCDIR)/stb $(SRCDIR)/schrift
+    ifeq ($(USEMINIMP3),y)
+        SRCDIRS := $(SRCDIRS) $(SRCDIR)/minimp3
+    endif
+    ifeq ($(USEGL),y)
+        ifeq ($(USEGLAD),y)
+            SRCDIRS := $(SRCDIRS) $(SRCDIR)/glad
+        endif
+    endif
+endif
 
 SRCDIRS := $(SRCDIRS)
 SOURCES := $(wildcard $(addsuffix /*.c,$(SRCDIRS)))

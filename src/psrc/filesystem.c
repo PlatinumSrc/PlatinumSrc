@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "../glue.h"
+#include "glue.h"
 
 int isFile(const char* p) {
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)

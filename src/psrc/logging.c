@@ -1,8 +1,8 @@
 #include "logging.h"
 #include "threading.h"
 
-#include "../version.h"
-#include "../debug.h"
+#include "version.h"
+#include "debug.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,7 +31,7 @@
     static HANDLE conh;
 #endif
 
-#include "../glue.h"
+#include "glue.h"
 
 #define _STR(x) #x
 #define STR(x) _STR(x)

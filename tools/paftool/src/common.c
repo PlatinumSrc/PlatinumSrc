@@ -1,6 +1,6 @@
 #include "common.h"
 
-#include <common/crc.h>
+#include <psrc/crc.h>
 
 #include <stdlib.h>
 #include <stdio.h>

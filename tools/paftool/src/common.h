@@ -1,7 +1,7 @@
 #ifndef PAFTOOL_COMMON_H
 #define PAFTOOL_COMMON_H
 
-#include <common/vlb.h>
+#include <psrc/vlb.h>
 
 #include <stdint.h>
 
