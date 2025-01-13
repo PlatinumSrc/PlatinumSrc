@@ -102,7 +102,7 @@ struct rcopt_model {
 
 // RC_SCRIPT
 struct rc_script {
-    struct pb_script script;
+    struct pbscript script;
 };
 struct rcopt_script {
     struct pbc_opt compileropt;

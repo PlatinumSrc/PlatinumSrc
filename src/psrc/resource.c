@@ -733,7 +733,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
     const char* const* exts = rcextensions[type];
     const char* tmp;
     while ((tmp = *exts)) {
-        unsigned long l = cb->len;
+        uintptr_t l = cb->len;
         if (*tmp) {
             cb_add(cb, '.');
             cb_add(cb, *tmp++);
@@ -1018,7 +1018,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         case RC_SCRIPT: {
             if (acc.src != RCSRC_FS) goto fail;
             const struct rcopt_script* o = opt;
-            struct pb_script s;
+            struct pbscript s;
             goto fail;
             //if (!pb_compilefile(acc.fs.path, &o->compileropt, &s, err)) goto fail;
             (void)err;

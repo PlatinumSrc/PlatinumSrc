@@ -145,7 +145,7 @@ char* strrelpath(const char* s) {
 void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     char c;
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    unsigned long b = cb->len;
+    uintptr_t b = cb->len;
     #endif
     while ((c = *s)) {
         if (ispathsep(c)) {if (r) cb_add(cb, r);}
@@ -159,7 +159,7 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     // TODO: confirm that checking for illegal names can be omitted on PLAT_NXDK
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     if (b == cb->len) return;
-    unsigned long i = b;
+    uintptr_t i = b;
     while (i < cb->len) {
         if (cb->data[i] == ' ') cb->data[i] = '_';
         else break;
@@ -167,7 +167,7 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     }
     if (i == b) {
         char* d = cb->data + b;
-        unsigned long l = cb->len - b;
+        uintptr_t l = cb->len - b;
         if (((l == 3 || (l > 3 && d[3] == '.')) &&
              (!strncasecmp(d, "con", 3) || !strncasecmp(d, "prn", 3) || !strncasecmp(d, "aux", 3) || !strncasecmp(d, "nul", 3))) ||
             ((l == 4 || (l > 4 && d[4] == '.')) &&

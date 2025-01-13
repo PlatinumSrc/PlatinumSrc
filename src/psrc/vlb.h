@@ -1,7 +1,7 @@
 #ifndef PSRC_VLB_H
 #define PSRC_VLB_H
 
-#include <stddef.h>
+#include <stdint.h>
 
 #define VLB(T) {\
     T* data;\

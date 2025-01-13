@@ -40,6 +40,8 @@ PKD - PlatinumSrc Key-value Database
             <u32: Size>
 
         Key:
+            <u32: Position of name <String>>
+            <u32: 32-bit name CRC>
             <u8:
                 <3 bits: 0>
                 <1 bit: Is array>
@@ -58,8 +60,19 @@ PKD - PlatinumSrc Key-value Database
                     | PKD_TYPE_STR }
                 >
             >
-            <u32: Array size>
-            { <u32: 0> | <u32: Position of <Value>> | <u32: Position of <String>> }
+            { <u8[8]: Padding>
+            | <i8: Inline value> <u8[7]: Padding>
+            | <i16: Inline value> <u8[6]: Padding>
+            | <i32: Inline value> <u8[4]: Padding>
+            | <i64: Inline value>
+            | <u8: Inline value> <u8[7]: Padding>
+            | <u16: Inline value> <u8[6]: Padding>
+            | <u32: Inline value> <u8[4]: Padding>
+            | <u64: Inline value>
+            | <float: Inline value> <u8[4]: Padding>
+            | <double: Inline value>
+            | <u32: Array size> <u32: Position of <Value>>
+            | <u32: Array size> <u32: Position of <String>> }
             <u32: Total sub-key count>
             <u32: Sub-key slots in current segment>
             <u32: Sub-key slots used in current segment>
@@ -83,17 +96,7 @@ PKD - PlatinumSrc Key-value Database
             <u32: Position of next <Value continuation>>
             <u8[]: <Value data>>...
         Value data:
-            { <i8>
-            | <i16>
-            | <i32>
-            | <i64>
-            | <u8>
-            | <u16>
-            | <u32>
-            | <u64>
-            | <float>
-            | <double>
-            | [i8]...
+            { [i8]...
             | [i16]...
             | [i32]...
             | [i64]...

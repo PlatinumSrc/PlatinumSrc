@@ -11,7 +11,7 @@ Entity:
     <u32: Size of following data>
     <<String>: Name>
     <u8: <Entity type>> <Entity data>
-    <u32: Custom property count> [ <Entity property data type> <Entity property data> ]
+    <u32: Custom property count> [ <Entity property data type> <Entity property data> ]...
 
 Entity type:
     { ENT_DUMMY
@@ -721,15 +721,17 @@ Setter entity data:
 
 Audio emitter entity data:
     <u8:
-        <4 bits: 0>
+        <3 bits: 0>
         <1 bit: No doppler>
         <1 bit: Wrap>
         <1 bit: Loop>
+        <1 bit: Cubic>
         <1 bit: Follow tail of bone>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
+    <float[3]: Radius>
     <float[2]: Volume>
     <float: Speed>
     <float: Range>
@@ -809,8 +811,8 @@ Entity property data type:
         | ENTPROP_TYPE_VEC
         | ENTPROP_TYPE_STR }
     >
-    <u8: Dimensions>
-    [u32: Size]...
+    <u32: Dimensions>
+    [u32: Length]...
 Entity property data:
     { <u8>
     | <i8>

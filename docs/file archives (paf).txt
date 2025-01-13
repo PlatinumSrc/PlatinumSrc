@@ -57,8 +57,8 @@ Format:
                 | PAF_DIRENT_FILE
                 | PAF_DIRENT_LINK }
             >
-            <u32: Position of <String> containing name>
-            <u32: 32-bit CRC of name>
+            <u32: Position of name <String>>
+            <u32: 32-bit name CRC>
             <u32: Position of <Directory>, <File>, or position of <String> containing the link path>
 
         File:

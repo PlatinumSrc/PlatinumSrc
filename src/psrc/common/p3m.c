@@ -702,7 +702,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     struct charbuf strtbl;
     cb_init(&strtbl, 256);
     while (!ds_atend(ds)) {
-        unsigned long oldlen = strtbl.len;
+        uintptr_t oldlen = strtbl.len;
         cb_addmultifake(&strtbl, 256);
         strtbl.len = ds_read(ds, 256, strtbl.data + oldlen) + oldlen;
         if (strtbl.len > 65535) {
