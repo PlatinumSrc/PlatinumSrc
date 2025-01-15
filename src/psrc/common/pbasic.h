@@ -124,7 +124,7 @@ struct pbscript_const {
 };
 struct pbscript {
     const uint8_t* program;
-    const char** names;
+    const char* names;
     struct {
         uint8_t* data;
         struct pbscript_const* values;

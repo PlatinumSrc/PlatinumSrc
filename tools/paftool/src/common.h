@@ -4,31 +4,27 @@
 #include <psrc/vlb.h>
 
 #include <stdint.h>
+#include <sys/types.h>
 
-#ifndef _WIN32
-    #define ispathsep(c) ((c) == '/')
-#else
-    static inline bool ispathsep(char c) {
-        return (c == '/' || c == '\\');
-    }
-#endif
-
-struct ftreenode {
-    int type : 16;
-    unsigned lsdone : 1;
-    unsigned : 7;
-    char* name;
-    uint32_t namecrc;
-    unsigned childct;
-    unsigned firstchild;
-    unsigned next;
-    //unsigned prev;
-};
-
+struct ftreenode;
 struct ftree VLB(struct ftreenode);
 
-void ftree_init(struct ftree*, const char* argv0, int ct, const char** paths);
+struct ftreenode {
+    uint8_t isdir : 1;
+    uint8_t : 7;
+    char* name;
+    uint32_t namecrc;
+    union {
+        struct {
+            struct ftree contents;
+        } dir;
+        struct {
+            off_t size;
+        } file;
+    };
+};
 
-int isFile(const char*);
+void ftree_init(struct ftree*, int ct, char** paths);
+void ftree_free(struct ftree*);
 
 #endif

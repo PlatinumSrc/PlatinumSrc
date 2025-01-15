@@ -46,10 +46,7 @@ Entity type:
     | ENT_SETTER
     | ENT_AUDIOEMITTER
     | ENT_DYNLIGHTCTL
-    | ENT_FASTLIGHTCTL
-    | ENT_SOUNDENV
-    | ENT_WEATHERENV
-    | ENT_GRAVITYENV }
+    | ENT_FASTLIGHTCTL }
 
 Entity data:
     [
@@ -83,10 +80,7 @@ Entity data:
         | <Setter entity data>
         | <Audio emitter entity data>
         | <Dynamic light controller entity data>
-        | <Fast light controller entity data>
-        | <Sound environment entity data>
-        | <Weather environment entity data>
-        | <Gravity environment entity data> }
+        | <Fast light controller entity data> }
     ]
 
 Headless entity data:
@@ -144,7 +138,8 @@ Prop entity data:
 
 Cube entity data:
     <u8:
-        <5 bits: 0>
+        <4 bits: 0>
+        <1 bit: Cull backfaces>
         <1 bit: No collision>
         <1 bit: Follow tail of bone>
         <1 bit: Hidden>
@@ -160,6 +155,11 @@ Cube entity data:
     <float[3]: (-X, -Y, +Z) corner XYZ offset>
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <u8:
+        <2 bits: 0>
+        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
+        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
+    >
     <<String>: +X material> <<String>: +Y material> <<String>: +Z material>
     <<String>: -X material> <<String>: -Y material> <<String>: -Z material>
     <float[2]: +X top left texture UV> <float[2]: +X top right texture UV>
@@ -185,9 +185,10 @@ Cube entity data:
 
 Door entity data:
     <u8:
-        <3 bits: 0>
+        <2 bits: 0>
         <1 bit: Replace initiator with self when closed>
         <1 bit: Replace initiator with self when opened>
+        <1 bit: Cull backfaces>
         <1 bit: Non-interactable>
         <1 bit: Locked>
         <1 bit: Open>
@@ -206,8 +207,13 @@ Door entity data:
     <float[3]: (-X, -Y, +Z) corner XYZ offset>
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <<String>: +X texture> <<String>: +Y texture> <<String>: +Z texture>
-    <<String>: -X texture> <<String>: -Y texture> <<String>: -Z texture>
+    <u8:
+        <2 bits: 0>
+        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
+        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
+    >
+    <<String>: +X material> <<String>: +Y material> <<String>: +Z material>
+    <<String>: -X material> <<String>: -Y material> <<String>: -Z material>
     <float[2]: +X top left texture UV> <float[2]: +X top right texture UV>
     <float[2]: +X bottom left texture UV> <float[2]: +X bottom right texture UV>
     <float[2]: +Y top left texture UV> <float[2]: +Y top right texture UV>
@@ -510,7 +516,7 @@ Glow entity data:
     <float[3]: Top right corner offset XYZ>
     <float[3]: Bottom left corner offset XYZ>
     <float[3]: Bottom right corner offset XYZ>
-    <<String>: Texture>
+    <<String>: Material>
     <float[2]: XY radius>
 
 Text entity data:
@@ -764,36 +770,6 @@ Fast light controller entity data:
     <<String>: Signal to turn on>
     <<String>: Signal to turn off>
     <<String>: Signal to toggle>
-
-Sound environment entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <Sound environment>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Weather environment entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <Weather environment>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Gravity environment entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Inactive>
-    >
-    <Gravity environment>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
 
 Entity property data type:
     <u8:

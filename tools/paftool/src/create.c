@@ -66,6 +66,8 @@ int paftool_create(char* argv0, int argc, char** argv) {
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
         puts("Finding files...");
+        struct ftree ftree;
+        ftree_init(&ftree, argc - 1, argv + 1);
         puts("Done");
     }
     fclose(f);

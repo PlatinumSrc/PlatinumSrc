@@ -11,7 +11,7 @@ Format:
 
     Header:
         <char[3]: {'P', 'M', 'F'}>
-        <u16: Major version>
+        <u8: Major version>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
         <<char[1...]: {..., 0}>: Name>
         <<char[1...]: {..., 0}>: Description>
@@ -46,6 +46,7 @@ Format:
                 <12 bits: Sector X count minus 1>
                 <12 bits: Sector Z count minus 1>
             >
+            <u8: Sector size (2^n)>
             <<Sector index>: Center sector>
             <
                 <u32: Size of compressed <Common sector data>>
@@ -75,17 +76,23 @@ Format:
             <u16: Material count> [Material]...
             <u16: Physics material count> [Physics material]...
             <<String>: Air physics material>
-            <<Sound environment>: Default sound environment>
-            <<Weather environment>: Default weather environment>
-            <<Gravity environment>: Default gravity environment>
+            <u8: Weather environment count> [Weather environment]...
+            <u8: Gravity environment count> [Gravity environment]...
+            <<String>: Default weather environment>
+            <<String>: Default gravity environment>
         Client level data:
             <u32: String table size> <char[]: String table>
+            <u8: Sound environment count> [Sound environment]...
+            <u8: Sky environment count> [Sky environment]...
+            <<String>: Default sound environment>
+            <<String>: Default sky environment>
             [Client-side material]...
         Server level data:
             <u32: String table size> <char[]: String table>
             <u32: Entity count> [Entity (see 'map entities.txt')]...
 
         Sound environment:
+            <<String>: Name>
             <float: Low pass filter>
             <float: High pass filter>
             <float: Reverb delay>
@@ -94,24 +101,45 @@ Format:
             <float: Reverb low pass filter>
             <float: Reverb high pass filter>
         Weather environment:
-            <float[3]: XYZ direction and velocity>
-            <u32: Direction random seed>
-            <float[3]: XYZ direction randomness>
-            <float: Direction noise speed>
-            <u32: Velocity random seed>
-            <float[3]: XYZ velocity randomness>
-            <float: Velocity noise speed>
+            <<String>: Name>
+            <float[3]: XYZ wind direction and velocity>
+            <u32: Wind direction random seed>
+            <float[3]: XYZ wind direction randomness>
+            <float: Wind direction noise speed>
+            <u32: Wind velocity random seed>
+            <float: Wind velocity randomness>
+            <float: Wind velocity noise speed>
+        Sky environment:
+            <<String>: Name>
+            <u8:
+                <7 bits: 0>
+                <1 bit: 3D skybox>
+            >
+            <<String>: +X skybox material>
+            <<String>: +Y skybox material>
+            <<String>: +Z skybox material>
+            <<String>: -X skybox material>
+            <<String>: -Y skybox material>
+            <<String>: -Z skybox material>
+            <<String>: Top cloud layer material>
+            <<String>: Bottom cloud layer material>
+            <<Sector index>: 3D skybox sector>
         Gravity environment:
+            <<String>: Name>
             <float[3]: XYZ gravity>
 
         Common sector data:
             <u32: String table size> <char[]: String table>
             <u8: Used material count> [<String>: Material name]...
             <u8: Used physics material count> [<String>: Physics material name]...
+            <u8: Weather environment region count> [<Environment region>: Weather environment region]...
+            <u8: Gravity environment region count> [<Environment region>: Gravity environment region]...
             <u8: Dynamic light count> [Dynamic light]...
             <u8: Fast light count> [Fast light]...
             <u32: Cube count (must be at least 1)> <Cube>...
         Client sector data:
+            <u8: Sound environment region count> [<Environment region>: Sound environment region]...
+            <u8: Sky environment region count> [<Environment region>: Sky environment region]...
             <u8: Lightmap count> [Lightmap]...
             <u32: Vertex count> [Vertex]...
             [Client-side dynamic light]...
@@ -127,6 +155,17 @@ Format:
             <float[3]: (+X, +Y, +Z) corner>
             <float[3]: (-X, -Y, -Z) corner>
             <u32: Other active sector count> [Sector index]...
+
+        Environment region:
+            <float[3]: (+X, +Y, +Z) corner offset>
+            <float[3]: (-X, +Y, +Z) corner offset>
+            <float[3]: (+X, +Y, -Z) corner offset>
+            <float[3]: (-X, +Y, -Z) corner offset>
+            <float[3]: (+X, -Y, +Z) corner offset>
+            <float[3]: (-X, -Y, +Z) corner offset>
+            <float[3]: (+X, -Y, -Z) corner offset>
+            <float[3]: (-X, -Y, -Z) corner offset>
+            <<String>: Environment name>
 
         Material:
             <<String>: Name>

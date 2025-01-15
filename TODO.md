@@ -37,18 +37,23 @@
     - File I/O
         - Read PMF compiled maps
 - Server
+    - Networking for remote clients
+    - State sharing for built-in client
 - Editor
-    - Read PMP and PMT map projects
-    - Write PMP and PMT map projects
-    - Write PMF compiled maps
-    - Decompile PMF to PMP or PMT?
+    - Read and write PMP/PMT map projects
+    - Compile PMP/PMT map projects to PMF maps
+    - Decompile PMF to PMP/PMT?
 - Common
-    - Scripting...
+    - Read PAF archive format
+    - Read and write PKD database format
+    - PBASIC scripting...
 - Tools
     - Blender P3M plugin
         - Importing
     - Blockbench P3M plugin?
     - PTM music tracker
+    - PAF tool
+    - PKD tool
 
 ---
 ### Done
@@ -66,5 +71,6 @@
     - Blender P3M plugin
         - Exporting
     - GTKSourceView file for PBASIC
+    - PTF tool
 - Common
     - Logging
