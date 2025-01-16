@@ -1,0 +1,14 @@
+PMP - PlatinumSrc Map Project
+
+- .pmp file extension
+- Current version is 0.0
+- All data should be little endian
+
+Format:
+
+    <Header> <Data>
+
+    Header:
+        <char[3]: {'P', 'M', 'P'}>
+        <u8: Major version>
+

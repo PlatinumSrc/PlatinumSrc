@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include "../platform.h"
 #include "../attribs.h"
@@ -30,6 +31,7 @@ enum pkd_err {
 
 PACKEDENUM pkd_type {
     PKD_TYPE_NONE,
+    PKD_TYPE_BOOL,
     PKD_TYPE_I8,
     PKD_TYPE_I16,
     PKD_TYPE_I32,
@@ -44,9 +46,9 @@ PACKEDENUM pkd_type {
 };
 struct pkd_keytype {
     enum pkd_type type;
-    unsigned size;
     uint8_t isarray : 1;
     uint8_t : 7;
+    unsigned size;
 };
 
 enum pkd_setop {

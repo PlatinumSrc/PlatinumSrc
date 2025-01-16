@@ -3,7 +3,7 @@ PMF - PlatinumSrc Map File/Format
 - .pmf file extension
 - Current version is 0.0
 - All data should be little endian
-- LZ4 should be used for compression
+- LZ4F should be used for compression
 
 Format:
 

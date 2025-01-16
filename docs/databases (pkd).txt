@@ -4,6 +4,8 @@ PKD - PlatinumSrc Key-value Database
 - Current version is 0.0
 - All data should be little endian
 
+Format:
+
     <Header> <Data>
 
     Header:
@@ -47,6 +49,7 @@ PKD - PlatinumSrc Key-value Database
                 <1 bit: Is array>
                 <4 bits:
                     { PKD_TYPE_NONE
+                    | PKD_TYPE_BOOL
                     | PKD_TYPE_I8
                     | PKD_TYPE_I16
                     | PKD_TYPE_I32
@@ -61,6 +64,7 @@ PKD - PlatinumSrc Key-value Database
                 >
             >
             { <u8[8]: Padding>
+            | <u8: Inline value> <u8[7]: Padding>
             | <i8: Inline value> <u8[7]: Padding>
             | <i16: Inline value> <u8[6]: Padding>
             | <i32: Inline value> <u8[4]: Padding>
@@ -96,7 +100,8 @@ PKD - PlatinumSrc Key-value Database
             <u32: Position of next <Value continuation>>
             <u8[]: <Value data>>...
         Value data:
-            { [i8]...
+            { [u8: Bitmap]...
+            | [i8]...
             | [i16]...
             | [i32]...
             | [i64]...
