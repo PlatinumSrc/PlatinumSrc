@@ -23,6 +23,7 @@ struct ftree_node {
             long size;
         } file;
     };
+    void* userdata;
 };
 
 #ifndef _WIN32

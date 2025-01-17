@@ -2,6 +2,7 @@
 
 #include <psrc/common/paf.h>
 #include <psrc/byteorder.h>
+#include <psrc/vlb.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +13,104 @@
 const char* paftool_create_help =
    "<OUTPUT> [PATH]... - Create an archive out of the provided PATHs"
 ;
+
+struct ftreeuserdata VLB(uint32_t);
+
+static void paftool_create_wrstr(FILE* f, const char* s, uint32_t* o) {
+    uint32_t l = strlen(s);
+    uint32_t tmpu32 = swaple32(l);
+    fwrite(&tmpu32, 4, 1, f);
+    fwrite(&tmpu32, 4, 1, f);
+    fwrite(s, 1, l, f);
+    *o += 8 + l;
+}
+static void paftool_create_wrdirs(FILE* f, struct ftree* tree, struct ftreeuserdata* userdata, uint32_t* doff) {
+    uint32_t tmpu32 = swaple32(tree->len);
+    fwrite(&tmpu32, 4, 1, f);
+    fwrite(&tmpu32, 4, 1, f);
+    fwrite(&tmpu32, 4, 1, f);
+    tmpu32 = 0;
+    fwrite(&tmpu32, 4, 1, f);
+    *doff += 16;
+    uint32_t tmpdoff = *doff;
+    for (uintptr_t i = 0; i < tree->len; ++i) {
+        fputc(0, f);
+        fwrite(&tmpu32, 4, 1, f);
+        fwrite(&tmpu32, 4, 1, f);
+        fwrite(&tmpu32, 4, 1, f);
+    }
+    if (!tree->len) return;
+    *doff += 13 * tree->len;
+    fseek(f, tmpdoff, SEEK_SET);
+    {
+        uint32_t tmpdoff2 = tmpdoff;
+        for (uintptr_t i = 0; i < tree->len; ++i) {
+            struct ftree_node* n = &tree->data[i];
+            fputc(!n->isdir, f);
+            tmpu32 = swaple32(*doff);
+            fwrite(&tmpu32, 4, 1, f);
+            tmpu32 = swaple32(n->namecrc);
+            fwrite(&tmpu32, 4, 1, f);
+            tmpu32 = 0;
+            fwrite(&tmpu32, 4, 1, f);
+            tmpdoff2 += 13;
+            fseek(f, *doff, SEEK_SET);
+            paftool_create_wrstr(f, n->name, doff);
+            fseek(f, tmpdoff2, SEEK_SET);
+        }
+    }
+    tmpdoff += 9;
+    fseek(f, tmpdoff, SEEK_SET);
+    for (uintptr_t i = 0; i < tree->len; ++i) {
+        struct ftree_node* n = &tree->data[i];
+        if (n->isdir) {
+            n->userdata = (void*)userdata->len;
+            VLB_ADD(*userdata, *doff, 2, 1, VLB_OOM_NOP);
+            tmpu32 = swaple32(*doff);
+            fwrite(&tmpu32, 4, 1, f);
+            fseek(f, *doff, SEEK_SET);
+            paftool_create_wrdirs(f, &n->dir.contents, userdata, doff);
+        }
+        tmpdoff += 13;
+        fseek(f, tmpdoff, SEEK_SET);
+    }
+}
+static void paftool_create_wrfiles(FILE* f, struct ftree* tree, struct ftreeuserdata* userdata, uint32_t doff, uint32_t* foff) {
+    if (!tree->len) return;
+    doff += 25;
+    fseek(f, doff, SEEK_SET);
+    for (uintptr_t i = 0; i < tree->len; ++i) {
+        struct ftree_node* n = &tree->data[i];
+        if (!n->isdir) {
+            uint32_t tmpu32 = swaple32(*foff);
+            fwrite(&tmpu32, 4, 1, f);
+            fseek(f, *foff, SEEK_SET);
+            long size = n->file.size;
+            tmpu32 = swaple32(size);
+            fwrite(&tmpu32, 4, 1, f);
+            fwrite(&tmpu32, 4, 1, f);
+            fwrite(&tmpu32, 4, 1, f);
+            tmpu32 = 0;
+            fwrite(&tmpu32, 4, 1, f);
+            *foff += size + 16;
+            FILE* tmpf = fopen(n->file.path, "rb");
+            static char buf[256];
+            while (size) {
+                long datalen = (size >= (long)sizeof(buf)) ? (long)sizeof(buf) : size;
+                fread(buf, 1, datalen, tmpf);
+                fwrite(buf, 1, datalen, f);
+                size -= datalen;
+            }
+            fclose(tmpf);
+        }
+        doff += 13;
+        fseek(f, doff, SEEK_SET);
+    }
+    for (uintptr_t i = 0; i < tree->len; ++i) {
+        struct ftree_node* n = &tree->data[i];
+        if (n->isdir) paftool_create_wrfiles(f, &n->dir.contents, userdata, userdata->data[(uintptr_t)n->userdata], foff);
+    }
+}
 
 int paftool_create(char* argv0, int argc, char** argv) {
     if (argc < 1) {
@@ -66,9 +165,16 @@ int paftool_create(char* argv0, int argc, char** argv) {
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
         puts("Scanning files...");
-        struct ftree ftree;
-        ftree_init(&ftree, argc - 1, argv + 1);
-        //ftree_list(&ftree);
+        struct ftree tree;
+        ftree_init(&tree, argc - 1, argv + 1);
+        //ftree_list(&tree);
+        tmpu32 = 24;
+        struct ftreeuserdata userdata;
+        VLB_INIT(userdata, 16, VLB_OOM_NOP);
+        paftool_create_wrdirs(f, &tree, &userdata, &tmpu32);
+        paftool_create_wrfiles(f, &tree, &userdata, 24, &tmpu32);
+        VLB_FREE(userdata);
+        ftree_free(&tree);
         puts("Done");
     }
     fclose(f);
