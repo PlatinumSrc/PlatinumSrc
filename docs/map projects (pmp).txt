@@ -11,4 +11,62 @@ Format:
     Header:
         <char[3]: {'P', 'M', 'P'}>
         <u8: Major version>
+    Data:
+        [ { <Group> | <Key> } ]...
+
+    Group:
+        <u8: PMP_TYPE_GROUP>
+        <char[]: Name {..., 0}>
+        [Key]...
+        <u8: PMP_TYPE_ENDGROUP>
+
+    Key:
+        <u8:
+            <1 bit: Is array>
+            <7 bits:
+                { PMP_TYPE_BOOL
+                | PMP_TYPE_I8
+                | PMP_TYPE_I16
+                | PMP_TYPE_I32
+                | PMP_TYPE_I64
+                | PMP_TYPE_U8
+                | PMP_TYPE_U16
+                | PMP_TYPE_U32
+                | PMP_TYPE_U64
+                | PMP_TYPE_F32
+                | PMP_TYPE_F64
+                | PMP_TYPE_STR }
+            >
+        >
+        <char[]: Name {..., 0}>
+        [u32: Array length]
+        { <u8>
+        | <i8>
+        | <i16>
+        | <i32>
+        | <i64>
+        | <u8>
+        | <u16>
+        | <u32>
+        | <u64>
+        | <float>
+        | <double>
+        | <String>
+        | [u8: Bitmap]...
+        | [i8]...
+        | [i16]...
+        | [i32]...
+        | [i64]...
+        | [u8]...
+        | [u16]...
+        | [u32]...
+        | [u64]...
+        | [float]...
+        | [double]...
+        | [String]... }
+
+    String:
+        <u32: Length>
+        <char[]: Data>
+
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "../platform.h"
@@ -45,10 +46,14 @@ PACKEDENUM pkd_type {
     PKD_TYPE_STR
 };
 struct pkd_keytype {
-    enum pkd_type type;
+    enum pkd_type type : 7;
     uint8_t isarray : 1;
-    uint8_t : 7;
     unsigned size;
+};
+
+struct pkd_keylist {
+    char** names;
+    struct pkd_keytype* types;
 };
 
 enum pkd_setop {
@@ -56,14 +61,15 @@ enum pkd_setop {
     PKD_SETOP_APPEND
 };
 
-int pkd_open(const char* p, struct pkd*);
+int pkd_open(const char* p, bool nolock, struct pkd*);
 void pkd_close(struct pkd*);
 
 int pkd_querytype(struct pkd*, const char* const* p, struct pkd_keytype* t);
+int pkd_list(struct pkd*, const char* const* p, struct pkd_keylist*);
+void pkd_freelist(struct pkd_keylist*);
 void* pkd_get(struct pkd*, const char* const* p, unsigned i, struct pkd_keytype* t);
 int pkd_set(struct pkd*, const char* const* p, unsigned i, enum pkd_setop, const struct pkd_keytype* t, void* d);
 int pkd_ren(struct pkd*, const char* const* oldp, const char* const* newp);
-int pkd_swap(struct pkd*, const char* const* p, unsigned i1, unsigned i2);
 int pkd_del(struct pkd*, const char* const* p);
 
 #endif

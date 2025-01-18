@@ -29,8 +29,8 @@ Format:
             <u8:
                 <5 bits: 0>
                 <1 bit: Keep player velocity>
-                <1 bit: Keep player sector offset>
-                <1 bit: Keep player in-sector offset>
+                <1 bit: Keep player chunk offset>
+                <1 bit: Keep player in-chunk offset>
             >
             <u32: Size of compressed <Common level data>>
             <u32: Size of compressed <Client level data>>
@@ -42,33 +42,33 @@ Format:
             <Compressed <Client level data>>
             <Compressed <Server level data>>
             <u32:
-                <8 bits: Sector Y count minus 1>
-                <12 bits: Sector X count minus 1>
-                <12 bits: Sector Z count minus 1>
+                <8 bits: Chunk Y count minus 1>
+                <12 bits: Chunk X count minus 1>
+                <12 bits: Chunk Z count minus 1>
             >
-            <u8: Sector size (2^n)>
-            <<Sector index>: Center sector>
+            <u8: Chunk size (2^n)>
+            <<Chunk index>: Center chunk>
             <
-                <u32: Size of compressed <Common sector data>>
-                <u32: Size of compressed <Client sector data>>
-                <u32: Size of compressed <Server sector data>>
-                <u32: Size of decompressed <Common sector data>>
-                <u32: Size of decompressed <Client sector data>>
-                <u32: Size of decompressed <Server sector data>>
+                <u32: Size of compressed <Common chunk data>>
+                <u32: Size of compressed <Client chunk data>>
+                <u32: Size of compressed <Server chunk data>>
+                <u32: Size of decompressed <Common chunk data>>
+                <u32: Size of decompressed <Client chunk data>>
+                <u32: Size of decompressed <Server chunk data>>
                 (ordered by [Y][X][Z])
             >...
             <
-                <Compressed <Common sector data>>
-                <Compressed <Client sector data>>
-                <Compressed <Server sector data>>
+                <Compressed <Common chunk data>>
+                <Compressed <Client chunk data>>
+                <Compressed <Server chunk data>>
                 (ordered by [Y][X][Z])
             >...
 
-        Sector index:
+        Chunk index:
             <u32:
-                <8 bits: Sector Y>
-                <12 bits: Sector X>
-                <12 bits: Sector Z>
+                <8 bits: Chunk Y>
+                <12 bits: Chunk X>
+                <12 bits: Chunk Z>
             >
 
         Common level data:
@@ -123,12 +123,12 @@ Format:
             <<String>: -Z skybox material>
             <<String>: Top cloud layer material>
             <<String>: Bottom cloud layer material>
-            <<Sector index>: 3D skybox sector>
+            <<Chunk index>: 3D skybox chunk>
         Gravity environment:
             <<String>: Name>
             <float[3]: XYZ gravity>
 
-        Common sector data:
+        Common chunk data:
             <u32: String table size> <char[]: String table>
             <u8: Used material count> [<String>: Material name]...
             <u8: Used physics material count> [<String>: Physics material name]...
@@ -137,7 +137,7 @@ Format:
             <u8: Dynamic light count> [Dynamic light]...
             <u8: Fast light count> [Fast light]...
             <u32: Cube count (must be at least 1)> <Cube>...
-        Client sector data:
+        Client chunk data:
             <u8: Sound environment region count> [<Environment region>: Sound environment region]...
             <u8: Sky environment region count> [<Environment region>: Sky environment region]...
             <u8: Lightmap count> [Lightmap]...
@@ -145,7 +145,7 @@ Format:
             [Client-side dynamic light]...
             [Client-side fast light]...
             [Client-side cube]...
-        Server sector data:
+        Server chunk data:
             <u32: String table size> <char[]: String table>
             <u8: Region count> [Region]...
             [Server-side cube]...
@@ -154,7 +154,7 @@ Format:
         Region:
             <float[3]: (+X, +Y, +Z) corner>
             <float[3]: (-X, -Y, -Z) corner>
-            <u32: Other active sector count> [Sector index]...
+            <u32: Other active chunk count> [Chunk index]...
 
         Environment region:
             <float[3]: (+X, +Y, +Z) corner offset>
@@ -253,12 +253,12 @@ Format:
                 <1 bit: 0>
                 <1 bit: Has pathfinding data>
                 <1 bit: Has lighting data>
-                <1 bit: Has chunk data>
+                <1 bit: Has visibility data>
                 <1 bit: Extended client-side>
                 <1 bit: Extended>
                 <2 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_GEOMETRY | PMF_CUBE_EXTGEOMETRY }>
             >
-            [Cube chunk data]
+            [Cube visibility data]
             [ { <Parent cube data> | <Geometry cube data> | <Extended geometry cube data> } ]
         Client-side cube:
             [Cube lighting data]
@@ -312,12 +312,12 @@ Format:
             <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
             <u32: Index of first triangle's first vertex>
 
-        Cube chunk data:
+        Cube visibility data:
             <u32: Other visible cube count>
             [u32: Visible cube index]...
-            <u32: Other visible sector count>
+            <u32: Other visible chunk count>
             [
-                <Sector index>
+                <Chunk index>
                 <u32: Visible cube count (0 means all)> [u32: Cube index]...
             ]...
 

@@ -5,21 +5,21 @@ PMT - PlatinumSrc Map project Text
 
 Format:
 
-    { <Comment> | <Group> | <Key> }...
+    [ { <Comment> | <Group> | <Key> } ]...
 
     Comment:
-        '#' [!('\n')]... '\n'
+        '#' [!{'\n'}]... '\n'
 
     Name:
         { {'a'..'z'|'A'..'Z'} [ {'a'..'z'|'A'..'Z'|'0'..'9'} ]...
         | <String> }
 
     String:
-        { '\'' [!('\'')]... '\''
-        | '"' { [!('"'|'\\')]... | <String escape sequence> } '"' }
+        { '\'' [!{'\''}]... '\''
+        | '"' { [!{'"'|'\\'}]... | <String escape sequence> } '"' }
     String escape sequence:
         '\\'
-        { '\\' | 'a' | 'b' | 'e' | 'f' | 'n' | 'r' | 't' | 'v' | '"'
+        { '\\' | '0' | 'a' | 'b' | 'e' | 'f' | 'n' | 'r' | 't' | 'v' | '"'
         | 'x' {'a'..'f'|'A'..'F'|'0'..'9'} {'a'..'f'|'A'..'F'|'0'..'9'} }
 
     Whitespace:
@@ -28,14 +28,14 @@ Format:
     Group:
         "group"
         <Whitespace> <Name> [Whitespace]
-        { '{' [Key]... '}' | ';' } [';']...
-        [Comment]...
+        { '{' [Key]... '}' | [Whitespace] ';' } < [Whitespace] ';' >...
+        [Whitespace] [Comment]...
 
     Key:
         { "bool" | {'i'|'u'} {"8"|"16"|"32"|"64"} | "string" }
         [ '[' ['0'..'9']... ']' ]
-        <Whitespace> <Name> [Whitespace] '=' [Whitespace] <Value> [Whitespace] ';'...
-        [Comment]...
+        <Whitespace> <Name> [Whitespace] '=' [Whitespace] <Value> < [Whitespace] ';' >...
+        [Whitespace] [Comment]...
 
     Value:
         { <Raw value> | '{' [ <Raw value> [ ',' <Raw value> ]... ] '}' }

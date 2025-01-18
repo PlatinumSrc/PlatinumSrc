@@ -11,42 +11,50 @@
     #include <windows.h>
 #endif
 
-int pkd_open(const char* p, struct pkd* d) {
+int pkd_open(const char* p, bool nolock, struct pkd* d) {
     #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        int lockpathlen = strlen(p);
-        char* lockpath = malloc(lockpathlen + 6);
-        memcpy(lockpath, p, lockpathlen);
-        lockpath[lockpathlen++] = '.';
-        lockpath[lockpathlen++] = 'l';
-        lockpath[lockpathlen++] = 'o';
-        lockpath[lockpathlen++] = 'c';
-        lockpath[lockpathlen++] = 'k';
-        lockpath[lockpathlen] = 0;
-        #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-            int fd = open(lockpath, O_CREAT | O_EXCL, S_IRUSR | S_IRGRP | S_IROTH);
-            if (fd < 0) {
-                free(lockpath);
-                return PKD_ERR_OPEN_LOCKED;
-            }
-            close(fd);
-        #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            HANDLE* h = CreateFile(lockpath, 0, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-            if (!h) {
-                free(lockpath);
-                return PKD_ERR_OPEN_LOCKED;
-            }
-            CloseHandle(h);
-        #endif
+        char* lockpath;
+        if (!nolock) {
+            int lockpathlen = strlen(p);
+            lockpath = malloc(lockpathlen + 6);
+            memcpy(lockpath, p, lockpathlen);
+            lockpath[lockpathlen++] = '.';
+            lockpath[lockpathlen++] = 'l';
+            lockpath[lockpathlen++] = 'o';
+            lockpath[lockpathlen++] = 'c';
+            lockpath[lockpathlen++] = 'k';
+            lockpath[lockpathlen] = 0;
+            #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
+                int fd = open(lockpath, O_CREAT | O_EXCL, S_IRUSR | S_IRGRP | S_IROTH);
+                if (fd < 0) {
+                    free(lockpath);
+                    return PKD_ERR_OPEN_LOCKED;
+                }
+                close(fd);
+            #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                HANDLE* h = CreateFile(lockpath, 0, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (!h) {
+                    free(lockpath);
+                    return PKD_ERR_OPEN_LOCKED;
+                }
+                CloseHandle(h);
+            #endif
+        } else {
+            lockpath = NULL;
+        }
     #endif
     FILE* f = fopen(p, "w+b");
     if (!f) {
         #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-            unlink(lockpath);
+            if (!nolock) {
+                unlink(lockpath);
+                free(lockpath);
+            }
         #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            DeleteFile(lockpath);
-        #endif
-        #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            free(lockpath);
+            if (!nolock) {
+                DeleteFile(lockpath);
+                free(lockpath);
+            }
         #endif
         return PKD_ERR_OPEN_CANTOPEN;
     }
@@ -60,8 +68,14 @@ int pkd_open(const char* p, struct pkd* d) {
 void pkd_close(struct pkd* d) {
     fclose(d->f);
     #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-        unlink(d->lockpath);
+        if (d->lockpath) {
+            unlink(d->lockpath);
+            free(d->lockpath);
+        }
     #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        DeleteFile(d->lockpath);
+        if (d->lockpath) {
+            DeleteFile(d->lockpath);
+            free(d->lockpath);
+        }
     #endif
 }
