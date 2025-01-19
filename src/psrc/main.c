@@ -64,10 +64,6 @@
 
 #include "glue.h"
 
-#ifndef PSRC_DEFAULTGAME
-    #define PSRC_DEFAULTGAME default
-#endif
-
 #define _STR(x) #x
 #define STR(x) _STR(x)
 
@@ -104,17 +100,17 @@ static void rearmWatchdog(unsigned sec) {
 
 #if defined(PSRC_MODULE_ENGINE)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:icons/engine
+        #define PSRC_DEFAULTLOGO internal:engine/icon
     #endif
     #include "main/engine.c"
 #elif defined(PSRC_MODULE_SERVER)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:icons/server
+        #define PSRC_DEFAULTLOGO internal:server/icon
     #endif
     #include "main/server.c"
 #elif defined(PSRC_MODULE_EDITOR)
     #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:icons/editor
+        #define PSRC_DEFAULTLOGO internal:editor/icon
     #endif
     #include "main/editor.c"
 #endif
@@ -237,190 +233,6 @@ static void sigh(int sig) {
 }
 #endif
 
-static int bootstrap(void) {
-    puts(verstr);
-    puts(platstr);
-    #if PLATFORM == PLAT_LINUX
-    setenv("SDL_VIDEODRIVER", "wayland", false);
-    #elif PLATFORM == PLAT_NXDK
-    pb_print("%s\n", verstr);
-    pb_print("%s\n", platstr);
-    pbgl_swap_buffers();
-    #endif
-
-    if (!initLogging()) {
-        fputs("{X}: Failed to init logging\n", stderr);
-        return 1;
-    }
-
-    char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "config.cfg", NULL);
-    {
-        struct datastream ds;
-        bool ret = ds_openfile(tmp, 0, &ds);
-        free(tmp);
-        if (ret) {
-            cfg_open(&ds, &config);
-            ds_close(&ds);
-        } else {
-            plog(LL_WARN, "Failed to load main config");
-            cfg_open(NULL, &config);
-        }
-    }
-    if (options.set__setup) cfg_mergemem(&config, &options.set, true);
-
-    {
-        struct charbuf err;
-        cb_init(&err, 256);
-        if (options.game) {
-            if (!setGame(options.game, true, &err)) {
-                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
-                cb_dump(&err);
-                return 1;
-            }
-            free(options.game);
-            options.game = NULL;
-        } else if ((tmp = cfg_getvar(&config, NULL, "defaultgame"))) {
-            if (!setGame(tmp, false, &err)) {
-                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
-                cb_dump(&err);
-                return 1;
-            }
-            free(tmp);
-        } else {
-            plog(LL_WARN, "No default game specified, falling back to '%s'", STR(PSRC_DEFAULTGAME));
-            if (!setGame(STR(PSRC_DEFAULTGAME), false, &err)) {
-                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
-                cb_dump(&err);
-                return 1;
-            }
-        }
-        cb_dump(&err);
-    }
-
-    #ifndef PSRC_MODULE_SERVER
-    if (dirs[DIR_USER]) {
-        if (!options.nouserconfig) {
-            tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
-            struct datastream ds;
-            bool ret = ds_openfile(tmp, 0, &ds);
-            free(tmp);
-            if (ret) {
-                cfg_merge(&config, &ds, true);
-                ds_close(&ds);
-                if (options.set__setup) cfg_mergemem(&config, &options.set, true);
-            } else {
-                plog(LL_WARN, "Failed to load user config");
-            }
-        }
-    }
-    #endif
-
-    plog(LL_INFO, "Initializing resource manager...");
-    if (!initRcMgr()) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
-        return 1;
-    }
-
-    {
-        tmp = cfg_getvar(&config, NULL, "mods");
-        if (options.mods) {
-            if (tmp) {
-                int ct1, ct2;
-                char** l1;
-                char** l2;
-                l1 = splitstrlist(tmp, ',', false, &ct1);
-                free(tmp);
-                l2 = splitstrlist(options.mods, ',', false, &ct2);
-                free(options.mods);
-                options.mods = NULL;
-                l1 = realloc(l1, (ct1 + ct2) * sizeof(*l1));
-                for (int i = 0; i < ct2; ++i) {
-                    l1[i + ct1] = l2[i];
-                }
-                loadMods((const char* const *)l1, ct1 + ct2);
-                free(*l2);
-                free(l2);
-                free(*l1);
-                free(l1);
-            } else {
-                int ct;
-                char** l = splitstrlist(options.mods, ',', false, &ct);
-                free(options.mods);
-                options.mods = NULL;
-                loadMods((const char* const *)l, ct);
-                free(*l);
-                free(l);
-            }
-        } else if (tmp) {
-            int ct;
-            char** l = splitstrlist(tmp, ',', false, &ct);
-            free(tmp);
-            loadMods((const char* const *)l, ct);
-            free(*l);
-            free(l);
-        }
-        int ct;
-        struct modinfo* data = queryMods(&ct);
-        if (data) {
-            plog(LL_INFO, "Mod info:");
-            for (int i = 0; i < ct; ++i) {
-                plog(LL_INFO, "  %s (%s)", data[i].name, data[i].dir);
-                plog(LL_INFO, "    Path: %s", data[i].path);
-                if (data[i].author) plog(LL_INFO, "    Author: %s", data[i].author);
-                if (data[i].desc) plog(LL_INFO, "    Description: %s", data[i].desc);
-                char s[16];
-                vertostr(&data[i].version, s);
-                plog(LL_INFO, "    Version: %s", s);
-            }
-            freeModList(data);
-        } else {
-            plog(LL_INFO, "No mods laoded");
-        }
-    }
-
-    #if 0
-    struct rcls l;
-    if (lsRc("textures/env", &l)) {
-        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
-            int ct = l.count[ri];
-            printf("TYPE[%d] (%d):\n", ri, ct);
-            for (int i = 0; i < ct; ++i) {
-                struct rcls_file* f = &l.files[ri][i];
-                printf("  name: {%s}, crc: [%08X]\n", f->name, f->namecrc);
-            }
-        }
-        freeRcls(&l);
-    } else {
-        puts("LIST FAILED");
-    }
-    #endif
-
-    return 0;
-}
-static void unstrap(void) {
-    plog(LL_INFO, "Quitting resource manager...");
-    quitRcMgr();
-
-    #ifndef PSRC_MODULE_SERVER
-    if (dirs[DIR_USER]) {
-        char* tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
-        //cfg_write(config, tmp);
-        free(tmp);
-        cfg_close(&config);
-    }
-    #endif
-
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
-    armWatchdog(5);
-    #endif
-    SDL_Quit();
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
-    cancelWatchdog();
-    #endif
-
-    plog(LL_INFO, "Done");
-}
-
 #if PLATFORM == PLAT_EMSCR
 volatile bool issyncfsok = false;
 void __attribute__((used)) syncfsok(void) {issyncfsok = true;}
@@ -432,7 +244,7 @@ static void emscrmain(void) {
     static bool syncmsg = false;
     if (doloop) {
         if (!quitreq) {
-            doLoop();
+            loop();
         } else {
             static bool doexit = false;
             if (doexit) {
@@ -447,8 +259,8 @@ static void emscrmain(void) {
                 }
                 return;
             }
-            quitLoop();
             unstrap();
+            plog(LL_INFO, "Done");
             EM_ASM(
                 FS.syncfs(false, function (e) {
                     if (e) console.error("FS.syncfs:", e);
@@ -468,12 +280,8 @@ static void emscrmain(void) {
         static int ret;
         ret = bootstrap();
         if (!ret) {
-            ret = initLoop();
-            if (!ret) {
-                doloop = true;
-                return;
-            }
-            unstrap();
+            doloop = true;
+            return;
         }
         emscripten_cancel_main_loop();
         emscripten_async_call(emscrexit, (void*)(uintptr_t)1, -1);
@@ -490,6 +298,21 @@ int main(int argc, char** argv) {
     if (argc > 1) {
         ret = parseargs(argc - 1, argv + 1);
         if (ret >= 0) return ret;
+    }
+
+    puts(verstr);
+    puts(platstr);
+    #if PLATFORM == PLAT_LINUX
+    setenv("SDL_VIDEODRIVER", "wayland", false);
+    #elif PLATFORM == PLAT_NXDK
+    pb_print("%s\n", verstr);
+    pb_print("%s\n", platstr);
+    pbgl_swap_buffers();
+    #endif
+
+    if (!initLogging()) {
+        fputs("{X}: Failed to init logging\n", stderr);
+        return 1;
     }
 
     #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
@@ -549,15 +372,12 @@ int main(int argc, char** argv) {
     #if PLATFORM != PLAT_EMSCR
         ret = bootstrap();
         if (!ret) {
-            ret = initLoop();
-            if (!ret) {
-                while (!quitreq) {
-                    doLoop();
-                }
-                quitLoop();
+            while (!quitreq) {
+                loop();
             }
             unstrap();
         }
+        plog(LL_INFO, "Done");
     #else
         EM_ASM(
             FS.mkdir('/data');

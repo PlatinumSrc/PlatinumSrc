@@ -4,13 +4,13 @@
 
 #if defined(PSRC_MODULE_ENGINE)
     #define PSRC_MD "PlatinumSrc engine"
-    #define PSRC_ICON "internal/resources/icons/engine.ico"
+    #define PSRC_ICON "internal/engine/icon.ico"
 #elif defined(PSRC_MODULE_SERVER)
     #define PSRC_MD "PlatinumSrc server"
-    #define PSRC_ICON "internal/resources/icons/server.ico"
+    #define PSRC_ICON "internal/server/icon.ico"
 #elif defined(PSRC_MODULE_EDITOR)
     #define PSRC_MD "PlatinumSrc map editor"
-    #define PSRC_ICON "internal/resources/icons/editor.ico"
+    #define PSRC_ICON "internal/editor/icon.ico"
 #endif
 #ifdef PSRC_DBGLVL
     #define PSRC_MODULEDESC PSRC_MD " (debug build)"

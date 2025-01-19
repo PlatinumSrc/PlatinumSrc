@@ -26,6 +26,7 @@ Entity type:
     | ENT_VALVE
     | ENT_MOUNTABLE
     | ENT_HURTABLE
+    | ENT_LIGHT
     | ENT_BEAM
     | ENT_PARTICLES
     | ENT_GIBS
@@ -61,6 +62,7 @@ Entity data:
         | <Valve entity data>
         | <Mountable entity data>
         | <Hurtable entity data>
+        | <Light entity data>
         | <Beam entity data>
         | <Particle emitter entity data>
         | <Gib emitter entity data>
@@ -139,7 +141,7 @@ Prop entity data:
 Cube entity data:
     <u8:
         <4 bits: 0>
-        <1 bit: Cull backfaces>
+        <1 bit: Draw backfaces>
         <1 bit: No collision>
         <1 bit: Follow tail of bone>
         <1 bit: Hidden>
@@ -378,6 +380,33 @@ Hurtable entity data:
     <float: Health>
     <<String>: Signal when killed>
     <<String>: Signal to reset>
+    <<String>: Signal to activate>
+    <<String>: Signal to deactivate>
+    <<String>: Signal to toggle activation>
+
+Light entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Follow tail of bone>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <u8:
+        { ENT_LIGHT_POINT
+        | ENT_LIGHT_SPOT
+        | ENT_LIGHT_AREA }
+    >
+    <u8[3]: RGB color>
+    <float: Intensity>
+    <float[3]: Size>
+    <float: Range>
+    { <u8[24]: Padding>
+    | <float: Cone radius> <u8[20]: Padding>
+    | <float: Start X angle> <float: End X angle>
+      <float: Start Y angle> <float: End Y angle>
+      <float: Start Z angle> <float: End Z angle> }
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>

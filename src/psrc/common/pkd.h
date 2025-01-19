@@ -1,14 +1,14 @@
 #ifndef PSRC_COMMON_PKD_H
 #define PSRC_COMMON_PKD_H
 
+#include "../platform.h"
+#include "../attribs.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
-
-#include "../platform.h"
-#include "../attribs.h"
 
 #define PKD_VER 0
 
@@ -48,7 +48,7 @@ PACKEDENUM pkd_type {
 struct pkd_keytype {
     enum pkd_type type : 7;
     uint8_t isarray : 1;
-    unsigned size;
+    uint32_t size;
 };
 
 struct pkd_keylist {
@@ -67,8 +67,8 @@ void pkd_close(struct pkd*);
 int pkd_querytype(struct pkd*, const char* const* p, struct pkd_keytype* t);
 int pkd_list(struct pkd*, const char* const* p, struct pkd_keylist*);
 void pkd_freelist(struct pkd_keylist*);
-void* pkd_get(struct pkd*, const char* const* p, unsigned i, struct pkd_keytype* t);
-int pkd_set(struct pkd*, const char* const* p, unsigned i, enum pkd_setop, const struct pkd_keytype* t, void* d);
+void* pkd_get(struct pkd*, const char* const* p, uint32_t i, struct pkd_keytype* t);
+int pkd_set(struct pkd*, const char* const* p, uint32_t i, enum pkd_setop, const struct pkd_keytype* t, void* d);
 int pkd_ren(struct pkd*, const char* const* oldp, const char* const* newp);
 int pkd_del(struct pkd*, const char* const* p);
 

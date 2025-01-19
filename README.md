@@ -1,4 +1,4 @@
-# PlatinumSrc<img src="https://raw.githubusercontent.com/PQCraft/PlatinumSrc/master/internal/resources/icons/logo.png" align="right" height="120"/>
+# PlatinumSrc<img src="https://raw.githubusercontent.com/PQCraft/PlatinumSrc/master/internal/engine/resources/icons/logo.png" align="right" height="120"/>
 **A WIP retro 3D game engine inspired by GoldSrc and Quake**<br>
 Progress can be found [here](TODO.md)
 
@@ -57,6 +57,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Needs a D3D 7/8 renderer
 - PSP
 - PS Vita
+- Switch
 </details>
 
 ---
@@ -65,9 +66,9 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 1. Download a game \(the engine will not run without a game\)
     - [H-74](https://github.com/PQCraft/H-74)
-2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `internal/config.cfg` is set to the game's directory name
+2. Drop the game into a directory called `games` and use the `-game` option, or ensure the `defaultgame` variable in `internal/engine/config.cfg` is set to the game's directory name
 3. Put any mods into a directory called `mods` and use the `-mods` option, or ensure they are listed in the `mods` variable in one of the configs
-    - You can use `config.cfg` in `internal/` or in the game's user data directory
+    - You can use `config.cfg` in `internal/engine/` or in the game's user data directory
     - Mods are listed as comma-separated values without spaces between values
 4. Run the executable
 </details>

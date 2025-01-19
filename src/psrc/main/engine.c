@@ -7,6 +7,10 @@
     #include "../profiling.h"
 #endif
 
+#ifndef PSRC_DEFAULTGAME
+    #define PSRC_DEFAULTGAME default
+#endif
+
 struct rc_script* mainscript;
 
 static struct rc_sound* test;
@@ -64,229 +68,12 @@ static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, u
 }
 #endif
 
-int initLoop(void) {
-    plog(LL_INFO, "Initializing renderer...");
-    if (!initRenderer()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
-        return 1;
-    }
-    plog(LL_INFO, "Initializing input manager...");
-    if (!initInput()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
-        return 1;
-    }
-    plog(LL_INFO, "Initializing audio manager...");
-    if (!initAudio()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
-        return 1;
-    }
-
-    // TODO: move into the renderer
-    char* tmp;
-    if (options.icon) {
-        rendstate.icon = strpath(options.icon);
-    } else {
-        // TODO: set icon from gameinfo.icon
-        /*
-        if (gameinfo.icon) {
-            rendstate.icon = getRcPath(RC_TEXTURE, gameinfo.icon, NULL, NULL, NULL);
-            if (!rendstate.icon) rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
-        } else {
-            rendstate.icon = getRcPath(RC_TEXTURE, STR(PSRC_DEFAULTLOGO), NULL, NULL, NULL);
-        }
-        */
-    }
-
-    plog(LL_INFO, "Starting renderer...");
-    if (!startRenderer()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
-        //return 1;
-    }
-    plog(LL_INFO, "Starting audio manager...");
-    if (!startAudio()) {
-        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
-        return 1;
-    }
-
-    plog(LL_INFO, "Almost there...");
-
-    {
-        struct charbuf e;
-        cb_init(&e, 128);
-        mainscript = getRc(RC_SCRIPT, "main", NULL, 0, &e);
-        if (!mainscript) {
-            plog(LL_CRIT /*| LF_MSGBOX*/, "Could not start main script: %s", cb_peek(&e));
-            //return 1;
-        }
-        cb_dump(&e);
-    }
-
-    testemt_map = newAudioEmitter(1, true);
-    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 3.0));
-
-    if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
-        //setAmbientSound(test);
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, 0.0, 2.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, 0, SOUNDFX_POS(0.0, 1.0, 0.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/fan1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/vent1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, -1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_obj, test, SOUNDFLAG_LOOP);
-        rlsRc(test, false);
-    }
-    //editSoundEnv(SOUNDENV_REVERB(0.01, 1.0, 0.5, 0.25, 0.1));
-    editSoundEnv(SOUNDENV_REVERB(0.07, 0.99, 0.75, 0.6, 0.15));
-
-    // TODO: cleanup
-    setInputMode(INPUTMODE_INGAME);
-    struct inputkey* k;
-    #if PLATFORM != PLAT_EMSCR
-    k = inputKeysFromStr("k,esc;g,b,start");
-    #else
-    k = inputKeysFromStr("k,backspace;g,b,start");
-    #endif
-    newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
-    free(k);
-    k = inputKeysFromStr("k,f11");
-    newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
-    free(k);
-    k = inputKeysFromStr("k,f2");
-    newInputAction(INPUTACTIONTYPE_ONCE, "screenshot", k, (void*)ACTION_SCREENSHOT);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,w;g,a,-lefty");
-    #else
-    k = inputKeysFromStr("k,w;g,b,y");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,a;g,a,-leftx");
-    #else
-    k = inputKeysFromStr("k,a;g,b,x");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "move_left", k, (void*)ACTION_MOVE_LEFT);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,s;g,a,+lefty");
-    #else
-    k = inputKeysFromStr("k,s;g,b,a");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "move_backwards", k, (void*)ACTION_MOVE_BACKWARDS);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,d;g,a,+leftx");
-    #else
-    k = inputKeysFromStr("k,d;g,b,b");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("m,m,+y;k,up;g,a,-righty");
-    #else
-    k = inputKeysFromStr("m,m,+y;k,up;g,a,-lefty");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("m,m,-x;k,left;g,a,-rightx");
-    #else
-    k = inputKeysFromStr("m,m,-x;k,left;g,a,-leftx");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("m,m,-y;k,down;g,a,+righty");
-    #else
-    k = inputKeysFromStr("m,m,-y;k,down;g,a,+lefty");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("m,m,+x;k,right;g,a,+rightx");
-    #else
-    k = inputKeysFromStr("m,m,+x;k,right;g,a,+leftx");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
-    free(k);
-    #if PLATFORM != PLAT_EMSCR
-    k = inputKeysFromStr("k,lctrl;g,b,leftstick");
-    #else
-    k = inputKeysFromStr("k,c;g,b,leftstick");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,space;g,b,a");
-    #else
-    k = inputKeysFromStr("k,space;g,a,+lefttrigger");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
-    free(k);
-    #if PLATFORM != PLAT_DREAMCAST
-    k = inputKeysFromStr("k,lshift;g,a,+lefttrigger");
-    #else
-    k = inputKeysFromStr("k,lshift;g,b,dpdown");
-    #endif
-    newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
-    free(k);
-
-    tmp = cfg_getvar(&config, "Input", "lookspeed");
-    if (tmp) {
-        sscanf(tmp, "%f,%f", &lookspeed[0], &lookspeed[1]);
-        free(tmp);
-    } else {
-        lookspeed[0] = 2.0f;
-        lookspeed[1] = 2.0f;
-    }
-
-    #if DEBUG(1)
-        tmp = cfg_getvar(&config, "Debug", "printfps");
-        printfps = strbool(tmp, true);
-        free(tmp);
-        tmp = cfg_getvar(&config, "Debug", "printprof");
-        printprof = strbool(tmp, false);
-        free(tmp);
-        prof_init(&dbgprof, DBGPROF__COUNT, dbgprofstr);
-        prof_start(&dbgprof);
-        rendstate.dbgprof = &dbgprof;
-    #endif
-
-    plog(LL_INFO, "All systems go!");
-    toff = SDL_GetTicks();
-    framestamp = altutime();
-
-    return 0;
-}
-
 static float fwrap(float n, float d) {
     float tmp = n - (int)(n / d) * d;
     if (tmp < 0.0f) tmp += d;
     return tmp;
 }
-void doLoop(void) {
+static void loop(void) {
     #if DEBUG(1)
     prof_start(&dbgprof);
     #endif
@@ -490,7 +277,363 @@ void doLoop(void) {
     #endif
 }
 
-void quitLoop(void) {
+static int bootstrap(void) {
+    char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "engine", "config.cfg", NULL);
+    {
+        struct datastream ds;
+        bool ret = ds_openfile(tmp, 0, &ds);
+        free(tmp);
+        if (ret) {
+            cfg_open(&ds, &config);
+            ds_close(&ds);
+        } else {
+            plog(LL_WARN, "Failed to load main config");
+            cfg_open(NULL, &config);
+        }
+    }
+    if (options.set__setup) cfg_mergemem(&config, &options.set, true);
+
+    {
+        struct charbuf err;
+        cb_init(&err, 256);
+        if (options.game) {
+            if (!setGame(options.game, true, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+            free(options.game);
+            options.game = NULL;
+        } else if ((tmp = cfg_getvar(&config, NULL, "defaultgame"))) {
+            if (!setGame(tmp, false, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+            free(tmp);
+        } else {
+            plog(LL_WARN, "No default game specified, falling back to '%s'", STR(PSRC_DEFAULTGAME));
+            if (!setGame(STR(PSRC_DEFAULTGAME), false, &err)) {
+                plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
+                cb_dump(&err);
+                return 1;
+            }
+        }
+        cb_dump(&err);
+    }
+
+    if (dirs[DIR_USER]) {
+        if (!options.nouserconfig) {
+            tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
+            struct datastream ds;
+            bool ret = ds_openfile(tmp, 0, &ds);
+            free(tmp);
+            if (ret) {
+                cfg_merge(&config, &ds, true);
+                ds_close(&ds);
+                if (options.set__setup) cfg_mergemem(&config, &options.set, true);
+            } else {
+                plog(LL_WARN, "Failed to load user config");
+            }
+        }
+    }
+
+    plog(LL_INFO, "Initializing resource manager...");
+    if (!initRcMgr()) {
+        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
+        return 1;
+    }
+
+    {
+        tmp = cfg_getvar(&config, NULL, "mods");
+        if (options.mods) {
+            if (tmp) {
+                int ct1, ct2;
+                char** l1;
+                char** l2;
+                l1 = splitstrlist(tmp, ',', false, &ct1);
+                free(tmp);
+                l2 = splitstrlist(options.mods, ',', false, &ct2);
+                free(options.mods);
+                options.mods = NULL;
+                l1 = realloc(l1, (ct1 + ct2) * sizeof(*l1));
+                for (int i = 0; i < ct2; ++i) {
+                    l1[i + ct1] = l2[i];
+                }
+                loadMods((const char* const *)l1, ct1 + ct2);
+                free(*l2);
+                free(l2);
+                free(*l1);
+                free(l1);
+            } else {
+                int ct;
+                char** l = splitstrlist(options.mods, ',', false, &ct);
+                free(options.mods);
+                options.mods = NULL;
+                loadMods((const char* const *)l, ct);
+                free(*l);
+                free(l);
+            }
+        } else if (tmp) {
+            int ct;
+            char** l = splitstrlist(tmp, ',', false, &ct);
+            free(tmp);
+            loadMods((const char* const *)l, ct);
+            free(*l);
+            free(l);
+        }
+        int ct;
+        struct modinfo* data = queryMods(&ct);
+        if (data) {
+            plog(LL_INFO, "Mod info:");
+            for (int i = 0; i < ct; ++i) {
+                plog(LL_INFO, "  %s (%s)", data[i].name, data[i].dir);
+                plog(LL_INFO, "    Path: %s", data[i].path);
+                if (data[i].author) plog(LL_INFO, "    Author: %s", data[i].author);
+                if (data[i].desc) plog(LL_INFO, "    Description: %s", data[i].desc);
+                char s[16];
+                vertostr(&data[i].version, s);
+                plog(LL_INFO, "    Version: %s", s);
+            }
+            freeModList(data);
+        } else {
+            plog(LL_INFO, "No mods laoded");
+        }
+    }
+
+    #if 0
+    struct rcls l;
+    if (lsRc("textures/env", &l)) {
+        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
+            int ct = l.count[ri];
+            printf("TYPE[%d] (%d):\n", ri, ct);
+            for (int i = 0; i < ct; ++i) {
+                struct rcls_file* f = &l.files[ri][i];
+                printf("  name: {%s}, crc: [%08X]\n", f->name, f->namecrc);
+            }
+        }
+        freeRcls(&l);
+    } else {
+        puts("LIST FAILED");
+    }
+    #endif
+
+    plog(LL_INFO, "Initializing renderer...");
+    if (!initRenderer()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
+        return 1;
+    }
+    plog(LL_INFO, "Initializing input manager...");
+    if (!initInput()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
+        return 1;
+    }
+    plog(LL_INFO, "Initializing audio manager...");
+    if (!initAudio()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init audio manager");
+        return 1;
+    }
+
+    // TODO: move into the renderer
+    if (options.icon) {
+        rendstate.icon = strpath(options.icon);
+    } else {
+        // TODO: set icon from gameinfo.icon
+        /*
+        if (gameinfo.icon) {
+            rendstate.icon = getRcPath(RC_TEXTURE, gameinfo.icon, NULL, NULL, NULL);
+            if (!rendstate.icon) rendstate.icon = getRcPath(RC_TEXTURE, "internal:engine/icons/engine", NULL, NULL, NULL);
+        } else {
+            rendstate.icon = getRcPath(RC_TEXTURE, "internal:engine/icons/engine", NULL, NULL, NULL);
+        }
+        */
+    }
+
+    plog(LL_INFO, "Starting renderer...");
+    if (!startRenderer()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
+        //return 1;
+    }
+    plog(LL_INFO, "Starting audio manager...");
+    if (!startAudio()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start audio manager");
+        return 1;
+    }
+
+    plog(LL_INFO, "Almost there...");
+
+    {
+        struct charbuf e;
+        cb_init(&e, 128);
+        mainscript = getRc(RC_SCRIPT, "main", NULL, 0, &e);
+        if (!mainscript) {
+            plog(LL_CRIT /*| LF_MSGBOX*/, "Could not start main script: %s", cb_peek(&e));
+            //return 1;
+        }
+        cb_dump(&e);
+    }
+
+    testemt_map = newAudioEmitter(1, true);
+    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 3.0));
+
+    if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
+        //setAmbientSound(test);
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, 0.0, 2.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, 0, SOUNDFX_POS(0.0, 1.0, 0.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/fan1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/vent1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, -1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(5.0, 1.0, -20.0));
+        rlsRc(test, false);
+    }
+    if ((test = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL))) {
+        playSound(testemt_obj, test, SOUNDFLAG_LOOP);
+        rlsRc(test, false);
+    }
+    //editSoundEnv(SOUNDENV_REVERB(0.01, 1.0, 0.5, 0.25, 0.1));
+    editSoundEnv(SOUNDENV_REVERB(0.07, 0.99, 0.75, 0.6, 0.15));
+
+    // TODO: cleanup
+    setInputMode(INPUTMODE_INGAME);
+    struct inputkey* k;
+    #if PLATFORM != PLAT_EMSCR
+    k = inputKeysFromStr("k,esc;g,b,start");
+    #else
+    k = inputKeysFromStr("k,backspace;g,b,start");
+    #endif
+    newInputAction(INPUTACTIONTYPE_ONCE, "menu", k, (void*)ACTION_MENU);
+    free(k);
+    k = inputKeysFromStr("k,f11");
+    newInputAction(INPUTACTIONTYPE_ONCE, "fullscreen", k, (void*)ACTION_FULLSCREEN);
+    free(k);
+    k = inputKeysFromStr("k,f2");
+    newInputAction(INPUTACTIONTYPE_ONCE, "screenshot", k, (void*)ACTION_SCREENSHOT);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,w;g,a,-lefty");
+    #else
+    k = inputKeysFromStr("k,w;g,b,y");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "move_forwards", k, (void*)ACTION_MOVE_FORWARDS);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,a;g,a,-leftx");
+    #else
+    k = inputKeysFromStr("k,a;g,b,x");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "move_left", k, (void*)ACTION_MOVE_LEFT);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,s;g,a,+lefty");
+    #else
+    k = inputKeysFromStr("k,s;g,b,a");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "move_backwards", k, (void*)ACTION_MOVE_BACKWARDS);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,d;g,a,+leftx");
+    #else
+    k = inputKeysFromStr("k,d;g,b,b");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "move_right", k, (void*)ACTION_MOVE_RIGHT);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("m,m,+y;k,up;g,a,-righty");
+    #else
+    k = inputKeysFromStr("m,m,+y;k,up;g,a,-lefty");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "look_up", k, (void*)ACTION_LOOK_UP);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("m,m,-x;k,left;g,a,-rightx");
+    #else
+    k = inputKeysFromStr("m,m,-x;k,left;g,a,-leftx");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "look_left", k, (void*)ACTION_LOOK_LEFT);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("m,m,-y;k,down;g,a,+righty");
+    #else
+    k = inputKeysFromStr("m,m,-y;k,down;g,a,+lefty");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "look_down", k, (void*)ACTION_LOOK_DOWN);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("m,m,+x;k,right;g,a,+rightx");
+    #else
+    k = inputKeysFromStr("m,m,+x;k,right;g,a,+leftx");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "look_right", k, (void*)ACTION_LOOK_RIGHT);
+    free(k);
+    #if PLATFORM != PLAT_EMSCR
+    k = inputKeysFromStr("k,lctrl;g,b,leftstick");
+    #else
+    k = inputKeysFromStr("k,c;g,b,leftstick");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "walk", k, (void*)ACTION_WALK);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,space;g,b,a");
+    #else
+    k = inputKeysFromStr("k,space;g,a,+lefttrigger");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "jump", k, (void*)ACTION_JUMP);
+    free(k);
+    #if PLATFORM != PLAT_DREAMCAST
+    k = inputKeysFromStr("k,lshift;g,a,+lefttrigger");
+    #else
+    k = inputKeysFromStr("k,lshift;g,b,dpdown");
+    #endif
+    newInputAction(INPUTACTIONTYPE_MULTI, "crouch", k, (void*)ACTION_CROUCH);
+    free(k);
+
+    tmp = cfg_getvar(&config, "Input", "lookspeed");
+    if (tmp) {
+        sscanf(tmp, "%f,%f", &lookspeed[0], &lookspeed[1]);
+        free(tmp);
+    } else {
+        lookspeed[0] = 2.0f;
+        lookspeed[1] = 2.0f;
+    }
+
+    #if DEBUG(1)
+        tmp = cfg_getvar(&config, "Debug", "printfps");
+        printfps = strbool(tmp, true);
+        free(tmp);
+        tmp = cfg_getvar(&config, "Debug", "printprof");
+        printprof = strbool(tmp, false);
+        free(tmp);
+        prof_init(&dbgprof, DBGPROF__COUNT, dbgprofstr);
+        prof_start(&dbgprof);
+        rendstate.dbgprof = &dbgprof;
+    #endif
+
+    plog(LL_INFO, "All systems go!");
+    toff = SDL_GetTicks();
+    framestamp = altutime();
+
+    return 0;
+}
+
+static void unstrap(void) {
     plog(LL_INFO, "Quit requested");
 
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
@@ -513,6 +656,24 @@ void quitLoop(void) {
     quitInput();
     plog(LL_INFO, "Quitting renderer...");
     quitRenderer();
+
+    plog(LL_INFO, "Quitting resource manager...");
+    quitRcMgr();
+
+    if (dirs[DIR_USER]) {
+        char* tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
+        //cfg_write(config, tmp);
+        free(tmp);
+        cfg_close(&config);
+    }
+
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    armWatchdog(5);
+    #endif
+    SDL_Quit();
+    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    cancelWatchdog();
+    #endif
 }
 
 static int parseargs(int argc, char** argv) {

@@ -33,7 +33,7 @@ Format:
 
     Key:
         { "bool" | {'i'|'u'} {"8"|"16"|"32"|"64"} | "string" }
-        [ '[' ['0'..'9']... ']' ]
+        [ [Whitespace] '[' /* An unsigned integer interpretable by 'strtoul' with a base of 0 */ ']' ]
         <Whitespace> <Name> [Whitespace] '=' [Whitespace] <Value> < [Whitespace] ';' >...
         [Whitespace] [Comment]...
 
@@ -41,8 +41,8 @@ Format:
         { <Raw value> | '{' [ <Raw value> [ ',' <Raw value> ]... ] '}' }
     Raw value:
         { /* A value interpretable by 'strbool' in 'src/psrc/string.h' (e.g. "true", "false", etc.) */
-        | /* A signed or unsigned integer interpretable by 'sscanf' using the 'SCNi' macros */
-        | /* A floating point number interpretable by 'strtof' or 'strtod' */
+        | /* A signed or unsigned integer interpretable by 'strtoimax' or 'strtoumax' with a base of 0 */
+        | /* A floating point number interpretable by 'strtod' */
         | <String> }
 
 

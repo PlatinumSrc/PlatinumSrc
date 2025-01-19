@@ -185,6 +185,12 @@ else ifeq ($(CROSS),3ds)
     SMDH_DESC := PlatinumSrc engine
     SMDH_AUTHOR := PQCraft
     SMDH_ICON := icons/engine.png
+    RSF_TITLE := PlatinumSrc
+    RSF_PRODUCTCODE := CTR-N-PSRC
+    RSF_UNIQUEID := 0x0FC3
+    RSF_SYSTEMMODE := 64MB
+    RSF_SYSTEMMODEEXT := Legacy
+    RSF_CPUSPEED := 804MHz
     SMDH := $(OUTDIR)/$(SMDH_TITLE).smdh
     3DSX := $(OUTDIR)/$(SMDH_TITLE).3dsx
     NOMT := y
@@ -300,7 +306,7 @@ ifneq ($(CROSS),nxdk)
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
         endif
-        _LDFLAGS += --embed-file internal/ --embed-file games/ --embed-file mods/
+        _LDFLAGS += --embed-file internal/engine/ --embed-file internal/server/ --embed-file games/ --embed-file mods/
     else ifeq ($(CROSS),3ds)
         _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
         _CPPFLAGS += -D__3DS__

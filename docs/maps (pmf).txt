@@ -250,13 +250,11 @@ Format:
 
         Cube:
             <u8:
-                <1 bit: 0>
+                <1 bit: Draw backfaces>
                 <1 bit: Has pathfinding data>
                 <1 bit: Has lighting data>
                 <1 bit: Has visibility data>
-                <1 bit: Extended client-side>
-                <1 bit: Extended>
-                <2 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_GEOMETRY | PMF_CUBE_EXTGEOMETRY }>
+                <4 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_GEOMETRY | PMF_CUBE_EXTGEOMETRY }>
             >
             [Cube visibility data]
             [ { <Parent cube data> | <Geometry cube data> | <Extended geometry cube data> } ]

@@ -32,7 +32,6 @@ build_engine() {
     MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
     OUTPUT="${BASE}_${FPLATDESC32}"
     MAKE=debmake buildrel "${1}" "${PLATDESC32}" "${@:2}" M32=y
-    unset MAKE
 
     ARCHIVER=_zip_u
 
@@ -54,7 +53,6 @@ build_server() {
     FILES=(psrc-server)
     OUTPUT="${BASE}_${FPLATDESC}"
     MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
-    unset MAKE
 
     ARCHIVER=_zip_u
 
@@ -70,7 +68,6 @@ build_editor() {
     FILES=(psrc-editor)
     OUTPUT="${BASE}_${FPLATDESC}"
     MAKE=debmake buildrel "${1}" "${PLATDESC}" "${@:2}"
-    unset MAKE
 
     ARCHIVER=_zip_u
 
@@ -86,7 +83,6 @@ build_tools() {
     FILES=(tools/platinum/platinum tools/ptftool/ptftool)
     OUTPUT="${BASE}_${FPLATDESC}"
     MAKE=debmake buildrel "${1}" "${PLATDESC}" -C tools "${@:2}"
-    unset MAKE
 
     ARCHIVER=_zip
 

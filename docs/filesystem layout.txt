@@ -1,21 +1,24 @@
 <Main dir>/ - Usually the directory the engine executable is located.
     internal/
-        resources/
-            fonts/
-            icons/
-            scripts/
-            textures/
-        shaders/
-        themes/
-        autorun.bas - (Optional) script to run on startup.
-        config.cfg - Optional. See 'default config.txt' for details.
+        editor/
+        engine/
+            resources/
+                fonts/
+                icons/
+                scripts/
+                textures/
+            shaders/
+            themes/
+            autorun.bas - (Optional) script to run on startup.
+            config.cfg - Optional. See 'default config.txt' for details.
+        server/
     games/ - This layout is optional (except for game.cfg and main.bas) but is highly recommended.
         <Game dir>/
             cosmetics/
             fonts/
             items/
             maps/ - Maps should be named using an [<Abbreviated game name or game mode>_]<Name> scheme and must have the
-                    .pmf file extension. See 'pmf.txt' for details.
+                    .pmf file extension. See 'maps (pmf).txt' for details.
             materials/ - Material definitions. See 'example material.txt' for details.
             models/
             music/
@@ -31,12 +34,13 @@
 
 <User dir>/ - A directory (specified by the 'userdir' variable in game.cfg) most likely inside of the system/user's
               program data directory.
-    downloads/ - Custom content
-        player/ - From players
+    databases/ - PKD databases.
+    downloads/ - Custom content.
+        player/ - From players.
             <First 4 hex digits of %016x CRC64>/
                 <Next 4 hex digits of %016x CRC64>/
                     <Last 8 hex digits of %016x CRC64>/
-        server/ - From servers
+        server/ - From servers.
             <First 4 hex digits of %016x CRC64>/
                 <Next 4 hex digits of %016x CRC64>/
                     <Last 8 hex digits of %016x CRC64>/ - Files overlay <Game dir>.
@@ -44,11 +48,12 @@
     resources/ - This layout is optional.
         cosmetics/
         playermodels/
-    autorun.bas - Optional script to run after autorun.bas in <Main dir>/internal/.
-    config.cfg - Optional config loaded after config.cfg in <Main dir>/internal/.
+    autorun.bas - Optional script to run after autorun.bas in <Main dir>/internal/engine/.
+    config.cfg - Optional config loaded after config.cfg in <Main dir>/internal/engine/.
 
 <Server dir>/ - The location the server executable was started in.
     content/ - Overlays <Game dir>.
-    games/ - Identical to games/ in <Main dir>
-    mods/ - Identical to mods/ in <Main dir>
-    server.cfg - See 'default server config.txt'
+    databases/ - PKD databases.
+    games/ - Identical to games/ in <Main dir>.
+    mods/ - Identical to mods/ in <Main dir>.
+    server.cfg - See 'default server config.txt'.

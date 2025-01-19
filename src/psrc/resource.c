@@ -659,7 +659,7 @@ bool lsCacheRc(const char* id, bool allownative, struct rcls* l) {
             return true;
         }
     }
-    #if !!defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     releaseReadAccess(&lscache.lock);
     #endif
     bool ret = lsRc_norslv(p, r, l);
