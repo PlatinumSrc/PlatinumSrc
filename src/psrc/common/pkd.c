@@ -3,16 +3,16 @@
 #include "pkd.h"
 
 #include <string.h>
-#if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+#if (PLATFLAGS & PLATFLAG_UNIXLIKE)
     #include <fcntl.h>
     #include <unistd.h>
     #include <sys/stat.h>
-#elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+#elif PLATFORM == PLAT_WIN32
     #include <windows.h>
 #endif
 
 int pkd_open(const char* p, bool nolock, struct pkd* d) {
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
         char* lockpath;
         if (!nolock) {
             int lockpathlen = strlen(p);
@@ -31,7 +31,7 @@ int pkd_open(const char* p, bool nolock, struct pkd* d) {
                     return PKD_ERR_OPEN_LOCKED;
                 }
                 close(fd);
-            #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            #elif PLATFORM == PLAT_WIN32
                 HANDLE* h = CreateFile(lockpath, 0, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (!h) {
                     free(lockpath);
@@ -50,7 +50,7 @@ int pkd_open(const char* p, bool nolock, struct pkd* d) {
                 unlink(lockpath);
                 free(lockpath);
             }
-        #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        #elif PLATFORM == PLAT_WIN32
             if (!nolock) {
                 DeleteFile(lockpath);
                 free(lockpath);
@@ -59,7 +59,7 @@ int pkd_open(const char* p, bool nolock, struct pkd* d) {
         return PKD_ERR_OPEN_CANTOPEN;
     }
     d->f = f;
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
         d->lockpath = lockpath;
     #endif
     return PKD_ERR_NONE;
@@ -72,7 +72,7 @@ void pkd_close(struct pkd* d) {
             unlink(d->lockpath);
             free(d->lockpath);
         }
-    #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #elif PLATFORM == PLAT_WIN32
         if (d->lockpath) {
             DeleteFile(d->lockpath);
             free(d->lockpath);

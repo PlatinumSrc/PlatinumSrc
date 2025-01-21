@@ -1,3 +1,5 @@
+// TODO: redo
+
 #ifndef PSRC_REUSABLE
     #include "../rcmgralloc.h"
 #else
@@ -492,10 +494,11 @@ void cfg_read(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
                                 tmpc = sect.data[sect.len - 1];
                             }
                         }
-                        char* tmp = cb_reinit(&sect, 256);
+                        char* tmp;
+                        cb_reinit(&sect, 256, &tmp);
                         interpfinal(tmp, &sect);
                         free(tmp);
-                        tmp = cb_reinit(&sect, 256);
+                        cb_reinit(&sect, 256, &tmp);
                         sectptr = NULL;
                         uint32_t crc = strcasecrc32(tmp);
                         for (int i = 0; i < cfg->sectcount; ++i) {
@@ -585,10 +588,10 @@ void cfg_read(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
                                             tmpc = var.data[var.len - 1];
                                         }
                                     }
-                                    varstr = cb_reinit(&var, 256);
+                                    cb_reinit(&var, 256, &varstr);
                                     interpfinal(varstr, &var);
                                     free(varstr);
-                                    varstr = cb_reinit(&var, 256);
+                                    cb_reinit(&var, 256, &varstr);
                                     if (data.len > 0) {
                                         char tmpc = data.data[data.len - 1];
                                         while (tmpc == ' ' || tmpc == '\t') {
@@ -596,10 +599,10 @@ void cfg_read(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
                                             tmpc = data.data[data.len - 1];
                                         }
                                     }
-                                    datastr = cb_reinit(&data, 256);
+                                    cb_reinit(&data, 256, &datastr);
                                     interpfinal(datastr, &data);
                                     free(datastr);
-                                    datastr = cb_reinit(&data, 256);
+                                    cb_reinit(&data, 256, &datastr);
                                     uint32_t crc = strcasecrc32(varstr);
                                     struct cfg_var* varptr = NULL;
                                     for (int i = 0; i < sectptr->varcount; ++i) {

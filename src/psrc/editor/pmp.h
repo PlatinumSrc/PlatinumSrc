@@ -8,12 +8,38 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define PMP_VER 0
+
+PACKEDENUM pmp_type {
+    PMP_TYPE_GROUP,
+    PMP_TYPE_ENDGROUP,
+    PMP_TYPE__VAR,
+    PMP_TYPE_BOOL = PMP_TYPE__VAR,
+    PMP_TYPE_I8,
+    PMP_TYPE_I16,
+    PMP_TYPE_I32,
+    PMP_TYPE_I64,
+    PMP_TYPE_U8,
+    PMP_TYPE_U16,
+    PMP_TYPE_U32,
+    PMP_TYPE_U64,
+    PMP_TYPE_F32,
+    PMP_TYPE_F64,
+    PMP_TYPE_STR,
+    PMP_TYPE__COUNT
+};
+struct pmp_vartype {
+    enum pmp_type type : 7;
+    uint8_t isarray : 1;
+    uint32_t size;
+};
+
 struct pmp_read {
     FILE* f;
     uint8_t istext : 1;
     uint8_t lastwasvar : 1;
     uint8_t : 6;
-    long skipsz;
+    struct pmp_vartype lasttype;
 };
 
 enum pmp_write_comp {
@@ -28,29 +54,7 @@ struct pmp_write {
     enum pmp_write_comp comp;
 };
 
-PACKEDENUM pmp_type {
-    PMP_TYPE_GROUP,
-    PMP_TYPE_ENDGROUP,
-    PMP_TYPE_BOOL,
-    PMP_TYPE_I8,
-    PMP_TYPE_I16,
-    PMP_TYPE_I32,
-    PMP_TYPE_I64,
-    PMP_TYPE_U8,
-    PMP_TYPE_U16,
-    PMP_TYPE_U32,
-    PMP_TYPE_U64,
-    PMP_TYPE_F32,
-    PMP_TYPE_F64,
-    PMP_TYPE_STR
-};
-struct pmp_vartype {
-    enum pmp_vartype type : 7;
-    uint8_t isarray : 1;
-    uint32_t size;
-}
-
-bool pmp_read_open(char* p, struct pmp_read*);
+bool pmp_read_open(char* p, bool text, struct pmp_read*);
 bool pmp_read_next(struct pmp_read*, struct charbuf* name, struct pmp_vartype*);
 void* pmp_read_readvar(struct pmp_read*);
 void pmp_read_close(struct pmp_read*);

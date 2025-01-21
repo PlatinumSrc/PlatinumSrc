@@ -123,25 +123,6 @@ static void sigh_log(int l, char* name, char* msg) {
         plog(l, "Received signal: %s", name);
     }
 }
-#ifndef PSRC_USESDL1
-static void sigh_cb_addstr(struct charbuf* b, const char* s) {
-    char c;
-    while ((c = *s)) {
-        if (c == ' ') {
-            cb_add(b, '+');
-        } else if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~') {
-            cb_add(b, c);
-        } else {
-            cb_add(b, '%');
-            char tmp[3];
-            sprintf(tmp, "%02X", c);
-            cb_add(b, tmp[0]);
-            cb_add(b, tmp[1]);
-        }
-        ++s;
-    }
-}
-#endif
 static void sigh(int sig) {
     signal(sig, sigh);
     #if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809L
@@ -152,7 +133,7 @@ static void sigh(int sig) {
     #endif
     switch (sig) {
         case SIGINT:
-            if (quitreq > 0) {
+            if (quitreq) {
                 sigh_log(LL_WARN, signame, "Graceful exit already requested; Forcing exit...");
                 exit(1);
             } else {
@@ -180,52 +161,9 @@ static void sigh(int sig) {
         #ifdef SIGILL
         case SIGILL:
         #endif
-        {
             plog(LL_CRIT, "Received signal: %s", signame);
-            #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && !defined(PSRC_USESDL1)
-            SDL_MessageBoxButtonData btndata[] = {
-                {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes"},
-                {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No"}
-            };
-            char msgdata[256] = "Received signal: ";
-            strcat(msgdata, signame);
-            strcat(msgdata, ".\nTry to submit a bug report on GitHub?");
-            SDL_MessageBoxData boxdata = {
-                .flags = SDL_MESSAGEBOX_ERROR,
-                .title = "Fatal crash",
-                .message = msgdata,
-                .numbuttons = sizeof(btndata) / sizeof(*btndata),
-                .buttons = btndata
-            };
-            int btn = 0;
-            SDL_ShowMessageBox(&boxdata, &btn);
-            if (btn) {
-                struct charbuf cb;
-                cb_init(&cb, 4096);
-                cb_addstr(&cb, "https://github.com/PlatinumSrc/PlatinumSrc/issues/new?labels=bug&title=Automatic%20crash%20report&body=");
-                sigh_cb_addstr(&cb, verstr);
-                sigh_cb_addstr(&cb, "\n");
-                sigh_cb_addstr(&cb, platstr);
-                sigh_cb_addstr(&cb, "\nGame: ");
-                sigh_cb_addstr(&cb, gameinfo.dir);
-                if (logpath) {
-                    sigh_cb_addstr(&cb, "\n\n***!!! PLEASE UPLOAD THE LOG AT `");
-                    sigh_cb_addstr(&cb, logpath);
-                    sigh_cb_addstr(&cb, "` HERE AND DELETE THIS TEXT !!!***");
-                }
-                puts(cb_peek(&cb));
-                #if PLATFORM == PLAT_WIN32
-                ShellExecute(NULL, "open", cb_peek(&cb), NULL, NULL, SW_NORMAL);
-                #elif PLATFORM == PLAT_ANDROID
-                execlp("am", "am", "start", "-a", "android.intent.action.VIEW", "-d", cb_peek(&cb), NULL);
-                #else
-                execlp("xdg-open", "xdg-open", cb_peek(&cb), NULL);
-                execlp("open", "open", cb_peek(&cb), NULL);
-                #endif
-            }
-            #endif
             exit(1);
-        } break;
+            break;
         default:
             sigh_log(LL_WARN, signame, NULL);
             break;

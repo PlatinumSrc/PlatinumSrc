@@ -68,215 +68,6 @@ static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, u
 }
 #endif
 
-static float fwrap(float n, float d) {
-    float tmp = n - (int)(n / d) * d;
-    if (tmp < 0.0f) tmp += d;
-    return tmp;
-}
-static void loop(void) {
-    #if DEBUG(1)
-    prof_start(&dbgprof);
-    #endif
-
-    static float runspeed = 4.0f;
-    static float walkspeed = 2.0f;
-    static double framemult = 0.0;
-
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_EVENTS);
-    #endif
-    pollInput();
-    #if PLATFORM == PLAT_3DS
-    if (!aptMainLoop()) ++quitreq;
-    #endif
-    #if DEBUG(1)
-    prof_end(&dbgprof);
-    #endif
-
-    if (quitreq) return;
-
-    // TODO: run scripts here
-
-    long lt = SDL_GetTicks() - toff;
-    double dt = (double)(lt % 1000) / 1000.0;
-    double t = (double)(lt / 1000) + dt;
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_AUDIO);
-    #endif
-    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
-    #if 0
-    {
-        float v = sin(t * 0.989);
-        if (v >= 0.25f) {
-            editSoundEnv(SOUNDENV_LPFILT(v - 0.25f), SOUNDENV_HPFILT(0.0));
-        } else if (v <= -0.25f) {
-            editSoundEnv(SOUNDENV_HPFILT(v * -1.0f - 0.25f), SOUNDENV_LPFILT(0.0));
-        } else {
-            editSoundEnv(SOUNDENV_LPFILT(0.0), SOUNDENV_HPFILT(0.0));
-        }
-    }
-    #endif
-    #if 0
-    {
-        float v = sin(t * 0.989);
-        if (v >= 0.25f) {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(v - 0.25f), SOUNDFX_HPFILT(0.0));
-        } else if (v <= -0.25f) {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_HPFILT(v * -1.0f - 0.25f), SOUNDFX_LPFILT(0.0));
-        } else {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(0.0), SOUNDFX_HPFILT(0.0));
-        }
-    }
-    #endif
-    #if DEBUG(1)
-    prof_end(&dbgprof);
-    #endif
-
-    static bool screenshot = false;
-
-    bool walk = false;
-    float movex = 0.0f, movez = 0.0f, movey = 0.0f;
-    float lookx = 0.0f, looky = 0.0f;
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_EVENTS);
-    #endif
-    struct inputaction a;
-    while (getNextInputAction(&a)) {
-        //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
-        switch ((enum action)(uintptr_t)a.userdata) {
-            case ACTION_MENU: ++quitreq; break;
-            case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
-            case ACTION_SCREENSHOT: screenshot = true; break;
-            case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0f; break;
-            case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0f; break;
-            case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0f; break;
-            case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0f; break;
-            case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
-            case ACTION_WALK: walk = true; break;
-            case ACTION_JUMP: movey += (float)a.amount / 32767.0f; break;
-            case ACTION_CROUCH: movey -= (float)a.amount / 32767.0f; break;
-            default: break;
-        }
-    }
-    #if DEBUG(1)
-    prof_end(&dbgprof);
-    #endif
-    float speed = (walk) ? walkspeed : runspeed;
-    float jumpspeed = (walk) ? 1.0f : 2.5f;
-
-    {
-        // this can probably be optimized
-        float mul = atan2f(fabsf(movex), fabsf(movez));
-        mul = fabsf(1 / (cosf(mul) + sinf(mul)));
-        movex *= mul;
-        movez *= mul;
-        float yrotrad = rendstate.camrot[1] * (float)M_PI / 180.0f;
-        float tmp[4];
-        tmp[0] = sinf(yrotrad);
-        tmp[1] = cosf(yrotrad);
-        tmp[2] = tmp[1] * movez;
-        tmp[3] = -tmp[0] * movex;
-        tmp[0] *= movez;
-        tmp[1] *= movex;
-        movex = tmp[0] + tmp[1];
-        movez = tmp[2] + tmp[3];
-    }
-    audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * (float)framemult);
-    audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * (float)framemult);
-    audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * (float)framemult);
-    rendstate.camrot[0] += lookx * lookspeed[1];
-    rendstate.camrot[1] += looky * lookspeed[0];
-    //rendstate.camrot[2] =  22.5f;
-    if (rendstate.camrot[0] > 90.0f) rendstate.camrot[0] = 90.0f;
-    else if (rendstate.camrot[0] < -90.0f) rendstate.camrot[0] = -90.0f;
-    rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0f);
-    audiostate.cam.rot[0] = rendstate.camrot[0];
-    audiostate.cam.rot[1] = rendstate.camrot[1];
-    audiostate.cam.rot[2] = rendstate.camrot[2];
-
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_AUDIO);
-    #endif
-    updateSounds(framemult);
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_RENDERER);
-    #endif
-    render();
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_RCMGR);
-    #endif
-    runRcMgr(altutime());
-    #if DEBUG(1)
-    prof_begin(&dbgprof, DBGPROF_RENDSWAP);
-    #endif
-    display();
-    #if DEBUG(1)
-    prof_end(&dbgprof);
-    #endif
-
-    if (screenshot) {
-        int sz;
-        void* d = takeScreenshot(NULL, NULL, &sz);
-        FILE* f = fopen("screenshot.data", "wb");
-        fwrite(d, 1, sz, f);
-        fclose(f);
-        free(d);
-        screenshot = false;
-    }
-
-    uint64_t tmputime = altutime();
-    uint64_t frametime = tmputime - framestamp;
-    framestamp = tmputime;
-    framemult = frametime / 1000000.0;
-
-    #if DEBUG(1)
-        static uint64_t fpstime = 0;
-        static uint64_t fpsframetime = 0;
-        static int fpsframecount = 0;
-        static int profcurwait = -1;
-        static const int profwait = 2;
-        fpsframetime += frametime;
-        ++fpsframecount;
-        if (tmputime >= fpstime) {
-            fpstime += 500000;
-            if (tmputime >= fpstime) fpstime = tmputime + 500000;
-            if (printfps) {
-                uint64_t avgframetime = fpsframetime / fpsframecount;
-                double avgfps = 1000000.0 / (uint64_t)avgframetime;
-                printf("FPS: %.03f (%.03fms)\n", avgfps, avgframetime / 1000.0);
-            }
-            fpsframetime = 0;
-            fpsframecount = 0;
-            if (profcurwait <= 0) {
-                prof_calc(&dbgprof);
-                if (printprof) {
-                    for (int i = 0; i < DBGPROF__COUNT; ++i) {
-                        printprofpoint(
-                            dbgprof.colors[i].r, dbgprof.colors[i].g, dbgprof.colors[i].b,
-                            dbgprof.time[i], dbgprof.percent[i],
-                            dbgprofstr[i]
-                        );
-                    }
-                    printprofpoint(192, 192, 192, dbgprof.time[-1], dbgprof.percent[-1], "Other");
-                    for (int i = 0; i < profwait; ++i) {
-                        putchar('\n');
-                    }
-                    for (int i = 0; i < profwait; ++i) {
-                        putchar('\x1b');
-                        putchar('[');
-                        putchar('A');
-                    }
-                }
-            }
-            if (profcurwait == profwait) profcurwait = 0;
-            else ++profcurwait;
-        }
-    #endif
-}
-
 static int bootstrap(void) {
     char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "engine", "config.cfg", NULL);
     {
@@ -676,6 +467,215 @@ static void unstrap(void) {
     #endif
 }
 
+static float fwrap(float n, float d) {
+    float tmp = n - (int)(n / d) * d;
+    if (tmp < 0.0f) tmp += d;
+    return tmp;
+}
+static void loop(void) {
+    #if DEBUG(1)
+    prof_start(&dbgprof);
+    #endif
+
+    static float runspeed = 4.0f;
+    static float walkspeed = 2.0f;
+    static double framemult = 0.0;
+
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_EVENTS);
+    #endif
+    pollInput();
+    #if PLATFORM == PLAT_3DS
+    if (!aptMainLoop()) ++quitreq;
+    #endif
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
+
+    if (quitreq) return;
+
+    // TODO: run scripts here
+
+    long lt = SDL_GetTicks() - toff;
+    double dt = (double)(lt % 1000) / 1000.0;
+    double t = (double)(lt / 1000) + dt;
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_AUDIO);
+    #endif
+    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
+    #if 0
+    {
+        float v = sin(t * 0.989);
+        if (v >= 0.25f) {
+            editSoundEnv(SOUNDENV_LPFILT(v - 0.25f), SOUNDENV_HPFILT(0.0));
+        } else if (v <= -0.25f) {
+            editSoundEnv(SOUNDENV_HPFILT(v * -1.0f - 0.25f), SOUNDENV_LPFILT(0.0));
+        } else {
+            editSoundEnv(SOUNDENV_LPFILT(0.0), SOUNDENV_HPFILT(0.0));
+        }
+    }
+    #endif
+    #if 0
+    {
+        float v = sin(t * 0.989);
+        if (v >= 0.25f) {
+            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(v - 0.25f), SOUNDFX_HPFILT(0.0));
+        } else if (v <= -0.25f) {
+            editAudioEmitter(testemt_obj, false, SOUNDFX_HPFILT(v * -1.0f - 0.25f), SOUNDFX_LPFILT(0.0));
+        } else {
+            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(0.0), SOUNDFX_HPFILT(0.0));
+        }
+    }
+    #endif
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
+
+    static bool screenshot = false;
+
+    bool walk = false;
+    float movex = 0.0f, movez = 0.0f, movey = 0.0f;
+    float lookx = 0.0f, looky = 0.0f;
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_EVENTS);
+    #endif
+    struct inputaction a;
+    while (getNextInputAction(&a)) {
+        //printf("action!: %s: %f\n", a.data->name, (float)a.amount / 32767.0f);
+        switch ((enum action)(uintptr_t)a.userdata) {
+            case ACTION_MENU: ++quitreq; break;
+            case ACTION_FULLSCREEN: updateRendererConfig(RENDOPT_FULLSCREEN, -1, RENDOPT_END); break;
+            case ACTION_SCREENSHOT: screenshot = true; break;
+            case ACTION_MOVE_FORWARDS: movez += (float)a.amount / 32767.0f; break;
+            case ACTION_MOVE_BACKWARDS: movez -= (float)a.amount / 32767.0f; break;
+            case ACTION_MOVE_LEFT: movex -= (float)a.amount / 32767.0f; break;
+            case ACTION_MOVE_RIGHT: movex += (float)a.amount / 32767.0f; break;
+            case ACTION_LOOK_UP: lookx += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_DOWN: lookx -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_LEFT: looky -= (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_LOOK_RIGHT: looky += (float)a.amount * ((a.constant) ? (float)framemult * 50.0f : 1.0f) / 32767.0f; break;
+            case ACTION_WALK: walk = true; break;
+            case ACTION_JUMP: movey += (float)a.amount / 32767.0f; break;
+            case ACTION_CROUCH: movey -= (float)a.amount / 32767.0f; break;
+            default: break;
+        }
+    }
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
+    float speed = (walk) ? walkspeed : runspeed;
+    float jumpspeed = (walk) ? 1.0f : 2.5f;
+
+    {
+        // this can probably be optimized
+        float mul = atan2f(fabsf(movex), fabsf(movez));
+        mul = fabsf(1 / (cosf(mul) + sinf(mul)));
+        movex *= mul;
+        movez *= mul;
+        float yrotrad = rendstate.camrot[1] * (float)M_PI / 180.0f;
+        float tmp[4];
+        tmp[0] = sinf(yrotrad);
+        tmp[1] = cosf(yrotrad);
+        tmp[2] = tmp[1] * movez;
+        tmp[3] = -tmp[0] * movex;
+        tmp[0] *= movez;
+        tmp[1] *= movex;
+        movex = tmp[0] + tmp[1];
+        movez = tmp[2] + tmp[3];
+    }
+    audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * (float)framemult);
+    audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * (float)framemult);
+    audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * (float)framemult);
+    rendstate.camrot[0] += lookx * lookspeed[1];
+    rendstate.camrot[1] += looky * lookspeed[0];
+    //rendstate.camrot[2] =  22.5f;
+    if (rendstate.camrot[0] > 90.0f) rendstate.camrot[0] = 90.0f;
+    else if (rendstate.camrot[0] < -90.0f) rendstate.camrot[0] = -90.0f;
+    rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0f);
+    audiostate.cam.rot[0] = rendstate.camrot[0];
+    audiostate.cam.rot[1] = rendstate.camrot[1];
+    audiostate.cam.rot[2] = rendstate.camrot[2];
+
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_AUDIO);
+    #endif
+    updateSounds(framemult);
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RENDERER);
+    #endif
+    render();
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RCMGR);
+    #endif
+    runRcMgr(altutime());
+    #if DEBUG(1)
+    prof_begin(&dbgprof, DBGPROF_RENDSWAP);
+    #endif
+    display();
+    #if DEBUG(1)
+    prof_end(&dbgprof);
+    #endif
+
+    if (screenshot) {
+        int sz;
+        void* d = takeScreenshot(NULL, NULL, &sz);
+        FILE* f = fopen("screenshot.data", "wb");
+        fwrite(d, 1, sz, f);
+        fclose(f);
+        free(d);
+        screenshot = false;
+    }
+
+    uint64_t tmputime = altutime();
+    uint64_t frametime = tmputime - framestamp;
+    framestamp = tmputime;
+    framemult = frametime / 1000000.0;
+
+    #if DEBUG(1)
+        static uint64_t fpstime = 0;
+        static uint64_t fpsframetime = 0;
+        static int fpsframecount = 0;
+        static int profcurwait = -1;
+        static const int profwait = 2;
+        fpsframetime += frametime;
+        ++fpsframecount;
+        if (tmputime >= fpstime) {
+            fpstime += 500000;
+            if (tmputime >= fpstime) fpstime = tmputime + 500000;
+            if (printfps) {
+                uint64_t avgframetime = fpsframetime / fpsframecount;
+                double avgfps = 1000000.0 / (uint64_t)avgframetime;
+                printf("FPS: %.03f (%.03fms)\n", avgfps, avgframetime / 1000.0);
+            }
+            fpsframetime = 0;
+            fpsframecount = 0;
+            if (profcurwait <= 0) {
+                prof_calc(&dbgprof);
+                if (printprof) {
+                    for (int i = 0; i < DBGPROF__COUNT; ++i) {
+                        printprofpoint(
+                            dbgprof.colors[i].r, dbgprof.colors[i].g, dbgprof.colors[i].b,
+                            dbgprof.time[i], dbgprof.percent[i],
+                            dbgprofstr[i]
+                        );
+                    }
+                    printprofpoint(192, 192, 192, dbgprof.time[-1], dbgprof.percent[-1], "Other");
+                    for (int i = 0; i < profwait; ++i) {
+                        putchar('\n');
+                    }
+                    for (int i = 0; i < profwait; ++i) {
+                        putchar('\x1b');
+                        putchar('[');
+                        putchar('A');
+                    }
+                }
+            }
+            if (profcurwait == profwait) profcurwait = 0;
+            else ++profcurwait;
+        }
+    #endif
+}
+
 static int parseargs(int argc, char** argv) {
     struct args a;
     args_init(&a, argc, argv);
@@ -750,7 +750,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.game);
-            options.game = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.game);
         } else if (!strcmp(opt.data, "mods")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -759,7 +759,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.mods);
-            options.mods = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.mods);
         } else if (!strcmp(opt.data, "icon")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -768,7 +768,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.icon);
-            options.icon = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.icon);
         } else if (!strcmp(opt.data, "set") || !strcmp(opt.data, "s")) {
             e = args_getoptval(&a, 0, -1, &val, &err);
             if (e == -1) {
@@ -799,7 +799,7 @@ static int parseargs(int argc, char** argv) {
                     goto longbreak;
                 } else if (e == 0) {
                     free(sect);
-                    sect = cb_reinit(&var, 32);
+                    cb_reinit(&var, 32, &sect);
                 } else {
                     cfg_setvar(&options.set, sect, cb_peek(&var), cb_peek(&val), true);
                     cb_clear(&val);
@@ -815,7 +815,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.maindir);
-            options.maindir = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.maindir);
         } else if (!strcmp(opt.data, "userdir")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -824,7 +824,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.userdir);
-            options.userdir = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.userdir);
         } else if (!strcmp(opt.data, "config") || !strcmp(opt.data, "cfg") || !strcmp(opt.data, "c")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -833,7 +833,7 @@ static int parseargs(int argc, char** argv) {
                 break;
             }
             free(options.config);
-            options.config = cb_reinit(&val, 256);
+            cb_reinit(&val, 256, &options.config);
         } else if (!strcmp(opt.data, "nouserconfig") || !strcmp(opt.data, "nousercfg")) {
             e = args_getoptval(&a, 0, -1, &val, &err);
             if (e == -1) {

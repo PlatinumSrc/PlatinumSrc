@@ -8,7 +8,7 @@
 
 #include <stdbool.h>
 
-extern int quitreq;
+extern unsigned quitreq;
 
 extern struct options {
     char* game;

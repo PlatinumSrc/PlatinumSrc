@@ -1,6 +1,8 @@
 #ifndef PSRC_COMMON_CONFIG_H
 #define PSRC_COMMON_CONFIG_H
 
+// TODO: redo
+
 #ifndef PSRC_REUSABLE
     #include "../threading.h"
 #endif

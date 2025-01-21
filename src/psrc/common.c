@@ -25,7 +25,7 @@
 
 #include "glue.h"
 
-int quitreq = 0;
+unsigned quitreq = 0;
 
 struct options options = {0};
 struct gameinfo gameinfo = {0};

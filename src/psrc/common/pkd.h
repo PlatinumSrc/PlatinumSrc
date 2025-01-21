@@ -14,7 +14,7 @@
 
 struct pkd {
     FILE* f;
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
     char* lockpath;
     #endif
 };

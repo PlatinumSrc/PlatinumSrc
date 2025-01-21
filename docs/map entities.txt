@@ -269,7 +269,12 @@ Trigger box entity data:
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
     <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
     <<String>: Team filter (if empty, do not filter team)>
-    <<String>: Output signal>
+    <<String>: Output when entering>
+    <<String>: Output when entered>
+    <<String>: Output when fully entered>
+    <<String>: Output when exiting>
+    <<String>: Output when exited>
+    <<String>: Output when fully exited>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -698,7 +703,8 @@ Broadcaster entity data:
 
 Dispatcher entity data:
     <u8:
-        <7 bits: 0>
+        <6 bits: 0>
+        <1 bit: Replace initiator with self for output>
         <1 bit: Inactive>
     >
     <<String>: Input signal>

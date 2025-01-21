@@ -1484,7 +1484,7 @@ void loadMods(const char* const* l, int ct) {
                     continue;
                 }
             }
-            mods.data[mi].path = cb_reinit(&cb, 256);
+            cb_reinit(&cb, 256, &mods.data[mi].path);
             mods.data[mi].dir = n;
             if (!mods.data[mi].name) mods.data[mi].name = strdup(l[i]);
         }
@@ -1503,7 +1503,7 @@ void loadMods(const char* const* l, int ct) {
                 cb_clear(&cb);
                 continue;
             }
-            mods.data[mi].path = cb_reinit(&cb, 256);
+            cb_reinit(&cb, 256, &mods.data[mi].path);
             mods.data[mi].dir = n;
             if (!mods.data[mi].name) mods.data[mi].name = strdup(l[i]);
         }
