@@ -76,6 +76,4 @@ extern struct cfg config;
 void setupBaseDirs(void);
 bool setGame(const char*, bool maybepath, struct charbuf* err);
 
-bool common_findpv(const char*, int*);
-
 #endif

@@ -21,7 +21,7 @@ static void ftree_lsdir(struct ftree* tree, struct lsstate* ls) {
     const char* path;
     while (getls(ls, &name, &path)) {
         uint32_t namecrc = strcrc32(name);
-        for (uintptr_t i = 0; i < tree->len; ++i) {
+        for (size_t i = 0; i < tree->len; ++i) {
             struct ftree_node* n = &tree->data[i];
             if (n->namecrc == namecrc && !strcmp(n->name, name)) goto noadd;
         }
@@ -104,18 +104,18 @@ void ftree_init(struct ftree* tree, int ct, char** pl) {
                 continue;
             }
         }
-        int namect;
+        size_t namect;
         char** names;
         names = splitstr(p, PATHSEPSTR, false, &namect);
         char* freenames = *names;
         {
-            int offset = 0;
-            for (int j = 0; j < namect; ++j) {
+            size_t offset = 0;
+            for (size_t j = 0; j < namect; ++j) {
                 if (!strcmp(names[j], "..")) offset = j + 1;
             }
             if (offset) {
                 fputs("Warning: Trimming '", stderr);
-                for (int j = 0; j < offset; ++j) {
+                for (size_t j = 0; j < offset; ++j) {
                     fputs(names[j], stderr);
                     fputc(PATHSEP, stderr);
                 }
@@ -123,11 +123,11 @@ void ftree_init(struct ftree* tree, int ct, char** pl) {
                 names += offset;
                 namect -= offset;
             }
-            int j = 0;
+            size_t j = 0;
             while (1) {
                 if (j == namect) break;
                 if (!*names[j] || !strcmp(names[j], ".")) {
-                    for (int k = j; k < namect - 1; ++k) {
+                    for (size_t k = j; k < namect - 1; ++k) {
                         names[k] = names[k + 1];
                     }
                     --namect;
@@ -138,43 +138,45 @@ void ftree_init(struct ftree* tree, int ct, char** pl) {
         }
         struct ftree* curtree = tree;
         struct ftree_node* n;
-        for (int j = 0; j < namect - 1; ++j) {
-            uint32_t namecrc = strcrc32(names[j]);
-            for (uintptr_t nodei = 0; nodei < curtree->len; ++nodei) {
-                n = &curtree->data[nodei];
-                if (n->namecrc == namecrc && !strcmp(n->name, names[j])) {
-                    if (!n->isdir) {
-                        fputs("Warning: Archive path '", stderr);
-                        fputs(names[0], stderr);
-                        for (int k = 1; k <= j; ++k) {
-                            fputc(PATHSEP, stderr);
-                            fputs(names[k], stderr);
+        if (namect > 1) {
+            for (size_t j = 0; j < namect - 1; ++j) {
+                uint32_t namecrc = strcrc32(names[j]);
+                for (size_t nodei = 0; nodei < curtree->len; ++nodei) {
+                    n = &curtree->data[nodei];
+                    if (n->namecrc == namecrc && !strcmp(n->name, names[j])) {
+                        if (!n->isdir) {
+                            fputs("Warning: Archive path '", stderr);
+                            fputs(names[0], stderr);
+                            for (size_t k = 1; k <= j; ++k) {
+                                fputc(PATHSEP, stderr);
+                                fputs(names[k], stderr);
+                            }
+                            fputs("' is not a dir; overriding", stderr);
+                            n->isdir = 1;
+                            VLB_INIT(n->dir.contents, 1, VLB_OOM_NOP);
                         }
-                        fputs("' is not a dir; overriding", stderr);
-                        n->isdir = 1;
-                        VLB_INIT(n->dir.contents, 1, VLB_OOM_NOP);
+                        curtree = &n->dir.contents;
+                        goto noadd;
                     }
-                    curtree = &n->dir.contents;
-                    goto noadd;
                 }
+                VLB_NEXTPTR(*curtree, n, 2, 1, VLB_OOM_NOP);
+                n->isdir = 1;
+                n->name = strdup(names[j]);
+                n->namecrc = namecrc;
+                VLB_INIT(n->dir.contents, 1, VLB_OOM_NOP);
+                curtree = &n->dir.contents;
+                noadd:;
             }
-            VLB_NEXTPTR(*curtree, n, 2, 1, VLB_OOM_NOP);
-            n->isdir = 1;
-            n->name = strdup(names[j]);
-            n->namecrc = namecrc;
-            VLB_INIT(n->dir.contents, 1, VLB_OOM_NOP);
-            curtree = &n->dir.contents;
-            noadd:;
         }
         if (isfile) {
             const char* name = names[namect - 1];
             uint32_t namecrc = strcrc32(name);
-            for (uintptr_t nodei = 0; nodei < curtree->len; ++nodei) {
+            for (size_t nodei = 0; nodei < curtree->len; ++nodei) {
                 n = &curtree->data[nodei];
                 if (n->namecrc == namecrc && !strcmp(n->name, name)) {
                     fputs("Warning: Archive path '", stderr);
                     fputs(names[0], stderr);
-                    for (int j = 1; j < namect; ++j) {
+                    for (size_t j = 1; j < namect; ++j) {
                         fputc(PATHSEP, stderr);
                         fputs(names[j], stderr);
                     }
@@ -200,13 +202,13 @@ void ftree_init(struct ftree* tree, int ct, char** pl) {
             if (namect) {
                 const char* name = names[namect - 1];
                 uint32_t namecrc = strcrc32(name);
-                for (uintptr_t nodei = 0; nodei < curtree->len; ++nodei) {
+                for (size_t nodei = 0; nodei < curtree->len; ++nodei) {
                     n = &curtree->data[nodei];
                     if (n->namecrc == namecrc && !strcmp(n->name, name)) {
                         if (!n->isdir) {
                             fputs("Warning: Archive path '", stderr);
                             fputs(names[0], stderr);
-                            for (int j = 1; j < namect; ++j) {
+                            for (size_t j = 1; j < namect; ++j) {
                                 fputc(PATHSEP, stderr);
                                 fputs(names[j], stderr);
                             }
@@ -237,7 +239,7 @@ void ftree_free(struct ftree* tree) {
 }
 
 static void ftree_list_internal(struct ftree* tree, int depth) {
-    for (uintptr_t i = 0; i < tree->len; ++i) {
+    for (size_t i = 0; i < tree->len; ++i) {
         struct ftree_node* n = &tree->data[i];
         for (int i = 0; i < depth; ++i) {
             fputs("  ", stdout);

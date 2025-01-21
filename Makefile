@@ -427,6 +427,7 @@ else
             O := g
         endif
         _CFLAGS += -O$(O) -g -Wdouble-promotion -fno-omit-frame-pointer
+        #_CFLAGS += -Wconversion
         ifneq ($(CROSS),emscr)
             _CFLAGS += -std=c11 -pedantic
         endif

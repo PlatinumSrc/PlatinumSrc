@@ -35,6 +35,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "glue.h"
 
@@ -79,8 +80,8 @@ struct rcheader {
     char* path; // sanitized resource path without prefix (e.g. /textures/icon)
     uint32_t pathcrc;
     uint64_t datacrc;
-    unsigned refs;
-    unsigned index;
+    size_t refs;
+    size_t index;
     uintptr_t zreftick;
     uint8_t forcefree : 1;
     uint8_t hasdatacrc : 1;
@@ -150,8 +151,8 @@ struct rcgrouppage {
 };
 static struct {
     struct rcgrouppage* pages;
-    unsigned pagect;
-    unsigned zrefct;
+    size_t pagect;
+    size_t zrefct;
 } rcgroups[RC__COUNT];
 
 static const void* const defaultrcopts[RC__COUNT] = {
@@ -227,13 +228,13 @@ static void lsRc_dup(const struct rcls* in, struct rcls* out) {
     memcpy(odirbmp, idirbmp, in->dirbmplen);
     #endif
     for (int ri = 0; ri < RC__DIR + 1; ++ri) {
-        int ct = in->count[ri];
+        size_t ct = in->count[ri];
         out->count[ri] = ct;
         if (ct) {
             struct rcls_file* ofl = rcmgr_malloc(ct * sizeof(*ofl));
             out->files[ri] = ofl;
             struct rcls_file* ifl = in->files[ri];
-            for (int i = 0; i < ct; ++i) {
+            for (size_t i = 0; i < ct; ++i) {
                 ofl[i] = ifl[i];
                 ofl[i].name -= (uintptr_t)inames;
                 ofl[i].name += (uintptr_t)onames;
@@ -257,8 +258,8 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
     }
     #endif
     struct {
-        int len;
-        int size;
+        size_t len;
+        size_t size;
     } ld[RC__DIR + 1] = {0};
     struct charbuf cb;
     cb_init(&cb, 256);
@@ -309,7 +310,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
         const char* ln;
         while (getls(&s, &n, &ln)) {
             int ind;
-            long unsigned ol = cb.len;
+            size_t ol = cb.len;
             {
                 int isfile = isFile(ln);
                 if (isfile == 1) {
@@ -345,11 +346,11 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
                     continue;
                 }
             }
-            int fi;
+            size_t fi;
             char* tmp = &cb.data[ol];
             uint32_t crc = strcrc32(tmp);
             if (ret) {
-                int i = 0;
+                size_t i = 0;
                 again2:;
                 if (i < ld[ind].len) {
                     struct rcls_file* f = &l->files[ind][i];
@@ -398,12 +399,12 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
         l->dirbmplen = dirbmp.len;
         #endif
         for (int ri = 0; ri < RC__DIR + 1; ++ri) {
-            int ct = ld[ri].len;
+            size_t ct = ld[ri].len;
             l->count[ri] = ct;
             if (ct) {
                 struct rcls_file* fl = rcmgr_realloc(l->files[ri], ct * sizeof(**l->files));
                 l->files[ri] = fl;
-                for (int i = 0; i < ct; ++i) {
+                for (size_t i = 0; i < ct; ++i) {
                     fl[i].name += (uintptr_t)cb.data;
                     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
                     fl[i].dirbits += (uintptr_t)dirbmp.data;
@@ -500,7 +501,7 @@ static void lscDelAll(void) {
     #endif
 }
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-static struct rcls* lscGet_len(enum rcprefix p, const char* path, uint32_t crc, int len) {
+static struct rcls* lscGet_len(enum rcprefix p, const char* path, uint32_t crc, size_t len) {
     if (!lscache.data) return NULL;
     int di = lscache.head;
     while (1) {
@@ -544,10 +545,10 @@ static struct rcls* lscGet(enum rcprefix p, const char* path, uint32_t crc) {
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
 static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) {
     //printf("LSCFIND: [%d] [%d] {%s}\n", t, p, path);
-    int spos = 0;
+    size_t spos = 0;
     const char* f = path;
     {
-        int i = 0;
+        size_t i = 0;
         while (1) {
             char c = path[i];
             if (c == '/') {spos = i; f = &path[i + 1];}
@@ -581,9 +582,9 @@ static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) 
     }
     uint32_t fcrc = strcrc32(f);
     //printf("FIND: [%08X] {%s}\n", fcrc, f);
-    int ct = l->count[t];
+    size_t ct = l->count[t];
     struct rcls_file* fl = l->files[t];
-    for (int i = 0; i < ct; ++i) {
+    for (size_t i = 0; i < ct; ++i) {
         //printf("CMP [%08X] {%s}\n", fl[i].namecrc, fl[i].name);
         if (fl[i].namecrc == fcrc && !strcmp(fl[i].name, f)) return fl[i].dirbits;
     }
@@ -592,7 +593,7 @@ static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) 
 #endif
 
 static char* rcIdToPath(const char* id, bool allownative, enum rcprefix* p) {
-    unsigned i = 0;
+    size_t i = 0;
     while (1) {
         char c = id[i];
         if (!c) break;
@@ -702,10 +703,10 @@ static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* o
     //return true;
 }
 static struct resource* findRc(enum rctype type, enum rcprefix prefix, const char* path, uint32_t pathcrc, const void* opt) {
-    for (unsigned p = 0; p < rcgroups[type].pagect; ++p) {
+    for (size_t p = 0; p < rcgroups[type].pagect; ++p) {
         register uint16_t occ = rcgroups[type].pages[p].occ;
         if (!occ) continue;
-        unsigned i = 0;
+        size_t i = 0;
         while (1) {
             if (occ & 1) {
                 struct resource* rc = (void*)((char*)rcgroups[type].pages[p].data + i * rcallocsz[type]);
@@ -733,7 +734,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
     const char* const* exts = rcextensions[type];
     const char* tmp;
     while ((tmp = *exts)) {
-        uintptr_t l = cb->len;
+        size_t l = cb->len;
         if (*tmp) {
             cb_add(cb, '.');
             cb_add(cb, *tmp++);
@@ -894,10 +895,10 @@ static struct resource* newRc(enum rctype type) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&rclock);
     #endif
-    for (unsigned p = 0; p < rcgroups[type].pagect; ++p) {
+    for (size_t p = 0; p < rcgroups[type].pagect; ++p) {
         register uint16_t unocc = ~rcgroups[type].pages[p].occ;
         if (!unocc) continue;
-        unsigned i = 0;
+        size_t i = 0;
         while (1) {
             if (unocc & 1) {
                 rcgroups[type].pages[p].occ |= 1 << i;
@@ -917,7 +918,7 @@ static struct resource* newRc(enum rctype type) {
             //if (!unocc) break;
         }
     }
-    int p = rcgroups[type].pagect++;
+    size_t p = rcgroups[type].pagect++;
     rcgroups[type].pages = rcmgr_realloc(rcgroups[type].pages, rcgroups[type].pagect * sizeof(*rcgroups[type].pages));
     void* data = rcmgr_malloc_nolock(16 * rcallocsz[type]);
     rcgroups[type].pages[p].data = data;
@@ -962,7 +963,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         readToWriteAccess(&rclock);
         #endif
         if (!rc->header.refs++) {
-            unsigned i = rc->header.index;
+            size_t i = rc->header.index;
             rcgroups[rc->header.type].pages[i / 16].zref &= ~(1 << (i % 16));
             --rcgroups[rc->header.type].zrefct;
         }
@@ -1392,6 +1393,7 @@ static ALWAYSINLINE void freeModListEntry(struct modinfo* m) {
 }
 
 static inline int loadMods_add(struct charbuf* cb) {
+    if (mods.len == INT_MAX) return -1;
     {
         cb_nullterm(cb);
         int tmp = isFile(cb->data);
@@ -1568,12 +1570,12 @@ static void gcRcs_internal(bool ag) {
     for (int g = 0; g < RC__COUNT; ++g) {
         if (!rcgroups[g].zrefct) continue;
         //printf("GC GROUP [%d]\n", g);
-        for (unsigned p = 0; p < rcgroups[g].pagect; ++p) {
+        for (size_t p = 0; p < rcgroups[g].pagect; ++p) {
             register uint16_t zref = rcgroups[g].pages[p].zref;
             if (!zref) continue;
             register uint16_t occ = rcgroups[g].pages[p].occ;
             if (!occ) continue;
-            unsigned i = 0;
+            size_t i = 0;
             while (1) {
                 if (occ & 1 && zref & 1) {
                     struct resource* rc = (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]);
@@ -1719,10 +1721,10 @@ bool initRcMgr(void) {
 
 void quitRcMgr(void) {
     for (unsigned g = 0; g < RC__COUNT; ++g) {
-        for (unsigned p = 0; p < rcgroups[g].pagect; ++p) {
+        for (size_t p = 0; p < rcgroups[g].pagect; ++p) {
             register uint16_t occ = rcgroups[g].pages[p].occ;
             if (!occ) continue;
-            unsigned i = 0;
+            size_t i = 0;
             while (1) {
                 if (occ & 1) freeRc(g, (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]));
                 if (i == 15) break;

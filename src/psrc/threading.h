@@ -50,7 +50,7 @@ typedef pthread_mutex_t mutex_t;
 typedef mtx_t mutex_t;
 #endif
 struct accesslock {
-    volatile int counter; // TODO: make atomic
+    volatile unsigned counter; // TODO: make atomic
     mutex_t lock;
 };
 

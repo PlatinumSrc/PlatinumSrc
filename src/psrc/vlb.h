@@ -1,12 +1,12 @@
 #ifndef PSRC_VLB_H
 #define PSRC_VLB_H
 
-#include <stdint.h>
+#include <stddef.h>
 
 #define VLB(T) {\
     T* data;\
-    uintptr_t len;\
-    uintptr_t size;\
+    size_t len;\
+    size_t size;\
 }
 
 #define VLB_OOM_NOP
@@ -14,7 +14,7 @@
 #define VLB__EXP(b, en, ed, onoom) do {\
     if ((b).len == (b).size) {\
         {\
-            register uintptr_t VLB__EXP__t = (b).size * en / ed;\
+            register size_t VLB__EXP__t = (b).size * en / ed;\
             if (VLB__EXP__t != (b).size) (b).size = VLB__EXP__t;\
             else ++(b).size;\
         }\
@@ -46,7 +46,7 @@
     (b).len += (a);\
     if ((b).len > (b).size) {\
         do {\
-            register uintptr_t VLB_EXP__t = (b).size * en / ed;\
+            register size_t VLB_EXP__t = (b).size * en / ed;\
             if (VLB_EXP__t != (b).size) (b).size = VLB_EXP__t;\
             else ++(b).size;\
         } while ((b).len > (b).size);\

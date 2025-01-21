@@ -103,7 +103,7 @@ enum fontdrawattr {
 struct font* openFont(char*);
 void closeFont(struct font*);
 
-struct fontcache* newFontCache(struct font*, int maxpages);
+struct fontcache* newFontCache(struct font*, unsigned maxpages);
 struct fontpage* getFontPage(struct fontcache*, uint8_t pt, uint8_t attr);
 void returnFontPage(struct fontpage*);
 void deleteFontCache(struct fontcache*);

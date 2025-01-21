@@ -33,7 +33,7 @@ static void paftool_create_wrdirs(FILE* f, struct ftree* tree, struct ftreeuserd
     fwrite(&tmpu32, 4, 1, f);
     *doff += 16;
     uint32_t tmpdoff = *doff;
-    for (uintptr_t i = 0; i < tree->len; ++i) {
+    for (size_t i = 0; i < tree->len; ++i) {
         fputc(0, f);
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
@@ -44,7 +44,7 @@ static void paftool_create_wrdirs(FILE* f, struct ftree* tree, struct ftreeuserd
     fseek(f, tmpdoff, SEEK_SET);
     {
         uint32_t tmpdoff2 = tmpdoff;
-        for (uintptr_t i = 0; i < tree->len; ++i) {
+        for (size_t i = 0; i < tree->len; ++i) {
             struct ftree_node* n = &tree->data[i];
             fputc(!n->isdir, f);
             tmpu32 = swaple32(*doff);
@@ -61,7 +61,7 @@ static void paftool_create_wrdirs(FILE* f, struct ftree* tree, struct ftreeuserd
     }
     tmpdoff += 9;
     fseek(f, tmpdoff, SEEK_SET);
-    for (uintptr_t i = 0; i < tree->len; ++i) {
+    for (size_t i = 0; i < tree->len; ++i) {
         struct ftree_node* n = &tree->data[i];
         if (n->isdir) {
             n->userdata = (void*)userdata->len;
@@ -79,7 +79,7 @@ static void paftool_create_wrfiles(FILE* f, struct ftree* tree, struct ftreeuser
     if (!tree->len) return;
     doff += 25;
     fseek(f, doff, SEEK_SET);
-    for (uintptr_t i = 0; i < tree->len; ++i) {
+    for (size_t i = 0; i < tree->len; ++i) {
         struct ftree_node* n = &tree->data[i];
         if (!n->isdir) {
             uint32_t tmpu32 = swaple32(*foff);
@@ -106,7 +106,7 @@ static void paftool_create_wrfiles(FILE* f, struct ftree* tree, struct ftreeuser
         doff += 13;
         fseek(f, doff, SEEK_SET);
     }
-    for (uintptr_t i = 0; i < tree->len; ++i) {
+    for (size_t i = 0; i < tree->len; ++i) {
         struct ftree_node* n = &tree->data[i];
         if (n->isdir) paftool_create_wrfiles(f, &n->dir.contents, userdata, userdata->data[(uintptr_t)n->userdata], foff);
     }

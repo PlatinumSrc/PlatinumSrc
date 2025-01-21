@@ -37,8 +37,8 @@ struct pbdata {
     enum pbtype type;
     uint32_t dim;
     union {
-        uintptr_t size;
-        uintptr_t* sizes;
+        size_t size;
+        size_t* sizes;
     };
     union {
         uint8_t b;
@@ -79,15 +79,15 @@ struct pbc_opt {
 };
 
 struct pbscript_string {
-    uintptr_t len;
+    size_t len;
     char data[];
 };
 struct pbscript_const {
     enum pbtype type;
     uint32_t dim;
     union {
-        uintptr_t size;
-        uintptr_t* sizes;
+        size_t size;
+        size_t* sizes;
     };
     union {
         uint8_t b;
@@ -128,14 +128,13 @@ struct pbscript {
     struct {
         uint8_t* data;
         struct pbscript_const* values;
-        uintptr_t* sizes;
-        //unsigned count;
+        size_t* sizes;
     } consts;
     struct {
         const char** names;
         uint8_t* data;
         struct pbscript_const* values;
-        uintptr_t* sizes;
+        size_t* sizes;
     } globals;
     struct {
         const char** names;

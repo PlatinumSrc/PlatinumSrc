@@ -185,11 +185,11 @@ struct rcls {
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     uint8_t* dirbmp;
     #endif
-    unsigned nameslen;
+    size_t nameslen;
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    unsigned dirbmplen;
+    size_t dirbmplen;
     #endif
-    unsigned count[RC__DIR + 1];
+    size_t count[RC__DIR + 1];
     struct rcls_file* files[RC__DIR + 1];
 };
 

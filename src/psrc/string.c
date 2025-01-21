@@ -22,14 +22,14 @@ char* strcombine(const char* s, ...) {
     return cb_finalize(&b);
 }
 
-char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
-    int len = 0;
-    int size = 4;
+char** splitstrlist(const char* s, char delim, bool nullterm, size_t* l) {
+    size_t len = 0;
+    size_t size = 4;
     char** data = malloc(size * sizeof(*data));
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
     char c;
-    int ol = 0;
+    size_t ol = 0;
     while (1) {
         c = *s;
         if (c == '\\') {
@@ -51,7 +51,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = (char*)(uintptr_t)ol;
+            data[len++] = (char*)ol;
             if (!c) break;
             cb_add(&tmpcb, 0);
             ol = tmpcb.len;
@@ -73,19 +73,19 @@ char** splitstrlist(const char* s, char delim, bool nullterm, int* l) {
             data = realloc(data, len * sizeof(*data));
         }
     }
-    for (int i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         data[i] += (uintptr_t)tmpcb.data;
     }
     if (l) *l = len;
     return data;
 }
-char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
-    int len = 0;
-    int size = 4;
+char** splitstr(const char* s, const char* delims, bool nullterm, size_t* l) {
+    size_t len = 0;
+    size_t size = 4;
     char** data = malloc(size * sizeof(*data));
     struct charbuf tmpcb;
     cb_init(&tmpcb, 256);
-    int ol = 0;
+    size_t ol = 0;
     char c;
     bool split = false;
     while (1) {
@@ -102,7 +102,7 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = (char*)(uintptr_t)ol;
+            data[len++] = (char*)ol;
             if (!c) break;
             cb_add(&tmpcb, 0);
             ol = tmpcb.len;
@@ -125,14 +125,14 @@ char** splitstr(const char* s, const char* delims, bool nullterm, int* l) {
             data = realloc(data, len * sizeof(*data));
         }
     }
-    for (int i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         data[i] += (uintptr_t)tmpcb.data;
     }
     if (l) *l = len;
     return data;
 }
 
-char* makestrlist(const char* const* s, int l, char delim) {
+char* makestrlist(const char* const* s, size_t l, char delim) {
     if (!l) return calloc(1, 1);
     const char* tmp = *s;
     if (!tmp) return calloc(1, 1);

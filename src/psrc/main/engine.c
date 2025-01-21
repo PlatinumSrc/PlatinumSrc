@@ -139,7 +139,7 @@ static int bootstrap(void) {
         tmp = cfg_getvar(&config, NULL, "mods");
         if (options.mods) {
             if (tmp) {
-                int ct1, ct2;
+                size_t ct1, ct2;
                 char** l1;
                 char** l2;
                 l1 = splitstrlist(tmp, ',', false, &ct1);
@@ -148,7 +148,7 @@ static int bootstrap(void) {
                 free(options.mods);
                 options.mods = NULL;
                 l1 = realloc(l1, (ct1 + ct2) * sizeof(*l1));
-                for (int i = 0; i < ct2; ++i) {
+                for (size_t i = 0; i < ct2; ++i) {
                     l1[i + ct1] = l2[i];
                 }
                 loadMods((const char* const *)l1, ct1 + ct2);
@@ -157,7 +157,7 @@ static int bootstrap(void) {
                 free(*l1);
                 free(l1);
             } else {
-                int ct;
+                size_t ct;
                 char** l = splitstrlist(options.mods, ',', false, &ct);
                 free(options.mods);
                 options.mods = NULL;
@@ -166,7 +166,7 @@ static int bootstrap(void) {
                 free(l);
             }
         } else if (tmp) {
-            int ct;
+            size_t ct;
             char** l = splitstrlist(tmp, ',', false, &ct);
             free(tmp);
             loadMods((const char* const *)l, ct);
@@ -191,23 +191,6 @@ static int bootstrap(void) {
             plog(LL_INFO, "No mods laoded");
         }
     }
-
-    #if 0
-    struct rcls l;
-    if (lsRc("textures/env", &l)) {
-        for (int ri = 0; ri < RC__DIR + 1; ++ri) {
-            int ct = l.count[ri];
-            printf("TYPE[%d] (%d):\n", ri, ct);
-            for (int i = 0; i < ct; ++i) {
-                struct rcls_file* f = &l.files[ri][i];
-                printf("  name: {%s}, crc: [%08X]\n", f->name, f->namecrc);
-            }
-        }
-        freeRcls(&l);
-    } else {
-        puts("LIST FAILED");
-    }
-    #endif
 
     plog(LL_INFO, "Initializing renderer...");
     if (!initRenderer()) {

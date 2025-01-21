@@ -2,6 +2,7 @@
 #define PSRC_STRING_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -10,13 +11,13 @@
 struct charbuf VLB(char);
 
 char* strcombine(const char*, ...);
-char** splitstrlist(const char*, char delim, bool nullterm, int* len);
-char** splitstr(const char*, const char* delims, bool nullterm, int* len);
-char* makestrlist(const char* const* str, int len, char delim);
+char** splitstrlist(const char*, char delim, bool nullterm, size_t* len);
+char** splitstr(const char*, const char* delims, bool nullterm, size_t* len);
+char* makestrlist(const char* const* str, size_t len, char delim);
 int strbool(const char*, int);
 uint64_t strsec(const char*, uint64_t);
 
-static inline bool cb_init(struct charbuf* b, uintptr_t sz) {
+static inline bool cb_init(struct charbuf* b, size_t sz) {
     char* d = malloc(sz);
     if (!d) return false;
     b->data = d;
@@ -34,8 +35,8 @@ static inline bool cb_add(struct charbuf* b, char c) {
     b->data[b->len++] = c;
     return true;
 }
-static inline bool cb_addpartstr(struct charbuf* b, const char* s, uintptr_t l) {
-    uintptr_t ol = b->len;
+static inline bool cb_addpartstr(struct charbuf* b, const char* s, size_t l) {
+    size_t ol = b->len;
     b->len += l;
     if (b->len > b->size) {
         do {b->size *= 2;} while (b->len > b->size);
@@ -59,7 +60,7 @@ static inline bool cb_addfake(struct charbuf* b) {
     ++b->len;
     return true;
 }
-static inline bool cb_addmultifake(struct charbuf* b, uintptr_t l) {
+static inline bool cb_addmultifake(struct charbuf* b, size_t l) {
     b->len += l;
     if (b->len > b->size) {
         do {b->size *= 2;} while (b->len > b->size);
@@ -76,7 +77,7 @@ static inline char* cb_finalize(struct charbuf* b) {
     ((volatile char*)b->data)[b->len] = 0;
     return d;
 }
-static inline bool cb_reinit(struct charbuf* b, uintptr_t sz, char** o) {
+static inline bool cb_reinit(struct charbuf* b, size_t sz, char** o) {
     *o = cb_finalize(b);
     if (!*o) return false;
     return cb_init(b, sz);
@@ -97,7 +98,7 @@ static inline bool cb_nullterm(struct charbuf* b) {
     ((volatile char*)b->data)[b->len] = 0;
     return true;
 }
-static inline void cb_undo(struct charbuf* b, uintptr_t l) {
+static inline void cb_undo(struct charbuf* b, size_t l) {
     if (l > b->len) {
         b->len = 0;
     } else {

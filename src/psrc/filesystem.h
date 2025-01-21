@@ -59,7 +59,7 @@ char* sanfilename(const char*, char repl);
 void restrictpath_cb(const char*, const char* inseps, char outsep, char outrepl, struct charbuf*);
 char* restrictpath(const char*, const char* inseps, char outsep, char outrepl);
 bool md(const char*);
-char** ls(const char*, bool longnames, int* l); // info flags are stored at [-1] of each string
+char** ls(const char*, bool longnames, size_t* l); // info flags are stored at [-1] of each string
 bool startls(const char*, struct lsstate*);
 bool getls(struct lsstate*, const char** name, const char** longname);
 void endls(struct lsstate*);

@@ -61,10 +61,10 @@ long getFileSize(FILE* f, bool c) {
 }
 
 char* basepathname(char* p) {
-    int i = 0;
+    size_t i = 0;
     char* r = p;
     while (1) {
-        int o = i;
+        size_t o = i;
         while (ispathsep(p[i])) {
             ++i;
         }
@@ -145,7 +145,7 @@ char* strrelpath(const char* s) {
 void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     char c;
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    uintptr_t b = cb->len;
+    size_t b = cb->len;
     #endif
     while ((c = *s)) {
         if (ispathsep(c)) {if (r) cb_add(cb, r);}
@@ -159,7 +159,7 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     // TODO: confirm that checking for illegal names can be omitted on PLAT_NXDK
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     if (b == cb->len) return;
-    uintptr_t i = b;
+    size_t i = b;
     while (i < cb->len) {
         if (cb->data[i] == ' ') cb->data[i] = '_';
         else break;
@@ -167,7 +167,7 @@ void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
     }
     if (i == b) {
         char* d = cb->data + b;
-        uintptr_t l = cb->len - b;
+        size_t l = cb->len - b;
         if (((l == 3 || (l > 3 && d[3] == '.')) &&
              (!strncasecmp(d, "con", 3) || !strncasecmp(d, "prn", 3) || !strncasecmp(d, "aux", 3) || !strncasecmp(d, "nul", 3))) ||
             ((l == 4 || (l > 4 && d[4] == '.')) &&
@@ -205,10 +205,10 @@ char* sanfilename(const char* s, char r) {
 }
 
 void restrictpath_cb(const char* s, const char* inseps, char outsep, char outrepl, struct charbuf* cb) {
-    long unsigned b = cb->len;
-    int ct;
+    size_t b = cb->len;
+    size_t ct;
     char** dl = splitstr(s, inseps, false, &ct);
-    for (int i = 0; i < ct; ++i) {
+    for (size_t i = 0; i < ct; ++i) {
         char* d = dl[i];
         if (!*d) goto skip;
         if (d[0] == '.') {
@@ -311,7 +311,7 @@ bool md(const char* p) {
     return true;
 }
 
-char** ls(const char* p, bool ln, int* l) {
+char** ls(const char* p, bool ln, size_t* l) {
     if (!*p) p = "." PATHSEPSTR;
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         DIR* d = opendir(p);
@@ -332,8 +332,8 @@ char** ls(const char* p, bool ln, int* l) {
         }
     #endif
     char** data = malloc(16 * sizeof(*data));
-    int len = 1;
-    int size = 16;
+    size_t len = 1;
+    size_t size = 16;
     struct charbuf names;
     cb_init(&names, 256);
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
@@ -342,7 +342,7 @@ char** ls(const char* p, bool ln, int* l) {
             char* n = de->d_name;
             if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) continue; // skip . and ..
             cb_addfake(&names);
-            int ol = names.len;
+            size_t ol = names.len;
             cb_addstr(&names, p);
             if (!ispathsep(names.data[names.len - 1])) cb_add(&names, PATHSEP);
             cb_addstr(&names, n);
@@ -372,7 +372,7 @@ char** ls(const char* p, bool ln, int* l) {
                     size *= 2;
                     data = realloc(data, size * sizeof(*data));
                 }
-                data[len++] = (char*)(uintptr_t)ol;
+                data[len++] = (char*)ol;
             }
         }
         closedir(d);
@@ -408,7 +408,7 @@ char** ls(const char* p, bool ln, int* l) {
                 size *= 2;
                 data = realloc(data, size * sizeof(*data));
             }
-            data[len++] = (char*)(uintptr_t)names.len;
+            data[len++] = (char*)names.len;
             if (ln) {
                 cb_addstr(&names, p);
                 if (!ispathsep(names.data[names.len - 1])) cb_add(&names, PATHSEP);
@@ -424,7 +424,7 @@ char** ls(const char* p, bool ln, int* l) {
     data[len] = NULL;
     --len;
     ++data;
-    for (int i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         data[i] += (uintptr_t)names.data;
     }
     if (l) *l = len;
@@ -476,7 +476,7 @@ bool getls(struct lsstate* s, const char** on, const char** oln) {
     if (n[0] == '.' && (!n[1] || (n[1] == '.' && !n[2]))) goto tryagain;
     if (on) *on = n;
     if (oln) {
-        int l = s->p.len;
+        size_t l = s->p.len;
         cb_addstr(&s->p, n);
         cb_nullterm(&s->p);
         s->p.len = l;

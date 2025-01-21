@@ -233,7 +233,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                 }
                                 if (!wr->weightcount) break;
                                 wr->weights = TOPTR(wvlb.len);
-                                uintptr_t oldlen = wvlb.len;
+                                size_t oldlen = wvlb.len;
                                 VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
                                 if (ds_read(ds, wr->weightcount, wvlb.data + oldlen) != wr->weightcount) {
                                     VLB_FREE(wvlb);
@@ -499,7 +499,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 a->name = TOPTR(get16(ds));
                 uint8_t actct = get8(ds);
                 a->actioncount = actct;
-                uintptr_t oldlen = actrefvlb.len;
+                size_t oldlen = actrefvlb.len;
                 a->actions = TOPTR(oldlen);
                 VLB_EXP(actrefvlb, actct, 3, 2, VLB_FREE(actrefvlb); P3M_LOAD_OOMERR(retfalse););
                 for (unsigned acti = 0; acti < actct; ++acti) {
@@ -543,7 +543,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 }
                 uint8_t pllen = get8(ds);
                 a->partlistlen = pllen;
-                uintptr_t ploldlen = plvlb.len;
+                size_t ploldlen = plvlb.len;
                 a->partlist = TOPTR(ploldlen);
                 VLB_EXP(plvlb, pllen, 3, 2, VLB_FREE(plvlb); P3M_LOAD_OOMERR(retfalse););
                 for (unsigned parti = 0; parti < pllen; ++parti) {
@@ -702,7 +702,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
     struct charbuf strtbl;
     cb_init(&strtbl, 256);
     while (!ds_atend(ds)) {
-        uintptr_t oldlen = strtbl.len;
+        size_t oldlen = strtbl.len;
         cb_addmultifake(&strtbl, 256);
         strtbl.len = ds_read(ds, 256, strtbl.data + oldlen) + oldlen;
         if (strtbl.len > 65535) {

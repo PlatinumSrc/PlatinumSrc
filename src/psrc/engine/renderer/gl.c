@@ -727,11 +727,12 @@ static bool r_gl_afterCreateWindow(void) {
     tmpstr = (char*)glGetString(GL_EXTENSIONS);
     if (tmpstr) {
         plog(LL_INFO, "  Extensions:");
-        char** tmplist = splitstr(tmpstr, " ", false, &tmpint[0]);
+        size_t ct;
+        char** tmplist = splitstr(tmpstr, " ", false, &ct);
         char* tmp = cfg_getvar(&config, "Debug", "gl.allext");
-        int max;
+        size_t max;
         if (strbool(tmp, false)) {
-            max = tmpint[0];
+            max = ct;
         } else {
             #if DEBUG(1)
             max = 16;
@@ -740,17 +741,17 @@ static bool r_gl_afterCreateWindow(void) {
             #endif
         }
         free(tmp);
-        for (int i = 0, ct = 0; i < tmpint[0]; ++i) {
+        for (size_t i = 0, passed = 0; i < ct; ++i) {
             if (!*tmplist[i]) continue;
-            if (ct == max) {
+            if (passed == max) {
                 plog(LL_INFO, "    ... (enable gl.allext under [Debug] to show all)");
                 break;
             }
             plog(LL_INFO, "    %s", tmplist[i]);
-            ++ct;
+            ++passed;
         }
         if (rendstate.api == RENDAPI_GL11) {
-            for (int i = 0, foundext = 0; i < tmpint[0]; ++i) {
+            for (size_t i = 0, foundext = 0; i < ct; ++i) {
                 if (!*tmplist[i]) continue;
                 if (!strcasecmp(tmplist[i], "GL_ARB_multitexture")) {
                     r_gl_data.gl11.has_ARB_multitexture = 1;

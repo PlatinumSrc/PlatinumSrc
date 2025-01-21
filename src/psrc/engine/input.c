@@ -439,13 +439,13 @@ int newInputAction(enum inputactiontype type, const char* name, struct inputkey*
 
 struct inputkey* inputKeysFromStr(const char* s) {
     if (!s || !*s) return NULL;
-    int count;
+    size_t count;
     char** ks = splitstrlist(s, ';', false, &count);
     struct inputkey* k = malloc(count * sizeof(*k) + sizeof(enum inputdev));
     k[count].dev = INPUTDEV__NULL;
-    for (int i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         //printf("ks[%d]: {%s}\n", i, ks[i]);
-        int dcount;
+        size_t dcount;
         char** kds = splitstrlist(ks[i], ',', false, &dcount);
         k[i].dev = INPUTDEV__INVALID;
         if (dcount == 2) {
