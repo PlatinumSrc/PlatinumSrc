@@ -16,7 +16,7 @@ Format:
 
     Group:
         <u8: PMP_TYPE_GROUP>
-        <char[]: Name {..., 0}>
+        <<String>: Name>
         [Key]...
         <u8: PMP_TYPE_ENDGROUP>
 
@@ -38,8 +38,8 @@ Format:
                 | PMP_TYPE_STR }
             >
         >
-        <char[]: Name {..., 0}>
         [u32: Array length]
+        <<String>: Name>
         { <u8>
         | <i8>
         | <i16>

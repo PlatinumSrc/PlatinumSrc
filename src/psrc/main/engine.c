@@ -69,6 +69,8 @@ static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, u
 #endif
 
 static int bootstrap(void) {
+    plog(LL_MS, "Starting engine...");
+
     char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "engine", "config.cfg", NULL);
     {
         struct datastream ds;
@@ -234,7 +236,7 @@ static int bootstrap(void) {
         return 1;
     }
 
-    plog(LL_INFO, "Almost there...");
+    plog(LL_MS, "Almost there...");
 
     {
         struct charbuf e;
@@ -400,9 +402,10 @@ static int bootstrap(void) {
         rendstate.dbgprof = &dbgprof;
     #endif
 
-    plog(LL_INFO, "All systems go!");
     toff = SDL_GetTicks();
     framestamp = altutime();
+
+    plog(LL_MS, "All systems go!");
 
     return 0;
 }
@@ -432,7 +435,7 @@ static void unstrap(void) {
     quitRenderer();
 
     plog(LL_INFO, "Quitting resource manager...");
-    quitRcMgr();
+    quitRcMgr(true);
 
     if (dirs[DIR_USER]) {
         char* tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
@@ -448,6 +451,8 @@ static void unstrap(void) {
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     cancelWatchdog();
     #endif
+
+    plog(LL_MS, "Done");
 }
 
 static float fwrap(float n, float d) {

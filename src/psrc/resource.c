@@ -1719,28 +1719,28 @@ bool initRcMgr(void) {
     return true;
 }
 
-void quitRcMgr(void) {
-    for (unsigned g = 0; g < RC__COUNT; ++g) {
-        for (size_t p = 0; p < rcgroups[g].pagect; ++p) {
-            register uint16_t occ = rcgroups[g].pages[p].occ;
-            if (!occ) continue;
-            size_t i = 0;
-            while (1) {
-                if (occ & 1) freeRc(g, (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]));
-                if (i == 15) break;
-                ++i;
-                occ >>= 1;
-                //if (!occ) break;
+void quitRcMgr(bool quick) {
+    if (!quick) {
+        for (unsigned g = 0; g < RC__COUNT; ++g) {
+            for (size_t p = 0; p < rcgroups[g].pagect; ++p) {
+                register uint16_t occ = rcgroups[g].pages[p].occ;
+                if (!occ) continue;
+                size_t i = 0;
+                while (1) {
+                    if (occ & 1) freeRc(g, (void*)((char*)rcgroups[g].pages[p].data + i * rcallocsz[g]));
+                    if (i == 15) break;
+                    ++i;
+                    occ >>= 1;
+                    //if (!occ) break;
+                }
+                free(rcgroups[g].pages[p].data);
             }
-            free(rcgroups[g].pages[p].data);
+            rcgroups[g].pagect = 0;
+            rcgroups[g].zrefct = 0;
+            free(rcgroups[g].pages);
         }
-        rcgroups[g].pagect = 0;
-        rcgroups[g].zrefct = 0;
-        free(rcgroups[g].pages);
+        lscDelAll();
     }
-
-    lscDelAll();
-
     #ifndef PSRC_NOMT
     destroyAccessLock(&rclock);
     destroyAccessLock(&mods.lock);

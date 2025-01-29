@@ -53,6 +53,7 @@ PACKEDENUM pbvm_op {
     PBVM_OP_OR,         // Bitwise OR (|) (pops: value, with; pushes: result)
     PBVM_OP_XOR,        // Bitwise XOR (^) (pops: value, with; pushes: result)
     PBVM_OP_CAST,       // Cast to another type (i32 type, u32 dims; pops: value or value, value, value; pushes: result)
+    PBVM_OP_SLEEP,      // Sleep (pops: seconds (float) or microseconds)
     PBVM_OP_OUT,        // Pop a value off the stack and write it to the output (pops: value)
     PBVM_OP_OUTTAB,     // Write a tab to the output
     PBVM_OP_OUTNL       // Write a newline to the output
@@ -96,6 +97,14 @@ struct pbvm {
     struct VLB(struct pbvm_sub) subs;
     struct VLB(struct pbvm_stackelem) stack;
     struct VLB(struct pbdata) tmpvals;
+};
+
+struct pbvm_execopt {
+    int retafter;               // return after given number of instructions, or at program end if 0
+    unsigned retonsleep : 1;    // return on PBVM_OP_SLEEP
+    unsigned retonjmp : 1;      // return on PBVM_OP_JMP
+    unsigned retonsub : 1;      // return on PBVM_OP_JSR, PBVM_OP_JSRV, PBVM_OP_RET, and PBVM_OP_RETV
+    unsigned retonb : 1;        // return on PBVM_OP_B
 };
 
 #endif

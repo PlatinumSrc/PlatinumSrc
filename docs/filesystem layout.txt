@@ -1,17 +1,4 @@
 <Main dir>/ - Usually the directory the engine executable is located.
-    internal/
-        editor/
-        engine/
-            resources/
-                fonts/
-                icons/
-                scripts/
-                textures/
-            shaders/
-            themes/
-            autorun.bas - (Optional) script to run on startup.
-            config.cfg - Optional. See 'default config.txt' for details.
-        server/
     games/ - This layout is optional (except for game.cfg and main.bas) but is highly recommended.
         <Game dir>/
             cosmetics/
@@ -30,10 +17,27 @@
             game.cfg - Game info/config. See 'game config.txt' for details.
             main.bas - The script that starts the game (this should typically display a splash screen, set up the game,
                        then load the main menu).
+    internal/
+        editor/
+            resources/
+        engine/
+            resources/
+                fonts/
+                icons/
+                scripts/
+                textures/
+            shaders/
+            themes/
+            autorun.bas - (Optional) script to run on startup.
+            config.cfg - Optional. See 'default config.txt' for details.
+        server/
+            resources/
+                scripts/
     mods/ - Subfolders act as overlays for <Main dir>.
 
 <User dir>/ - A directory (specified by the 'userdir' variable in game.cfg) most likely inside of the system/user's
               program data directory.
+    configs/ - Config files.
     databases/ - PKD databases.
     downloads/ - Custom content.
         player/ - From players.
@@ -52,8 +56,11 @@
     config.cfg - Optional config loaded after config.cfg in <Main dir>/internal/engine/.
 
 <Server dir>/ - The location the server executable was started in.
+    configs/ - Config files.
     content/ - Overlays <Game dir>.
     databases/ - PKD databases.
     games/ - Identical to games/ in <Main dir>.
+    internal/ - Identical to internal/ in <Main dir>.
     mods/ - Identical to mods/ in <Main dir>.
     server.cfg - See 'default server config.txt'.
+

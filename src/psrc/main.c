@@ -198,7 +198,6 @@ static void emscrmain(void) {
                 return;
             }
             unstrap();
-            plog(LL_INFO, "Done");
             EM_ASM(
                 FS.syncfs(false, function (e) {
                     if (e) console.error("FS.syncfs:", e);
@@ -315,7 +314,6 @@ int main(int argc, char** argv) {
             }
             unstrap();
         }
-        plog(LL_INFO, "Done");
     #else
         EM_ASM(
             FS.mkdir('/data');

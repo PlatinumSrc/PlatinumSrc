@@ -125,6 +125,9 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
                 fputs("(i)", f);
             }
             break;
+        case LL_MS:
+            fputs(">>->", f);
+            break;
         case LL_WARN:
             fputs("/!\\", f);
             break;
@@ -137,6 +140,12 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
     }
     fputc(':', f);
     fputc(' ', f);
+}
+static void pl_fputsuffix(enum loglevel lvl, FILE* f) {
+    switch (lvl & 0xFF) {
+        default:
+            return;
+    }
 }
 #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
     static void pl_fputprefix_color(enum loglevel lvl, FILE* f) {
@@ -152,19 +161,22 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
             #if PLATFORM != PLAT_WIN32
             case LL_INFO:
                 if (lvl & LF_DEBUG) {
-                    fputs("\x1b[34m<\x1b[1mD\x1b[22m>:\x1b[0m", f);
+                    fputs("\x1b[38;5;4m<\x1b[38;5;12;1mD\x1b[38;5;4;22m>:\x1b[0m", f);
                 } else {
-                    fputs("\x1b[36m(\x1b[1mi\x1b[22m):\x1b[0m", f);
+                    fputs("\x1b[38;5;6m(\x1b[38;5;14;1mi\x1b[38;5;6;22m):\x1b[0m", f);
                 }
                 break;
+            case LL_MS:
+                fputs("\x1b[38;5;10;1m>>->\x1b[0m", f);
+                break;
             case LL_WARN:
-                fputs("\x1b[33m/\x1b[1m!\x1b[22m\\:\x1b[0m", f);
+                fputs("\x1b[38;5;11;1m/!\\:\x1b[22m", f);
                 break;
             case LL_ERROR:
-                fputs("\x1b[31m[\x1b[1mE\x1b[22m]:\x1b[0m", f);
+                fputs("\x1b[38;5;1m[\x1b[38;5;9;1mE\x1b[38;5;1;22m]:\x1b[38;5;9m", f);
                 break;
             case LL_CRIT:
-                fputs("\x1b[1;31m{X}:\x1b[0m", f);
+                fputs("\x1b[38;5;196;1m{X}:", f);
                 break;
             #else
             case LL_INFO:
@@ -232,8 +244,90 @@ static void pl_fputprefix(enum loglevel lvl, FILE* f) {
         #endif
         fputc(' ', f);
     }
+    static void pl_fputsuffix_color(enum loglevel lvl, FILE* f) {
+        #if PLATFORM == PLAT_WIN32
+        if (!conh) {
+            pl_fputsuffix(lvl, f);
+            return;
+        }
+        #endif
+        switch (lvl & 0xFF) {
+            default:
+                return;
+            #if PLATFORM != PLAT_WIN32
+            case LL_WARN:
+            case LL_ERROR:
+            case LL_CRIT:
+                fputs("\x1b[0m", f);
+                break;
+            #else
+            case LL_INFO:
+                if (lvl & LF_DEBUG) {
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE);
+                    fputc('<', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+                    fputc('D', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE);
+                    fputc('>', f);
+                    fflush(f);
+                    fputc(':', f);
+                    fflush(f);
+                } else {
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN);
+                    fputc('(', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+                    fputc('i', f);
+                    fflush(f);
+                    SetConsoleTextAttribute(conh, FOREGROUND_BLUE | FOREGROUND_GREEN);
+                    fputc(')', f);
+                    fflush(f);
+                    fputc(':', f);
+                    fflush(f);
+                }
+                break;
+            case LL_WARN:
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED);
+                fputc('/', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputc('!', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_GREEN | FOREGROUND_RED);
+                fputc('\\', f);
+                fflush(f);
+                fputc(':', f);
+                fflush(f);
+                break;
+            case LL_ERROR:
+                SetConsoleTextAttribute(conh, FOREGROUND_RED);
+                fputc('[', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputc('E', f);
+                fflush(f);
+                SetConsoleTextAttribute(conh, FOREGROUND_RED);
+                fputc(']', f);
+                fflush(f);
+                fputc(':', f);
+                fflush(f);
+                break;
+            case LL_CRIT:
+                SetConsoleTextAttribute(conh, FOREGROUND_RED | FOREGROUND_INTENSITY);
+                fputs("{X}:", f);
+                fflush(f);
+                break;
+            #endif
+        }
+        #if PLATFORM == PLAT_WIN32
+        SetConsoleTextAttribute(conh, conattr);
+        #endif
+    }
 #else
     #define pl_fputprefix_color pl_fputprefix
+    #define pl_fputsuffix_color pl_fputsuffix
 #endif
 
 static void plog_internal(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, va_list v) {
@@ -242,7 +336,7 @@ static void plog_internal(enum loglevel lvl, const char* func, const char* file,
     ring[ringnext].time = t;
     int l = PSRC_LOG_LINESIZE;
     #if DEBUG(1)
-        if ((lvl & 0xFF) > LL_INFO) lvl |= LF_FUNCLN;
+        if ((lvl & 0xFF) >= LL_WARN) lvl |= LF_FUNCLN;
     #endif
     if (lvl & LF_FUNC) {
         if ((lvl & ~LF_FUNC) & LF_FUNCLN) {
@@ -289,6 +383,11 @@ static void plog_internal(enum loglevel lvl, const char* func, const char* file,
     }
     fputs(ring[ringnext].text, f);
     fputc('\n', f);
+    if (istty) {
+        pl_fputsuffix_color(lvl, f);
+    } else {
+        pl_fputsuffix(lvl, f);
+    }
     fflush(f);
     #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && PLATFORM != PLAT_NXDK
         if (lvl & LF_MSGBOX) {

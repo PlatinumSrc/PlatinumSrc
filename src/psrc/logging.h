@@ -12,6 +12,7 @@
 PACKEDENUM loglevel {
     LL_PLAIN,            // Print without a prefix
     LL_INFO,             // Give info or warning
+    LL_MS,               // A milestone was achieved
     LL_WARN,             // Something happened that could cause issues
     LL_ERROR,            // A recoverable error occurred
     LL_CRIT,             // An irrecoverable error occurred

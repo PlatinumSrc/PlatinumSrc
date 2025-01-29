@@ -199,7 +199,7 @@ void* rcmgr_malloc(size_t);
 void* rcmgr_calloc(size_t, size_t);
 void* rcmgr_realloc(void*, size_t);
 void clRcCache(void);
-void quitRcMgr(void);
+void quitRcMgr(bool quick);
 
 #define LOADRC_FLAG_ALLOWNATIVE (1 << 0)
 
