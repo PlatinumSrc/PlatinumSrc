@@ -9,6 +9,8 @@ static int bootstrap(void) {
 }
 
 static void unstrap(void) {
+    plog(LL_MS, "Stopping editor...");
+
     plog(LL_MS, "Done");
 }
 

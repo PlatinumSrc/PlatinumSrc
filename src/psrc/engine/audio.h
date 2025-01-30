@@ -1,6 +1,38 @@
 #ifndef PSRC_ENGINE_AUDIO_H
 #define PSRC_ENGINE_AUDIO_H
 
+/*  TODO:
+        - nuke due to complexity
+        - make playSound take a uint64_t time offset
+        - make stb_vorbis optional
+        - make the 3D effect use filters
+        - make the 3D effect use inverse square for distance to volume
+        - make audio emitters take a size for the 3D effect
+        - later, do a ray cast and make cubes multiply volume by 0.0 to 1.0 when passed through
+        - reject audio if the volume is less than 1/32768
+        - make antialiasing use 4 steps instead of 32
+        - keep speed mul of 32
+        - give speed mul to 2D sounds
+        - make audio offsets wrap to prevent overflow
+        - make the server-side store audio play times and transfer the offset during state sync
+        - use a priority system (LOWEST, LOW, NORMAL, HIGH, HIGHEST)
+        - make the following functions:
+            - new3DAudioEmitter
+            - edit3DAudioEmitter
+            - pause3DAudioEmitter
+            - stop3DAudioEmitter
+            - delete3DAudioEmitter
+            - play3DSound
+            - new2DAudioEmitter
+            - edit2DAudioEmitter
+            - pause2DAudioEmitter
+            - stop2DAudioEmitter
+            - delete2DAudioEmitter
+            - play2DSound
+            - setMusic
+            - setMusicStyle
+*/
+
 #include "../platform.h"
 
 #include "../resource.h"

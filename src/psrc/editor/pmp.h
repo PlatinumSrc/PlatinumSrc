@@ -14,24 +14,29 @@ PACKEDENUM pmp_type {
     PMP_TYPE_GROUP,
     PMP_TYPE_ENDGROUP,
     PMP_TYPE__VAR,
-    PMP_TYPE_BOOL = PMP_TYPE__VAR,
-    PMP_TYPE_I8,
-    PMP_TYPE_I16,
-    PMP_TYPE_I32,
-    PMP_TYPE_I64,
-    PMP_TYPE_U8,
-    PMP_TYPE_U16,
-    PMP_TYPE_U32,
-    PMP_TYPE_U64,
-    PMP_TYPE_F32,
-    PMP_TYPE_F64,
-    PMP_TYPE_STR,
+    PMP_TYPE_BOOL = PMP_TYPE__VAR,  // bool / uint8_t
+    PMP_TYPE_I8,    // int8_t
+    PMP_TYPE_I16,   // int16_t
+    PMP_TYPE_I32,   // int32_t
+    PMP_TYPE_I64,   // int64_t
+    PMP_TYPE_U8,    // uint8_t
+    PMP_TYPE_U16,   // uint16_t
+    PMP_TYPE_U32,   // uint32_t
+    PMP_TYPE_U64,   // uint64_t
+    PMP_TYPE_F32,   // float
+    PMP_TYPE_F64,   // double
+    PMP_TYPE_STR,   // struct pmp_string
     PMP_TYPE__COUNT
 };
 struct pmp_vartype {
     enum pmp_type type : 7;
     uint8_t isarray : 1;
     uint32_t size;
+};
+
+struct pmp_string {
+    char* data;
+    uint32_t len;
 };
 
 struct pmp_read {
@@ -56,7 +61,8 @@ struct pmp_write {
 
 bool pmp_read_open(char* p, bool text, struct pmp_read*);
 bool pmp_read_next(struct pmp_read*, struct charbuf* name, struct pmp_vartype*);
-void* pmp_read_readvar(struct pmp_read*);
+void pmp_read_readvar(struct pmp_read*, void*); // type* if not array, type** if array
+void pmp_read_freearray(struct pmp_vartype*, void*);
 void pmp_read_close(struct pmp_read*);
 
 bool pmp_write_open(char* p, struct pmp_write*, bool text, enum pmp_write_comp);

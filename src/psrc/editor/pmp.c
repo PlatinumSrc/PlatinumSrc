@@ -25,7 +25,7 @@ bool pmp_read_open(char* p, bool text, struct pmp_read* pr) {
 bool pmp_read_next(struct pmp_read* pr, struct charbuf* n, struct pmp_vartype* ot) {
     if (!pr->istext) {
         if (pr->lastwasvar) {
-            long sz;
+            size_t sz;
             bool isarray = pr->lasttype.isarray;
             switch ((uint8_t)pr->lasttype.type) {
                 case PMP_TYPE_BOOL: sz = (!isarray) ? 1 : (pr->lasttype.size + 7) / 8; break;
@@ -41,13 +41,18 @@ bool pmp_read_next(struct pmp_read* pr, struct charbuf* n, struct pmp_vartype* o
                 case PMP_TYPE_F64: sz = (!isarray) ? 1 : pr->lasttype.size * 8; break;
                 case PMP_TYPE_STR: {
                     uint32_t tmpu32;
-                    fread(&tmpu32, 4, 1, pr->f);
-                    sz = swaple32(tmpu32);
-                    if (isarray) {
-                        for (uint32_t i = 1; i < pr->lasttype.size; ++i) {
-                            fseek(pr->f, sz, SEEK_CUR);
+                    if (!isarray) {
+                        fread(&tmpu32, 4, 1, pr->f);
+                        sz = swaple32(tmpu32);
+                    } else {
+                        if (pr->lasttype.size) {
                             fread(&tmpu32, 4, 1, pr->f);
                             sz = swaple32(tmpu32);
+                            for (uint32_t i = 1; i < pr->lasttype.size; ++i) {
+                                fseek(pr->f, sz, SEEK_CUR);
+                                fread(&tmpu32, 4, 1, pr->f);
+                                sz = swaple32(tmpu32);
+                            }
                         }
                     }
                 } break;
@@ -64,19 +69,102 @@ bool pmp_read_next(struct pmp_read* pr, struct charbuf* n, struct pmp_vartype* o
         bool isarray = ((c & 0x80) != 0);
         ot->isarray = isarray;
         pr->lasttype.isarray = isarray;
+        uint32_t tmpu32;
         if (isarray) {
-            uint32_t tmpu32;
             fread(&tmpu32, 4, 1, pr->f);
             tmpu32 = swaple32(tmpu32);
             ot->size = tmpu32;
             pr->lasttype.size = tmpu32;
         }
+        fread(&tmpu32, 4, 1, pr->f);
+        tmpu32 = swaple32(tmpu32);
+        for (uint32_t i = 0; i < tmpu32; ++i) {
+            cb_add(n, fgetc(pr->f));
+        }
     } else {
     }
 }
 
-void* pmp_read_readvar(struct pmp_read* pr) {
+void pmp_read_readvar(struct pmp_read* pr, void* o) {
     pr->lastwasvar = 0;
+    bool isarray = pr->lasttype.isarray;
+    switch ((uint8_t)pr->lasttype.type) {
+        case PMP_TYPE_BOOL: {
+            if (!isarray) {
+                *(bool*)o = fgetc(pr->f);
+            } else {
+                uint8_t* a = malloc((pr->lasttype.size + 7) / 8);
+                fread(a, 1, (pr->lasttype.size + 7) / 8, pr->f);
+                *(uint8_t**)o = a;
+            }
+        } break;
+        case PMP_TYPE_I8:
+        case PMP_TYPE_U8: {
+            if (!isarray) {
+                *(uint8_t*)o = fgetc(pr->f);
+            } else {
+                uint8_t* a = malloc(pr->lasttype.size);
+                fread(a, 1, pr->lasttype.size, pr->f);
+                *(uint8_t**)o = a;
+            }
+        } break;
+        case PMP_TYPE_I16:
+        case PMP_TYPE_U16: {
+            if (!isarray) {
+                uint16_t v;
+                fread(&v, 2, 1, pr->f);
+                *(uint16_t*)o = swaple16(v);
+            } else {
+                uint16_t* a = malloc(pr->lasttype.size * sizeof(*a));
+                fread(a, 2, pr->lasttype.size, pr->f);
+                #if BYTEORDER == BO_BE
+                for (uint32_t i = 0; i < pr->lasttype.size; ++i) {
+                    a[i] = swaple16(a[i]);
+                }
+                #endif
+                *(uint16_t**)o = a;
+            }
+        } break;
+        case PMP_TYPE_I32:
+        case PMP_TYPE_U32:
+        case PMP_TYPE_F32: {
+            if (!isarray) {
+                uint32_t v;
+                fread(&v, 4, 1, pr->f);
+                *(uint32_t*)o = swaple32(v);
+            } else {
+                uint32_t* a = malloc(pr->lasttype.size * sizeof(*a));
+                fread(a, 4, pr->lasttype.size, pr->f);
+                #if BYTEORDER == BO_BE
+                for (uint32_t i = 0; i < pr->lasttype.size; ++i) {
+                    a[i] = swaple32(a[i]);
+                }
+                #endif
+                *(uint32_t**)o = a;
+            }
+        } break;
+        case PMP_TYPE_I64:
+        case PMP_TYPE_U64:
+        case PMP_TYPE_F64: {
+            if (!isarray) {
+                uint64_t v;
+                fread(&v, 8, 1, pr->f);
+                *(uint64_t*)o = swaple32(v);
+            } else {
+                uint64_t* a = malloc(pr->lasttype.size * sizeof(*a));
+                fread(a, 8, pr->lasttype.size, pr->f);
+                #if BYTEORDER == BO_BE
+                for (uint32_t i = 0; i < pr->lasttype.size; ++i) {
+                    a[i] = swaple64(a[i]);
+                }
+                #endif
+                *(uint64_t**)o = a;
+            }
+        } break;
+        case PMP_TYPE_STR: {
+            
+        } break;
+    }
 }
 
 void pmp_read_close(struct pmp_read* pr) {

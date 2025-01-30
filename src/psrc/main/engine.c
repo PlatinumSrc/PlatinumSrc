@@ -411,7 +411,7 @@ static int bootstrap(void) {
 }
 
 static void unstrap(void) {
-    plog(LL_INFO, "Quit requested");
+    plog(LL_MS, "Stopping engine...");
 
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     armWatchdog(5);
@@ -427,14 +427,14 @@ static void unstrap(void) {
     cancelWatchdog();
     #endif
 
-    plog(LL_INFO, "Quitting audio manager...");
+    plog(LL_INFO, "Deinitializing audio manager...");
     quitAudio();
-    plog(LL_INFO, "Quitting input manager...");
+    plog(LL_INFO, "Deinitializing input manager...");
     quitInput();
-    plog(LL_INFO, "Quitting renderer...");
+    plog(LL_INFO, "Deinitializing renderer...");
     quitRenderer();
 
-    plog(LL_INFO, "Quitting resource manager...");
+    plog(LL_INFO, "Deinitializing resource manager...");
     quitRcMgr(true);
 
     if (dirs[DIR_USER]) {
