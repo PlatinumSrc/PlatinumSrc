@@ -66,7 +66,7 @@ static inline void pmp_read_freevar(struct pmp_vartype*, void*); // use with arr
 void pmp_read_close(struct pmp_read*);
 
 bool pmp_write_open(char* p, struct pmp_write*, bool text, enum pmp_write_comp);
-void pmp_write_next(struct pmp_write*, const char* name, uint32_t namelen, struct pmp_vartype*, void* data);
+void pmp_write_next(struct pmp_write*, const char* name, uint32_t namelen, const struct pmp_vartype*, const void* data); // type* if not array, type* if array
 void pmp_write_close(struct pmp_write*);
 
 static inline void pmp_read_freevar(struct pmp_vartype* t, void* d) {

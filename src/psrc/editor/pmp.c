@@ -205,67 +205,89 @@ bool pmp_write_open(char* p, struct pmp_write* pw, bool text, enum pmp_write_com
         pw->istext = 1;
     }
     pw->f = f;
+    pw->comp = comp;
     return true;
 }
 
-void pmp_write_next(struct pmp_write* pw, const char* n, uint32_t nl, struct pmp_vartype* t, void* d) {
+void pmp_write_next(struct pmp_write* pw, const char* n, uint32_t nl, const struct pmp_vartype* t, const void* d) {
     if (!pw->istext) {
+        if (t->type == PMP_TYPE_GROUP) {
+            fputc(PMP_TYPE_GROUP, pw->f);
+            uint32_t tmpu32;
+            tmpu32 = swaple32(nl);
+            fwrite(&tmpu32, 4, 1, pw->f);
+            fwrite(n, 1, nl, pw->f);
+        } else if (t->type == PMP_TYPE_ENDGROUP) {
+            fputc(PMP_TYPE_ENDGROUP, pw->f);
+        }
         fputc((t->type & 0x7F) | (t->isarray << 7), pw->f);
         bool isarray = t->isarray;
-        uint32_t tmpu32;
-        if (isarray) {
-            tmpu32 = swaple32(t->size);
+        {
+            uint32_t tmpu32;
+            if (isarray) {
+                tmpu32 = swaple32(t->size);
+                fwrite(&tmpu32, 4, 1, pw->f);
+            }
+            tmpu32 = swaple32(nl);
             fwrite(&tmpu32, 4, 1, pw->f);
+            fwrite(n, 1, nl, pw->f);
         }
-        tmpu32 = swaple32(nl);
-        fwrite(&tmpu32, 4, 1, pw->f);
-        fwrite(n, 1, nl, pw->f);
-        switch (t->type) {
-            default:
-                break;
+        switch ((uint8_t)t->type) {
             case PMP_TYPE_BOOL: {
                 if (!isarray) {
-                    
+                    fputc(*(bool*)d, pw->f);
                 } else {
-                    
+                    fwrite(*(uint8_t**)d, 1, (t->size + 7) / 8, pw->f);
                 }
             } break;
             case PMP_TYPE_I8:
             case PMP_TYPE_U8: {
                 if (!isarray) {
-                    
+                    fputc(*(uint8_t*)d, pw->f);
                 } else {
-                    
+                    fwrite(d, 1, t->size, pw->f);
                 }
             } break;
             case PMP_TYPE_I16:
             case PMP_TYPE_U16: {
                 if (!isarray) {
-                    
+                    fwrite((uint16_t*)d, 2, 1, pw->f);
                 } else {
-                    
+                    fwrite(d, 2, t->size, pw->f);
                 }
             } break;
             case PMP_TYPE_I32:
             case PMP_TYPE_U32:
             case PMP_TYPE_F32: {
                 if (!isarray) {
-                    
+                    fwrite((uint32_t*)d, 4, 1, pw->f);
                 } else {
-                    
+                    fwrite(d, 4, t->size, pw->f);
                 }
             } break;
             case PMP_TYPE_I64:
             case PMP_TYPE_U64:
             case PMP_TYPE_F64: {
                 if (!isarray) {
-                    
+                    fwrite((uint64_t*)d, 8, 1, pw->f);
                 } else {
-                    
+                    fwrite(d, 8, t->size, pw->f);
                 }
             } break;
             case PMP_TYPE_STR: {
-                
+                const struct pmp_string* s = d;
+                uint32_t tmpu32;
+                if (!isarray) {
+                    tmpu32 = swaple32(s->len);
+                    fwrite(&tmpu32, 4, 1, pw->f);
+                    fwrite(s->data, 1, s->len, pw->f);
+                } else {
+                    for (uint32_t i = 0; i < t->size; ++i) {
+                        tmpu32 = swaple32(s[i].len);
+                        fwrite(&tmpu32, 4, 1, pw->f);
+                        fwrite(s[i].data, 1, s[i].len, pw->f);
+                    }
+                }
             } break;
         }
     } else {
