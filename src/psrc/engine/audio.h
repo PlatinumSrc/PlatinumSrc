@@ -5,7 +5,7 @@
         - nuke due to complexity
         - make playSound take a uint64_t time offset
         - make stb_vorbis optional
-        - make the 3D effect use filters
+        - make the 3D effect use filters (https://www.youtube.com/watch?v=9lywYAGSgdc)
         - make the 3D effect use inverse square for distance to volume
         - make audio emitters take a size for the 3D effect
         - later, do a ray cast and make cubes multiply volume by 0.0 to 1.0 when passed through

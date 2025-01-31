@@ -62,11 +62,28 @@ struct pmp_write {
 bool pmp_read_open(char* p, bool text, struct pmp_read*);
 bool pmp_read_next(struct pmp_read*, struct charbuf* name, struct pmp_vartype*);
 void pmp_read_readvar(struct pmp_read*, void*); // type* if not array, type** if array
-void pmp_read_freearray(struct pmp_vartype*, void*);
+static inline void pmp_read_freevar(struct pmp_vartype*, void*); // use with arrays and strings
 void pmp_read_close(struct pmp_read*);
 
 bool pmp_write_open(char* p, struct pmp_write*, bool text, enum pmp_write_comp);
-void pmp_write_next(struct pmp_write*, const char* name, long namelen, struct pmp_vartype*, void* data);
+void pmp_write_next(struct pmp_write*, const char* name, uint32_t namelen, struct pmp_vartype*, void* data);
 void pmp_write_close(struct pmp_write*);
+
+static inline void pmp_read_freevar(struct pmp_vartype* t, void* d) {
+    if (t->type == PMP_TYPE_STR) {
+        if (!t->isarray) {
+            free(((struct pmp_string*)d)->data);
+        } else {
+            struct pmp_string* a = *(struct pmp_string**)d;
+            uint32_t sz = t->size;
+            for (uint32_t i = 0; i < sz; ++i) {
+                free(a[i].data);
+            }
+            free(a);
+        }
+    } else if (t->isarray) {
+        free(*(void**)d);
+    }
+}
 
 #endif
