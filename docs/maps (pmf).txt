@@ -194,6 +194,8 @@ Format:
                 <float: Offset>
                 <float: Scale>
             >
+            <float: Sound volume dampening>
+            <float: Sound frequency dampening>
 
         Physics material:
             <<String>: Name>

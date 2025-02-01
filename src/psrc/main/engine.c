@@ -13,9 +13,6 @@
 
 struct rc_script* mainscript;
 
-static struct rc_sound* test;
-static int testemt_map;
-static int testemt_obj;
 static float lookspeed[2];
 static uint64_t toff;
 static uint64_t framestamp;
@@ -249,43 +246,10 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    testemt_map = newAudioEmitter(1, true);
-    testemt_obj = newAudioEmitter(1, false, SOUNDFX_POS(0.0, 0.0, 3.0));
+    // TODO: redo audio demo
 
-    if ((test = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL))) {
-        //setAmbientSound(test);
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, 0.0, 2.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, 0, SOUNDFX_POS(0.0, 1.0, 0.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/fan1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/vent1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(-5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(0.0, -1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_map, test, SOUNDFLAG_LOOP | SOUNDFLAG_WRAP, SOUNDFX_POS(5.0, 1.0, -20.0));
-        rlsRc(test, false);
-    }
-    if ((test = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL))) {
-        playSound(testemt_obj, test, SOUNDFLAG_LOOP);
-        rlsRc(test, false);
-    }
-    //editSoundEnv(SOUNDENV_REVERB(0.01, 1.0, 0.5, 0.25, 0.1));
-    editSoundEnv(SOUNDENV_REVERB(0.07, 0.99, 0.75, 0.6, 0.15));
+    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 1.0, 0.5, 0.25, 0.1}});
+    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.99, 0.75, 0.6, 0.15}});
 
     // TODO: cleanup
     setInputMode(INPUTMODE_INGAME);
@@ -428,7 +392,7 @@ static void unstrap(void) {
     #endif
 
     plog(LL_INFO, "Deinitializing audio manager...");
-    quitAudio();
+    quitAudio(true);
     plog(LL_INFO, "Deinitializing input manager...");
     quitInput();
     plog(LL_INFO, "Deinitializing renderer...");
@@ -490,31 +454,8 @@ static void loop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
-    editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
-    #if 0
-    {
-        float v = sin(t * 0.989);
-        if (v >= 0.25f) {
-            editSoundEnv(SOUNDENV_LPFILT(v - 0.25f), SOUNDENV_HPFILT(0.0));
-        } else if (v <= -0.25f) {
-            editSoundEnv(SOUNDENV_HPFILT(v * -1.0f - 0.25f), SOUNDENV_LPFILT(0.0));
-        } else {
-            editSoundEnv(SOUNDENV_LPFILT(0.0), SOUNDENV_HPFILT(0.0));
-        }
-    }
-    #endif
-    #if 0
-    {
-        float v = sin(t * 0.989);
-        if (v >= 0.25f) {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(v - 0.25f), SOUNDFX_HPFILT(0.0));
-        } else if (v <= -0.25f) {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_HPFILT(v * -1.0f - 0.25f), SOUNDFX_LPFILT(0.0));
-        } else {
-            editAudioEmitter(testemt_obj, false, SOUNDFX_LPFILT(0.0), SOUNDFX_HPFILT(0.0));
-        }
-    }
-    #endif
+    //editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
+    (void)t;
     #if DEBUG(1)
     prof_end(&dbgprof);
     #endif
@@ -587,7 +528,7 @@ static void loop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
-    updateSounds(framemult);
+    updateAudio(framemult);
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_RENDERER);
     #endif
