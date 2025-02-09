@@ -19,6 +19,8 @@ extern struct options {
     bool set__setup;
     struct cfg set;
     char* maindir;
+    char* gamesdir;
+    char* modsdir;
     #ifndef PSRC_MODULE_SERVER
     char* userdir;
     #endif

@@ -241,9 +241,11 @@ endif
 
 ifeq ($(MODULE),engine)
     USEMINIMP3 := y
+    USESTBVORBIS := y
 else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
     USEMINIMP3 := y
+    USESTBVORBIS := y
 else
     $(error Invalid module: $(MODULE))
 endif
@@ -379,6 +381,9 @@ ifeq ($(USESTDIODS),y)
 endif
 ifeq ($(USEMINIMP3),y)
     _CPPFLAGS += -DPSRC_USEMINIMP3
+endif
+ifeq ($(USESTBVORBIS),y)
+    _CPPFLAGS += -DPSRC_USESTBVORBIS
 endif
 ifeq ($(USESR),y)
     _CPPFLAGS += -DPSRC_ENGINE_RENDERER_USESR

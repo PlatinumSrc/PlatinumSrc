@@ -643,6 +643,8 @@ static int parseargs(int argc, char** argv) {
             puts("    -mods=NAME[,NAME]...        More mods to load.");
             puts("    -icon=PATH                  Override the game's icon.");
             puts("    -maindir=DIR                Set the main directory.");
+            puts("    -gamesdir=DIR               Set the games directory.");
+            puts("    -modsdir=DIR                Set the mods directory.");
             puts("    -userdir=DIR                Set the user directory.");
             puts("    -{set|s} [SECT|VAR=VAL]...  Override config values.");
             puts("    -{config|cfg|c}=FILE        Set the config file path.");
@@ -745,6 +747,24 @@ static int parseargs(int argc, char** argv) {
             }
             free(options.maindir);
             cb_reinit(&val, 256, &options.maindir);
+        } else if (!strcmp(opt.data, "gamesdir")) {
+            e = args_getoptval(&a, 1, -1, &val, &err);
+            if (e == -1) {
+                fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
+                ret = 1;
+                break;
+            }
+            free(options.gamesdir);
+            cb_reinit(&val, 256, &options.gamesdir);
+        } else if (!strcmp(opt.data, "modsdir")) {
+            e = args_getoptval(&a, 1, -1, &val, &err);
+            if (e == -1) {
+                fprintf(stderr, "-%s: %s\n", opt.data, cb_peek(&err));
+                ret = 1;
+                break;
+            }
+            free(options.modsdir);
+            cb_reinit(&val, 256, &options.modsdir);
         } else if (!strcmp(opt.data, "userdir")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {

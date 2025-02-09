@@ -17,7 +17,9 @@
 #ifndef PSRC_MODULE_SERVER
     #include "../stb/stb_image.h"
     #include "../stb/stb_image_resize.h"
-    #include "../stb/stb_vorbis.h"
+    #ifdef PSRC_USESTBVORBIS
+        #include "../stb/stb_vorbis.h"
+    #endif
     #ifdef PSRC_USEMINIMP3
         #include "../minimp3/minimp3_ex.h"
     #endif
@@ -1032,15 +1034,16 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             if (acc.src != RCSRC_FS) goto fail;
             const struct rcopt_sound* o = opt;
             if (acc.ext == rcextensions[RC_SOUND][0]) {
+                #ifdef PSRC_USESTBVORBIS
                 if (o->decodewhole) {
                     stb_vorbis* v = stb_vorbis_open_filename(acc.fs.path, NULL, NULL);
                     if (!v) goto fail;
                     rc = newRc(RC_SOUND);
                     rc->sound.format = RC_SOUND_FRMT_WAV;
                     stb_vorbis_info info = stb_vorbis_get_info(v);
-                    int len = stb_vorbis_stream_length_in_samples(v);
-                    int ch = (info.channels > 1) + 1;
-                    int size = len * ch * sizeof(int16_t);
+                    long len = stb_vorbis_stream_length_in_samples(v);
+                    unsigned ch = (info.channels > 1) + 1;
+                    long size = len * ch * sizeof(int16_t);
                     rc->sound.len = len;
                     rc->sound.size = size;
                     rc->sound.data = rcmgr_malloc(size);
@@ -1075,6 +1078,9 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound_opt = *o;
                     stb_vorbis_close(v);
                 }
+                #else
+                goto fail;
+                #endif
             } else if (acc.ext == rcextensions[RC_SOUND][1]) {
                 #ifdef PSRC_USEMINIMP3
                 mp3dec_ex_t* m = rcmgr_malloc(sizeof(*m));
@@ -1565,7 +1571,7 @@ struct modinfo* queryMods(int* len) {
 static uintptr_t gcrcs_freeafter = 3;
 static void gcRcs_internal(bool ag) {
     #if DEBUG(2)
-    plog(LL_INFO | LF_DEBUG, "Running resource garbage collector...%s", (ag) ? " (aggressive)" : "");
+    plog(LL_INFO | LF_DEBUG, "Running resource garbage collector%s...", (ag) ? " (aggressive)" : "");
     #endif
     for (int g = 0; g < RC__COUNT; ++g) {
         if (!rcgroups[g].zrefct) continue;
@@ -1653,7 +1659,8 @@ void clRcCache(void) {
 
 static uint64_t lasttick;
 static uint64_t ticktime = 1000000;
-static unsigned long alloccheck = 262144;
+static unsigned long alloccheck = /*262144*/ 0;
+static unsigned allocchecktick = 5;
 void runRcMgr(uint64_t t) {
     {
         uint64_t tmp = t - lasttick;
@@ -1665,11 +1672,16 @@ void runRcMgr(uint64_t t) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&rclock);
     #endif
-    if (counter == 5) {
+    if (counter == allocchecktick) {
         counter = 0;
-        void* ptr = malloc(alloccheck);
-        bool ag = (ptr == NULL);
-        free(ptr);
+        bool ag;
+        if (alloccheck) {
+            void* ptr = malloc(alloccheck);
+            ag = (ptr == NULL);
+            free(ptr);
+        } else {
+            ag = false;
+        }
         gcRcs_internal(ag);
     } else {
         gcRcs_internal(false);
@@ -1700,6 +1712,12 @@ bool initRcMgr(void) {
     tmp = cfg_getvar(&config, "Resource Manager", "gc.alloccheck");
     if (tmp) {
         alloccheck = strtoul(tmp, NULL, 10);
+        free(tmp);
+    }
+    tmp = cfg_getvar(&config, "Resource Manager", "gc.allocchecktick");
+    if (tmp) {
+        allocchecktick = strtoul(tmp, NULL, 10);
+        if (!allocchecktick) allocchecktick = 1;
         free(tmp);
     }
     tmp = cfg_getvar(&config, "Resource Manager", "lscache.size");

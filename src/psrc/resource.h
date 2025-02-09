@@ -111,7 +111,9 @@ struct rcopt_script {
 // RC_SOUND
 PACKEDENUM rc_sound_frmt {
     RC_SOUND_FRMT_WAV,
+    #ifdef PSRC_USESTBVORBIS
     RC_SOUND_FRMT_VORBIS,
+    #endif
     #ifdef PSRC_USEMINIMP3
     RC_SOUND_FRMT_MP3
     #endif
@@ -120,9 +122,9 @@ struct rc_sound {
     enum rc_sound_frmt format;
     long size; // size of data in bytes
     uint8_t* data; // file data for FRMT_VORBIS, audio data converted to AUDIO_S16SYS or AUDIO_S8 for FRMT_WAV
-    int len; // length in samples
-    int freq;
-    int channels;
+    long len; // length in samples
+    unsigned freq;
+    uint8_t channels;
     uint8_t stereo : 1;
     uint8_t is8bit : 1; // data is AUDIO_S8 instead of AUDIO_S16SYS for FRMT_WAV
     uint8_t sdlfree : 1; // use SDL_FreeWAV

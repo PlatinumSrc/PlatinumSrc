@@ -212,6 +212,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - `USEGLAD` - Set to `y` to use glad instead of the system's GL library directly
         - `USEWEAKGL` - Set to `y` to mark `gl[A-Z]*` symbols as weak
         - `USEMINIMP3` - Set to `y` to include MiniMP3 for MP3 support
+        - `USESTBVORBIS` - Set to `y` to include stb_vorbis for OGG Vorbis support
         - `USESTDTHREAD` - Set to `y` to use C11 threads
         - Windows
             - `USEWINPTHREAD` - Set to `y` to use winpthread instead of win32 threads

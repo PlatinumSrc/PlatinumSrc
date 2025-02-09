@@ -108,8 +108,16 @@ void setupBaseDirs(void) {
     }
     dirs[DIR_INTERNAL] = mkpath(dirs[DIR_MAIN], "internal", NULL);
     dirs[DIR_INTERNALRC] = mkpath(dirs[DIR_INTERNAL], "resources", NULL);
-    dirs[DIR_GAMES] = mkpath(dirs[DIR_MAIN], "games", NULL);
-    dirs[DIR_MODS] = mkpath(dirs[DIR_MAIN], "mods", NULL);
+    if (options.gamesdir) {
+        dirs[DIR_GAMES] = strpath(options.gamesdir);
+    } else {
+        dirs[DIR_GAMES] = mkpath(dirs[DIR_MAIN], "games", NULL);
+    }
+    if (options.modsdir) {
+        dirs[DIR_MODS] = strpath(options.modsdir);
+    } else {
+        dirs[DIR_MODS] = mkpath(dirs[DIR_MAIN], "mods", NULL);
+    }
 }
 static inline void logdirs(int until) {
     plog(LL_INFO, "Directories:");
