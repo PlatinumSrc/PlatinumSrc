@@ -14,7 +14,7 @@
                         - Fall back to `GL_CLAMP`
             - GL 3.3/GLES 3.0/WebGL 2.0
             - D3D 7 or 8 \(Windows and XDK\)
-            - D3D 9 \(Windows and GDK\)
+            - D3D 11 \(Windows and GDK\)
             - XGU or PBKit \(NXDK\)
             - GSKIT \(PS2\)
             - PVR \(Dreamcast\)

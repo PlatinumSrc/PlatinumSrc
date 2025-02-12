@@ -7,7 +7,93 @@
 
 struct audiostate audiostate;
 
-static void mixsound(struct audiosound* s, bool fake, bool forcemono) {
+void mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+    
+}
+
+void mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+    
+}
+
+void mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+    
+}
+
+#define MIXSOUND__DOMIXING(l) do {\
+    if (!oob) {\
+        register int_fast16_t sample_l, sample_r;\
+        if (pos > bufend || pos < bufstart) {\
+            cb(ctx, loop, pos, &bufstart, &bufend, &buf);\
+        }\
+        register long bufpos = (pos - bufstart) * (long)ch;\
+        sample_l = buf[bufpos];\
+        sample_r = buf[bufpos + (ch != 1)];\
+        if (frac) {\
+            int mix = frac / outfreq;\
+            int imix = 256 - mix;\
+            sample_l *= imix;\
+            sample_r *= imix;\
+            long pos2 = pos + 1;\
+            if (pos2 > bufend || pos2 < bufstart) {\
+                register long loop2 = loop;\
+                if (pos2 == len) {\
+                    if (!(flags & SOUNDFLAG_LOOP)) {\
+                        goto skipinterp_##l;\
+                    } else {\
+                        pos2 = 0;\
+                        ++loop2;\
+                    }\
+                }\
+                cb(ctx, loop2, pos2, &bufstart, &bufend, &buf);\
+            }\
+            bufpos = (pos2 - bufstart) * (long)ch;\
+            sample_l += buf[bufpos] * mix;\
+            sample_r += buf[bufpos + (ch != 1)] * mix;\
+            skipinterp_##l:;\
+            sample_l /= 256;\
+            sample_r /= 256;\
+        }\
+        audiostate.fxbuf[0][i] = sample_l;\
+        audiostate.fxbuf[1][i] = sample_r;\
+    } else {\
+        audiostate.fxbuf[0][i] = 0;\
+        audiostate.fxbuf[1][i] = 0;\
+    }\
+} while (0)
+#define MIXSOUND__DOMIXING_EVALLINE(l) MIXSOUND__DOMIXING(l)
+#define MIXSOUND_DOMIXING() MIXSOUND__DOMIXING_EVALLINE(__LINE__)
+#define MIXSOUND_DOPOSMATH() do {\
+    pos += frac / div;\
+    frac %= div;\
+    if (frac < 0) {\
+        frac += div;\
+        --pos;\
+    }\
+    if (pos >= len) {\
+        loop += pos / len;\
+        pos %= len;\
+    } else if (pos < 0) {\
+        loop += pos / len - 1;\
+        pos %= len;\
+        pos += len;\
+    } else {\
+        continue;\
+    }\
+    if (!(flags & SOUNDFLAG_LOOP)) {\
+        if (!(flags & SOUNDFLAG_WRAP)) {\
+            oob = (loop != 0);\
+        } else {\
+            oob = (loop < -1 || loop > 0);\
+        }\
+    } else {\
+        if (!(flags & SOUNDFLAG_WRAP)) {\
+            oob = (loop < 0);\
+        } else {\
+            oob = false;\
+        }\
+    }\
+} while (0)
+/*static*/ void mixsound(struct audiosound* s, bool fake, bool forcemono, int oldvol, int newvol) {
     audiocb cb;
     void* ctx;
     long len;
@@ -15,12 +101,12 @@ static void mixsound(struct audiosound* s, bool fake, bool forcemono) {
     unsigned ch;
     if (!s->usescb) {
         switch (s->rc->format) {
-            case RC_SOUND_FRMT_WAV: /*cb = (audiocb)mixsound_cb_wav;*/ break;
+            /*case RC_SOUND_FRMT_WAV*/ default: cb = (audiocb)mixsound_cb_wav; break;
             #ifdef PSRC_USESTBVORBIS
-            case RC_SOUND_FRMT_VORBIS: /*cb = (audiocb)mixsound_cb_vorbis;*/ break;
+            case RC_SOUND_FRMT_VORBIS: cb = (audiocb)mixsound_cb_vorbis; break;
             #endif
             #ifdef PSRC_USEMINIMP3
-            case RC_SOUND_FRMT_MP3: /*cb = (audiocb)mixsound_cb_mp3;*/ break;
+            case RC_SOUND_FRMT_MP3: cb = (audiocb)mixsound_cb_mp3; break;
             #endif
         }
         ctx = s;
@@ -37,6 +123,7 @@ static void mixsound(struct audiosound* s, bool fake, bool forcemono) {
 
     uint8_t flags = s->flags;
     long loop = s->loop;
+    long oldloop = loop;
     register long pos = s->pos;
     register long frac = s->frac;
     long outfreq = audiostate.freq;
@@ -53,97 +140,114 @@ static void mixsound(struct audiosound* s, bool fake, bool forcemono) {
     }
     #endif
     long div = outfreq * 256;
+    int vol[2][2];
 
     int16_t* buf;
-    long bufrange[2];
+    long bufstart, bufend;
 
-    int oob = (!(flags & SOUNDFLAG_LOOP) && ((!(flags & SOUNDFLAG_WRAP)) ? loop : (loop < -1 || loop > 0)));
-    if (!oob) {
-        bool ret = cb(ctx, pos, &bufrange[0], &bufrange[1], &buf);
-        if (!ret) oob = 2;
+    bool oob;
+    if (!(flags & SOUNDFLAG_LOOP)) {
+        if (!(flags & SOUNDFLAG_WRAP)) {
+            oob = (loop != 0);
+        } else {
+            oob = (loop < -1 || loop > 0);
+        }
+    } else {
+        if (!(flags & SOUNDFLAG_WRAP)) {
+            oob = (loop < 0);
+        } else {
+            oob = false;
+        }
     }
     if (!s->fxchanged) {
         uint_fast8_t curfxi = s->fxi;
         long speedmul = s->calcfx[curfxi].speedmul;
         long change = freq * speedmul;
-        int vol[2] = {s->calcfx[curfxi].volmul[0], s->calcfx[curfxi].volmul[1]};
-        for (register unsigned i = 0; i < audiostate.buflen; ++i) {
-            register int_fast16_t sample_l, sample_r;
-            if (!oob) {
-                if (pos > bufrange[1] || pos < bufrange[0]) {
-                    bool ret = cb(ctx, pos, &bufrange[0], &bufrange[1], &buf);
-                    if (!ret) {oob = 2; goto wentoob;}
-                }
-                register long bufpos = (pos - bufrange[0]) * (long)ch;
-                sample_l = buf[bufpos];
-                sample_r = buf[bufpos + (ch != 1)];
-                if (frac) {
-                    int mix = frac / outfreq;
-                    int imix = 256 - mix;
-                    long pos2 = pos + 1;
-                    if (pos2 == len) {
-                        if (!(flags & SOUNDFLAG_LOOP) && loop > 0) {
-                            sample_l *= imix;
-                            sample_l /= 256;
-                            sample_r *= imix;
-                            sample_r /= 256;
-                            goto skipinterp;
-                        }
-                        pos2 = 0;
-                    }
-                    if (pos2 > bufrange[1] || pos < bufrange[0]) {
-                        bool ret = cb(ctx, pos, &bufrange[0], &bufrange[1], &buf);
-                        if (!ret) {oob = 2; goto wentoob;}
-                    }
-                    bufpos = (pos2 - bufrange[0]) * (long)ch;
-                    sample_l = (sample_l * imix + buf[bufpos] * mix) / 256;
-                    sample_r = (sample_r * imix + buf[bufpos + (ch != 1)] * mix) / 256;
-                    skipinterp:;
-                }
-            } else {
-                wentoob:;
-                sample_l = 0;
-                sample_r = 0;
+        if (!fake) {
+            vol[0][0] = s->calcfx[curfxi].volmul[0] * oldvol / 32768;
+            vol[0][1] = s->calcfx[curfxi].volmul[1] * oldvol / 32768;
+            vol[1][0] = s->calcfx[curfxi].volmul[0] * newvol / 32768;
+            vol[1][1] = s->calcfx[curfxi].volmul[1] * newvol / 32768;
+            cb(ctx, loop, pos, &bufstart, &bufend, &buf);
+            for (register unsigned i = 0; i < audiostate.buflen; ++i) {
+                MIXSOUND_DOMIXING();
+                frac += change;
+                MIXSOUND_DOPOSMATH();
             }
-            audiostate.fxbuf[0][i] = sample_l * vol[0] / 32768;
-            audiostate.fxbuf[1][i] = sample_r * vol[1] / 32768;
-            frac += change;
-            pos += frac / div;
-            frac %= div;
-            if (frac < 0) {
-                frac += div;
-                --pos;
-            }
-            if (pos >= len) {
-                loop += pos / len;
-                pos %= len;
-                if (oob != 2) oob = (!(flags & SOUNDFLAG_LOOP) && ((!(flags & SOUNDFLAG_WRAP)) ? loop : (loop < -1 || loop > 0)));
-            } else if (pos < 0) {
-                loop += pos / len - 1;
-                pos %= len;
-                pos += len;
-                if (oob != 2) oob = (!(flags & SOUNDFLAG_LOOP) && ((!(flags & SOUNDFLAG_WRAP)) ? loop : (loop < -1 || loop > 0)));
+        } else {
+            for (register unsigned i = 0; i < audiostate.buflen; ++i) {
+                frac += change;
+                MIXSOUND_DOPOSMATH();
             }
         }
     } else {
         uint_fast8_t oldfxi = s->fxi;
         uint_fast8_t newfxi = (oldfxi + 1) % 2;
         long posoff[2];
-        posoff[0] = s->calcfx[oldfxi].posoff;
-        posoff[1] = s->calcfx[newfxi].posoff;
+        posoff[0] = 0;
+        posoff[1] = s->calcfx[newfxi].posoff - s->calcfx[oldfxi].posoff;
         long speedmul[2];
         speedmul[0] = s->calcfx[oldfxi].speedmul;
         speedmul[1] = s->calcfx[newfxi].speedmul;
-        int vol[2][2];
-        vol[0][0] = s->calcfx[oldfxi].volmul[0];
-        vol[0][1] = s->calcfx[oldfxi].volmul[1];
-        vol[1][0] = s->calcfx[newfxi].volmul[0];
-        vol[1][1] = s->calcfx[newfxi].volmul[1];
         s->fxchanged = 0;
         s->fxi = newfxi;
+        if (!fake) {
+            vol[0][0] = s->calcfx[oldfxi].volmul[0] * oldvol / 32768;
+            vol[0][1] = s->calcfx[oldfxi].volmul[1] * oldvol / 32768;
+            vol[1][0] = s->calcfx[newfxi].volmul[0] * newvol / 32768;
+            vol[1][1] = s->calcfx[newfxi].volmul[1] * newvol / 32768;
+            cb(ctx, loop, pos, &bufstart, &bufend, &buf);
+            for (register unsigned i = 0, ii = audiostate.buflen; i < audiostate.buflen; ++i, --ii) {
+                MIXSOUND_DOMIXING();
+                long tmpposoff = posoff[1] * i / 1024 - posoff[0];
+                posoff[0] = tmpposoff;
+                tmpposoff *= freq;
+                pos += tmpposoff / outfreq;
+                frac += freq * ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) + (tmpposoff % outfreq) * 256;
+                MIXSOUND_DOPOSMATH();
+            }
+        } else {
+            for (register unsigned i = 0, ii = audiostate.buflen; i < audiostate.buflen; ++i, --ii) {
+                long tmpposoff = posoff[1] * i / 1024 - posoff[0];
+                posoff[0] = tmpposoff;
+                tmpposoff *= freq;
+                pos += tmpposoff / outfreq;
+                frac += freq * ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) + (tmpposoff % outfreq) * 256;
+                MIXSOUND_DOPOSMATH();
+            }
+        }
+        posoff[1] -= posoff[0];
+        posoff[1] *= freq;
+        pos += posoff[1] / outfreq;
+        frac += (posoff[1] % outfreq) * 256;
+        MIXSOUND_DOPOSMATH();
+    }
+    if (!fake) {
+        if (forcemono) {
+            for (register unsigned i = 0; i < audiostate.buflen; ++i) {
+                audiostate.fxbuf[1][i] = audiostate.fxbuf[0][i] = (audiostate.fxbuf[0][i] + audiostate.fxbuf[1][i]) / 2;
+            }
+        }
+        // TODO: filter
+        for (register unsigned i = 0, ii = audiostate.buflen; i < audiostate.buflen; ++i, --ii) {
+            audiostate.fxbuf[0][i] *= ((vol[0][0] * ii + vol[1][0] * i) / audiostate.buflen);
+            audiostate.fxbuf[0][i] /= 32768;
+            audiostate.fxbuf[1][i] *= ((vol[0][1] * ii + vol[1][1] * i) / audiostate.buflen);
+            audiostate.fxbuf[1][i] /= 32768;
+        }
     }
 
-    if (oob == 1) goto unload;
+    if (!(flags & SOUNDFLAG_LOOP)) {
+        if (loop > 0) {
+            if (loop > oldloop) goto unload;
+        } else if (loop < ((!(flags & SOUNDFLAG_WRAP)) ? 0 : -1)) {
+            if (loop < oldloop) goto unload;
+        }
+    } else if (!(flags & SOUNDFLAG_WRAP)) {
+        if (loop < 0) {
+            if (loop < oldloop) goto unload;
+        }
+    }
 
     unload:;
 }
