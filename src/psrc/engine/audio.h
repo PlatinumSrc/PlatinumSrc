@@ -26,6 +26,7 @@
 #include <stdbool.h>
 
 // writes a pointer to a buffer of interleaved samples to *bufptr
+// when done, the callback will be called with bufptr being NULL
 typedef void (*audiocb)(void* ctx, long loop, long pos, long* start, long* end, int16_t** bufptr);
 
 enum audioopt {
@@ -128,6 +129,9 @@ struct audiosound {
     uint8_t fxi;
     struct audiofx fx;
     struct audiosound_fx calcfx[2];
+    int16_t lplastout;
+    int16_t hplastout;
+    int16_t hplastin;
     union {
         struct {
             struct rc_sound* rc;
@@ -136,16 +140,23 @@ struct audiosound {
                 struct {
                     stb_vorbis* state;
                     int16_t* decbuf; // interleaved
-                    long decbufrange[2];
+                    long decbufhead;
+                    long decbuflen;
                 } vorbis;
                 #endif
                 #ifdef PSRC_USEMINIMP3
                 struct {
                     mp3dec_ex_t* state;
                     int16_t* decbuf; // interleaved
-                    long decbufrange[2];
+                    long decbufhead;
+                    long decbuflen;
                 } mp3;
                 #endif
+                struct {
+                    int16_t* cvtbuf; // interleaved
+                    //long cvtbufhead;
+                    //long cvtbuflen;
+                } wav;
             };
         };
         struct {
