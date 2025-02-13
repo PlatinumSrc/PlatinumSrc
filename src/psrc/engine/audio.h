@@ -109,12 +109,18 @@ struct audioemitter2d {
 #define SOUNDFLAG_LOOP (1 << 0)
 #define SOUNDFLAG_WRAP (1 << 1)
 
+#define SOUNDIFLAG_USESCB (1 << 0)
+#define SOUNDIFLAG_FXCH_VOL (1 << 1)
+#define SOUNDIFLAG_FXCH_FILT (1 << 2)
+#define SOUNDIFLAG_FXCH_OTHER (1 << 3)
+#define SOUNDIFLAG_FXCH (SOUNDIFLAG_FXCH_VOL | SOUNDIFLAG_FXCH_FILT | SOUNDIFLAG_FXCH_OTHER)
+
 struct audiosound_fx {
     long posoff; // position offset in output freq samples (based on the dist between campos and pos)
     int speedmul; // speed mult in units of 256 (based on speed)
     int volmul[2]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
-    int lpfiltmul; // from 0 to output freq
-    int hpfiltmul; // from 0 to output freq
+    unsigned lpfiltmul; // from 0 to output freq
+    unsigned hpfiltmul; // from 0 to output freq
 };
 struct audiosound {
     int emitter;
@@ -123,15 +129,13 @@ struct audiosound {
     long frac;
     int8_t prio;
     uint8_t flags;
-    uint8_t usescb : 1;
-    uint8_t fxchanged : 1;
-    uint8_t : 6;
+    uint8_t iflags;
     uint8_t fxi;
     struct audiofx fx;
     struct audiosound_fx calcfx[2];
-    int16_t lplastout;
-    int16_t hplastout;
-    int16_t hplastin;
+    int16_t lplastout[2];
+    int16_t hplastout[2];
+    int16_t hplastin[2];
     union {
         struct {
             struct rc_sound* rc;
@@ -182,7 +186,7 @@ struct audiostate {
     unsigned channels;
     struct rcopt_sound soundrcopt;
     unsigned buflen;
-    int16_t* fxbuf[2]; // l/r
+    int* fxbuf[2]; // l/r
     int* mixbuf[2]; // l/r
     int16_t* outbuf[2]; // old/new, interleaved
     unsigned outbufi;
