@@ -31,7 +31,9 @@ typedef void (*audiocb)(void* ctx, long loop, long pos, long* start, long* end, 
 
 enum audioopt {
     AUDIOOPT_END,
+    AUDIOOPT_VOL,       // double
     AUDIOOPT_FREQ,      // unsigned
+    AUDIOOPT_CHANNELS,  // unsigned
     AUDIOOPT_3DVOICES,  // unsigned
     AUDIOOPT_2DVOICES   // unsigned
 };
@@ -65,7 +67,7 @@ struct audiofx {
 #define AUDIO3DFXMASK_ALL (-1U)
 struct audio3dfx {
     float pos[3];
-    float size[3];
+    float radius[3];
     float voldamp;
     float freqdamp;
     uint8_t nodoppler : 1;
@@ -73,32 +75,28 @@ struct audio3dfx {
     uint8_t relrot : 1;
 };
 
-#define AUDIOENVMASK_LPFILT (1 << 0)
-#define AUDIOENVMASK_HPFILT (1 << 1)
-#define AUDIOENVMASK_REVERB_DELAY (1 << 2)
-#define AUDIOENVMASK_REVERB_FEEDBACK (1 << 3)
-#define AUDIOENVMASK_REVERB_MIX (1 << 4)
-#define AUDIOENVMASK_REVERB_LPFILT (1 << 5)
-#define AUDIOENVMASK_REVERB_HPFILT (1 << 6)
-#define AUDIOENVMASK_REVERB (AUDIOENVMASK_REVERB_DELAY | AUDIOENVMASK_REVERB_FEEDBACK | AUDIOENVMASK_REVERB_MIX | \
-                            AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
-#define AUDIOENVMASK_ALL (-1U)
-struct audioenv {
-    float lpfilt;
-    float hpfilt;
-    struct {
-        float delay;
-        float feedback;
-        float mix;
-        float lpfilt;
-        float hpfilt;
-    } reverb;
+struct audiocalcfx {
+    long posoff; // position offset in output freq samples
+    int speedmul; // speed mult in units of 256
+    int volmul[2]; // volume mult in units of 32768
+    unsigned lpfiltmul; // from 0 to output freq
+    unsigned hpfiltmul; // from 0 to output freq
 };
 
 struct audioemitter3d {
     struct audiofx fx;
     struct audio3dfx fx3d;
+    struct {
+        long posoff;
+        float volmul[2];
+        float lpfiltmul;
+    } fx3dout;
     int8_t prio;
+    float dist;
+    uint8_t fxch_posoff : 1;
+    uint8_t fxch_vol : 1;
+    uint8_t fxch_filt : 1;
+    uint8_t : 5;
 };
 
 struct audioemitter2d {
@@ -108,20 +106,12 @@ struct audioemitter2d {
 
 #define SOUNDFLAG_LOOP (1 << 0)
 #define SOUNDFLAG_WRAP (1 << 1)
-
-#define SOUNDIFLAG_USESCB (1 << 0)
-#define SOUNDIFLAG_FXCH_VOL (1 << 1)
-#define SOUNDIFLAG_FXCH_FILT (1 << 2)
-#define SOUNDIFLAG_FXCH_OTHER (1 << 3)
+#define SOUNDIFLAG_VALID (1 << 0)
+#define SOUNDIFLAG_USESCB (1 << 1)
+#define SOUNDIFLAG_FXCH_VOL (1 << 2)
+#define SOUNDIFLAG_FXCH_FILT (1 << 3)
+#define SOUNDIFLAG_FXCH_OTHER (1 << 4)
 #define SOUNDIFLAG_FXCH (SOUNDIFLAG_FXCH_VOL | SOUNDIFLAG_FXCH_FILT | SOUNDIFLAG_FXCH_OTHER)
-
-struct audiosound_fx {
-    long posoff; // position offset in output freq samples (based on the dist between campos and pos)
-    int speedmul; // speed mult in units of 256 (based on speed)
-    int volmul[2]; // volume mult in units of 32768 (based on vol, camrot, and the dist between campos and pos)
-    unsigned lpfiltmul; // from 0 to output freq
-    unsigned hpfiltmul; // from 0 to output freq
-};
 struct audiosound {
     int emitter;
     long loop;
@@ -132,7 +122,7 @@ struct audiosound {
     uint8_t iflags;
     uint8_t fxi;
     struct audiofx fx;
-    struct audiosound_fx calcfx[2];
+    struct audiocalcfx calcfx[2];
     int16_t lplastout[2];
     int16_t hplastout[2];
     int16_t hplastin[2];
@@ -173,6 +163,28 @@ struct audiosound {
     };
 };
 
+#define AUDIOENVMASK_LPFILT (1 << 0)
+#define AUDIOENVMASK_HPFILT (1 << 1)
+#define AUDIOENVMASK_REVERB_DELAY (1 << 2)
+#define AUDIOENVMASK_REVERB_FEEDBACK (1 << 3)
+#define AUDIOENVMASK_REVERB_MIX (1 << 4)
+#define AUDIOENVMASK_REVERB_LPFILT (1 << 5)
+#define AUDIOENVMASK_REVERB_HPFILT (1 << 6)
+#define AUDIOENVMASK_REVERB (AUDIOENVMASK_REVERB_DELAY | AUDIOENVMASK_REVERB_FEEDBACK | AUDIOENVMASK_REVERB_MIX | \
+                            AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
+#define AUDIOENVMASK_ALL (-1U)
+struct audioenv {
+    float lpfilt;
+    float hpfilt;
+    struct {
+        float delay;
+        float feedback;
+        float mix;
+        float lpfilt;
+        float hpfilt;
+    } reverb;
+};
+
 struct audiostate {
     #ifndef PSRC_NOMT
     struct accesslock lock;
@@ -185,6 +197,7 @@ struct audiostate {
     unsigned freq;
     unsigned channels;
     struct rcopt_sound soundrcopt;
+    float soundspeedmul;
     unsigned buflen;
     int* fxbuf[2]; // l/r
     int* mixbuf[2]; // l/r
@@ -198,17 +211,17 @@ struct audiostate {
     unsigned voices3d;
     struct VLB(struct audioemitter3d) emitters3d;
     struct VLB(struct audiosound) sounds3d;
+    struct VLB(size_t) sounds3dorder;
     unsigned max2dsounds;
     unsigned voices2d;
     struct VLB(struct audioemitter2d) emitters2d;
     struct VLB(struct audiosound) sounds2d;
+    struct VLB(size_t) sounds2dorder;
     struct {
         float pos[3];
         float rot[3];
-        float rotradx, rotrady, rotradz;
-        float sinx, cosx;
-        float siny, cosy;
-        float sinz, cosz;
+        float sin[3];
+        float cos[3];
     } cam;
 };
 

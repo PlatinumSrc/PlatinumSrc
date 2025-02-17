@@ -1,7 +1,6 @@
 #include "time.h"
 
 #include <stddef.h>
-#include <stdbool.h>
 #include <time.h>
 #if PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>

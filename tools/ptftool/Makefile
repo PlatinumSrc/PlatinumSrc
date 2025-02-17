@@ -38,7 +38,7 @@ endef
 deps.filter := %.c %.h
 deps.option := -MM
 define deps
-$$(filter $$(deps.filter),,$$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -E $(deps.option) $(1)))
+$$(filter $$(deps.filter),,$$(shell $(_CC) $(CFLAGS) $(CPPFLAGS) -E $(deps.option) $(1)))
 endef
 
 default: build
