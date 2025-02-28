@@ -44,20 +44,22 @@ enum audioopt {
 #define AUDIOPRIO_NORMAL (0)
 #define AUDIOPRIO_MAX (127)
 
-#define AUDIOFXMASK_VOL_L (1 << 0)
-#define AUDIOFXMASK_VOL_R (1 << 1)
+#define AUDIOFXMASK_TOFF (1 << 0)
+#define AUDIOFXMASK_SPEED (1 << 1)
+#define AUDIOFXMASK_VOL_L (1 << 2)
+#define AUDIOFXMASK_VOL_R (1 << 3)
 #define AUDIOFXMASK_VOL (AUDIOFXMASK_VOL_L | AUDIOFXMASK_VOL_R)
-#define AUDIOFXMASK_SPEED (1 << 2)
-#define AUDIOFXMASK_LPFILT_L (1 << 3)
-#define AUDIOFXMASK_LPFILT_R (1 << 4)
+#define AUDIOFXMASK_LPFILT_L (1 << 4)
+#define AUDIOFXMASK_LPFILT_R (1 << 5)
 #define AUDIOFXMASK_LPFILT (AUDIOFXMASK_LPFILT_L | AUDIOFXMASK_LPFILT_R)
-#define AUDIOFXMASK_HPFILT_L (1 << 5)
-#define AUDIOFXMASK_HPFILT_R (1 << 6)
+#define AUDIOFXMASK_HPFILT_L (1 << 6)
+#define AUDIOFXMASK_HPFILT_R (1 << 7)
 #define AUDIOFXMASK_HPFILT (AUDIOFXMASK_HPFILT_L | AUDIOFXMASK_HPFILT_R)
 #define AUDIOFXMASK_ALL (-1U)
 struct audiofx {
-    float vol[2];
+    int64_t toff;
     float speed; 
+    float vol[2];
     float lpfilt[2];
     float hpfilt[2];
 };
@@ -80,17 +82,6 @@ struct audio3dfx {
     uint8_t relrot : 1;
 };
 
-#define AUDIOCALCFXMASK_POSOFF (1 << 0)
-#define AUDIOCALCFXMASK_SPEEDMUL (1 << 1)
-#define AUDIOCALCFXMASK_VOLMUL_L (1 << 2)
-#define AUDIOCALCFXMASK_VOLMUL_R (1 << 3)
-#define AUDIOCALCFXMASK_VOLMUL (AUDIOCALCFXMASK_VOLMUL_L | AUDIOCALCFXMASK_VOLMUL_R)
-#define AUDIOCALCFXMASK_LPFILTMUL_L (1 << 4)
-#define AUDIOCALCFXMASK_LPFILTMUL_R (1 << 5)
-#define AUDIOCALCFXMASK_LPFILTMUL (AUDIOCALCFXMASK_LPFILTMUL_L | AUDIOCALCFXMASK_LPFILTMUL_R)
-#define AUDIOCALCFXMASK_HPFILTMUL_L (1 << 6)
-#define AUDIOCALCFXMASK_HPFILTMUL_R (1 << 7)
-#define AUDIOCALCFXMASK_HPFILTMUL (AUDIOCALCFXMASK_HPFILTMUL_L | AUDIOCALCFXMASK_HPFILTMUL_R)
 struct audiocalcfx {
     long posoff; // position offset in output freq samples
     int speedmul; // speed mult in units of 256
@@ -112,11 +103,9 @@ struct audioemitter3d {
     unsigned maxsounds;
     int8_t prio;
     float dist;
+    uint8_t fxch;
     uint8_t paused : 1;
-    uint8_t fxoutch_posoff : 1;
-    uint8_t fxoutch_vol : 1;
-    uint8_t fxoutch_filt : 1;
-    uint8_t : 4;
+    uint8_t : 7;
     uint8_t cfximm;
 };
 
@@ -138,6 +127,7 @@ struct audioemitter2d {
 #define SOUNDIFLAG_FXCH_FILT (1 << 2)
 #define SOUNDIFLAG_FXCH_OTHER (1 << 3)
 #define SOUNDIFLAG_FXCH (SOUNDIFLAG_FXCH_VOL | SOUNDIFLAG_FXCH_FILT | SOUNDIFLAG_FXCH_OTHER)
+#define SOUNDIFLAG_NEEDSINIT (1 << 4)
 struct audiosound {
     int emitter;
     long loop;
@@ -266,7 +256,7 @@ void edit3DAudioEmitter(int, unsigned fxmask, const struct audiofx*, unsigned fx
 void pause3DAudioEmitter(int, bool);
 void stop3DAudioEmitter(int);
 void delete3DAudioEmitter(int);
-bool play3DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, int16_t toff, unsigned fxmask, const struct audiofx*);
+bool play3DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play3DSoundCB(...);
 
 int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const struct audiofx*);
@@ -274,7 +264,7 @@ void edit2DAudioEmitter(int, unsigned fxmask, const struct audiofx*, unsigned im
 void pause2DAudioEmitter(int, bool);
 void stop2DAudioEmitter(int);
 void delete2DAudioEmitter(int);
-bool play2DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, int16_t toff, unsigned fxmask, const struct audiofx*);
+bool play2DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play2DSoundCB(...);
 
 void setAudioEnv(unsigned mask, struct audioenv*);
