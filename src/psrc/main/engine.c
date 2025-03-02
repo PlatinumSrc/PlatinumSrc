@@ -249,8 +249,8 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 1.0, 0.5, 0.25, 0.1}}, 0);
-    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.99, 0.75, 0.6, 0.15}}, 0);
+    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.25, 0.1}}, 0);
+    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.6, 0.15}}, 0);
     e3d1 = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL, 0, NULL);
     e2d1 = new2DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL);
     {
@@ -259,7 +259,7 @@ static int bootstrap(void) {
             play3DSound(e3d1, tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
-        tmpsnd = getRc(RC_SOUND, "sounds/health", &audiostate.soundrcopt, 0, NULL);
+        tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play3DSound(e3d1, tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);

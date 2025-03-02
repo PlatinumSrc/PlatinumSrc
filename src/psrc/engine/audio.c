@@ -32,8 +32,8 @@ static void mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* sta
         tmpend -= pos;
         tmpend *= s->rc->channels;
         uint8_t* datain = s->rc->data;
-        for (register long i = 0; i < tmpend; ++i) {
-            register int tmp = datain[i];
+        for (register long i = 0, i2 = pos * s->rc->channels; i < tmpend; ++i, ++i2) {
+            register int tmp = datain[i2];
             dataout[i] = (tmp - 128) * 256 + tmp;
         }
     }
@@ -196,6 +196,7 @@ int new3DAudioEmitter(int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask,
             e->fx3d.pos[1] = 0.0f;
             e->fx3d.pos[2] = 0.0f;
         }
+        e->fx3d.range = (fx3dmask & AUDIO3DFXMASK_RANGE) ? fx3d->range : 25.0f;
         if (fx3dmask & AUDIO3DFXMASK_RADIUS) {
             e->fx3d.radius[0] = fx3d->radius[0];
             e->fx3d.radius[1] = fx3d->radius[1];
@@ -212,13 +213,7 @@ int new3DAudioEmitter(int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask,
         e->fx3d.relrot = (fx3dmask & AUDIO3DFXMASK_RELROT) ? fx3d->relrot : 0;
     } else {
         e->fx3d = (struct audio3dfx){
-            .pos = {0.0f, 0.0f, 0.0f},
-            .radius = {0.0f, 0.0f, 0.0f},
-            .voldamp = 0.0f,
-            .freqdamp = 0.0f,
-            .nodoppler = 0,
-            .relpos = 0,
-            .relrot = 0
+            .range = 25.0f
         };
     }
     ret:;
@@ -307,6 +302,7 @@ void edit3DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, co
             e->fx3d.pos[1] = fx3d->pos[1];
             e->fx3d.pos[2] = fx3d->pos[2];
         }
+        if (fx3dmask & AUDIO3DFXMASK_RANGE) e->fx3d.range = fx3d->range;
         if (fx3dmask & AUDIO3DFXMASK_RADIUS) {
             e->fx3d.radius[0] = fx3d->radius[0];
             e->fx3d.radius[1] = fx3d->radius[1];
@@ -447,7 +443,7 @@ static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask
     s->rc = rc;
     switch (s->rc->format) {
         /*case RC_SOUND_FRMT_WAV*/ default:
-            if (s->rc->is8bit) s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->wav.cvtbuf));
+            if (s->rc->is8bit) s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * s->rc->channels * sizeof(*s->wav.cvtbuf));
             break;
         #ifdef PSRC_USESTBVORBIS
         case RC_SOUND_FRMT_VORBIS:
@@ -809,7 +805,7 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     }
     if (!e->fx3d.relrot) vec3_trigrotate(pos, audiostate.cam.sin, audiostate.cam.cos, pos);
     if (!e->fx3d.nodoppler) {
-        long posoff = dist * -audiostate.soundspeedmul;
+        long posoff = roundf(dist * -audiostate.soundspeedmul);
         if (posoff != e->fx3dout.posoff) {
             e->fx3dout.posoff = posoff;
             e->fxch |= AUDIOFXMASK_TOFF;
@@ -820,9 +816,13 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     }
     float vol[2];
     {
-        float tmp = dist * dist;
-        if (tmp < 0.5f) tmp = 0.5f;
-        vol[1] = vol[0] = 1.0f / tmp;
+        float range = e->fx3d.range;
+        if (dist < range) {
+            float tmp = 1.0f - dist / range;
+            vol[1] = vol[0] = tmp * tmp * tmp;
+        } else {
+            vol[1] = vol[0] = 0.0f;
+        }
     }
     float lpfilt[2] = {0.0f, 0.0f};
     float hpfilt[2] = {0.0f, 0.0f};
@@ -888,7 +888,7 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
-        int64_t toff = (e->fx.toff + s->fx.toff) * audiostate.freq / 1000000 + e->fx3dout.posoff;
+        int64_t toff = (e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000 + e->fx3dout.posoff;
         if (imm & AUDIOFXMASK_TOFF) {
             long oldposoff = s->calcfx[curfxi].posoff;
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
@@ -897,8 +897,8 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
             long loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
-            pos += toff / audiostate.freq;
-            frac += (toff % audiostate.freq) * 256;
+            pos += toff / (long)audiostate.freq;
+            frac += (toff % (long)audiostate.freq) * 256;
             long div = audiostate.freq * 256;
             pos += frac / div;
             frac %= div;
@@ -1005,7 +1005,7 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
-        int64_t toff = (e->fx.toff + s->fx.toff) * audiostate.freq / 1000000;
+        int64_t toff = (e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000;
         if (imm & AUDIOFXMASK_TOFF) {
             long oldposoff = s->calcfx[curfxi].posoff;
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
@@ -1014,8 +1014,8 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
             long loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
-            pos += toff / audiostate.freq;
-            frac += (toff % audiostate.freq) * 256;
+            pos += toff / (long)audiostate.freq;
+            frac += (toff % (long)audiostate.freq) * 256;
             long div = audiostate.freq * 256;
             pos += frac / div;
             frac %= div;
@@ -1198,6 +1198,7 @@ static inline void applyAudioEnv(void) {
             if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
             if (tmpu >= audiostate.freq) tmpu = 0;
             else tmpu = audiostate.freq - tmpu;
+            printf("!! %u\n", tmpu);
             audiostate.env.reverb.state.hpfilt[newparami] = tmpu;
             if (audiostate.env.envch & AUDIOENVMASK_REVERB_HPFILT) {
                 audiostate.env.reverb.state.lpfilt[curparami] = tmpu;
@@ -1208,6 +1209,7 @@ static inline void applyAudioEnv(void) {
         if (audiostate.env.reverb.state.len) {
             doReverb_interp(&audiostate.env.reverb.state, audiostate.buflen, audiostate.mixbuf[0], audiostate.mixbuf[1]);
         }
+        audiostate.env.reverb.state.parami = newparami;
     } else if (audiostate.env.reverb.state.len) {
         doReverb(&audiostate.env.reverb.state, audiostate.buflen, audiostate.mixbuf[0], audiostate.mixbuf[1]);
     }
@@ -1477,23 +1479,26 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
             }
         }
     } else {
-        long posoff[2];
+        long posoff[3];
         posoff[0] = 0;
         posoff[1] = (s->fxch & AUDIOFXMASK_TOFF) ? s->calcfx[newfxi].posoff - s->calcfx[curfxi].posoff : 0;
         long speedmul[2];
         speedmul[0] = s->calcfx[curfxi].speedmul;
         speedmul[1] = s->calcfx[newfxi].speedmul;
-        register unsigned i = 0, ii = audiostate.buflen;
+        register long i = 0, ii = audiostate.buflen;
         if (!fake) {
             bool oob;
             while (1) {
                 MIXSOUND_OOBCHECK();
                 skipoobchk_2:;
                 MIXSOUND_DOMIXING();
-                long tmpposoff = posoff[1] * i / audiostate.buflen - posoff[0];
-                posoff[0] = tmpposoff;
+                posoff[2] = posoff[1] * i / (long)audiostate.buflen;
+                long tmpposoff = posoff[2] - posoff[0];
+                posoff[0] = posoff[2];
+                tmpposoff *= freq;
                 pos += tmpposoff / outfreq;
-                frac += ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) * freq + (tmpposoff % outfreq) * 256;
+                tmpposoff %= outfreq;
+                frac += ((speedmul[0] * ii + speedmul[1] * i) / (long)audiostate.buflen) * freq + tmpposoff * 256;
                 MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_2; --ii; goto skipoobchk_2;);
                 ++i;
                 if (i == audiostate.buflen) break;
@@ -1502,10 +1507,13 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
             brkloop_2:;
         } else {
             while (1) {
-                long tmpposoff = posoff[1] * i / audiostate.buflen - posoff[0];
-                posoff[0] = tmpposoff;
+                posoff[2] = posoff[1] * i / (long)audiostate.buflen;
+                long tmpposoff = posoff[2] - posoff[0];
+                posoff[0] = posoff[2];
+                tmpposoff *= freq;
                 pos += tmpposoff / outfreq;
-                frac += ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) * freq + (tmpposoff % outfreq) * 256;
+                tmpposoff %= outfreq;
+                frac += ((speedmul[0] * ii + speedmul[1] * i) / (long)audiostate.buflen) * freq + tmpposoff * 256;
                 MIXSOUND_DOPOSMATH();
                 ++i;
                 if (i == audiostate.buflen) break;
@@ -1513,9 +1521,9 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
             }
         }
         posoff[1] -= posoff[0];
-        posoff[1] *= freq;
         pos += posoff[1] / outfreq;
-        frac += (posoff[1] % outfreq) * 256;
+        posoff[1] %= outfreq;
+        frac += posoff[1] * 256;
         MIXSOUND_DOPOSMATH();
     }
     if (!fake) {
@@ -1992,7 +2000,8 @@ bool startAudio(void) {
         audiostate.soundrcopt.decodewhole = false;
         #endif
     }
-    audiostate.soundspeedmul = (float)outspec.freq / 343.0f;
+    //audiostate.soundspeedmul = (float)outspec.freq / 343.0f;
+    audiostate.soundspeedmul = (float)outspec.freq / 400.0f;
     audiostate.buflen = outspec.samples;
     audiostate.fxbuf[0] = malloc(outspec.samples * sizeof(**audiostate.fxbuf));
     audiostate.fxbuf[1] = malloc(outspec.samples * sizeof(**audiostate.fxbuf));

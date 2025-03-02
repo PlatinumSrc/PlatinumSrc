@@ -65,15 +65,17 @@ struct audiofx {
 };
 
 #define AUDIO3DFXMASK_POS (1 << 0)
-#define AUDIO3DFXMASK_RADIUS (1 << 1)
-#define AUDIO3DFXMASK_VOLDAMP (1 << 2)
-#define AUDIO3DFXMASK_FREQDAMP (1 << 3)
-#define AUDIO3DFXMASK_NODOPPLER (1 << 4)
-#define AUDIO3DFXMASK_RELPOS (1 << 5)
-#define AUDIO3DFXMASK_RELROT (1 << 6)
+#define AUDIO3DFXMASK_RANGE (1 << 1)
+#define AUDIO3DFXMASK_RADIUS (1 << 2)
+#define AUDIO3DFXMASK_VOLDAMP (1 << 3)
+#define AUDIO3DFXMASK_FREQDAMP (1 << 4)
+#define AUDIO3DFXMASK_NODOPPLER (1 << 5)
+#define AUDIO3DFXMASK_RELPOS (1 << 6)
+#define AUDIO3DFXMASK_RELROT (1 << 7)
 #define AUDIO3DFXMASK_ALL (-1U)
 struct audio3dfx {
     float pos[3];
+    float range;
     float radius[3];
     float voldamp;
     float freqdamp;
