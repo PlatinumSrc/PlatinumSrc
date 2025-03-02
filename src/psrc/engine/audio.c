@@ -13,9 +13,10 @@ struct audiostate audiostate;
 
 static void mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
     (void)loop;
-    if (!buf && s->rc->is8bit) {
-        free(s->wav.cvtbuf);
+    if (!buf) {
+        if (s->rc->is8bit) free(s->wav.cvtbuf);
         unlockRc(s->rc);
+        return;
     }
     if (!s->rc->is8bit) {
         *start = 0;
@@ -44,6 +45,7 @@ static void mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* 
         stb_vorbis_close(s->vorbis.state);
         free(s->vorbis.decbuf);
         unlockRc(s->rc);
+        return;
     }
     *buf = s->vorbis.decbuf;
     if (pos < s->vorbis.decbufhead) {
@@ -70,6 +72,7 @@ static void mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* sta
         mp3dec_ex_close(s->mp3.state);
         free(s->mp3.decbuf);
         unlockRc(s->rc);
+        return;
     }
     *buf = s->mp3.decbuf;
     if (pos < s->mp3.decbufhead) {
@@ -136,12 +139,13 @@ static void delete2DSound(size_t si, struct audiosound* s) {
     }
 }
 
-int new3DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d) {
+int new3DAudioEmitter(int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    struct audioemitter3d* e;
     int ei;
+    if (!audiostate.valid) {ei = -1; goto ret;}
+    struct audioemitter3d* e;
     {
         size_t i = 0;
         while (1) {
@@ -162,15 +166,16 @@ int new3DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
     }
     if (prio == AUDIOPRIO_DEFAULT) prio = AUDIOPRIO_NORMAL;
     e->cursounds = 0;
-    e->maxsounds = maxsounds;
+    e->maxsounds = maxsnd;
     e->prio = prio;
+    e->flags = f;
     e->fxch = (uint8_t)AUDIOFXMASK_ALL;
-    e->paused = 0;
-    e->cfximm = (uint8_t)AUDIOFXMASK_ALL;
+    e->fxchimm = (uint8_t)AUDIOFXMASK_ALL;
     if (fx) {
+        e->fx.toff = (fxmask & AUDIOFXMASK_TOFF) ? fx->toff : 0;
+        e->fx.speed = (fxmask & AUDIOFXMASK_SPEED) ? fx->speed : 1.0f;
         e->fx.vol[0] = (fxmask & AUDIOFXMASK_VOL_L) ? fx->vol[0] : 1.0f;
         e->fx.vol[1] = (fxmask & AUDIOFXMASK_VOL_R) ? fx->vol[1] : 1.0f;
-        e->fx.speed = (fxmask & AUDIOFXMASK_SPEED) ? fx->speed : 1.0f;
         e->fx.lpfilt[0] = (fxmask & AUDIOFXMASK_LPFILT_L) ? fx->lpfilt[0] : 0.0f;
         e->fx.lpfilt[1] = (fxmask & AUDIOFXMASK_LPFILT_R) ? fx->lpfilt[1] : 0.0f;
         e->fx.hpfilt[0] = (fxmask & AUDIOFXMASK_HPFILT_L) ? fx->hpfilt[0] : 0.0f;
@@ -179,8 +184,6 @@ int new3DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
         e->fx = (struct audiofx){
             .vol = {1.0f, 1.0f},
             .speed = 1.0f,
-            .lpfilt = {0.0f, 0.0f},
-            .hpfilt = {0.0f, 0.0f}
         };
     }
     if (fx3d) {
@@ -224,12 +227,13 @@ int new3DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
     #endif
     return ei;
 }
-int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const struct audiofx* fx) {
+int new2DAudioEmitter(int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    struct audioemitter2d* e;
     int ei;
+    if (!audiostate.valid) {ei = -1; goto ret;}
+    struct audioemitter2d* e;
     {
         size_t i = 0;
         while (1) {
@@ -250,15 +254,16 @@ int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
     }
     if (prio == AUDIOPRIO_DEFAULT) prio = AUDIOPRIO_NORMAL;
     e->cursounds = 0;
-    e->maxsounds = maxsounds;
+    e->maxsounds = maxsnd;
     e->prio = prio;
+    e->flags = f;
     e->fxch = (uint8_t)AUDIOFXMASK_ALL;
-    e->paused = 0;
-    e->cfximm = (uint8_t)AUDIOFXMASK_ALL;
+    e->fxchimm = (uint8_t)AUDIOFXMASK_ALL;
     if (fx) {
+        e->fx.toff = (fxmask & AUDIOFXMASK_TOFF) ? fx->toff : 0;
+        e->fx.speed = (fxmask & AUDIOFXMASK_SPEED) ? fx->speed : 1.0f;
         e->fx.vol[0] = (fxmask & AUDIOFXMASK_VOL_L) ? fx->vol[0] : 1.0f;
         e->fx.vol[1] = (fxmask & AUDIOFXMASK_VOL_R) ? fx->vol[1] : 1.0f;
-        e->fx.speed = (fxmask & AUDIOFXMASK_SPEED) ? fx->speed : 1.0f;
         e->fx.lpfilt[0] = (fxmask & AUDIOFXMASK_LPFILT_L) ? fx->lpfilt[0] : 0.0f;
         e->fx.lpfilt[1] = (fxmask & AUDIOFXMASK_LPFILT_R) ? fx->lpfilt[1] : 0.0f;
         e->fx.hpfilt[0] = (fxmask & AUDIOFXMASK_HPFILT_L) ? fx->hpfilt[0] : 0.0f;
@@ -267,8 +272,6 @@ int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
         e->fx = (struct audiofx){
             .vol = {1.0f, 1.0f},
             .speed = 1.0f,
-            .lpfilt = {0.0f, 0.0f},
-            .hpfilt = {0.0f, 0.0f}
         };
     }
     ret:;
@@ -278,17 +281,21 @@ int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned fxmask, const st
     return ei;
 }
 
-void edit3DAudioEmitter(int ei, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d, unsigned immcfxmask) {
+void edit3DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d, unsigned imm) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
+    if (!audiostate.valid) goto ret;
     struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
+    e->flags |= fen;
+    e->flags &= fdis;
     e->fxch |= fxmask;
-    e->cfximm |= immcfxmask;
+    e->fxchimm |= imm;
     if (fx) {
+        if (fxmask & AUDIOFXMASK_TOFF) e->fx.toff = fx->toff;
+        if (fxmask & AUDIOFXMASK_SPEED) e->fx.speed = fx->speed;
         if (fxmask & AUDIOFXMASK_VOL_L) e->fx.vol[0] = fx->vol[0];
         if (fxmask & AUDIOFXMASK_VOL_R) e->fx.vol[1] = fx->vol[1];
-        if (fxmask & AUDIOFXMASK_SPEED) e->fx.speed = fx->speed;
         if (fxmask & AUDIOFXMASK_LPFILT_L) e->fx.lpfilt[0] = fx->lpfilt[0];
         if (fxmask & AUDIOFXMASK_LPFILT_R) e->fx.lpfilt[1] = fx->lpfilt[1];
         if (fxmask & AUDIOFXMASK_HPFILT_L) e->fx.hpfilt[0] = fx->hpfilt[0];
@@ -311,45 +318,32 @@ void edit3DAudioEmitter(int ei, unsigned fxmask, const struct audiofx* fx, unsig
         if (fx3dmask & AUDIO3DFXMASK_RELPOS) e->fx3d.relpos = fx3d->relpos;
         if (fx3dmask & AUDIO3DFXMASK_RELROT) e->fx3d.relrot = fx3d->relrot;
     }
+    ret:;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
-void edit2DAudioEmitter(int ei, unsigned fxmask, const struct audiofx* fx, unsigned immcfxmask) {
+void edit2DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned imm) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
+    if (!audiostate.valid) goto ret;
     struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
+    e->flags |= fen;
+    e->flags &= fdis;
     e->fxch |= fxmask;
-    e->cfximm |= immcfxmask;
+    e->fxchimm |= imm;
     if (fx) {
+        if (fxmask & AUDIOFXMASK_TOFF) e->fx.toff = fx->toff;
+        if (fxmask & AUDIOFXMASK_SPEED) e->fx.speed = fx->speed;
         if (fxmask & AUDIOFXMASK_VOL_L) e->fx.vol[0] = fx->vol[0];
         if (fxmask & AUDIOFXMASK_VOL_R) e->fx.vol[1] = fx->vol[1];
-        if (fxmask & AUDIOFXMASK_SPEED) e->fx.speed = fx->speed;
         if (fxmask & AUDIOFXMASK_LPFILT_L) e->fx.lpfilt[0] = fx->lpfilt[0];
         if (fxmask & AUDIOFXMASK_LPFILT_R) e->fx.lpfilt[1] = fx->lpfilt[1];
         if (fxmask & AUDIOFXMASK_HPFILT_L) e->fx.hpfilt[0] = fx->hpfilt[0];
         if (fxmask & AUDIOFXMASK_HPFILT_R) e->fx.hpfilt[1] = fx->hpfilt[1];
     }
-    #ifndef PSRC_NOMT
-    releaseWriteAccess(&audiostate.lock);
-    #endif
-}
-
-void pause3DAudioEmitter(int ei, bool p) {
-    #ifndef PSRC_NOMT
-    acquireWriteAccess(&audiostate.lock);
-    #endif
-    audiostate.emitters3d.data[ei].paused = p;
-    #ifndef PSRC_NOMT
-    releaseWriteAccess(&audiostate.lock);
-    #endif
-}
-void pause2DAudioEmitter(int ei, bool p) {
-    #ifndef PSRC_NOMT
-    acquireWriteAccess(&audiostate.lock);
-    #endif
-    audiostate.emitters2d.data[ei].paused = p;
+    ret:;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -378,7 +372,7 @@ void stop3DAudioEmitter(int ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    stop3DAudioEmitter_internal(ei, &audiostate.emitters3d.data[ei]);
+    if (audiostate.valid) stop3DAudioEmitter_internal(ei, &audiostate.emitters3d.data[ei]);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -387,7 +381,7 @@ void stop2DAudioEmitter(int ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    stop2DAudioEmitter_internal(ei, &audiostate.emitters2d.data[ei]);
+    if (audiostate.valid) stop2DAudioEmitter_internal(ei, &audiostate.emitters2d.data[ei]);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -397,9 +391,11 @@ void delete3DAudioEmitter(int ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
-    stop3DAudioEmitter_internal(ei, e);
-    e->prio = AUDIOPRIO_INVALID;
+    if (audiostate.valid) {
+        struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
+        stop3DAudioEmitter_internal(ei, e);
+        e->prio = AUDIOPRIO_INVALID;
+    }
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -408,18 +404,22 @@ void delete2DAudioEmitter(int ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
-    stop2DAudioEmitter_internal(ei, e);
-    e->prio = AUDIOPRIO_INVALID;
+    if (audiostate.valid) {
+        struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
+        stop2DAudioEmitter_internal(ei, e);
+        e->prio = AUDIOPRIO_INVALID;
+    }
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 
 static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask, const struct audiofx* fx) {
-    lockRc(rc);
-    s->rc = rc;
+    s->loop = 0;
+    s->pos = 0;
+    s->frac = 0;
     s->iflags = SOUNDIFLAG_NEEDSINIT;
+    s->fxi = 0;
     if (fx) {
         s->fx.toff = (fxmask & AUDIOFXMASK_TOFF) ? fx->toff : 0;
         s->fx.speed = (fxmask & AUDIOFXMASK_SPEED) ? fx->speed : 1.0f;
@@ -435,11 +435,44 @@ static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask
             .speed = 1.0f,
         };
     }
+    s->calcfx[0].posoff = 0;
+    s->calcfx[1].posoff = 0;
+    s->lplastout[0] = 0;
+    s->lplastout[1] = 0;
+    s->hplastout[0] = 0;
+    s->hplastout[1] = 0;
+    s->hplastin[0] = 0;
+    s->hplastin[1] = 0;
+    lockRc(rc);
+    s->rc = rc;
+    switch (s->rc->format) {
+        /*case RC_SOUND_FRMT_WAV*/ default:
+            if (s->rc->is8bit) s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->wav.cvtbuf));
+            break;
+        #ifdef PSRC_USESTBVORBIS
+        case RC_SOUND_FRMT_VORBIS:
+            s->vorbis.state = stb_vorbis_open_memory(s->rc->data, s->rc->size, NULL, NULL);
+            s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->vorbis.decbuf));
+            s->vorbis.decbufhead = 0;
+            s->vorbis.decbuflen = 0;
+            break;
+        #endif
+        #ifdef PSRC_USEMINIMP3
+        case RC_SOUND_FRMT_MP3:
+            s->mp3.state = rcmgr_malloc(sizeof(*s->mp3.state));
+            mp3dec_ex_open_buf(s->mp3.state, s->rc->data, s->rc->size, MP3D_SEEK_TO_SAMPLE);
+            s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->mp3.decbuf));
+            s->mp3.decbufhead = 0;
+            s->mp3.decbuflen = 0;
+            break;
+        #endif
+    }
 }
 bool play3DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
+    if (!audiostate.valid) goto retfalse;
     struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
     struct audiosound* s;
@@ -448,7 +481,7 @@ bool play3DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
         while (1) {
             if (i == audiostate.sounds3d.len) {
                 if (audiostate.sounds3d.len == (size_t)audiostate.max3dsounds) goto retfalse;
-                VLB_NEXTPTR(audiostate.sounds3d, s, 3, 2, goto retfalse;);
+                VLB_NEXTPTR(audiostate.sounds3d, s, 2, 1, goto retfalse;);
                 break;
             }
             struct audiosound* tmps = &audiostate.sounds3d.data[i];
@@ -458,7 +491,7 @@ bool play3DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
             }
             ++i;
         }
-        VLB_ADD(audiostate.sounds3dorder, i, 3, 2, goto retfalse;);
+        VLB_ADD(audiostate.sounds3dorder, i, 2, 1, goto retfalse;);
     }
     ++e->cursounds;
     if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters3d.data[ei].prio;
@@ -480,6 +513,7 @@ bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
+    if (!audiostate.valid) goto retfalse;
     struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
     struct audiosound* s;
@@ -488,7 +522,7 @@ bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
         while (1) {
             if (i == audiostate.sounds2d.len) {
                 if (audiostate.sounds2d.len == (size_t)audiostate.max2dsounds) goto retfalse;
-                VLB_NEXTPTR(audiostate.sounds2d, s, 3, 2, goto retfalse;);
+                VLB_NEXTPTR(audiostate.sounds2d, s, 2, 1, goto retfalse;);
                 break;
             }
             struct audiosound* tmps = &audiostate.sounds2d.data[i];
@@ -498,7 +532,7 @@ bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
             }
             ++i;
         }
-        VLB_ADD(audiostate.sounds2dorder, i, 3, 2, goto retfalse;);
+        VLB_ADD(audiostate.sounds2dorder, i, 2, 1, goto retfalse;);
     }
     ++e->cursounds;
     if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters2d.data[ei].prio;
@@ -517,48 +551,84 @@ bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
     return false;
 }
 
-static void doLPFilter(unsigned mul, unsigned div, int16_t* lastoutp, unsigned len, int* buf) {
+void setAudioEnv(unsigned mask, struct audioenv* env, unsigned imm) {
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) goto ret;
+    audiostate.env.envch |= mask;
+    audiostate.env.envchimm |= imm;
+    if (mask & AUDIOENVMASK_LPFILT) audiostate.env.lpfilt.amount = env->lpfilt;
+    if (mask & AUDIOENVMASK_HPFILT) audiostate.env.hpfilt.amount = env->hpfilt;
+    if (mask & AUDIOENVMASK_REVERB_DELAY) audiostate.env.reverb.delay = env->reverb.delay;
+    if (mask & AUDIOENVMASK_REVERB_MIX) audiostate.env.reverb.mix = env->reverb.mix;
+    if (mask & AUDIOENVMASK_REVERB_FEEDBACK) audiostate.env.reverb.feedback = env->reverb.feedback;
+    if (mask & AUDIOENVMASK_REVERB_LPFILT) audiostate.env.reverb.lpfilt = env->reverb.lpfilt;
+    if (mask & AUDIOENVMASK_REVERB_HPFILT) audiostate.env.reverb.hpfilt = env->reverb.hpfilt;
+    ret:;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+}
+
+static void doLPFilter(int mul, int div, int16_t* lastoutp, unsigned len, int* buf) {
+    return;
     register int lastout = *lastoutp;
     for (register unsigned i = 0; i < len; ++i) {
         register int s = buf[i];
-        buf[i] = lastout = lastout + (s - lastout) * mul / div;
+        lastout = lastout + (s - lastout) * mul / div;
+        if (lastout > 32767) lastout = 32767;
+        else if (lastout < -32768) lastout = -32768;
+        buf[i] = lastout;
     }
     *lastoutp = lastout;
 }
-static void doHPFilter(unsigned mul, unsigned div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
+static void doHPFilter(int mul, int div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
+    return;
     register int lastin = *lastinp;
     register int lastout = *lastoutp;
     for (register unsigned i = 0; i < len; ++i) {
         register int s = buf[i];
-        buf[i] = lastout = (lastout + s - lastin) * mul / div;
+        lastout = (lastout + s - lastin) * mul / div;
+        if (lastout > 32767) lastout = 32767;
+        else if (lastout < -32768) lastout = -32768;
+        buf[i] = lastout;
         lastin = s;
     }
     *lastinp = lastin;
     *lastoutp = lastout;
 }
-static void doLPFilter_interp(unsigned mul1, unsigned mul2, unsigned div, int16_t* lastoutp, unsigned len, int* buf) {
+static void doLPFilter_interp(int mul1, int mul2, int div, int16_t* lastoutp, unsigned len, int* buf) {
     register int lastout = *lastoutp;
     for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
         register int s = buf[i];
-        buf[i] = lastout = lastout + (s - lastout) * ((mul1 * ii + mul2 * i) / len) / div;
+        volatile int mul = ((mul1 * ii + mul2 * i) / len);
+        lastout = lastout + (s - lastout) * mul / div;
+        if (lastout > 32767) lastout = 32767;
+        else if (lastout < -32768) lastout = -32768;
+        buf[i] = lastout;
     }
     *lastoutp = lastout;
 }
-static void doHPFilter_interp(unsigned mul1, unsigned mul2, unsigned div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
+static void doHPFilter_interp(int mul1, int mul2, int div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
+    return;
     register int lastin = *lastinp;
     register int lastout = *lastoutp;
     for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
         register int s = buf[i];
-        buf[i] = lastout = (lastout + s - lastin) * ((mul1 * ii + mul2 * i) / len) / div;
+        lastout = (lastout + s - lastin) * ((mul1 * ii + mul2 * i) / len) / div;
+        if (lastout > 32767) lastout = 32767;
+        else if (lastout < -32768) lastout = -32768;
+        buf[i] = lastout;
         lastin = s;
     }
     *lastinp = lastin;
     *lastoutp = lastout;
 }
-static bool adjfilters = true;
+static unsigned adjfilters = 44100;
 #define ADJLPFILTMUL(a, m, f) do {\
-    if (m < audiostate.freq) {\
-        int m2 = (int)roundf(a * a * f);\
+    if ((f) != audiostate.freq && m < audiostate.freq) {\
+        unsigned m2 = (unsigned)roundf((a) * (a) * (f));\
         if (m2 < f) {\
             if (audiostate.freq < f) {\
                 m += m2;\
@@ -571,8 +641,8 @@ static bool adjfilters = true;
     }\
 } while (0)
 #define ADJHPFILTMUL(a, m, f) do {\
-    if (m > 0) {\
-        int m2 = (int)roundf(a * a * f);\
+    if ((f) != audiostate.freq && m > 0) {\
+        unsigned m2 = (unsigned)roundf((a) * (a) * (f));\
         if (m2 > 0) {\
             m += m2;\
             m /= 2;\
@@ -581,291 +651,129 @@ static bool adjfilters = true;
     }\
 } while (0)
 
-#define MIXSOUND__DOMIXING(l) do {\
-    if (!oob) {\
-        register int_fast16_t sample_l, sample_r;\
-        if (pos > bufend || pos < bufstart) {\
-            cb(ctx, loop, pos, &bufstart, &bufend, &buf);\
-        }\
-        register long bufpos = (pos - bufstart) * (long)ch;\
-        sample_l = buf[bufpos];\
-        sample_r = buf[bufpos + (ch != 1)];\
-        if (frac) {\
-            int mix = frac / outfreq;\
-            int imix = 256 - mix;\
-            sample_l *= imix;\
-            sample_r *= imix;\
-            long pos2 = pos + 1;\
-            if (pos2 > bufend || pos2 < bufstart) {\
-                register long loop2 = loop;\
-                if (pos2 == len) {\
-                    if (!(flags & SOUNDFLAG_LOOP)) {\
-                        goto skipinterp_##l;\
-                    } else {\
-                        pos2 = 0;\
-                        ++loop2;\
-                    }\
-                }\
-                cb(ctx, loop2, pos2, &bufstart, &bufend, &buf);\
-            }\
-            bufpos = (pos2 - bufstart) * (long)ch;\
-            sample_l += buf[bufpos] * mix;\
-            sample_r += buf[bufpos + (ch != 1)] * mix;\
-            skipinterp_##l:;\
-            sample_l /= 256;\
-            sample_r /= 256;\
-        }\
-        if (mixmono) {\
-            sample_l =+ sample_r;\
-            sample_l /= 2;\
-            audiostate.fxbuf[0][i] = sample_l;\
-            audiostate.fxbuf[1][i] = sample_l;\
-        } else {\
-            audiostate.fxbuf[0][i] = sample_l;\
-            audiostate.fxbuf[1][i] = sample_r;\
-        }\
-    } else {\
-        audiostate.fxbuf[0][i] = 0;\
-        audiostate.fxbuf[1][i] = 0;\
-    }\
-} while (0)
-#define MIXSOUND__DOMIXING_EVALLINE(l) MIXSOUND__DOMIXING(l)
-#define MIXSOUND_DOMIXING() MIXSOUND__DOMIXING_EVALLINE(__LINE__)
-#define MIXSOUND_DOPOSMATH(...) do {\
-    pos += frac / div;\
-    frac %= div;\
-    if (frac < 0) {\
-        frac += div;\
-        --pos;\
-    }\
-    if (pos >= len) {\
-        loop += pos / len;\
-        pos %= len;\
-    } else if (pos < 0) {\
-        loop += pos / len - 1;\
-        pos %= len;\
-        pos += len;\
-    } else {\
-        __VA_ARGS__\
-    }\
-} while (0)
-#define MIXSOUND_OOBCHECK() do {\
-    if (!(flags & SOUNDFLAG_LOOP)) {\
-        if (!(flags & SOUNDFLAG_WRAP)) {\
-            oob = (loop != 0);\
-        } else {\
-            oob = (loop < -1 || loop > 0);\
-        }\
-    } else {\
-        if (!(flags & SOUNDFLAG_WRAP)) {\
-            oob = (loop < 0);\
-        } else {\
-            oob = false;\
-        }\
-    }\
-} while (0)
-static bool mixsound(struct audiosound* s, bool fake, bool mixmono, int oldvol, int newvol) {
-    audiocb cb;
-    void* ctx;
-    long len;
-    long freq;
-    unsigned ch;
-    if (!(s->iflags & SOUNDIFLAG_USESCB)) {
-        switch (s->rc->format) {
-            /*case RC_SOUND_FRMT_WAV*/ default: cb = (audiocb)mixsound_cb_wav; break;
-            #ifdef PSRC_USESTBVORBIS
-            case RC_SOUND_FRMT_VORBIS: cb = (audiocb)mixsound_cb_vorbis; break;
-            #endif
-            #ifdef PSRC_USEMINIMP3
-            case RC_SOUND_FRMT_MP3: cb = (audiocb)mixsound_cb_mp3; break;
-            #endif
-        }
-        ctx = s;
-        len = s->rc->len;
-        freq = s->rc->freq;
-        ch = s->rc->channels;
-    } else {
-        cb = s->cb.cb;
-        ctx = s->cb.ctx;
-        len = s->cb.len;
-        freq = s->cb.freq;
-        ch = s->cb.ch;
+static void doReverb(struct audioreverbstate* r, unsigned len, int* bufl, int* bufr) {
+    register unsigned head = r->head;
+    register unsigned tail = r->tail;
+    int mix = r->mix[r->parami];
+    int feedback = r->feedback[r->parami];
+    int lpmul = r->lpfilt[r->parami];
+    int hpmul = r->hpfilt[r->parami];
+    int filtdiv = r->filtdiv;
+    int lplastoutl = r->lplastout[0];
+    int lplastoutr = r->lplastout[1];
+    int hplastoutl = r->hplastout[0];
+    int hplastoutr = r->hplastout[1];
+    int hplastinl = r->hplastin[0];
+    int hplastinr = r->hplastin[1];
+    for (register unsigned i = 0; i < len; ++i) {
+        int in[2] = {bufl[i], bufr[i]};
+        int out[2] = {r->buf[0][tail], r->buf[1][tail]};
+        hplastoutl = (hplastoutl + out[0] - hplastinl) * hpmul / filtdiv;
+        hplastoutr = (hplastoutr + out[1] - hplastinr) * hpmul / filtdiv;
+        hplastinl = out[0];
+        hplastinr = out[1];
+        out[0] = lplastoutl = lplastoutl + (hplastoutl - lplastoutl) * lpmul / filtdiv;
+        out[1] = lplastoutr = lplastoutr + (hplastoutr - lplastoutr) * lpmul / filtdiv;
+        bufl[i] += out[0] * mix / 256;
+        bufr[i] += out[1] * mix / 256;
+        in[0] += out[0] * feedback / 256;
+        in[1] += out[1] * feedback / 256;
+        if (in[0] < -32768) in[0] = -32768;
+        else if (in[0] > 32767) in[0] = 32767;
+        if (in[1] < -32768) in[1] = -32768;
+        else if (in[1] > 32767) in[1] = 32767;
+        r->buf[0][head] = in[0];
+        r->buf[1][head] = in[1];
+        head = (head + 1) % r->size;
+        tail = (tail + 1) % r->size;
     }
-
-    uint8_t flags = s->flags;
-    long loop = s->loop;
-    long oldloop = loop;
-    register long pos = s->pos;
-    register long frac = s->frac;
-    long outfreq = audiostate.freq;
-    #if 0
-    {
-        long outfreq2 = outfreq, gcd = freq;
-        while (outfreq2) {
-            long tmp = gcd % outfreq2;
-            gcd = outfreq2;
-            outfreq2 = tmp;
-        }
-        outfreq /= gcd;
-        freq /= gcd;
+    r->head = head;
+    r->tail = tail;
+    if (lplastoutl < -32768) lplastoutl = -32768;
+    else if (lplastoutl > 32767) lplastoutl = 32767;
+    if (lplastoutr < -32768) lplastoutr = -32768;
+    else if (lplastoutr > 32767) lplastoutr = 32767;
+    if (hplastoutl < -32768) hplastoutl = -32768;
+    else if (hplastoutl > 32767) hplastoutl = 32767;
+    if (hplastoutr < -32768) hplastoutr = -32768;
+    else if (hplastoutr > 32767) hplastoutr = 32767;
+    if (hplastinl < -32768) hplastinl = -32768;
+    else if (hplastinl > 32767) hplastinl = 32767;
+    if (hplastinr < -32768) hplastinr = -32768;
+    else if (hplastinr > 32767) hplastinr = 32767;
+    r->lplastout[0] = lplastoutl;
+    r->lplastout[1] = lplastoutr;
+    r->hplastout[0] = hplastoutl;
+    r->hplastout[1] = hplastoutr;
+    r->hplastin[0] = hplastinl;
+    r->hplastin[1] = hplastinr;
+}
+static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl, int* bufr) {
+    register unsigned head = r->head;
+    register unsigned tail = r->tail;
+    uint_fast8_t curparami = r->parami;
+    uint_fast8_t newparami = (curparami + 1) % 2;
+    int curmix = r->mix[curparami];
+    int newmix = r->mix[newparami];
+    int curfeedback = r->feedback[curparami];
+    int newfeedback = r->feedback[newparami];
+    int curlpmul = r->lpfilt[curparami];
+    int newlpmul = r->lpfilt[newparami];
+    int curhpmul = r->hpfilt[curparami];
+    int newhpmul = r->hpfilt[newparami];
+    int filtdiv = r->filtdiv;
+    int lplastoutl = r->lplastout[0];
+    int lplastoutr = r->lplastout[1];
+    int hplastoutl = r->hplastout[0];
+    int hplastoutr = r->hplastout[1];
+    int hplastinl = r->hplastin[0];
+    int hplastinr = r->hplastin[1];
+    for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
+        int mix = (curmix * ii + newmix * i) / len;
+        int feedback = (curfeedback * ii + newfeedback * i) / len;
+        int lpmul = (curlpmul * ii + newlpmul * i) / len;
+        int hpmul = (curhpmul * ii + newhpmul * i) / len;
+        int in[2] = {bufl[i], bufr[i]};
+        int out[2] = {r->buf[0][tail], r->buf[1][tail]};
+        hplastoutl = (hplastoutl + out[0] - hplastinl) * hpmul / filtdiv;
+        hplastoutr = (hplastoutr + out[1] - hplastinr) * hpmul / filtdiv;
+        hplastinl = out[0];
+        hplastinr = out[1];
+        out[0] = lplastoutl = lplastoutl + (hplastoutl - lplastoutl) * lpmul / filtdiv;
+        out[1] = lplastoutr = lplastoutr + (hplastoutr - lplastoutr) * lpmul / filtdiv;
+        bufl[i] += out[0] * mix / 256;
+        bufr[i] += out[1] * mix / 256;
+        in[0] += out[0] * feedback / 256;
+        in[1] += out[1] * feedback / 256;
+        if (in[0] < -32768) in[0] = -32768;
+        else if (in[0] > 32767) in[0] = 32767;
+        if (in[1] < -32768) in[1] = -32768;
+        else if (in[1] > 32767) in[1] = 32767;
+        r->buf[0][head] = in[0];
+        r->buf[1][head] = in[1];
+        head = (head + 1) % r->size;
+        tail = (tail + 1) % r->size;
     }
-    #endif
-    long div = outfreq * 256;
-
-    uint_fast8_t curfxi = s->fxi;
-    uint_fast8_t newfxi = (curfxi + 1) % 2;
-
-    int vol[2][2];
-    if (!fake) {
-        if (!(s->iflags & SOUNDIFLAG_FXCH_VOL)) {
-            vol[0][0] = s->calcfx[curfxi].volmul[0] * oldvol / 32768;
-            vol[0][1] = s->calcfx[curfxi].volmul[1] * oldvol / 32768;
-            vol[1][0] = s->calcfx[curfxi].volmul[0] * newvol / 32768;
-            vol[1][1] = s->calcfx[curfxi].volmul[1] * newvol / 32768;
-        } else {
-            vol[0][0] = s->calcfx[curfxi].volmul[0] * oldvol / 32768;
-            vol[0][1] = s->calcfx[curfxi].volmul[1] * oldvol / 32768;
-            vol[1][0] = s->calcfx[newfxi].volmul[0] * newvol / 32768;
-            vol[1][1] = s->calcfx[newfxi].volmul[1] * newvol / 32768;
-        }
-        if (!vol[0][0] && !vol[0][1] && !vol[1][0] && !vol[1][1]) fake = true;
-    }
-
-    int16_t* buf;
-    long bufstart = 0, bufend = -1;
-
-    if (!(s->iflags & SOUNDIFLAG_FXCH_OTHER)) {
-        uint_fast8_t curfxi = s->fxi;
-        long speedmul = s->calcfx[curfxi].speedmul;
-        long change = freq * speedmul;
-        register unsigned i = 0;
-        if (!fake) {
-            bool oob;
-            while (1) {
-                MIXSOUND_OOBCHECK();
-                skipoobchk_1:;
-                MIXSOUND_DOMIXING();
-                frac += change;
-                MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_1; goto skipoobchk_1;);
-                ++i;
-                if (i == audiostate.buflen) break;
-            }
-            brkloop_1:;
-        } else {
-            while (1) {
-                frac += change;
-                MIXSOUND_DOPOSMATH();
-                ++i;
-                if (i == audiostate.buflen) break;
-            }
-        }
-    } else {
-        uint_fast8_t oldfxi = s->fxi;
-        uint_fast8_t newfxi = (oldfxi + 1) % 2;
-        long posoff[2];
-        posoff[0] = 0;
-        posoff[1] = s->calcfx[newfxi].posoff - s->calcfx[oldfxi].posoff;
-        long speedmul[2];
-        speedmul[0] = s->calcfx[oldfxi].speedmul;
-        speedmul[1] = s->calcfx[newfxi].speedmul;
-        register unsigned i = 0, ii = audiostate.buflen;
-        if (!fake) {
-            bool oob;
-            while (1) {
-                MIXSOUND_OOBCHECK();
-                skipoobchk_2:;
-                MIXSOUND_DOMIXING();
-                long tmpposoff = posoff[1] * i / 1024 - posoff[0];
-                posoff[0] = tmpposoff;
-                tmpposoff *= freq;
-                pos += tmpposoff / outfreq;
-                frac += freq * ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) + (tmpposoff % outfreq) * 256;
-                MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_2; --ii; goto skipoobchk_2;);
-                ++i;
-                if (i == audiostate.buflen) break;
-                --ii;
-            }
-            brkloop_2:;
-        } else {
-            while (1) {
-                long tmpposoff = posoff[1] * i / 1024 - posoff[0];
-                posoff[0] = tmpposoff;
-                tmpposoff *= freq;
-                pos += tmpposoff / outfreq;
-                frac += freq * ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) + (tmpposoff % outfreq) * 256;
-                MIXSOUND_DOPOSMATH();
-                ++i;
-                if (i == audiostate.buflen) break;
-                --ii;
-            }
-        }
-        posoff[1] -= posoff[0];
-        posoff[1] *= freq;
-        pos += posoff[1] / outfreq;
-        frac += (posoff[1] % outfreq) * 256;
-        MIXSOUND_DOPOSMATH();
-    }
-    if (!fake) {
-        if (!(s->iflags & SOUNDIFLAG_FXCH_OTHER)) {
-            unsigned tmp = s->calcfx[curfxi].hpfiltmul[0];
-            if (tmp != audiostate.freq)
-                doHPFilter(tmp, audiostate.freq, &s->hplastin[0], &s->hplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
-            tmp = s->calcfx[curfxi].hpfiltmul[1];
-            if (tmp != audiostate.freq)
-                doHPFilter(tmp, audiostate.freq, &s->hplastin[1], &s->hplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
-            tmp = s->calcfx[curfxi].lpfiltmul[0];
-            if (tmp != audiostate.freq)
-                doLPFilter(tmp, audiostate.freq, &s->lplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
-            tmp = s->calcfx[curfxi].lpfiltmul[1];
-            if (tmp != audiostate.freq)
-                doLPFilter(tmp, audiostate.freq, &s->lplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
-        } else {
-            unsigned tmp1 = s->calcfx[curfxi].hpfiltmul[0];
-            unsigned tmp2 = s->calcfx[newfxi].hpfiltmul[0];
-            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
-                doHPFilter_interp(tmp1, tmp2, audiostate.freq, &s->hplastin[0], &s->hplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
-            tmp1 = s->calcfx[curfxi].hpfiltmul[1];
-            tmp2 = s->calcfx[newfxi].hpfiltmul[1];
-            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
-                doHPFilter_interp(tmp1, tmp2, audiostate.freq, &s->hplastin[1], &s->hplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
-            tmp1 = s->calcfx[curfxi].lpfiltmul[0];
-            tmp2 = s->calcfx[newfxi].lpfiltmul[0];
-            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
-                doLPFilter_interp(tmp1, tmp2, audiostate.freq, &s->lplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
-            tmp1 = s->calcfx[curfxi].lpfiltmul[1];
-            tmp2 = s->calcfx[newfxi].lpfiltmul[1];
-            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
-                doLPFilter_interp(tmp1, tmp2, audiostate.freq, &s->lplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
-        }
-        for (register unsigned i = 0, ii = audiostate.buflen; i < audiostate.buflen; ++i, --ii) {
-            audiostate.mixbuf[0][i] += audiostate.fxbuf[0][i] * ((vol[0][0] * ii + vol[1][0] * i) / audiostate.buflen) / 32768;
-            audiostate.mixbuf[1][i] += audiostate.fxbuf[1][i] * ((vol[0][1] * ii + vol[1][1] * i) / audiostate.buflen) / 32768;
-        }
-    }
-
-    if (!(flags & SOUNDFLAG_LOOP)) {
-        if (loop > 0) {
-            if (loop > oldloop) goto retfalse;
-        } else if (loop < ((!(flags & SOUNDFLAG_WRAP)) ? 0 : -1)) {
-            if (loop < oldloop) goto retfalse;
-        }
-    } else if (!(flags & SOUNDFLAG_WRAP)) {
-        if (loop < 0) {
-            if (loop < oldloop) goto retfalse;
-        }
-    }
-
-    s->loop = loop;
-    s->pos = pos;
-    s->frac = frac;
-    if (s->iflags & SOUNDIFLAG_FXCH) {
-        s->iflags &= ~SOUNDIFLAG_FXCH;
-        s->fxi = newfxi;
-    }
-    return true;
-
-    retfalse:;
-    return false;
+    r->head = head;
+    r->tail = tail;
+    if (lplastoutl < -32768) lplastoutl = -32768;
+    else if (lplastoutl > 32767) lplastoutl = 32767;
+    if (lplastoutr < -32768) lplastoutr = -32768;
+    else if (lplastoutr > 32767) lplastoutr = 32767;
+    if (hplastoutl < -32768) hplastoutl = -32768;
+    else if (hplastoutl > 32767) hplastoutl = 32767;
+    if (hplastoutr < -32768) hplastoutr = -32768;
+    else if (hplastoutr > 32767) hplastoutr = 32767;
+    if (hplastinl < -32768) hplastinl = -32768;
+    else if (hplastinl > 32767) hplastinl = 32767;
+    if (hplastinr < -32768) hplastinr = -32768;
+    else if (hplastinr > 32767) hplastinr = 32767;
+    r->lplastout[0] = lplastoutl;
+    r->lplastout[1] = lplastoutr;
+    r->hplastout[0] = hplastoutl;
+    r->hplastout[1] = hplastoutr;
+    r->hplastin[0] = hplastinl;
+    r->hplastin[1] = hplastinr;
 }
 
 static inline void calc3DEmitterFx(struct audioemitter3d* e) {
@@ -955,24 +863,28 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
         e->fx3dout.volmul[1] = vol[1];
         e->fxch |= AUDIOFXMASK_VOL;
     }
-    if (lpfilt[0] != e->fx3dout.lpfiltmul[0] || lpfilt[1] != e->fx3dout.lpfiltmul[1] ||\
-        hpfilt[0] != e->fx3dout.hpfiltmul[0] || hpfilt[1] != e->fx3dout.hpfiltmul[1]) {
+    if (lpfilt[0] != e->fx3dout.lpfiltmul[0] || lpfilt[1] != e->fx3dout.lpfiltmul[1]) {
         e->fx3dout.lpfiltmul[0] = lpfilt[0];
         e->fx3dout.lpfiltmul[1] = lpfilt[1];
+        e->fxch |= AUDIOFXMASK_LPFILT;
+    }
+    if (hpfilt[0] != e->fx3dout.hpfiltmul[0] || hpfilt[1] != e->fx3dout.hpfiltmul[1]) {
         e->fx3dout.hpfiltmul[0] = hpfilt[0];
         e->fx3dout.hpfiltmul[1] = hpfilt[1];
+        e->fxch |= AUDIOFXMASK_HPFILT;
     }
 }
 static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e) {
-    uint8_t fxch;
+    uint8_t fxch, imm;
     if (s->iflags & SOUNDIFLAG_NEEDSINIT) {
         fxch = (uint8_t)AUDIOFXMASK_ALL;
+        imm = (uint8_t)AUDIOFXMASK_ALL;
         s->iflags &= ~SOUNDIFLAG_NEEDSINIT;
     } else {
         fxch = e->fxch;
         if (!fxch) return;
+        imm = e->fxchimm;
     }
-    uint8_t imm = e->cfximm;
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
@@ -1008,13 +920,17 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
             s->frac = frac;
         } else {
             s->calcfx[newfxi].posoff = toff;
-            s->iflags |= SOUNDIFLAG_FXCH_OTHER;
+            s->fxch |= AUDIOFXMASK_TOFF;
         }
+    } else {
+        s->calcfx[newfxi].posoff = s->calcfx[curfxi].posoff;
     }
     if (fxch & AUDIOFXMASK_SPEED) {
         s->calcfx[newfxi].speedmul = roundf(s->fx.speed * e->fx.speed * 256.0f);
         if (imm & AUDIOFXMASK_SPEED) s->calcfx[curfxi].speedmul = s->calcfx[newfxi].speedmul;
-        else s->iflags |= SOUNDIFLAG_FXCH_OTHER;
+        else s->fxch |= AUDIOFXMASK_SPEED;
+    } else {
+        s->calcfx[newfxi].speedmul = s->calcfx[curfxi].speedmul;
     }
     if (fxch & AUDIOFXMASK_VOL) {
         s->calcfx[newfxi].volmul[0] = roundf(s->fx.vol[0] * e->fx3dout.volmul[0] * e->fx.vol[0] * 32768.0f);
@@ -1022,53 +938,70 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
         if (imm & AUDIOFXMASK_VOL) {
             if (imm & AUDIOFXMASK_VOL_L) s->calcfx[curfxi].volmul[0] = s->calcfx[newfxi].volmul[0];
             if (imm & AUDIOFXMASK_VOL_R) s->calcfx[curfxi].volmul[1] = s->calcfx[newfxi].volmul[1];
-            s->iflags |= SOUNDIFLAG_FXCH_VOL;
+        } else {
+            s->fxch |= AUDIOFXMASK_VOL;
         }
+    } else {
+        s->calcfx[newfxi].volmul[0] = s->calcfx[curfxi].volmul[0];
+        s->calcfx[newfxi].volmul[1] = s->calcfx[curfxi].volmul[1];
     }
     if (fxch & AUDIOFXMASK_LPFILT) {
         float tmpf = (1.0f - s->fx.lpfilt[0]) * (1.0f - e->fx3dout.lpfiltmul[0]) * (1.0f - e->fx.lpfilt[0]);
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu > audiostate.freq) tmpu = audiostate.freq;
         s->calcfx[newfxi].lpfiltmul[0] = tmpu;
-        if (imm & AUDIOFXMASK_LPFILT_L) s->calcfx[curfxi].lpfiltmul[0] = tmpu;
         tmpf = (1.0f - s->fx.lpfilt[1]) * (1.0f - e->fx3dout.lpfiltmul[1]) * (1.0f - e->fx.lpfilt[1]);
         tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu > audiostate.freq) tmpu = audiostate.freq;
         s->calcfx[newfxi].lpfiltmul[1] = tmpu;
-        if (imm & AUDIOFXMASK_LPFILT_R) s->calcfx[curfxi].lpfiltmul[1] = tmpu;
-        if (!(imm & AUDIOFXMASK_LPFILT)) s->iflags |= SOUNDIFLAG_FXCH_FILT;
+        if (imm & AUDIOFXMASK_LPFILT) {
+            s->calcfx[curfxi].lpfiltmul[0] = s->calcfx[newfxi].lpfiltmul[0];
+            s->calcfx[curfxi].lpfiltmul[1] = s->calcfx[newfxi].lpfiltmul[1];
+        } else {
+            s->fxch |= AUDIOFXMASK_LPFILT;
+        }
+    } else {
+        s->calcfx[newfxi].lpfiltmul[0] = s->calcfx[curfxi].lpfiltmul[0];
+        s->calcfx[newfxi].lpfiltmul[1] = s->calcfx[curfxi].lpfiltmul[1];
     }
     if (fxch & AUDIOFXMASK_HPFILT) {
         float tmpf = 1.0f - (1.0f - s->fx.hpfilt[0]) * (1.0f - e->fx3dout.hpfiltmul[0]) * (1.0f - e->fx.hpfilt[0]);
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu >= audiostate.freq) tmpu = 0;
         else tmpu = audiostate.freq - tmpu;
         s->calcfx[newfxi].hpfiltmul[0] = tmpu;
-        if (imm & AUDIOFXMASK_HPFILT_L) s->calcfx[curfxi].hpfiltmul[0] = tmpu;
         tmpf = 1.0f - (1.0f - s->fx.hpfilt[1]) * (1.0f - e->fx3dout.hpfiltmul[1]) * (1.0f - e->fx.hpfilt[1]);
         tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu >= audiostate.freq) tmpu = 0;
         else tmpu = audiostate.freq - tmpu;
         s->calcfx[newfxi].hpfiltmul[1] = tmpu;
-        if (imm & AUDIOFXMASK_HPFILT_R) s->calcfx[curfxi].hpfiltmul[1] = tmpu;
-        if (!(imm & AUDIOFXMASK_HPFILT)) s->iflags |= SOUNDIFLAG_FXCH_FILT;
+        if (imm & AUDIOFXMASK_HPFILT) {
+            s->calcfx[curfxi].hpfiltmul[0] = s->calcfx[newfxi].hpfiltmul[0];
+            s->calcfx[curfxi].hpfiltmul[1] = s->calcfx[newfxi].hpfiltmul[1];
+        } else {
+            s->fxch |= AUDIOFXMASK_HPFILT;
+        }
+    } else {
+        s->calcfx[newfxi].hpfiltmul[0] = s->calcfx[curfxi].hpfiltmul[0];
+        s->calcfx[newfxi].hpfiltmul[1] = s->calcfx[curfxi].hpfiltmul[1];
     }
 }
 
 static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e) {
-    uint8_t fxch;
+    uint8_t fxch, imm;
     if (s->iflags & SOUNDIFLAG_NEEDSINIT) {
         fxch = (uint8_t)AUDIOFXMASK_ALL;
+        imm = (uint8_t)AUDIOFXMASK_ALL;
         s->iflags &= ~SOUNDIFLAG_NEEDSINIT;
     } else {
         fxch = e->fxch;
         if (!fxch) return;
+        imm = e->fxchimm;
     }
-    uint8_t imm = e->cfximm;
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
@@ -1104,13 +1037,17 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
             s->frac = frac;
         } else {
             s->calcfx[newfxi].posoff = toff;
-            s->iflags |= SOUNDIFLAG_FXCH_OTHER;
+            s->fxch |= AUDIOFXMASK_TOFF;
         }
+    } else {
+        s->calcfx[newfxi].posoff = s->calcfx[curfxi].posoff;
     }
     if (fxch & AUDIOFXMASK_SPEED) {
         s->calcfx[newfxi].speedmul = roundf(s->fx.speed * e->fx.speed * 256.0f);
         if (imm & AUDIOFXMASK_SPEED) s->calcfx[curfxi].speedmul = s->calcfx[newfxi].speedmul;
-        else s->iflags |= SOUNDIFLAG_FXCH_OTHER;
+        else s->fxch |= AUDIOFXMASK_SPEED;
+    } else {
+        s->calcfx[newfxi].speedmul = s->calcfx[curfxi].speedmul;
     }
     if (fxch & AUDIOFXMASK_VOL) {
         s->calcfx[newfxi].volmul[0] = roundf(s->fx.vol[0] * e->fx.vol[0] * 32768.0f);
@@ -1118,41 +1055,542 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
         if (imm & AUDIOFXMASK_VOL) {
             if (imm & AUDIOFXMASK_VOL_L) s->calcfx[curfxi].volmul[0] = s->calcfx[newfxi].volmul[0];
             if (imm & AUDIOFXMASK_VOL_R) s->calcfx[curfxi].volmul[1] = s->calcfx[newfxi].volmul[1];
-            s->iflags |= SOUNDIFLAG_FXCH_VOL;
+        } else {
+            s->fxch |= AUDIOFXMASK_VOL;
         }
+    } else {
+        s->calcfx[newfxi].volmul[0] = s->calcfx[curfxi].volmul[0];
+        s->calcfx[newfxi].volmul[1] = s->calcfx[curfxi].volmul[1];
     }
     if (fxch & AUDIOFXMASK_LPFILT) {
         float tmpf = (1.0f - s->fx.lpfilt[0]) * (1.0f - e->fx.lpfilt[0]);
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu > audiostate.freq) tmpu = audiostate.freq;
         s->calcfx[newfxi].lpfiltmul[0] = tmpu;
-        if (imm & AUDIOFXMASK_LPFILT_L) s->calcfx[curfxi].lpfiltmul[0] = tmpu;
         tmpf = (1.0f - s->fx.lpfilt[1]) * (1.0f - e->fx.lpfilt[1]);
         tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJLPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu > audiostate.freq) tmpu = audiostate.freq;
         s->calcfx[newfxi].lpfiltmul[1] = tmpu;
-        if (imm & AUDIOFXMASK_LPFILT_R) s->calcfx[curfxi].lpfiltmul[1] = tmpu;
-        if (!(imm & AUDIOFXMASK_LPFILT)) s->iflags |= SOUNDIFLAG_FXCH_FILT;
+        if (imm & AUDIOFXMASK_LPFILT) {
+            s->calcfx[curfxi].lpfiltmul[0] = s->calcfx[newfxi].lpfiltmul[0];
+            s->calcfx[curfxi].lpfiltmul[1] = s->calcfx[newfxi].lpfiltmul[1];
+        } else {
+            s->fxch |= AUDIOFXMASK_LPFILT;
+        }
+    } else {
+        s->calcfx[newfxi].lpfiltmul[0] = s->calcfx[curfxi].lpfiltmul[0];
+        s->calcfx[newfxi].lpfiltmul[1] = s->calcfx[curfxi].lpfiltmul[1];
     }
     if (fxch & AUDIOFXMASK_HPFILT) {
         float tmpf = 1.0f - (1.0f - s->fx.hpfilt[0]) * (1.0f - e->fx.hpfilt[0]);
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu >= audiostate.freq) tmpu = 0;
         else tmpu = audiostate.freq - tmpu;
         s->calcfx[newfxi].hpfiltmul[0] = tmpu;
-        if (imm & AUDIOFXMASK_HPFILT_L) s->calcfx[curfxi].hpfiltmul[0] = tmpu;
         tmpf = 1.0f - (1.0f - s->fx.hpfilt[1]) * (1.0f - e->fx.hpfilt[1]);
         tmpu = roundf(tmpf * tmpf * audiostate.freq);
-        if (adjfilters && audiostate.freq != 44100) ADJHPFILTMUL(tmpf, tmpu, 44100);
+        if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
         if (tmpu >= audiostate.freq) tmpu = 0;
         else tmpu = audiostate.freq - tmpu;
         s->calcfx[newfxi].hpfiltmul[1] = tmpu;
-        if (imm & AUDIOFXMASK_HPFILT_R) s->calcfx[curfxi].hpfiltmul[1] = tmpu;
-        if (!(imm & AUDIOFXMASK_HPFILT)) s->iflags |= SOUNDIFLAG_FXCH_FILT;
+        if (imm & AUDIOFXMASK_HPFILT) {
+            s->calcfx[curfxi].hpfiltmul[0] = s->calcfx[newfxi].hpfiltmul[0];
+            s->calcfx[curfxi].hpfiltmul[1] = s->calcfx[newfxi].hpfiltmul[1];
+        } else {
+            s->fxch |= AUDIOFXMASK_HPFILT;
+        }
+    } else {
+        s->calcfx[newfxi].hpfiltmul[0] = s->calcfx[curfxi].hpfiltmul[0];
+        s->calcfx[newfxi].hpfiltmul[1] = s->calcfx[curfxi].hpfiltmul[1];
     }
+}
+
+static inline void applyAudioEnv(void) {
+    if (audiostate.env.envch & AUDIOENVMASK_REVERB_DELAY) {
+        unsigned oldlen = audiostate.env.reverb.state.len;
+        unsigned newlen;
+        {
+            float tmp = audiostate.env.reverb.delay;
+            if (tmp < 0.0f) tmp = 0.0f;
+            else if (tmp > 5.0f) tmp = 5.0f;
+            newlen = roundf(tmp * audiostate.freq);
+        }
+        audiostate.env.reverb.state.len = newlen;
+        if (!newlen) {
+            audiostate.env.reverb.state.size = 0;
+            free(audiostate.env.reverb.state.buf[0]);
+            free(audiostate.env.reverb.state.buf[1]);
+        } else if (newlen != oldlen) {
+            register unsigned newsize = newlen - 1;
+            newsize |= newsize >> 1;
+            newsize |= newsize >> 2;
+            newsize |= newsize >> 4;
+            newsize |= newsize >> 8;
+            newsize |= newsize >> 16;
+            ++newsize;
+            if (oldlen) {
+                int16_t* newbuf[2];
+                newbuf[0] = rcmgr_malloc(newsize * sizeof(**newbuf));
+                newbuf[1] = rcmgr_malloc(newsize * sizeof(**newbuf));
+                unsigned oldsize = audiostate.env.reverb.state.size;
+                unsigned minlen = (newlen <= oldlen) ? newlen : oldlen;
+                unsigned pos = (audiostate.env.reverb.state.head + (oldsize - minlen)) % oldsize;
+                for (unsigned i = 0; i < minlen; ++i) {
+                    newbuf[0][i] = audiostate.env.reverb.state.buf[0][pos];
+                    newbuf[1][i] = audiostate.env.reverb.state.buf[1][pos];
+                    pos = (pos + 1) % oldsize;
+                }
+                for (unsigned i = minlen; i < newsize; ++i) {
+                    newbuf[0][i] = 0;
+                    newbuf[1][i] = 0;
+                }
+                audiostate.env.reverb.state.buf[0] = newbuf[0];
+                audiostate.env.reverb.state.buf[1] = newbuf[1];
+                audiostate.env.reverb.state.size = newsize;
+                audiostate.env.reverb.state.head = 0;
+                audiostate.env.reverb.state.tail = newsize - newlen;
+            } else {
+                audiostate.env.reverb.state.buf[0] = rcmgr_calloc(newsize, sizeof(**audiostate.env.reverb.state.buf));
+                audiostate.env.reverb.state.buf[1] = rcmgr_calloc(newsize, sizeof(**audiostate.env.reverb.state.buf));
+                audiostate.env.reverb.state.size = newsize;
+                audiostate.env.reverb.state.head = 0;
+                audiostate.env.reverb.state.tail = newsize - newlen;
+            }
+        }
+    }
+    if (audiostate.env.envch & (AUDIOENVMASK_REVERB & ~AUDIOENVMASK_REVERB_DELAY)) {
+        uint_fast8_t curparami = audiostate.env.reverb.state.parami;
+        uint_fast8_t newparami = (curparami + 1) % 2;
+        if (audiostate.env.envch & AUDIOENVMASK_REVERB_MIX) {
+            audiostate.env.reverb.state.mix[newparami] = roundf(audiostate.env.reverb.mix * 256.0f);
+            if (audiostate.env.envchimm & AUDIOENVMASK_REVERB_MIX) {
+                audiostate.env.reverb.state.mix[curparami] = audiostate.env.reverb.state.mix[newparami];
+            }
+        } else {
+            audiostate.env.reverb.state.mix[newparami] = audiostate.env.reverb.state.mix[curparami];
+        }
+        if (audiostate.env.envch & AUDIOENVMASK_REVERB_FEEDBACK) {
+            audiostate.env.reverb.state.feedback[newparami] = roundf(audiostate.env.reverb.feedback * 256.0f);
+            if (audiostate.env.envchimm & AUDIOENVMASK_REVERB_FEEDBACK) {
+                audiostate.env.reverb.state.feedback[curparami] = audiostate.env.reverb.state.feedback[newparami];
+            }
+        } else {
+            audiostate.env.reverb.state.feedback[newparami] = audiostate.env.reverb.state.feedback[curparami];
+        }
+        if (audiostate.env.envch & AUDIOENVMASK_REVERB_LPFILT) {
+            float tmpf = 1.0f - audiostate.env.reverb.lpfilt;
+            unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
+            if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
+            if (tmpu > audiostate.freq) tmpu = audiostate.freq;
+            audiostate.env.reverb.state.lpfilt[newparami] = tmpu;
+            if (audiostate.env.envch & AUDIOENVMASK_REVERB_LPFILT) {
+                audiostate.env.reverb.state.lpfilt[curparami] = tmpu;
+            }
+        } else {
+            audiostate.env.reverb.state.lpfilt[newparami] = audiostate.env.reverb.state.lpfilt[curparami];
+        }
+        if (audiostate.env.envch & AUDIOENVMASK_REVERB_HPFILT) {
+            float tmpf = audiostate.env.reverb.hpfilt;
+            unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
+            if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
+            if (tmpu >= audiostate.freq) tmpu = 0;
+            else tmpu = audiostate.freq - tmpu;
+            audiostate.env.reverb.state.hpfilt[newparami] = tmpu;
+            if (audiostate.env.envch & AUDIOENVMASK_REVERB_HPFILT) {
+                audiostate.env.reverb.state.lpfilt[curparami] = tmpu;
+            }
+        } else {
+            audiostate.env.reverb.state.hpfilt[newparami] = audiostate.env.reverb.state.hpfilt[curparami];
+        }
+        if (audiostate.env.reverb.state.len) {
+            doReverb_interp(&audiostate.env.reverb.state, audiostate.buflen, audiostate.mixbuf[0], audiostate.mixbuf[1]);
+        }
+    } else if (audiostate.env.reverb.state.len) {
+        doReverb(&audiostate.env.reverb.state, audiostate.buflen, audiostate.mixbuf[0], audiostate.mixbuf[1]);
+    }
+    if (audiostate.env.envch & AUDIOENVMASK_HPFILT) {
+        uint_fast8_t curmuli = audiostate.env.hpfilt.muli;
+        uint_fast8_t newmuli = (curmuli + 1) % 2;
+        float tmpf = audiostate.env.hpfilt.amount;
+        unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
+        if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
+        if (tmpu >= audiostate.freq) tmpu = 0;
+        else tmpu = audiostate.freq - tmpu;
+        audiostate.env.hpfilt.mul[newmuli] = tmpu;
+        if (audiostate.env.envchimm & AUDIOENVMASK_HPFILT) {
+            audiostate.env.hpfilt.mul[curmuli] = tmpu;
+            if (tmpu != audiostate.freq) {
+                doHPFilter(
+                    tmpu, audiostate.freq,
+                    &audiostate.env.hpfilt.lastin[0], &audiostate.env.hpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+                );
+                doHPFilter(
+                    tmpu, audiostate.freq,
+                    &audiostate.env.hpfilt.lastin[1], &audiostate.env.hpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+                );
+            }
+        } else {
+            if (audiostate.env.hpfilt.mul[curmuli] != audiostate.freq || tmpu != audiostate.freq) {
+                doHPFilter_interp(
+                    audiostate.env.hpfilt.mul[curmuli], tmpu, audiostate.freq,
+                    &audiostate.env.hpfilt.lastin[0], &audiostate.env.hpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+                );
+                doHPFilter_interp(
+                    audiostate.env.hpfilt.mul[curmuli], tmpu, audiostate.freq,
+                    &audiostate.env.hpfilt.lastin[1], &audiostate.env.hpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+                );
+            }
+        }
+    } else if (audiostate.env.hpfilt.mul[audiostate.env.hpfilt.muli] != audiostate.freq) {
+        doHPFilter(
+            audiostate.env.hpfilt.mul[audiostate.env.hpfilt.muli], audiostate.freq,
+            &audiostate.env.hpfilt.lastin[0], &audiostate.env.hpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+        );
+        doHPFilter(
+            audiostate.env.hpfilt.mul[audiostate.env.hpfilt.muli], audiostate.freq,
+            &audiostate.env.hpfilt.lastin[1], &audiostate.env.hpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+        );
+    }
+    if (audiostate.env.envch & AUDIOENVMASK_LPFILT) {
+        uint_fast8_t curmuli = audiostate.env.lpfilt.muli;
+        uint_fast8_t newmuli = (curmuli + 1) % 2;
+        float tmpf = 1.0f - audiostate.env.lpfilt.amount;
+        unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
+        if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
+        if (tmpu > audiostate.freq) tmpu = audiostate.freq;
+        audiostate.env.lpfilt.mul[newmuli] = tmpu;
+        if (audiostate.env.envchimm & AUDIOENVMASK_LPFILT) {
+            audiostate.env.lpfilt.mul[curmuli] = tmpu;
+            if (tmpu != audiostate.freq) {
+                doLPFilter(
+                    tmpu, audiostate.freq,
+                    &audiostate.env.lpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+                );
+                doLPFilter(
+                    tmpu, audiostate.freq,
+                    &audiostate.env.lpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+                );
+            }
+        } else {
+            if (audiostate.env.lpfilt.mul[curmuli] != audiostate.freq || tmpu != audiostate.freq) {
+                doLPFilter_interp(
+                    audiostate.env.lpfilt.mul[curmuli], tmpu, audiostate.freq,
+                    &audiostate.env.lpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+                );
+                doLPFilter_interp(
+                    audiostate.env.lpfilt.mul[curmuli], tmpu, audiostate.freq,
+                    &audiostate.env.lpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+                );
+            }
+        }
+    } else if (audiostate.env.lpfilt.mul[audiostate.env.lpfilt.muli] != audiostate.freq) {
+        doLPFilter(
+            audiostate.env.lpfilt.mul[audiostate.env.lpfilt.muli], audiostate.freq,
+            &audiostate.env.lpfilt.lastout[0], audiostate.buflen, audiostate.mixbuf[0]
+        );
+        doLPFilter(
+            audiostate.env.lpfilt.mul[audiostate.env.lpfilt.muli], audiostate.freq,
+            &audiostate.env.lpfilt.lastout[1], audiostate.buflen, audiostate.mixbuf[1]
+        );
+    }
+    audiostate.env.envch = 0;
+    audiostate.env.envchimm = 0;
+}
+
+#define MIXSOUND__DOMIXING(l) do {\
+    if (!oob) {\
+        register int_fast16_t sample_l, sample_r;\
+        if (pos > bufend || pos < bufstart) {\
+            cb(ctx, loop, pos, &bufstart, &bufend, &buf);\
+        }\
+        register long bufpos = (pos - bufstart) * (long)ch;\
+        sample_l = buf[bufpos];\
+        sample_r = buf[bufpos + (ch != 1)];\
+        if (frac) {\
+            int mix = frac / outfreq;\
+            int imix = 256 - mix;\
+            sample_l *= imix;\
+            sample_r *= imix;\
+            long pos2 = pos + 1;\
+            if (pos2 > bufend || pos2 < bufstart) {\
+                register long loop2 = loop;\
+                if (pos2 == len) {\
+                    if (!(flags & SOUNDFLAG_LOOP)) {\
+                        goto skipinterp_##l;\
+                    } else {\
+                        pos2 = 0;\
+                        ++loop2;\
+                    }\
+                }\
+                cb(ctx, loop2, pos2, &bufstart, &bufend, &buf);\
+            }\
+            bufpos = (pos2 - bufstart) * (long)ch;\
+            sample_l += buf[bufpos] * mix;\
+            sample_r += buf[bufpos + (ch != 1)] * mix;\
+            skipinterp_##l:;\
+            sample_l /= 256;\
+            sample_r /= 256;\
+        }\
+        if (mixmono) {\
+            sample_l =+ sample_r;\
+            sample_l /= 2;\
+            audiostate.fxbuf[0][i] = sample_l;\
+            audiostate.fxbuf[1][i] = sample_l;\
+        } else {\
+            audiostate.fxbuf[0][i] = sample_l;\
+            audiostate.fxbuf[1][i] = sample_r;\
+        }\
+    } else {\
+        audiostate.fxbuf[0][i] = 0;\
+        audiostate.fxbuf[1][i] = 0;\
+    }\
+} while (0)
+#define MIXSOUND__DOMIXING_EVALLINE(l) MIXSOUND__DOMIXING(l)
+#define MIXSOUND_DOMIXING() MIXSOUND__DOMIXING_EVALLINE(__LINE__)
+#define MIXSOUND_DOPOSMATH(...) do {\
+    pos += frac / div;\
+    frac %= div;\
+    if (frac < 0) {\
+        frac += div;\
+        --pos;\
+    }\
+    if (pos >= len) {\
+        loop += pos / len;\
+        pos %= len;\
+    } else if (pos < 0) {\
+        loop += pos / len - 1;\
+        pos %= len;\
+        pos += len;\
+    } else {\
+        __VA_ARGS__\
+    }\
+} while (0)
+#define MIXSOUND_OOBCHECK() do {\
+    if (!(flags & SOUNDFLAG_LOOP)) {\
+        if (!(flags & SOUNDFLAG_WRAP)) {\
+            oob = (loop != 0);\
+        } else {\
+            oob = (loop < -1 || loop > 0);\
+        }\
+    } else {\
+        if (!(flags & SOUNDFLAG_WRAP)) {\
+            oob = (loop < 0);\
+        } else {\
+            oob = false;\
+        }\
+    }\
+} while (0)
+static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
+    audiocb cb;
+    void* ctx;
+    long len;
+    long freq;
+    unsigned ch;
+    if (!(s->iflags & SOUNDIFLAG_USESCB)) {
+        switch (s->rc->format) {
+            /*case RC_SOUND_FRMT_WAV*/ default: cb = (audiocb)mixsound_cb_wav; break;
+            #ifdef PSRC_USESTBVORBIS
+            case RC_SOUND_FRMT_VORBIS: cb = (audiocb)mixsound_cb_vorbis; break;
+            #endif
+            #ifdef PSRC_USEMINIMP3
+            case RC_SOUND_FRMT_MP3: cb = (audiocb)mixsound_cb_mp3; break;
+            #endif
+        }
+        ctx = s;
+        len = s->rc->len;
+        freq = s->rc->freq;
+        ch = s->rc->channels;
+    } else {
+        cb = s->cb.cb;
+        ctx = s->cb.ctx;
+        len = s->cb.len;
+        freq = s->cb.freq;
+        ch = s->cb.ch;
+    }
+
+    uint8_t flags = s->flags;
+    long loop = s->loop;
+    long oldloop = loop;
+    register long pos = s->pos;
+    register long frac = s->frac;
+    long outfreq = audiostate.freq;
+    #if 0
+    {
+        long outfreq2 = outfreq, gcd = freq;
+        while (outfreq2) {
+            long tmp = gcd % outfreq2;
+            gcd = outfreq2;
+            outfreq2 = tmp;
+        }
+        outfreq /= gcd;
+        freq /= gcd;
+    }
+    #endif
+    long div = outfreq * 256;
+
+    uint_fast8_t curfxi = s->fxi;
+    uint_fast8_t newfxi = (curfxi + 1) % 2;
+
+    int vol[2][2];
+    if (!fake) {
+        if (!(s->fxch & AUDIOFXMASK_VOL)) {
+            vol[0][0] = s->calcfx[curfxi].volmul[0];
+            vol[0][1] = s->calcfx[curfxi].volmul[1];
+            if (!vol[0][0] && !vol[0][1]) fake = true;
+        } else {
+            vol[0][0] = s->calcfx[curfxi].volmul[0];
+            vol[0][1] = s->calcfx[curfxi].volmul[1];
+            vol[1][0] = s->calcfx[newfxi].volmul[0];
+            vol[1][1] = s->calcfx[newfxi].volmul[1];
+            if (!vol[0][0] && !vol[0][1] && !vol[1][0] && !vol[1][1]) fake = true;
+        }
+    }
+
+    int16_t* buf;
+    long bufstart = 0, bufend = -1;
+
+    if (!(s->fxch & (AUDIOFXMASK_TOFF | AUDIOFXMASK_SPEED))) {
+        long speedmul = s->calcfx[curfxi].speedmul;
+        long change = freq * speedmul;
+        register unsigned i = 0;
+        if (!fake) {
+            bool oob;
+            while (1) {
+                MIXSOUND_OOBCHECK();
+                skipoobchk_1:;
+                MIXSOUND_DOMIXING();
+                frac += change;
+                MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_1; goto skipoobchk_1;);
+                ++i;
+                if (i == audiostate.buflen) break;
+            }
+            brkloop_1:;
+        } else {
+            while (1) {
+                frac += change;
+                MIXSOUND_DOPOSMATH();
+                ++i;
+                if (i == audiostate.buflen) break;
+            }
+        }
+    } else {
+        long posoff[2];
+        posoff[0] = 0;
+        posoff[1] = (s->fxch & AUDIOFXMASK_TOFF) ? s->calcfx[newfxi].posoff - s->calcfx[curfxi].posoff : 0;
+        long speedmul[2];
+        speedmul[0] = s->calcfx[curfxi].speedmul;
+        speedmul[1] = s->calcfx[newfxi].speedmul;
+        register unsigned i = 0, ii = audiostate.buflen;
+        if (!fake) {
+            bool oob;
+            while (1) {
+                MIXSOUND_OOBCHECK();
+                skipoobchk_2:;
+                MIXSOUND_DOMIXING();
+                long tmpposoff = posoff[1] * i / audiostate.buflen - posoff[0];
+                posoff[0] = tmpposoff;
+                pos += tmpposoff / outfreq;
+                frac += ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) * freq + (tmpposoff % outfreq) * 256;
+                MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_2; --ii; goto skipoobchk_2;);
+                ++i;
+                if (i == audiostate.buflen) break;
+                --ii;
+            }
+            brkloop_2:;
+        } else {
+            while (1) {
+                long tmpposoff = posoff[1] * i / audiostate.buflen - posoff[0];
+                posoff[0] = tmpposoff;
+                pos += tmpposoff / outfreq;
+                frac += ((speedmul[0] * ii + speedmul[1] * i) / audiostate.buflen) * freq + (tmpposoff % outfreq) * 256;
+                MIXSOUND_DOPOSMATH();
+                ++i;
+                if (i == audiostate.buflen) break;
+                --ii;
+            }
+        }
+        posoff[1] -= posoff[0];
+        posoff[1] *= freq;
+        pos += posoff[1] / outfreq;
+        frac += (posoff[1] % outfreq) * 256;
+        MIXSOUND_DOPOSMATH();
+    }
+    if (!fake) {
+        if (!(s->fxch & AUDIOFXMASK_HPFILT)) {
+            unsigned tmp = s->calcfx[curfxi].hpfiltmul[0];
+            if (tmp != audiostate.freq)
+                doHPFilter(tmp, audiostate.freq, &s->hplastin[0], &s->hplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
+            tmp = s->calcfx[curfxi].hpfiltmul[1];
+            if (tmp != audiostate.freq)
+                doHPFilter(tmp, audiostate.freq, &s->hplastin[1], &s->hplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
+        } else {
+            unsigned tmp1 = s->calcfx[curfxi].hpfiltmul[0];
+            unsigned tmp2 = s->calcfx[newfxi].hpfiltmul[0];
+            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
+                doHPFilter_interp(tmp1, tmp2, audiostate.freq, &s->hplastin[0], &s->hplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
+            tmp1 = s->calcfx[curfxi].hpfiltmul[1];
+            tmp2 = s->calcfx[newfxi].hpfiltmul[1];
+            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
+                doHPFilter_interp(tmp1, tmp2, audiostate.freq, &s->hplastin[1], &s->hplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
+        }
+        if (!(s->fxch & AUDIOFXMASK_LPFILT)) {
+            unsigned tmp = s->calcfx[curfxi].lpfiltmul[0];
+            if (tmp != audiostate.freq)
+                doLPFilter(tmp, audiostate.freq, &s->lplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
+            tmp = s->calcfx[curfxi].lpfiltmul[1];
+            if (tmp != audiostate.freq)
+                doLPFilter(tmp, audiostate.freq, &s->lplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
+        } else {
+            unsigned tmp1 = s->calcfx[curfxi].lpfiltmul[0];
+            unsigned tmp2 = s->calcfx[newfxi].lpfiltmul[0];
+            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
+                doLPFilter_interp(tmp1, tmp2, audiostate.freq, &s->lplastout[0], audiostate.buflen, audiostate.fxbuf[0]);
+            tmp1 = s->calcfx[curfxi].lpfiltmul[1];
+            tmp2 = s->calcfx[newfxi].lpfiltmul[1];
+            if (tmp1 != audiostate.freq || tmp2 != audiostate.freq)
+                doLPFilter_interp(tmp1, tmp2, audiostate.freq, &s->lplastout[1], audiostate.buflen, audiostate.fxbuf[1]);
+        }
+        if (!(s->fxch & AUDIOFXMASK_VOL)) {
+            for (register unsigned i = 0; i < audiostate.buflen; ++i) {
+                audiostate.mixbuf[0][i] += audiostate.fxbuf[0][i] * vol[0][0] / 32768;
+                audiostate.mixbuf[1][i] += audiostate.fxbuf[1][i] * vol[0][1] / 32768;
+            }
+        } else {
+            for (register unsigned i = 0, ii = audiostate.buflen; i < audiostate.buflen; ++i, --ii) {
+                int vol_l = (vol[0][0] * ii + vol[1][0] * i) / audiostate.buflen;
+                int vol_r = (vol[0][1] * ii + vol[1][1] * i) / audiostate.buflen;
+                audiostate.mixbuf[0][i] += audiostate.fxbuf[0][i] * vol_l / 32768;
+                audiostate.mixbuf[1][i] += audiostate.fxbuf[1][i] * vol_r / 32768;
+            }
+        }
+    }
+
+    if (!(flags & SOUNDFLAG_LOOP)) {
+        if (loop > 0) {
+            if (loop > oldloop) goto retfalse;
+        } else if (loop < ((!(flags & SOUNDFLAG_WRAP)) ? 0 : -1)) {
+            if (loop < oldloop) goto retfalse;
+        }
+    } else if (!(flags & SOUNDFLAG_WRAP)) {
+        if (loop < 0) {
+            if (loop < oldloop) goto retfalse;
+        }
+    }
+
+    s->loop = loop;
+    s->pos = pos;
+    s->frac = frac;
+    if (s->fxch) {
+        s->fxch = 0;
+        s->fxi = newfxi;
+    }
+    return true;
+
+    retfalse:;
+    return false;
 }
 
 static int mixsounds_3dsortcb(const void* a, const void* b) {
@@ -1160,92 +1598,172 @@ static int mixsounds_3dsortcb(const void* a, const void* b) {
     struct audiosound* s2 = &audiostate.sounds3d.data[*(size_t*)b];
     struct audioemitter3d* e1 = &audiostate.emitters3d.data[s1->emitter];
     struct audioemitter3d* e2 = &audiostate.emitters3d.data[s2->emitter];
-    if (e1->paused != e2->paused) return (int)e1->paused - (int)e2->paused;
+    if ((e1->flags & AUDIOEMITTER3DFLAG_PAUSED) != (e2->flags & AUDIOEMITTER3DFLAG_PAUSED)) {
+        return (int)((e1->flags & AUDIOEMITTER3DFLAG_PAUSED) != 0) - (int)((e2->flags & AUDIOEMITTER3DFLAG_PAUSED) != 0);
+    }
     if (s1->prio == s2->prio) {
         return (e1->dist != e2->dist) ? ((e1->dist > e2->dist) ? 1 : -1) : 0;
-    } else {
-        return (int)s2->prio - (int)s1->prio;
     }
+    return (int)s2->prio - (int)s1->prio;
 }
 static int mixsounds_2dsortcb(const void* a, const void* b) {
     struct audiosound* s1 = &audiostate.sounds2d.data[*(size_t*)a];
     struct audiosound* s2 = &audiostate.sounds2d.data[*(size_t*)b];
     struct audioemitter2d* e1 = &audiostate.emitters2d.data[s1->emitter];
     struct audioemitter2d* e2 = &audiostate.emitters2d.data[s2->emitter];
-    if (e1->paused != e2->paused) return (int)e1->paused - (int)e2->paused;
+    if ((e1->flags & AUDIOEMITTER2DFLAG_PAUSED) != (e2->flags & AUDIOEMITTER2DFLAG_PAUSED)) {
+        return (int)((e1->flags & AUDIOEMITTER2DFLAG_PAUSED) != 0) - (int)((e2->flags & AUDIOEMITTER2DFLAG_PAUSED) != 0);
+    }
     return (int)s2->prio - (int)s1->prio;
 }
 static void mixsounds(unsigned buf) {
     for (size_t i = 0; i < audiostate.emitters3d.len; ++i) {
         struct audioemitter3d* e = &audiostate.emitters3d.data[i];
-        if (!e->paused) calc3DEmitterFx(e);
+        if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED)) {
+            calc3DEmitterFx(e);
+        }
     }
     for (size_t i = 0; i < audiostate.sounds3d.len; ++i) {
         struct audiosound* s = &audiostate.sounds3d.data[i];
         struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
-        if (!e->paused) calc3DSoundFx(s, e);
+        if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED)) {
+            calc3DSoundFx(s, e);
+        }
     }
+
     for (size_t i = 0; i < audiostate.sounds2d.len; ++i) {
         struct audiosound* s = &audiostate.sounds2d.data[i];
         struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
-        if (!e->paused) calc2DSoundFx(s, e);
+        if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED)) {
+            calc2DSoundFx(s, e);
+        }
     }
+
     for (size_t i = 0; i < audiostate.emitters3d.len; ++i) {
         struct audioemitter3d* e = &audiostate.emitters3d.data[i];
         if (e->fxch) e->fxch = 0;
-        if (e->cfximm) e->cfximm = 0;
+        if (e->fxchimm) e->fxchimm = 0;
     }
     for (size_t i = 0; i < audiostate.emitters2d.len; ++i) {
         struct audioemitter2d* e = &audiostate.emitters2d.data[i];
         if (e->fxch) e->fxch = 0;
-        if (e->cfximm) e->cfximm = 0;
+        if (e->fxchimm) e->fxchimm = 0;
     }
 
     memset(audiostate.mixbuf[0], 0, audiostate.buflen * sizeof(**audiostate.mixbuf));
     memset(audiostate.mixbuf[1], 0, audiostate.buflen * sizeof(**audiostate.mixbuf));
 
     {
-        size_t tmp = audiostate.sounds3d.len;
+        size_t tmp = audiostate.sounds3dorder.len;
         if (tmp) {
             if (tmp > 1) qsort(audiostate.sounds3dorder.data, tmp, sizeof(*audiostate.sounds3dorder.data), mixsounds_3dsortcb);
             if (tmp <= audiostate.voices3d) {
                 for (size_t i = 0; i < tmp; ++i) {
                     struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
                     struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, false, true, 32768, 32768)) delete3DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, false, true)) delete3DSound(i, s);
+                    }
                 }
             } else {
                 for (size_t i = 0; i < audiostate.voices3d; ++i) {
                     struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
                     struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, false, true, 32768, 32768)) delete3DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, false, true)) delete3DSound(i, s);
+                    }
                 }
                 for (size_t i = audiostate.voices3d; i < tmp; ++i) {
                     struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
                     struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, true, true, 32768, 32768)) delete3DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, true, true)) delete3DSound(i, s);
+                    }
                 }
             }
         }
-        tmp = audiostate.sounds2d.len;
+        tmp = audiostate.sounds2dorder.len;
         if (tmp) {
             if (tmp > 1) qsort(audiostate.sounds2dorder.data, tmp, sizeof(*audiostate.sounds2dorder.data), mixsounds_2dsortcb);
             if (tmp <= audiostate.voices2d) {
                 for (size_t i = 0; i < tmp; ++i) {
                     struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
                     struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, false, false, 32768, 32768)) delete2DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && (e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, false, false)) delete2DSound(i, s);
+                    }
                 }
             } else {
                 for (size_t i = 0; i < audiostate.voices2d; ++i) {
                     struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
                     struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, false, false, 32768, 32768)) delete2DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && (e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, false, false)) delete2DSound(i, s);
+                    }
                 }
                 for (size_t i = audiostate.voices2d; i < tmp; ++i) {
                     struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
                     struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
-                    if (!e->paused && !mixsound(s, true, false, 32768, 32768)) delete2DSound(i, s);
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && (e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, true, false)) delete2DSound(i, s);
+                    }
+                }
+            }
+        }
+        applyAudioEnv();
+        tmp = audiostate.sounds3dorder.len;
+        if (tmp) {
+            if (tmp > 1) qsort(audiostate.sounds3dorder.data, tmp, sizeof(*audiostate.sounds3dorder.data), mixsounds_3dsortcb);
+            if (tmp <= audiostate.voices3d) {
+                for (size_t i = 0; i < tmp; ++i) {
+                    struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
+                    struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && (e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, false, true)) delete3DSound(i, s);
+                    }
+                }
+            } else {
+                for (size_t i = 0; i < audiostate.voices3d; ++i) {
+                    struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
+                    struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && (e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, false, true)) delete3DSound(i, s);
+                    }
+                }
+                for (size_t i = audiostate.voices3d; i < tmp; ++i) {
+                    struct audiosound* s = &audiostate.sounds3d.data[audiostate.sounds3dorder.data[i]];
+                    struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && (e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
+                        if (!mixsound(s, true, true)) delete3DSound(i, s);
+                    }
+                }
+            }
+        }
+        tmp = audiostate.sounds2dorder.len;
+        if (tmp) {
+            if (tmp > 1) qsort(audiostate.sounds2dorder.data, tmp, sizeof(*audiostate.sounds2dorder.data), mixsounds_2dsortcb);
+            if (tmp <= audiostate.voices2d) {
+                for (size_t i = 0; i < tmp; ++i) {
+                    struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
+                    struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, false, false)) delete2DSound(i, s);
+                    }
+                }
+            } else {
+                for (size_t i = 0; i < audiostate.voices2d; ++i) {
+                    struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
+                    struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, false, false)) delete2DSound(i, s);
+                    }
+                }
+                for (size_t i = audiostate.voices2d; i < tmp; ++i) {
+                    struct audiosound* s = &audiostate.sounds2d.data[audiostate.sounds2dorder.data[i]];
+                    struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
+                    if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
+                        if (!mixsound(s, true, false)) delete2DSound(i, s);
+                    }
                 }
             }
         }
@@ -1255,13 +1773,21 @@ static void mixsounds(unsigned buf) {
     if (audiostate.channels < 2) {
         for (register unsigned i = 0; i < audiostate.buflen; ++i) {
             register int sample = (audiostate.mixbuf[0][i] + audiostate.mixbuf[1][i]) / 2;
-            out[i] = (sample <= 32767) ? ((sample >= -32768) ? sample : -32768) : 32767;
+            if (sample > 32767) sample = 32767;
+            else if (sample < -32768) sample = -32768;
+            sample *= audiostate.vol;
+            sample /= 32768;
+            out[i] = sample;
         }
     } else {
         for (register unsigned c = 0; c < 2; ++c) {
             for (register unsigned i = 0; i < audiostate.buflen; ++i) {
                 register int sample = audiostate.mixbuf[c][i];
-                out[i * audiostate.channels + c] = (sample <= 32767) ? ((sample >= -32768) ? sample : -32768) : 32767;
+                if (sample > 32767) sample = 32767;
+                else if (sample < -32768) sample = -32768;
+                sample *= audiostate.vol;
+                sample /= 32768;
+                out[i * audiostate.channels + c] = sample;
             }
         }
         #if 0
@@ -1277,7 +1803,14 @@ void updateAudio(float framemult) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    vec3_calctrig(audiostate.cam.rot, audiostate.cam.sin, audiostate.cam.cos); // TODO: copy from renderer instead of recalc
+    if (!audiostate.valid) goto ret;
+    {
+        float tmp[3];
+        tmp[0] = -audiostate.cam.rot[0];
+        tmp[1] = -audiostate.cam.rot[1];
+        tmp[2] = -audiostate.cam.rot[2];
+        vec3_calctrig(tmp, audiostate.cam.sin, audiostate.cam.cos); // TODO: copy from renderer instead of recalc
+    }
     if (audiostate.usecallback) {
         while (audiostate.mixoutbufi != (audiostate.outbufi + 1) % 4 || audiostate.mixoutbufi == -1U) {
             unsigned mixoutbufi = (audiostate.mixoutbufi + 1) % 4;
@@ -1292,7 +1825,7 @@ void updateAudio(float framemult) {
         }
     } else {
         #ifndef PSRC_USESDL1
-        uint32_t queuesz = SDL_GetQueuedAudioSize(audiostate.output);
+        unsigned queuesz = SDL_GetQueuedAudioSize(audiostate.output);
         unsigned targetsz = audiostate.outsize * audiostate.outqueue;
         if (queuesz < targetsz) {
             unsigned count = (targetsz - queuesz) / audiostate.outsize;
@@ -1303,6 +1836,7 @@ void updateAudio(float framemult) {
         }
         #endif
     }
+    ret:;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -1434,11 +1968,134 @@ bool startAudio(void) {
     plog(LL_INFO, "  Frequency: %d", outspec.freq);
     plog(LL_INFO, "  Channels: %d (%s)", outspec.channels, (outspec.channels == 1) ? "mono" : "stereo");
     plog(LL_INFO, "  Samples: %d", (int)outspec.samples);
+    tmp = cfg_getvar(&config, "Audio", "volume");
+    if (tmp) {
+        audiostate.vol = roundf(atof(tmp) * 32678.0);
+        free(tmp);
+    } else {
+        audiostate.vol = 32678;
+    }
     audiostate.freq = outspec.freq;
     audiostate.channels = outspec.channels;
+    tmp = cfg_getvar(&config, "Audio", "decodewhole");
+    if (tmp) {
+        #if PLATFORM != PLAT_NXDK
+        audiostate.soundrcopt.decodewhole = strbool(tmp, true);
+        #else
+        audiostate.soundrcopt.decodewhole = strbool(tmp, false);
+        #endif
+        free(tmp);
+    } else {
+        #if PLATFORM != PLAT_NXDK
+        audiostate.soundrcopt.decodewhole = true;
+        #else
+        audiostate.soundrcopt.decodewhole = false;
+        #endif
+    }
     audiostate.soundspeedmul = (float)outspec.freq / 343.0f;
     audiostate.buflen = outspec.samples;
+    audiostate.fxbuf[0] = malloc(outspec.samples * sizeof(**audiostate.fxbuf));
+    audiostate.fxbuf[1] = malloc(outspec.samples * sizeof(**audiostate.fxbuf));
+    audiostate.mixbuf[0] = malloc(outspec.samples * sizeof(**audiostate.mixbuf));
+    audiostate.mixbuf[1] = malloc(outspec.samples * sizeof(**audiostate.mixbuf));
+    tmp = cfg_getvar(&config, "Audio", "decodebuf");
+    if (tmp) {
+        audiostate.decbuflen = atoi(tmp);
+        free(tmp);
+    } else {
+        audiostate.decbuflen = 4096;
+    }
     audiostate.outsize = outspec.samples * sizeof(**audiostate.outbuf) * outspec.channels;
+    tmp = cfg_getvar(&config, "Audio", "outqueue");
+    if (tmp) {
+        audiostate.outqueue = atoi(tmp);
+        free(tmp);
+    } else {
+        audiostate.outqueue = 2;
+    }
+    audiostate.outbuf[0] = malloc(audiostate.outsize);
+    if (audiostate.usecallback) audiostate.outbuf[1] = malloc(audiostate.outsize);
+    audiostate.outbufi = 0;
+    audiostate.mixoutbufi = -1;
+    tmp = cfg_getvar(&config, "Audio", "max3dsounds");
+    if (tmp) {
+        audiostate.max3dsounds = strtoul(tmp, NULL, 10);
+        free(tmp);
+    } else {
+        audiostate.max3dsounds = 1024;
+    }
+    tmp = cfg_getvar(&config, "Audio", "3dvoices");
+    if (tmp) {
+        audiostate.voices3d = strtoul(tmp, NULL, 10);
+        free(tmp);
+    } else {
+        audiostate.voices3d = 256;
+    }
+    {
+        unsigned tmpu = audiostate.voices3d / 4;
+        if (!tmpu) tmpu = 1;
+        else if (tmpu > 16) tmpu = 16;
+        VLB_INIT(audiostate.emitters3d, tmpu, VLB_OOM_NOP);
+        VLB_INIT(audiostate.sounds3d, tmpu, VLB_OOM_NOP);
+        tmpu = audiostate.voices3d / 2;
+        if (!tmpu) tmpu = 1;
+        else if (tmpu > 256) tmpu = 256;
+        VLB_INIT(audiostate.sounds3dorder, tmpu, VLB_OOM_NOP);
+    }
+    tmp = cfg_getvar(&config, "Audio", "max2dsounds");
+    if (tmp) {
+        audiostate.max2dsounds = strtoul(tmp, NULL, 10);
+        free(tmp);
+    } else {
+        audiostate.max2dsounds = 1024;
+    }
+    tmp = cfg_getvar(&config, "Audio", "2dvoices");
+    if (tmp) {
+        audiostate.voices2d = strtoul(tmp, NULL, 10);
+        free(tmp);
+    } else {
+        audiostate.voices2d = 256;
+    }
+    {
+        unsigned tmpu = audiostate.voices2d / 4;
+        if (!tmpu) tmpu = 1;
+        else if (tmpu > 16) tmpu = 16;
+        VLB_INIT(audiostate.emitters2d, tmpu, VLB_OOM_NOP);
+        VLB_INIT(audiostate.sounds2d, tmpu, VLB_OOM_NOP);
+        tmpu = audiostate.voices2d / 2;
+        if (!tmpu) tmpu = 1;
+        else if (tmpu > 256) tmpu = 256;
+        VLB_INIT(audiostate.sounds2dorder, tmpu, VLB_OOM_NOP);
+    }
+    audiostate.env.envch = (uint8_t)AUDIOENVMASK_ALL;
+    audiostate.env.envchimm = (uint8_t)AUDIOENVMASK_ALL;
+    audiostate.env.lpfilt.amount = 0.0f;
+    audiostate.env.lpfilt.muli = 0;
+    audiostate.env.lpfilt.lastout[0] = 0;
+    audiostate.env.lpfilt.lastout[1] = 0;
+    audiostate.env.hpfilt.amount = 0.0f;
+    audiostate.env.hpfilt.muli = 0;
+    audiostate.env.hpfilt.lastin[0] = 0;
+    audiostate.env.hpfilt.lastin[1] = 0;
+    audiostate.env.hpfilt.lastout[0] = 0;
+    audiostate.env.hpfilt.lastout[1] = 0;
+    audiostate.env.reverb.delay = 0.0f;
+    audiostate.env.reverb.mix = 0.0f;
+    audiostate.env.reverb.feedback = 0.0f;
+    audiostate.env.reverb.lpfilt = 0.0f;
+    audiostate.env.reverb.hpfilt = 0.0f;
+    audiostate.env.reverb.state = (struct audioreverbstate){.filtdiv = outspec.freq};
+    tmp = cfg_getvar(&config, "Audio", "adjfilters");
+    if (tmp) {
+        adjfilters = strtoul(tmp, NULL, 10);
+        free(tmp);
+    }
+    audiostate.valid = true;
+    #ifndef PSRC_USESDL1
+    SDL_PauseAudioDevice(output, 0);
+    #else
+    SDL_PauseAudio(0);
+    #endif
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -1446,7 +2103,15 @@ bool startAudio(void) {
 }
 
 void stopAudio(void) {
-
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid) goto ret;
+    audiostate.valid = false;
+    ret:;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
 }
 
 bool restartAudio(void) {
