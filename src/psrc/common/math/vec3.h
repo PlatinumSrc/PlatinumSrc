@@ -6,7 +6,7 @@
 #include <math.h>
 
 static inline void vec3_calctrig(const float rot[3], float sinout[3], float cosout[3]) {
-    float rad[3] = {DEGTORAD_FLT(rot[0]), DEGTORAD_FLT(rot[1]), DEGTORAD_FLT(rot[2])};
+    float rad[3] = {-DEGTORAD_FLT(rot[0]), DEGTORAD_FLT(rot[1]), -DEGTORAD_FLT(rot[2])};
     sinout[0] = sinf(rad[0]);
     sinout[1] = sinf(rad[1]);
     sinout[2] = sinf(rad[2]);

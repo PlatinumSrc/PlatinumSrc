@@ -568,7 +568,6 @@ void setAudioEnv(unsigned mask, struct audioenv* env, unsigned imm) {
 }
 
 static void doLPFilter(int mul, int div, int16_t* lastoutp, unsigned len, int* buf) {
-    return;
     register int lastout = *lastoutp;
     for (register unsigned i = 0; i < len; ++i) {
         register int s = buf[i];
@@ -580,7 +579,6 @@ static void doLPFilter(int mul, int div, int16_t* lastoutp, unsigned len, int* b
     *lastoutp = lastout;
 }
 static void doHPFilter(int mul, int div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
-    return;
     register int lastin = *lastinp;
     register int lastout = *lastoutp;
     for (register unsigned i = 0; i < len; ++i) {
@@ -594,9 +592,9 @@ static void doHPFilter(int mul, int div, int16_t* lastinp, int16_t* lastoutp, un
     *lastinp = lastin;
     *lastoutp = lastout;
 }
-static void doLPFilter_interp(int mul1, int mul2, int div, int16_t* lastoutp, unsigned len, int* buf) {
+static void doLPFilter_interp(int mul1, int mul2, int div, int16_t* lastoutp, int len, int* buf) {
     register int lastout = *lastoutp;
-    for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
+    for (register int i = 0, ii = len; i < len; ++i, --ii) {
         register int s = buf[i];
         volatile int mul = ((mul1 * ii + mul2 * i) / len);
         lastout = lastout + (s - lastout) * mul / div;
@@ -606,11 +604,10 @@ static void doLPFilter_interp(int mul1, int mul2, int div, int16_t* lastoutp, un
     }
     *lastoutp = lastout;
 }
-static void doHPFilter_interp(int mul1, int mul2, int div, int16_t* lastinp, int16_t* lastoutp, unsigned len, int* buf) {
-    return;
+static void doHPFilter_interp(int mul1, int mul2, int div, int16_t* lastinp, int16_t* lastoutp, int len, int* buf) {
     register int lastin = *lastinp;
     register int lastout = *lastoutp;
-    for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
+    for (register int i = 0, ii = len; i < len; ++i, --ii) {
         register int s = buf[i];
         lastout = (lastout + s - lastin) * ((mul1 * ii + mul2 * i) / len) / div;
         if (lastout > 32767) lastout = 32767;
@@ -652,6 +649,8 @@ static void doReverb(struct audioreverbstate* r, unsigned len, int* bufl, int* b
     register unsigned tail = r->tail;
     int mix = r->mix[r->parami];
     int feedback = r->feedback[r->parami];
+    int merge = 128; //r->merge[r->parami];
+    int imerge = 256 - merge;
     int lpmul = r->lpfilt[r->parami];
     int hpmul = r->hpfilt[r->parami];
     int filtdiv = r->filtdiv;
@@ -664,6 +663,9 @@ static void doReverb(struct audioreverbstate* r, unsigned len, int* bufl, int* b
     for (register unsigned i = 0; i < len; ++i) {
         int in[2] = {bufl[i], bufr[i]};
         int out[2] = {r->buf[0][tail], r->buf[1][tail]};
+        int tmp = (out[0] + out[1]) / 2;
+        out[0] = (out[0] * imerge + tmp * merge) / 256;
+        out[1] = (out[1] * imerge + tmp * merge) / 256;
         hplastoutl = (hplastoutl + out[0] - hplastinl) * hpmul / filtdiv;
         hplastoutr = (hplastoutr + out[1] - hplastinr) * hpmul / filtdiv;
         hplastinl = out[0];
@@ -713,6 +715,8 @@ static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl,
     int newmix = r->mix[newparami];
     int curfeedback = r->feedback[curparami];
     int newfeedback = r->feedback[newparami];
+    int curmerge = 128; //r->merge[curparami];
+    int newmerge = 128; //r->merge[newparami];
     int curlpmul = r->lpfilt[curparami];
     int newlpmul = r->lpfilt[newparami];
     int curhpmul = r->hpfilt[curparami];
@@ -727,10 +731,15 @@ static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl,
     for (register unsigned i = 0, ii = len; i < len; ++i, --ii) {
         int mix = (curmix * ii + newmix * i) / len;
         int feedback = (curfeedback * ii + newfeedback * i) / len;
+        int merge = (curmerge * ii + newmerge * i) / len;
+        int imerge = 256 - merge;
         int lpmul = (curlpmul * ii + newlpmul * i) / len;
         int hpmul = (curhpmul * ii + newhpmul * i) / len;
         int in[2] = {bufl[i], bufr[i]};
         int out[2] = {r->buf[0][tail], r->buf[1][tail]};
+        int tmp = (out[0] + out[1]) / 2;
+        out[0] = (out[0] * imerge + tmp * merge) / 256;
+        out[1] = (out[1] * imerge + tmp * merge) / 256;
         hplastoutl = (hplastoutl + out[0] - hplastinl) * hpmul / filtdiv;
         hplastoutr = (hplastoutr + out[1] - hplastinr) * hpmul / filtdiv;
         hplastinl = out[0];
@@ -829,29 +838,31 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     if (pos[2] > 0.0f) {
         pos[0] *= 1.0f - 0.2f * pos[2];
     } else if (pos[2] < 0.0f) {
-        pos[0] *= 1.0f - 0.25f * pos[2];
-        vol[0] *= 1.0f + 0.25f * pos[2];
-        vol[1] *= 1.0f + 0.25f * pos[2];
-        lpfilt[0] += pos[2] * -0.1f;
-        lpfilt[1] += pos[2] * -0.1f;
+        pos[0] *= 1.0f - 0.3f * pos[2];
+        vol[0] *= 1.0f + 0.1f * pos[2];
+        vol[1] *= 1.0f + 0.1f * pos[2];
+        lpfilt[0] -= pos[2] * 0.1f;
+        lpfilt[1] -= pos[2] * 0.1f;
+        hpfilt[0] -= pos[2] * 0.1f;
+        hpfilt[1] -= pos[2] * 0.1f;
     }
     if (pos[1] > 0.0f) {
         pos[0] *= 1.0f - 0.2f * pos[1];
         vol[0] *= 1.0f - 0.1f * pos[1];
         vol[1] *= 1.0f - 0.1f * pos[1];
-        hpfilt[0] += pos[1] * 0.1f;
-        hpfilt[1] += pos[1] * 0.1f;
+        hpfilt[0] += pos[1] * 0.25f;
+        hpfilt[1] += pos[1] * 0.25f;
     } else if (pos[1] < 0.0f) {
         pos[0] *= 1.0f - 0.2f * pos[1];
-        lpfilt[0] += pos[1] * -0.1f;
-        lpfilt[1] += pos[1] * -0.1f;
+        lpfilt[0] -= pos[1] * 0.2f;
+        lpfilt[1] -= pos[1] * 0.2f;
     }
     if (pos[0] > 0.0f) {
-        vol[0] *= 1.0f - pos[0] * 0.7f;
-        hpfilt[0] += pos[0] * 0.2f;
+        vol[0] *= 1.0f - pos[0] * 0.6f;
+        hpfilt[0] += pos[0] * 0.25f;
     } else if (pos[0] < 0.0f) {
-        vol[1] *= 1.0f + pos[0] * 0.7f;
-        hpfilt[1] += pos[0] * 0.2f;
+        vol[1] *= 1.0f + pos[0] * 0.6f;
+        hpfilt[1] -= pos[0] * 0.25f;
     }
     {
         float tmp = 0.5f - pos[2] * 0.5f;

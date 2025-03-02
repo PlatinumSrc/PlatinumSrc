@@ -21,8 +21,8 @@ static uint64_t framestamp;
     static bool printprof;
 #endif
 
-static int e3d1;
-static int e2d1;
+static int e3d[16];
+static int e2d[16];
 
 PACKEDENUM action {
     ACTION_NONE,
@@ -251,17 +251,18 @@ static int bootstrap(void) {
 
     //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.25, 0.1}}, 0);
     setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.6, 0.15}}, 0);
-    e3d1 = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL, 0, NULL);
-    e2d1 = new2DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL);
+    e3d[0] = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL, 0, NULL);
+    e3d[1] = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV, 0, NULL, 0, NULL);
+    e2d[0] = new2DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL);
     {
         struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d1, tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
+            play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
-        tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
+        tmpsnd = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d1, tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
+            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
     }
