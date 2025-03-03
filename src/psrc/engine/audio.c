@@ -560,6 +560,7 @@ void setAudioEnv(unsigned mask, struct audioenv* env, unsigned imm) {
     if (mask & AUDIOENVMASK_REVERB_DELAY) audiostate.env.reverb.delay = env->reverb.delay;
     if (mask & AUDIOENVMASK_REVERB_MIX) audiostate.env.reverb.mix = env->reverb.mix;
     if (mask & AUDIOENVMASK_REVERB_FEEDBACK) audiostate.env.reverb.feedback = env->reverb.feedback;
+    if (mask & AUDIOENVMASK_REVERB_MERGE) audiostate.env.reverb.merge = env->reverb.merge;
     if (mask & AUDIOENVMASK_REVERB_LPFILT) audiostate.env.reverb.lpfilt = env->reverb.lpfilt;
     if (mask & AUDIOENVMASK_REVERB_HPFILT) audiostate.env.reverb.hpfilt = env->reverb.hpfilt;
     ret:;
@@ -654,7 +655,7 @@ static void doReverb(struct audioreverbstate* r, unsigned len, int* bufl, int* b
     register unsigned tail = r->tail;
     int mix = r->mix[r->parami];
     int feedback = r->feedback[r->parami];
-    int merge = 128; //r->merge[r->parami];
+    int merge = r->merge[r->parami];
     int imerge = 256 - merge;
     int lpmul = r->lpfilt[r->parami];
     int hpmul = r->hpfilt[r->parami];
@@ -720,8 +721,8 @@ static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl,
     int newmix = r->mix[newparami];
     int curfeedback = r->feedback[curparami];
     int newfeedback = r->feedback[newparami];
-    int curmerge = 128; //r->merge[curparami];
-    int newmerge = 128; //r->merge[newparami];
+    int curmerge = r->merge[curparami];
+    int newmerge = r->merge[newparami];
     int curlpmul = r->lpfilt[curparami];
     int newlpmul = r->lpfilt[newparami];
     int curhpmul = r->hpfilt[curparami];
@@ -846,21 +847,24 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     }
     if (!e->fx3d.relrot) vec3_trigrotate(pos, audiostate.cam.sin, audiostate.cam.cos, pos);
     if (pos[2] >= 0.0f) {
-        pos[0] *= 1.0f + 0.3f * pos[2];
+        pos[0] *= 0.8f + 0.6f * pos[2];
+        if (pos[0] < -1.0f) pos[0] = -1.0f;
+        else if (pos[0] > 1.0f) pos[0] = 1.0f;
         lpfilt[0] = 0.0f;
         lpfilt[1] = 0.0f;
         hpfilt[0] = 0.0f;
         hpfilt[1] = 0.0f;
     } else {
-        pos[0] *= 1.0f - 0.5f * pos[2];
-        //if (pos[0] < -1.0f) pos[0] = -1.0f;
-        //else if (pos[0] > 1.0f) pos[0] = 1.0f;
-        hpfilt[0] = pos[2] * -0.15f;
-        hpfilt[1] = pos[2] * -0.15f;
-        float tmp = 1.0f + pos[2];
+        pos[0] *= 0.8f - 1.2f * pos[2];
+        if (pos[0] < -1.0f) pos[0] = -1.0f;
+        else if (pos[0] > 1.0f) pos[0] = 1.0f;
+        float tmp = pos[2] * pos[2];
+        hpfilt[0] = tmp * 0.15f;
+        hpfilt[1] = tmp * 0.15f;
+        tmp = 1.0f + pos[2];
         tmp = 1.0f - tmp * tmp;
-        lpfilt[0] = tmp * 0.15f;
-        lpfilt[1] = tmp * 0.15f;
+        lpfilt[0] = pos[2] * -0.2f;
+        lpfilt[1] = pos[2] * -0.2f;
         vol[0] *= 1.0f - 0.1f * tmp;
         vol[1] *= 1.0f - 0.1f * tmp;
     }
@@ -878,12 +882,12 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     }
     if (pos[0] > 0.0f) {
         //vol[1] *= 1.0f + pos[0] * 0.1f;
-        vol[0] *= 1.0f - pos[0] * 0.3f;
-        hpfilt[0] += pos[0] * 0.25f;
+        vol[0] *= 1.0f - pos[0] * 0.5f;
+        hpfilt[0] += pos[0] * 0.2f;
     } else if (pos[0] < 0.0f) {
         //vol[0] *= 1.0f - pos[0] * 0.1f;
-        vol[1] *= 1.0f + pos[0] * 0.3f;
-        hpfilt[1] -= pos[0] * 0.25f;
+        vol[1] *= 1.0f + pos[0] * 0.5f;
+        hpfilt[1] -= pos[0] * 0.2f;
     }
     {
         float tmp = 0.5f - pos[2] * 0.4f;
@@ -1214,6 +1218,14 @@ static inline void applyAudioEnv(void) {
         } else {
             audiostate.env.reverb.state.feedback[newparami] = audiostate.env.reverb.state.feedback[curparami];
         }
+        if (audiostate.env.envch & AUDIOENVMASK_REVERB_MERGE) {
+            audiostate.env.reverb.state.merge[newparami] = roundf(audiostate.env.reverb.merge * 256.0f);
+            if (audiostate.env.envchimm & AUDIOENVMASK_REVERB_MERGE) {
+                audiostate.env.reverb.state.merge[curparami] = audiostate.env.reverb.state.merge[newparami];
+            }
+        } else {
+            audiostate.env.reverb.state.merge[newparami] = audiostate.env.reverb.state.merge[curparami];
+        }
         if (audiostate.env.envch & AUDIOENVMASK_REVERB_LPFILT) {
             float tmpf = 1.0f - audiostate.env.reverb.lpfilt;
             unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
@@ -1232,7 +1244,6 @@ static inline void applyAudioEnv(void) {
             if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
             if (tmpu >= audiostate.freq) tmpu = 0;
             else tmpu = audiostate.freq - tmpu;
-            printf("!! %u\n", tmpu);
             audiostate.env.reverb.state.hpfilt[newparami] = tmpu;
             if (audiostate.env.envch & AUDIOENVMASK_REVERB_HPFILT) {
                 audiostate.env.reverb.state.lpfilt[curparami] = tmpu;
@@ -2131,6 +2142,7 @@ bool startAudio(void) {
     audiostate.env.reverb.delay = 0.0f;
     audiostate.env.reverb.mix = 0.0f;
     audiostate.env.reverb.feedback = 0.0f;
+    audiostate.env.reverb.merge = 0.5f;
     audiostate.env.reverb.lpfilt = 0.0f;
     audiostate.env.reverb.hpfilt = 0.0f;
     audiostate.env.reverb.state = (struct audioreverbstate){.filtdiv = outspec.freq};

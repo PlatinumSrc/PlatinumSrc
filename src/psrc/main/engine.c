@@ -249,8 +249,8 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.25, 0.1}}, 0);
-    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.6, 0.15}}, 0);
+    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.5, 0.6, 0.15}}, 0);
+    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
     e2d[0] = new2DAudioEmitter(
         AUDIOPRIO_MAX, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.5f, 0.5f}}
@@ -273,12 +273,12 @@ static int bootstrap(void) {
     e3d[3] = new3DAudioEmitter(
         AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {-10.0f, 2.0f, 20.0f}, .range = 40.0f}
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {-10.0f, 2.0f, 10.0f}, .range = 40.0f}
     );
     e3d[4] = new3DAudioEmitter(
         AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {10.0f, 2.0f, 20.0f}, .range = 40.0f}
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {10.0f, 2.0f, 10.0f}, .range = 40.0f}
     );
     e3d[5] = new3DAudioEmitter(
         AUDIOPRIO_DEFAULT, -1, 0,
@@ -318,8 +318,8 @@ static int bootstrap(void) {
         }
         tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -1000000});
-            play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
+            play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -3000000});
+            play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
             rlsRc(tmpsnd, false);
         }
         tmpsnd = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL);

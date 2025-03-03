@@ -185,10 +185,11 @@ struct audiosound {
 #define AUDIOENVMASK_REVERB_DELAY (1 << 2)
 #define AUDIOENVMASK_REVERB_MIX (1 << 3)
 #define AUDIOENVMASK_REVERB_FEEDBACK (1 << 4)
-#define AUDIOENVMASK_REVERB_LPFILT (1 << 5)
-#define AUDIOENVMASK_REVERB_HPFILT (1 << 6)
+#define AUDIOENVMASK_REVERB_MERGE (1 << 5)
+#define AUDIOENVMASK_REVERB_LPFILT (1 << 6)
+#define AUDIOENVMASK_REVERB_HPFILT (1 << 7)
 #define AUDIOENVMASK_REVERB (AUDIOENVMASK_REVERB_DELAY | AUDIOENVMASK_REVERB_FEEDBACK | AUDIOENVMASK_REVERB_MIX | \
-                            AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
+                            AUDIOENVMASK_REVERB_MERGE | AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
 #define AUDIOENVMASK_ALL (-1U)
 struct audioenv {
     float lpfilt;
@@ -197,6 +198,7 @@ struct audioenv {
         float delay;
         float mix;
         float feedback;
+        float merge;
         float lpfilt;
         float hpfilt;
     } reverb;
@@ -214,6 +216,7 @@ struct audioreverbstate {
     uint8_t parami;
     int mix[2];
     int feedback[2];
+    int merge[2];
     unsigned lpfilt[2];
     unsigned hpfilt[2];
     unsigned filtdiv;
@@ -272,6 +275,7 @@ struct audiostate {
             float delay;
             float mix;
             float feedback;
+            float merge;
             float lpfilt;
             float hpfilt;
             struct audioreverbstate state;
