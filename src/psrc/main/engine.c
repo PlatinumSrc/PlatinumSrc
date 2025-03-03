@@ -251,18 +251,95 @@ static int bootstrap(void) {
 
     //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.25, 0.1}}, 0);
     setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.6, 0.15}}, 0);
-    e3d[0] = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL, 0, NULL);
-    e3d[1] = new3DAudioEmitter(AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV, 0, NULL, 0, NULL);
-    e2d[0] = new2DAudioEmitter(AUDIOPRIO_DEFAULT, -1, 0, 0, NULL);
+    e2d[0] = new2DAudioEmitter(
+        AUDIOPRIO_MAX, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.5f, 0.5f}}
+    );
+    e3d[0] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        0, NULL,
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RELPOS, &(struct audio3dfx){.pos = {0.0f, -0.5f, 0.0f}, .relpos = 1}
+    );
+    e3d[1] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {3.0f, 3.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, 0.0f, 2.0f}}
+    );
+    e3d[2] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, 0.0f, 3.0f}}
+    );
+    e3d[3] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {-10.0f, 2.0f, 20.0f}, .range = 40.0f}
+    );
+    e3d[4] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {10.0f, 2.0f, 20.0f}, .range = 40.0f}
+    );
+    e3d[5] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, 0,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, -0.5f, -20.0f}}
+    );
+    e3d[6] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {-5.0f, 1.0f, -20.0f}}
+    );
+    e3d[7] = new3DAudioEmitter(
+        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {5.0f, 1.0f, -20.0f}}
+    );
     {
-        struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL);
+        struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
+            play2DSound(e2d[0], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/spawn", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, 0, 0, NULL);
             rlsRc(tmpsnd, false);
         }
         tmpsnd = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, 0, NULL);
+            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[2], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -1000000});
+            play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[5], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/env/fan1", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[6], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/env/vent1", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[6], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        tmpsnd = getRc(RC_SOUND, "sounds/env/buzz1", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[7], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
     }
@@ -470,8 +547,13 @@ static void loop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
+    edit3DAudioEmitter(
+        e3d[2], 0, 0,
+        0, NULL,
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {(float)sin(t * 2.5) * 3.0f, 0.0, (float)cos(t * 2.5) * 3.0f}},
+        0
+    );
     //editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
-    (void)t;
     #if DEBUG(1)
     prof_end(&dbgprof);
     #endif

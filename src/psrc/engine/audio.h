@@ -140,9 +140,9 @@ struct audiosound {
     uint8_t fxi;
     struct audiofx fx;
     struct audiocalcfx calcfx[2];
-    int16_t lplastout[2];
-    int16_t hplastout[2];
-    int16_t hplastin[2];
+    int lplastout[2];
+    int hplastout[2];
+    int hplastin[2];
     union {
         struct {
             struct rc_sound* rc;
@@ -208,9 +208,9 @@ struct audioreverbstate {
     unsigned size;
     unsigned head;
     unsigned tail;
-    int16_t lplastout[2];
-    int16_t hplastout[2];
-    int16_t hplastin[2];
+    int lplastout[2];
+    int hplastout[2];
+    int hplastin[2];
     uint8_t parami;
     int mix[2];
     int feedback[2];
@@ -259,14 +259,14 @@ struct audiostate {
             float amount;
             uint8_t muli;
             unsigned mul[2];
-            int16_t lastout[2];
+            int lastout[2];
         } lpfilt;
         struct {
             float amount;
             uint8_t muli;
             unsigned mul[2];
-            int16_t lastout[2];
-            int16_t lastin[2];
+            int lastout[2];
+            int lastin[2];
         } hpfilt;
         struct {
             float delay;
