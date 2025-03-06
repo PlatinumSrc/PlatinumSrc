@@ -847,7 +847,7 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
     }
     if (!e->fx3d.relrot) vec3_trigrotate(pos, audiostate.cam.sin, audiostate.cam.cos, pos);
     if (pos[2] >= 0.0f) {
-        pos[0] *= 0.8f + 0.6f * pos[2];
+        pos[0] *= 1.0f + 0.4f * pos[2];
         if (pos[0] < -1.0f) pos[0] = -1.0f;
         else if (pos[0] > 1.0f) pos[0] = 1.0f;
         lpfilt[0] = 0.0f;
@@ -855,9 +855,9 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
         hpfilt[0] = 0.0f;
         hpfilt[1] = 0.0f;
     } else {
-        pos[0] *= 0.8f - 1.2f * pos[2];
-        if (pos[0] < -1.0f) pos[0] = -1.0f;
-        else if (pos[0] > 1.0f) pos[0] = 1.0f;
+        pos[0] *= 1.0f - 1.25f * pos[2];
+        if (pos[0] < -1.1f) pos[0] = -1.1f;
+        else if (pos[0] > 1.1f) pos[0] = 1.1f;
         float tmp = pos[2] * pos[2];
         hpfilt[0] = tmp * 0.15f;
         hpfilt[1] = tmp * 0.15f;

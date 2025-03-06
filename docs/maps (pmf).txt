@@ -188,6 +188,8 @@ Format:
             <u8: Alpha (ignored if 'transparent' bit is not set)>
             <u8[3]: RGB emission>
             <u8: Shading>
+            <u8: Shine>
+            <<String>: Matcap texture>
             <Wave info (ignored if 'liquid' bit is not set)
                 <float[3]: Velocity>
                 <float: Wind influence>
