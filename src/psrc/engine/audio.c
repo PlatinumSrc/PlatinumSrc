@@ -1538,9 +1538,9 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
                 pos += tmpposoff / outfreq;
                 tmpposoff %= outfreq;
                 frac += ((speedmul[0] * ii + speedmul[1] * i) / (long)audiostate.buflen) * freq + tmpposoff * 256;
-                MIXSOUND_DOPOSMATH(++i; if (i == audiostate.buflen) goto brkloop_2; --ii; goto skipoobchk_2;);
+                MIXSOUND_DOPOSMATH(++i; if (i == (long)audiostate.buflen) goto brkloop_2; --ii; goto skipoobchk_2;);
                 ++i;
-                if (i == audiostate.buflen) break;
+                if (i == (long)audiostate.buflen) break;
                 --ii;
             }
             brkloop_2:;
@@ -1555,7 +1555,7 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
                 frac += ((speedmul[0] * ii + speedmul[1] * i) / (long)audiostate.buflen) * freq + tmpposoff * 256;
                 MIXSOUND_DOPOSMATH();
                 ++i;
-                if (i == audiostate.buflen) break;
+                if (i == (long)audiostate.buflen) break;
                 --ii;
             }
         }

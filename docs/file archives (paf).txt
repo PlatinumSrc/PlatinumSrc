@@ -9,7 +9,7 @@ Format:
     <Header> <Data>
 
     Header:
-        <char[3]: {'P', 'F', 'A'}>
+        <char[3]: {'P', 'A', 'F'}>
         <u8: Major version>
     Data:
         <u32: Position of root <Directory>>

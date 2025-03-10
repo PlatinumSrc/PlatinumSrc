@@ -249,7 +249,7 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.5, 0.6, 0.15}}, 0);
+    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.25, 0.6, 0.15}}, 0);
     //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
     e2d[0] = new2DAudioEmitter(
         AUDIOPRIO_MAX, -1, 0,
