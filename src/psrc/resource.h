@@ -35,6 +35,7 @@ PACKEDENUM rctype {
     RC_SOUND,
     RC_TEXTURE,
     RC_VALUES,
+    RC_VIDEO,
     RC__COUNT,
     RC__DIR = RC__COUNT
 };
@@ -47,6 +48,7 @@ struct rc_script;
 struct rc_sound;
 struct rc_texture;
 struct rc_values;
+struct rc_video;
 
 //struct rcopt_config;
 //struct rcopt_font;
@@ -66,6 +68,19 @@ struct rcopt_texture;
         RCOPT_TEXTURE_QLT_LOW // 0.25x size
     };
 //struct rcopt_values;
+//struct rcopt_video;
+
+PACKEDENUM rcsourcetype {
+    RCSRCTYPE_FS
+};
+struct rcsource {
+    enum rcsourcetype type;
+    union {
+        struct {
+            char* path;
+        } fs;
+    };
+};
 
 // RC_CONFIG
 struct rc_config {
@@ -159,6 +174,11 @@ struct rcopt_texture {
 // RC_VALUES
 struct rc_values {
     struct cfg values;
+};
+
+// RC_VIDEO
+struct rc_video {
+    struct rcsource src;
 };
 
 struct customfile {

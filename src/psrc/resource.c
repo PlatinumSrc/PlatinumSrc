@@ -60,7 +60,8 @@ static const char* const rctypenames[RC__COUNT] = {
     "script",
     "sound",
     "texture",
-    "values"
+    "values",
+    "video"
 };
 
 static const char* const* const rcextensions[RC__COUNT] = {
@@ -71,7 +72,8 @@ static const char* const* const rcextensions[RC__COUNT] = {
     (const char* const[]){"bas", NULL},
     (const char* const[]){"ogg", "mp3", "wav", NULL},
     (const char* const[]){"ptf", "png", "jpg", "tga", "bmp", NULL},
-    (const char* const[]){"txt", NULL}
+    (const char* const[]){"txt", NULL},
+    (const char* const[]){"mpg", NULL}
 };
 
 static uintptr_t rctick; // using uintptr_t to get 64 bits on 64-bit windows
@@ -132,6 +134,11 @@ struct resource {
             //struct rcopt_values values_opt;
             void* values_end;
         };
+        struct {
+            struct rc_video video;
+            //struct rcopt_values values_opt;
+            void* video_end;
+        };
     };
 };
 
@@ -143,7 +150,8 @@ static const size_t rcallocsz[RC__COUNT] = {
     offsetof(struct resource, script_end),
     offsetof(struct resource, sound_end),
     offsetof(struct resource, texture_end),
-    offsetof(struct resource, values_end)
+    offsetof(struct resource, values_end),
+    offsetof(struct resource, video_end)
 };
 
 struct rcgrouppage {
@@ -165,14 +173,12 @@ static const void* const defaultrcopts[RC__COUNT] = {
     &(struct rcopt_script){0},
     &(struct rcopt_sound){true},
     &(struct rcopt_texture){false, RCOPT_TEXTURE_QLT_HIGH},
+    NULL,
     NULL
 };
 
-PACKEDENUM rcsource {
-    RCSRC_FS
-};
 struct rcaccess {
-    enum rcsource src;
+    enum rcsourcetype src;
     const char* ext;
     union {
         struct {
@@ -758,7 +764,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
 }
 #define GRA_TRYFS(...) do {\
     if (getRcAcc_findInFS(&cb, type, &acc->ext, __VA_ARGS__, NULL) == 1) {\
-        acc->src = RCSRC_FS;\
+        acc->src = RCSRCTYPE_FS;\
         acc->fs.path = cb_finalize(&cb);\
         return true;\
     }\
@@ -769,7 +775,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
     #define GRA_TRYFS_UNLOCKLSCRD(...) do {\
         if (getRcAcc_findInFS(&cb, type, &acc->ext, __VA_ARGS__, NULL) == 1) {\
             releaseReadAccess(&lscache.lock);\
-            acc->src = RCSRC_FS;\
+            acc->src = RCSRCTYPE_FS;\
             acc->fs.path = cb_finalize(&cb);\
             return true;\
         }\
@@ -866,7 +872,7 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             const char* const* exts = rcextensions[type];
             do {
                 if (!strcasecmp(tmpext, *exts) && isFile(path) == 1) {
-                    acc->src = RCSRC_FS;
+                    acc->src = RCSRCTYPE_FS;
                     acc->ext = *exts;
                     acc->fs.path = strdup(path);
                     return true;
@@ -881,13 +887,13 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
 #undef GRA_TRYFS_UNLOCKLSCRD
 static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
     switch (acc->src) {
-        case RCSRC_FS: return ds_openfile(acc->fs.path, 0, ds);
+        case RCSRCTYPE_FS: return ds_openfile(acc->fs.path, 0, ds);
     }
     return false;
 }
 static void delRcAcc(struct rcaccess* acc) {
     switch (acc->src) {
-        case RCSRC_FS:
+        case RCSRCTYPE_FS:
             free(acc->fs.path);
             break;
     }
@@ -997,7 +1003,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         } break;
         #ifndef PSRC_MODULE_SERVER
         case RC_FONT: {
-            if (acc.src != RCSRC_FS) goto fail;
+            if (acc.src != RCSRCTYPE_FS) goto fail;
             SFT_Font* font = sft_loadfile(acc.fs.path);
             if (!font) goto fail;
             rc = newRc(RC_FONT);
@@ -1019,7 +1025,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             rc->model_opt = *o;
         } break;
         case RC_SCRIPT: {
-            if (acc.src != RCSRC_FS) goto fail;
+            if (acc.src != RCSRCTYPE_FS) goto fail;
             const struct rcopt_script* o = opt;
             struct pbscript s;
             goto fail;
@@ -1031,7 +1037,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         } break;
         #ifndef PSRC_MODULE_SERVER
         case RC_SOUND: {
-            if (acc.src != RCSRC_FS) goto fail;
+            if (acc.src != RCSRCTYPE_FS) goto fail;
             const struct rcopt_sound* o = opt;
             if (acc.ext == rcextensions[RC_SOUND][0]) {
                 #ifdef PSRC_USESTBVORBIS
@@ -1247,7 +1253,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 rc->texture.data = data;
                 rc->texture_opt = *o;
             } else {
-                if (acc.src != RCSRC_FS) goto fail;
+                if (acc.src != RCSRCTYPE_FS) goto fail;
                 int w, h, c;
                 if (stbi_info(acc.fs.path, &w, &h, &c)) goto fail;
                 if (o->needsalpha) {
@@ -1305,6 +1311,13 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             cfg_open(&ds, &rc->values.values);
             ds_close(&ds);
         } break;
+        case RC_VIDEO: {
+            if (acc.src != RCSRCTYPE_FS) goto fail;
+            rc = newRc(RC_VIDEO);
+            rc->video.src.type = RCSRCTYPE_FS;
+            rc->video.src.fs.path = acc.fs.path;
+            acc.fs.path = NULL;
+        } break;
         default: goto fail;
     }
     delRcAcc(&acc);
@@ -1352,6 +1365,13 @@ static void freeRcData(enum rctype type, struct resource* rc) {
         } break;
         case RC_TEXTURE: {
             free(rc->texture.data);
+        } break;
+        case RC_VIDEO: {
+            switch (rc->video.src.type) {
+                case RCSRCTYPE_FS:
+                    free(rc->video.src.fs.path);
+                    break;
+            }
         } break;
         default: break;
     }

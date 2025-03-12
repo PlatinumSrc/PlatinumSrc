@@ -22,6 +22,7 @@ PACKEDENUM uielemtype {
     UIELEMTYPE_SCROLLBAR,
     UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
+    UIELEMTYPE_MEDIA,
     UIELEMTYPE__COUNT
 };
 
@@ -40,6 +41,7 @@ enum uielemprop {
 
     UIELEMPROP_BOX_COLOR, // uint32_t
     UIELEMPROP_BOX_IMAGE, // struct ui_image*
+    UIELEMPROP_BOX_ICON, // struct ui_icon*
 
     UIELEMPROP_LABEL_TEXT, // char*
     UIELEMPROP_LABEL_TEXT_FONTS, // size_t ct, char**
@@ -117,6 +119,17 @@ enum uielemprop {
     UIELEMPROP_LIST_CELL_ALIGN_Y, // enum ui_align
     UIELEMPROP_LIST_SELMODE, // enum uielem_list_selmode
 
+    UIELEMPROP_MEDIA_COLOR, // uint32_t
+    UIELEMPROP_MEDIA_IMAGE, // struct rc_image*
+    UIELEMPROP_MEDIA_VIDEO, // struct ui_video*
+    UIELEMPROP_MEDIA_SOUND, // struct ui_sound*
+    UIELEMPROP_MEDIA_POSMODE, // enum uielem_media_posmode
+    UIELEMPROP_MEDIA_FILTMODE, // enum uielem_media_filtmode
+    UIELEMPROP_MEDIA_PAUSE, // unsigned
+    UIELEMPROP_MEDIA_SEEK, // double seconds
+    UIELEMPROP_MEDIA_SPEED, // double
+    UIELEMPROP_MEDIA_VOL, // double
+
     UIELEMPROP__COUNT
 };
 
@@ -148,24 +161,24 @@ struct ui_textfrmt {
     uint8_t : 1;
 };
 
-PACKEDENUM ui_imagemode {
-    UI_IMAGEMODE_STRETCH,
-    UI_IMAGEMODE_REPEAT
+PACKEDENUM ui_imageposmode {
+    UI_IMAGEPOSMODE_STRETCH,
+    UI_IMAGEPOSMODE_TILE
 };
-PACKEDENUM ui_imagefilt {
-    UI_IMAGEMODE_NEAREST,
-    UI_IMAGEMODE_LINEAR
+PACKEDENUM ui_imagefiltmode {
+    UI_IMAGEFILTMODE_NEAREST,
+    UI_IMAGEFILTMODE_LINEAR
 };
 struct ui_image {
     struct rc_image* image;
-    enum ui_imagemode mode;
-    enum ui_imagefilt filt;
+    enum ui_imageposmode posmode;
+    enum ui_imagefiltmode filtmode;
 };
 
 struct ui_icon {
     struct rc_image* image;
     float scale;
-    enum ui_imagefilt filt;
+    enum ui_imagefiltmode filtmode;
 };
 
 enum ui_align {
@@ -180,6 +193,18 @@ enum uielem_list_selmode {
     UIELEM_LIST_SELMODE_CELL,
     UIELEM_LIST_SELMODE_ROW,
     UIELEM_LIST_SELMODE_COL
+};
+
+enum uielem_media_posmode {
+    UIELEM_MEDIA_POSMODE_STRETCH,
+    UIELEM_MEDIA_POSMODE_FILL,
+    UIELEM_MEDIA_POSMODE_FIT,
+    UIELEM_MEDIA_POSMODE_CENTER,
+    UIELEM_MEDIA_POSMODE_TILE
+};
+enum uielem_media_filtmode {
+    UIELEM_MEDIA_FILTMODE_NEAREST,
+    UIELEM_MEDIA_FILTMODE_LINEAR
 };
 
 struct uielem {

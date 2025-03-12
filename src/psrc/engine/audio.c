@@ -31,10 +31,11 @@ static void mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* sta
         *start = pos;
         *end = tmpend - 1;
         tmpend -= pos;
-        tmpend *= s->rc->channels;
+        tmpend *= (long)s->rc->channels;
         uint8_t* datain = s->rc->data;
-        for (register long i = 0, i2 = pos * s->rc->channels; i < tmpend; ++i, ++i2) {
+        for (register long i = 0, i2 = pos * (long)s->rc->channels; i < tmpend; ++i, ++i2) {
             register int tmp = datain[i2];
+            //printf("[%lu, %lu] %lu %lu %lu\n", *start, *end, pos, i, i2);
             dataout[i] = (tmp - 128) * 256 + tmp;
         }
     }
@@ -1341,7 +1342,7 @@ static inline void applyAudioEnv(void) {
 
 #define MIXSOUND__DOMIXING(l) do {\
     if (!oob) {\
-        register int_fast16_t sample_l, sample_r;\
+        register int sample_l, sample_r;\
         if (pos > bufend || pos < bufstart) {\
             cb(ctx, loop, pos, &bufstart, &bufend, &buf);\
         }\
@@ -1349,10 +1350,6 @@ static inline void applyAudioEnv(void) {
         sample_l = buf[bufpos];\
         sample_r = buf[bufpos + (ch != 1)];\
         if (frac) {\
-            int mix = frac / outfreq;\
-            int imix = 256 - mix;\
-            sample_l *= imix;\
-            sample_r *= imix;\
             long pos2 = pos + 1;\
             if (pos2 > bufend || pos2 < bufstart) {\
                 register long loop2 = loop;\
@@ -1366,12 +1363,16 @@ static inline void applyAudioEnv(void) {
                 }\
                 cb(ctx, loop2, pos2, &bufstart, &bufend, &buf);\
             }\
+            int mix = frac / outfreq;\
+            int imix = 256 - mix;\
+            sample_l *= imix;\
+            sample_r *= imix;\
             bufpos = (pos2 - bufstart) * (long)ch;\
             sample_l += buf[bufpos] * mix;\
             sample_r += buf[bufpos + (ch != 1)] * mix;\
-            skipinterp_##l:;\
             sample_l /= 256;\
             sample_r /= 256;\
+            skipinterp_##l:;\
         }\
         if (mixmono) {\
             sample_l =+ sample_r;\
@@ -1456,18 +1457,6 @@ static bool mixsound(struct audiosound* s, bool fake, bool mixmono) {
     register long pos = s->pos;
     register long frac = s->frac;
     long outfreq = audiostate.freq;
-    #if 0
-    {
-        long outfreq2 = outfreq, gcd = freq;
-        while (outfreq2) {
-            long tmp = gcd % outfreq2;
-            gcd = outfreq2;
-            outfreq2 = tmp;
-        }
-        outfreq /= gcd;
-        freq /= gcd;
-    }
-    #endif
     long div = outfreq * 256;
 
     uint_fast8_t curfxi = s->fxi;
@@ -1986,8 +1975,16 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
-        inspec.samples = inspec.freq * 4 / 11025 * 32;
-        #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_3DS && PLATFORM != PLAT_DREAMCAST && PLATFORM != PLAT_NXDK
+        inspec.samples = inspec.freq * 4 / 11025 * 48;
+        if (inspec.samples < 1) inspec.samples = 1;
+        register unsigned samples = inspec.samples - 1;
+        samples |= samples >> 1;
+        samples |= samples >> 2;
+        samples |= samples >> 4;
+        samples |= samples >> 8;
+        samples |= samples >> 16;
+        inspec.samples = samples + 1;
+        #if !defined(PSRC_USESDL1) && (PLATFLAGS & PLATFLAG_UNIXLIKE)
         flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
         #endif
     }
@@ -2016,7 +2013,7 @@ bool startAudio(void) {
         #ifndef PSRC_NOMT
         releaseWriteAccess(&audiostate.lock);
         #endif
-        return false;
+        return true;
     }
     #ifndef PSRC_USESDL1
     audiostate.output = output;

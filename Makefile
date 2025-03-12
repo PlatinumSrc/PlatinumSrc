@@ -242,10 +242,12 @@ endif
 ifeq ($(MODULE),engine)
     USEMINIMP3 := y
     USESTBVORBIS := y
+    USEPLMPEG := y
 else ifeq ($(MODULE),server)
 else ifeq ($(MODULE),editor)
     USEMINIMP3 := y
     USESTBVORBIS := y
+    USEPLMPEG := y
 else
     $(error Invalid module: $(MODULE))
 endif
@@ -384,6 +386,9 @@ ifeq ($(USEMINIMP3),y)
 endif
 ifeq ($(USESTBVORBIS),y)
     _CPPFLAGS += -DPSRC_USESTBVORBIS
+endif
+ifeq ($(USEPLMPEG),y)
+    _CPPFLAGS += -DPSRC_USEPLMPEG
 endif
 ifeq ($(USESR),y)
     _CPPFLAGS += -DPSRC_ENGINE_RENDERER_USESR
@@ -684,6 +689,9 @@ ifneq ($(MODULE),server)
     SRCDIRS := $(SRCDIRS) $(SRCDIR)/stb $(SRCDIR)/schrift
     ifeq ($(USEMINIMP3),y)
         SRCDIRS := $(SRCDIRS) $(SRCDIR)/minimp3
+    endif
+    ifeq ($(USEPLMPEG),y)
+        SRCDIRS := $(SRCDIRS) $(SRCDIR)/pl_mpeg
     endif
     ifeq ($(USEGL),y)
         ifeq ($(USEGLAD),y)
