@@ -22,7 +22,10 @@ PACKEDENUM uielemtype {
     UIELEMTYPE_SCROLLBAR,
     UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
+    UIELEMTYPE_TABS,
+    UIELEMTYPE_MENU,
     UIELEMTYPE_MEDIA,
+    UIELEMTYPE_SEPARATOR,
     UIELEMTYPE__COUNT
 };
 
@@ -35,27 +38,32 @@ enum uielemprop {
     UIELEMPROP_COMMON_W, // double
     UIELEMPROP_COMMON_H, // double
     UIELEMPROP_COMMON_TOOLTIP, // char*
-    UIELEMPROP_COMMON_TOOLTIP_FONTS, // size_t ct, char**
+    UIELEMPROP_COMMON_TOOLTIP_FONT, // size_t ct, char**
     UIELEMPROP_COMMON_TOOLTIP_FRMT, // struct ui_textfrmt*
     UIELEMPROP_COMMON_TOOLTIP_INTERPESC, // unsigned
+    UIELEMPROP_COMMON_TAGS, // char* ... NULL
+    UIELEMPROP_COMMON_RMTAGS, // char* ... NULL
 
     UIELEMPROP_BOX_COLOR, // uint32_t
+    UIELEMPROP_BOX_BACKGROUND, // char*
+    UIELEMPROP_BOX_BORDER, // char*
     UIELEMPROP_BOX_IMAGE, // struct ui_image*
     UIELEMPROP_BOX_ICON, // struct ui_icon*
 
     UIELEMPROP_LABEL_TEXT, // char*
-    UIELEMPROP_LABEL_TEXT_FONTS, // size_t ct, char**
+    UIELEMPROP_LABEL_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_LABEL_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_LABEL_TEXT_INTERPESC, // unsigned
+    UIELEMPROP_LABEL_TEXT_INTERPESC_LINK, // unsigned
     UIELEMPROP_LABEL_ALIGN_X, // enum ui_align
     UIELEMPROP_LABEL_ALIGN_Y, // enum ui_align
 
     UIELEMPROP_TEXTBOX_TEXT, // char*
-    UIELEMPROP_TEXTBOX_TEXT_FONTS, // size_t ct, char**
+    UIELEMPROP_TEXTBOX_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_TEXTBOX_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_TEXTBOX_TEXT_INTERPESC, // unsigned
     UIELEMPROP_TEXTBOX_SHADOWTEXT, // char*
-    UIELEMPROP_TEXTBOX_SHADOWTEXT_FONTS, // size_t ct, char**
+    UIELEMPROP_TEXTBOX_SHADOWTEXT_FONT, // size_t ct, char**
     UIELEMPROP_TEXTBOX_SHADOWTEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_TEXTBOX_SHADOWTEXT_INTERPESC, // unsigned
     UIELEMPROP_TEXTBOX_PASSWORD, // unsigned
@@ -66,7 +74,7 @@ enum uielemprop {
     UIELEMPROP_BUTTON_PRESSED, // unsigned
     UIELEMPROP_BUTTON_ICON, // struct ui_icon*
     UIELEMPROP_BUTTON_TEXT, // char*
-    UIELEMPROP_BUTTON_TEXT_FONTS, // size_t ct, char**
+    UIELEMPROP_BUTTON_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_BUTTON_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_BUTTON_TEXT_INTERPESC, // unsigned
     UIELEMPROP_BUTTON_ALIGN_X, // enum ui_align
@@ -76,11 +84,16 @@ enum uielemprop {
 
     UIELEMPROP_RADIO_SELECTED, // unsigned
 
-    UIELEMPROP_PROGRESSBAR_AMOUNT, // size_t
+    UIELEMPROP_SLIDER_MAX, // size_t
+    UIELEMPROP_SLIDER_VALUE, // size_t
+    UIELEMPROP_SLIDER_NOTCHES, // unsigned
+    UIELEMPROP_SLIDER_SNAPTONOTCH, // unsigned
+
+    UIELEMPROP_PROGRESSBAR_MAX, // size_t
     UIELEMPROP_PROGRESSBAR_PROGRESS, // size_t
     UIELEMPROP_PROGRESSBAR_ICON, // struct ui_icon*
     UIELEMPROP_PROGRESSBAR_TEXT, // char*
-    UIELEMPROP_PROGRESSBAR_TEXT_FONTS, // size_t ct, char**
+    UIELEMPROP_PROGRESSBAR_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_PROGRESSBAR_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_PROGRESSBAR_TEXT_INTERPESC, // unsigned
     UIELEMPROP_PROGRESSBAR_ALIGN_X, // enum ui_align
@@ -92,34 +105,52 @@ enum uielemprop {
     UIELEMPROP_DROPDOWN_ITEMS, // size_t ct, struct uielemprop_dropdown_item*
     UIELEMPROP_DROPDOWN_INSITEMS, // size_t at, size_t ct, struct uielemprop_dropdown_item*
     UIELEMPROP_DROPDOWN_DELITEMS, // size_t at, size_t ct
-    UIELEMPROP_DROPDOWN_ITEM_ICON, // struct ui_icon*
-    UIELEMPROP_DROPDOWN_ITEM_TEXT, // char*
-    UIELEMPROP_DROPDOWN_ITEM_TEXT_FONTS, // size_t ct, char**
-    UIELEMPROP_DROPDOWN_ITEM_TEXT_FRMT, // struct ui_textfrmt*
-    UIELEMPROP_DROPDOWN_ITEM_TEXT_INTERPESC, // unsigned
+    UIELEMPROP_DROPDOWN_ITEM_ICON, // size_t i, struct ui_icon*
+    UIELEMPROP_DROPDOWN_ITEM_TEXT, // size_t i, char*
+    UIELEMPROP_DROPDOWN_ITEM_TEXT_FONT, // size_t i, size_t ct, char**
+    UIELEMPROP_DROPDOWN_ITEM_TEXT_FRMT, // size_t i, struct ui_textfrmt*
+    UIELEMPROP_DROPDOWN_ITEM_TEXT_INTERPESC, // size_t i, unsigned
 
     UIELEMPROP_LIST_SIZE, // size_t w, size_t h
     UIELEMPROP_LIST_HEADERS, // size_t ct, struct uielemprop_list_header*
     UIELEMPROP_LIST_HEADER, // size_t i, struct uielemprop_list_header*
-    UIELEMPROP_LIST_HEADER_ICON, // struct ui_icon*
-    UIELEMPROP_LIST_HEADER_TEXT, // char*
-    UIELEMPROP_LIST_HEADER_TEXT_FONTS, // size_t ct, char**
-    UIELEMPROP_LIST_HEADER_TEXT_FRMT, // struct ui_textfrmt*
-    UIELEMPROP_LIST_HEADER_TEXT_INTERPESC, // unsigned
-    UIELEMPROP_LIST_HEADER_ALIGN_X, // enum ui_align
-    UIELEMPROP_LIST_HEADER_ALIGN_Y, // enum ui_align
+    UIELEMPROP_LIST_HEADER_ICON, // size_t i, struct ui_icon*
+    UIELEMPROP_LIST_HEADER_TEXT, // size_t i, char*
+    UIELEMPROP_LIST_HEADER_TEXT_FONT, // size_t i, size_t ct, char**
+    UIELEMPROP_LIST_HEADER_TEXT_FRMT, // size_t i, struct ui_textfrmt*
+    UIELEMPROP_LIST_HEADER_TEXT_INTERPESC, // size_t i, unsigned
+    UIELEMPROP_LIST_HEADER_ALIGN_X, // size_t i, enum ui_align
+    UIELEMPROP_LIST_HEADER_ALIGN_Y, // size_t i, enum ui_align
     UIELEMPROP_LIST_CELLS, // size_t x, size_t y, size_t w, size_t h, struct uielemprop_list_cell*
     UIELEMPROP_LIST_CELL, // size_t x, size_t y, struct uielemprop_list_cell*
-    UIELEMPROP_LIST_CELL_ICON, // struct ui_icon*
-    UIELEMPROP_LIST_CELL_TEXT, // char*
-    UIELEMPROP_LIST_CELL_TEXT_FONTS, // size_t ct, char**
-    UIELEMPROP_LIST_CELL_TEXT_FRMT, // struct ui_textfrmt*
-    UIELEMPROP_LIST_CELL_TEXT_INTERPESC, // unsigned
-    UIELEMPROP_LIST_CELL_ALIGN_X, // enum ui_align
-    UIELEMPROP_LIST_CELL_ALIGN_Y, // enum ui_align
+    UIELEMPROP_LIST_CELL_ICON, // size_t x, size_t y, struct ui_icon*
+    UIELEMPROP_LIST_CELL_TEXT, // size_t x, size_t y, char*
+    UIELEMPROP_LIST_CELL_TEXT_FONT, // size_t x, size_t y, size_t ct, char**
+    UIELEMPROP_LIST_CELL_TEXT_FRMT, // size_t x, size_t y, struct ui_textfrmt*
+    UIELEMPROP_LIST_CELL_TEXT_INTERPESC, // size_t x, size_t y, unsigned
+    UIELEMPROP_LIST_CELL_ALIGN_X, // size_t x, size_t y, enum ui_align
+    UIELEMPROP_LIST_CELL_ALIGN_Y, // size_t x, size_t y, enum ui_align
     UIELEMPROP_LIST_SELMODE, // enum uielem_list_selmode
 
+    UIELEMPROP_TABS_ITEMS, // size_t ct, struct uielemprop_tabs_item*
+    UIELEMPROP_TABS_ITEM, // size_t i, struct uielemprop_tabs_item*
+    UIELEMPROP_TABS_ITEM_ICON, // size_t i, struct ui_icon*
+    UIELEMPROP_TABS_ITEM_TEXT, // size_t i, char*
+    UIELEMPROP_TABS_ITEM_TEXT_FONT, // size_t i, size_t ct, char**
+    UIELEMPROP_TABS_ITEM_TEXT_FRMT, // size_t i, struct ui_textfrmt*
+    UIELEMPROP_TABS_ITEM_TEXT_INTERPESC, // size_t i, unsigned
+
+    UIELEMPROP_MENU_ITEMS, // size_t ct, struct uielemprop_menu_item*
+    UIELEMPROP_MENU_ITEM, // size_t i ... -1, struct uielemprop_menu_item*
+    UIELEMPROP_MENU_ITEM_ICON, // size_t i ... -1, struct ui_icon*
+    UIELEMPROP_MENU_ITEM_TEXT, // size_t i ... -1, char*
+    UIELEMPROP_MENU_ITEM_TEXT_FONT, // size_t i ... -1, size_t ct, char**
+    UIELEMPROP_MENU_ITEM_TEXT_FRMT, // size_t i ... -1, struct ui_textfrmt*
+    UIELEMPROP_MENU_ITEM_TEXT_INTERPESC, // size_t i ... -1, unsigned
+
     UIELEMPROP_MEDIA_COLOR, // uint32_t
+    UIELEMPROP_MEDIA_BACKGROUND, // char*
+    UIELEMPROP_MEDIA_BORDER, // char*
     UIELEMPROP_MEDIA_IMAGE, // struct rc_image*
     UIELEMPROP_MEDIA_VIDEO, // struct ui_video*
     UIELEMPROP_MEDIA_SOUND, // struct ui_sound*
@@ -143,6 +174,8 @@ enum uicontainerprop {
     UICONTAINERPROP_H, // double
     UICONTAINERPROP_SCROLL_X, // enum uicontainer_scroll
     UICONTAINERPROP_SCROLL_Y, // enum uicontainer_scroll
+    UICONTAINERPROP_BACKGROUND, // char*
+    UICONTAINERPROP_BORDER, // char*
     UICONTAINERPROP__COUNT
 };
 
@@ -232,335 +265,6 @@ struct uicontainer {
     size_t parent;
     struct VLB(size_t) children;
     struct VLB(struct uielem) elems;
-};
-
-struct uitheme {
-    struct {
-        float size;
-    } icon;
-    struct {
-        struct {
-            uint32_t color;
-            struct ui_image image;
-        } bg;
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct ui_textfrmt frmt;
-        } text;
-    } tooltip;
-    struct {
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct {
-                struct ui_textfrmt frmt;
-            } normal, disabled;
-        } text;
-    } label;
-    struct {
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } inactive, hover, active, disabled;
-        } bg;
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct {
-                struct {
-                    struct ui_textfrmt frmt;
-                } inactive, hover, active, disabled;
-            } text, shadowtext, seltext;
-        };
-    } textbox;
-    struct {
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } inactive, hover, active, disabled;
-        } bg;
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct {
-                struct ui_textfrmt frmt;
-            } inactive, hover, active, disabled;
-        } text;
-    } button;
-    struct {
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } inactive, hover, active, disabled;
-        } bg;
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-    } checkbox, radio;
-    struct {
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } bg;
-            struct {
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                    float size;
-                } top, bottom, left, right;
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                } topleft, bottomleft, topright, bottomright;
-            } border;
-            float w, h;
-        } track, knob;
-    } slider;
-    struct {
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } empty, filled, disabled;
-        } bg;
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } normal, disabled;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } normal, disabled;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct {
-                struct ui_textfrmt frmt;
-            } normal, disabled;
-        } text;
-    } progressbar;
-    struct {
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } bg;
-            struct {
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                    float size;
-                } top, bottom, left, right;
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                } topleft, bottomleft, topright, bottomright;
-            } border;
-        } up, down, bar;
-    } scrollbar;
-    struct {
-        struct {
-            struct {
-                uint32_t color;
-                struct ui_image image;
-            } inactive, hover, active, disabled;
-        } bg;
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-                float size;
-            } top, bottom, left, right;
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } topleft, bottomleft, topright, bottomright;
-        } border;
-        struct {
-            float top, bottom, left, right;
-        } padding;
-        struct {
-            struct ui_icon icon;
-        } expand, collapse;
-        struct {
-            size_t fontct;
-            char** fonts;
-            struct {
-                struct ui_textfrmt frmt;
-            } inactive, hover, active, disabled;
-        } text;
-    } dropdown;
-    struct {
-        struct {
-            struct {
-                struct {
-                    uint32_t color;
-                    struct ui_image image;
-                } inactive, hover, active, disabled;
-            } bg;
-            struct {
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                    float size;
-                } top, bottom, left, right;
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                } topleft, bottomleft, topright, bottomright;
-            } border;
-            struct {
-                float top, bottom, left, right;
-            } padding;
-            struct {
-                struct ui_icon icon;
-            } sortup, sortdown;
-            struct {
-                size_t fontct;
-                char** fonts;
-                struct {
-                    struct ui_textfrmt frmt;
-                } inactive, hover, active, disabled;
-            } text;
-        } header;
-        struct {
-            struct {
-                struct {
-                    struct {
-                        uint32_t color;
-                        struct ui_image image;
-                    } inactive, hover, active, disabled;
-                } odd, even;
-            } bg;
-            struct {
-                struct {
-                    struct {
-                        struct {
-                            uint32_t color;
-                            struct ui_image image;
-                        } inactive, hover, active, disabled;
-                        float size;
-                    } top, bottom, left, right;
-                    struct {
-                        struct {
-                            uint32_t color;
-                            struct ui_image image;
-                        } inactive, hover, active, disabled;
-                    } topleft, bottomleft, topright, bottomright;
-                } border;
-            } topleft, top, topright, left, center, right, bottomleft, bottom, bottomright;
-            struct {
-                float top, bottom, left, right;
-            } padding;
-            struct {
-                size_t fontct;
-                char** fonts;
-                struct {
-                    struct ui_textfrmt frmt;
-                } inactive, hover, active, disabled;
-            } text;
-        } cell;
-    } list;
 };
 
 struct uistate {

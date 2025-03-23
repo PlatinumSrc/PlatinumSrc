@@ -97,14 +97,15 @@ class p3m:
                 ver = 0
                 class flags:
                     HASALPHA = (1 << 0)
-            def __init__(self, *, channels: int, size, data):
+            def __init__(self, *, channels: int, width, height, data):
                 self.flags = p3m.texture.embedded.ptf.flags.HASALPHA if channels == 4 else 0
-                self.size = size if not hasattr(size, '__getitem__') else size[0]
+                self.width = width
+                self.height = height
                 self.data = data
             def tofile(self, f):
-                f.write(pack('<I', 5 + len(self.data)))
+                f.write(pack('<I', 6 + len(self.data)))
                 f.write(b"PTF")
-                f.write(pack("<2B", p3m.texture.embedded.ptf.ver, (self.flags << 4) | (int(log2(self.size)) & 15)))
+                f.write(pack("<3B", p3m.texture.embedded.ptf.ver, self.flags, int(log2(self.wdith)) | (int(log2(self.height)) << 4)))
                 f.write(self.data)
 
         class external:

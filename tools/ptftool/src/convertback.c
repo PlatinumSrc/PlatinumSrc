@@ -27,7 +27,7 @@ static void ptf2img(char* p) {
     {
         char fext[3];
         switch (opt.format) {
-            case FMT_PNG:
+            default /*case FMT_PNG*/:
                 fext[0] = 'p';
                 fext[1] = 'n';
                 fext[2] = 'g';
@@ -106,7 +106,7 @@ static void ptf2img(char* p) {
             }
         }
     }
-    unsigned r, c;
+    unsigned w, h, c;
     void* data;
     {
         FILE* f = fopen(p, "rb");
@@ -117,7 +117,7 @@ static void ptf2img(char* p) {
             free(np);
             return;
         }
-        data = ptf_load(f, &r, &c);
+        data = ptf_load(f, &w, &h, &c);
         fclose(f);
         if (!data) {
             fputs(" failed (could not decode PTF)\n", stdout);
@@ -128,16 +128,16 @@ static void ptf2img(char* p) {
     switch (opt.format) {
         case FMT_PNG:
             if (opt.quality) stbi_write_png_compression_level = opt.quality;
-            if (stbi_write_png(np, r, r, c, data, 0)) goto noerr;
+            if (stbi_write_png(np, w, h, c, data, 0)) goto noerr;
             break;
         case FMT_BMP:
-            if (stbi_write_bmp(np, r, r, c, data)) goto noerr;
+            if (stbi_write_bmp(np, w, h, c, data)) goto noerr;
             break;
         case FMT_TGA:
-            if (stbi_write_tga(np, r, r, c, data)) goto noerr;
+            if (stbi_write_tga(np, w, h, c, data)) goto noerr;
             break;
         case FMT_JPG:
-            if (stbi_write_jpg(np, r, r, c, data, (opt.quality) ? opt.quality : 90)) goto noerr;
+            if (stbi_write_jpg(np, w, h, c, data, (opt.quality) ? opt.quality : 90)) goto noerr;
             break;
     }
     fputs(" failed (stb_image_write failed)\n", stdout);

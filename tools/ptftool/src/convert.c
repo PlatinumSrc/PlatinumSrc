@@ -93,7 +93,7 @@ static void img2ptf(char* p) {
             return;
         }
     }
-    int w, h, c, r, pr;
+    int w, h, c, nw, nh, pw, ph;
     void* data = stbi_load_from_file(fin, &w, &h, &c, (opt.alpha == -1) ? 0 : (3 + opt.alpha));
     if (!data) {
         fputs(" failed (stb_image failed to decode input)\n", stdout);
@@ -112,32 +112,44 @@ static void img2ptf(char* p) {
     } else {
         c = (3 + opt.alpha);
     }
-    r = (h > w) ? h : w;
-    --r;
-    r |= r >> 1;
-    r |= r >> 2;
-    r |= r >> 4;
-    r |= r >> 8;
-    r |= r >> 16;
-    if (r & 0xFFFF8000) {
+    nw = w - 1;
+    nh = h - 1;
+    nw |= nw >> 1;
+    nw |= nw >> 2;
+    nw |= nw >> 4;
+    nw |= nw >> 8;
+    nw |= nw >> 16;
+    nh |= nh >> 1;
+    nh |= nh >> 2;
+    nh |= nh >> 4;
+    nh |= nh >> 8;
+    nh |= nh >> 16;
+    if ((nw | nh) & 0xFFFF8000) {
         fputs(" failed (image too large)\n", stdout);
         free(data);
         fclose(fin);
         free(np);
         return;
     }
-    ++r;
+    ++nw;
+    ++nh;
     {
-        int tmp = r >> 1;
-        pr = 0;
+        int tmp = nw >> 1;
+        pw = 0;
         while (tmp) {
-            ++pr;
+            ++pw;
+            tmp >>= 1;
+        }
+        tmp = nh >> 1;
+        ph = 0;
+        while (tmp) {
+            ++ph;
             tmp >>= 1;
         }
     }
-    if (w != r || h != r) {
-        void* tmp = malloc(r * r * c);
-        stbir_resize_uint8(data, w, h, 0, tmp, r, r, 0, c);
+    if (w != nw || h != nh) {
+        void* tmp = malloc(nw * nh * c);
+        stbir_resize_uint8(data, w, h, 0, tmp, nw, nh, 0, c);
         free(data);
         data = tmp;
     }
@@ -154,7 +166,8 @@ static void img2ptf(char* p) {
     fputc('T', fout);
     fputc('F', fout);
     fputc(PTF_REV, fout);
-    fputc(((c - 3) << 4) | pr, fout);
+    fputc(c - 3, fout);
+    fputc((ph << 4) | pw, fout);
     LZ4_writeFile_t* wf;
     LZ4F_preferences_t lzp = LZ4F_INIT_PREFERENCES;
     lzp.compressionLevel = LZ4HC_CLEVEL_MAX;
@@ -166,7 +179,7 @@ static void img2ptf(char* p) {
         free(np);
         return;
     }
-    if (LZ4F_isError(LZ4F_write(wf, data, r * r * c))) {
+    if (LZ4F_isError(LZ4F_write(wf, data, nw * nh * c))) {
         fputs(" failed (LZ4 failed to compress)\n", stdout);
         LZ4F_writeClose(wf);
         free(data);

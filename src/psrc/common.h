@@ -65,8 +65,8 @@ enum dir {
     DIR_DATABASES,   // 'databases' in the user data dir, or a dir in 'databases' in the main dir if the user data dir
                      // is NULL or not available
     #ifndef PSRC_MODULE_SERVER
-    DIR_SVDL,        // typically 'server' in 'donwloads' in the user data dir; NULL if the user data dir is NULL
-    DIR_PLDL,        // typically 'player' in 'donwloads' in the user data dir; NULL if the user data dir is NULL
+    DIR_SVDL,        // typically 'server' in 'downloads' in the user data dir; NULL if the user data dir is NULL
+    DIR_PLDL,        // typically 'player' in 'downloads' in the user data dir; NULL if the user data dir is NULL
     #endif
     DIR__COUNT
 };

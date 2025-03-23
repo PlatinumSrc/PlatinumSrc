@@ -20,7 +20,8 @@ _CC := $(TOOLCHAIN)$(CC)
 _LD := $(TOOLCHAIN)$(LD)
 _STRIP := $(TOOLCHAIN)$(STRIP)
 
-CFLAGS += -O2
+CFLAGS += -Wall -Wextra -O2 -I$(PSRCDIR)
+CPPFLAGS += -DPSRC_REUSABLE
 
 .SECONDEXPANSION:
 
@@ -28,7 +29,7 @@ define mkdir
 if [ ! -d '$(1)' ]; then echo 'Creating $(1)/...'; mkdir -p '$(1)'; fi; true
 endef
 define rm
-if [ -f '$(1)' ]; then echo 'Removing $(1)/...'; rm -f '$(1)'; fi; true
+if [ -f '$(1)' ]; then echo 'Removing $(1)...'; rm -f '$(1)'; fi; true
 endef
 define rmdir
 if [ -d '$(1)' ]; then echo 'Removing $(1)/...'; rm -rf '$(1)'; fi; true
@@ -50,7 +51,7 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call deps,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiling $<...
-	@$(_CC) $(CFLAGS) -Wall -Wextra -I$(PSRCDIR) -DPSRC_REUSABLE $(CPPFLAGS) $< -c -o $@
+	@$(_CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 	@echo Compiled $<
 
 $(TARGET): $(OBJECTS) | $(OUTDIR)
@@ -70,4 +71,4 @@ clean:
 distclean: clean
 	@$(call rm,$(TARGET))
 
-.PHONY: build clean distclean
+.PHONY: default build clean distclean

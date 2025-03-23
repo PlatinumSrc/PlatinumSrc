@@ -1,43 +1,24 @@
 #include "ui.h"
 
-#define COLOR_BG                0x434959ff
-#define COLOR_LIGHTBG           0xd7d7d7ff
-#define COLOR_TEXT              0xd7d7d7ff
-#define COLOR_LIGHTTEXT         0x000000ff
-#define COLOR_SELTEXT           0xffffffff
-#define COLOR_SELTEXTBG         0x238fd3ff
-#define COLOR_DISABLEDTEXT      0xd7d7d7ff
-#define COLOR_DISABLEDTEXTSHDW  0x737373ff
-#define COLOR_RAISEDBDR         0x7f8692ff
-#define COLOR_SUNKENBDR         0x21262fff
-#define COLOR_HOVERBDR          0xd7d7d7ff
-#define COLOR_DISABLEDBDR       0x000000ff
-#define COLOR_TOOLTIPBG         0x656b75e5
-#define COLOR_TOOLTIPBDR        0x21262fe5
-#define COLOR_ODDLISTROW        0x383d4bff
-#define COLOR_EVENLISTROW       0x404555ff
-#define COLOR_LISTSEL           0x68708aff
-static struct uitheme builtintheme = {
-    .icon = {.size = 16.0f},
-    .tooltip = {
-        .bg = {.color = COLOR_TOOLTIPBG},
-        .border = {
-            .top = {.color = COLOR_TOOLTIPBDR, .size = 1.0f},
-            .bottom = {.color = COLOR_TOOLTIPBDR, .size = 1.0f},
-            .left = {.color = COLOR_TOOLTIPBDR, .size = 1.0f},
-            .right = {.color = COLOR_TOOLTIPBDR, .size = 1.0f},
-            .topleft = {.color = COLOR_TOOLTIPBDR},
-            .bottomleft = {.color = COLOR_TOOLTIPBDR},
-            .topright = {.color = COLOR_TOOLTIPBDR},
-            .bottomright = {.color = COLOR_TOOLTIPBDR}
-        },
-        .padding = {.top = 8.0f, .bottom = 8.0f, .left = 8.0f, .right = 8.0f},
-        .text = {.frmt = {.fgc = COLOR_TEXT, .pt = 8, .hasfgc = 1}}
-    },
-    .label = {
-        .text = {
-            .normal = {.frmt = {.fgc = COLOR_TEXT, .pt = 8, .hasfgc = 1}},
-            .disabled = {.frmt = {.fgc = COLOR_DISABLEDTEXT, .pt = 8, .hasfgc = 1}}
-        }
-    }
-};
+// ...
+
+// Colors
+#define COLORPAL_00 0x000000FF /* Black */
+#define COLORPAL_01 0x1D1F26FF /* Dark blue, sunken border */
+#define COLORPAL_02 0x292C36FF /* Inner sunken border */
+#define COLORPAL_03 0x343945FF /* Empty progress bar */
+#define COLORPAL_04 0x404654FF /* Normal background */
+#define COLORPAL_05 0x4C5263FF
+#define COLORPAL_06 0x575E73FF
+#define COLORPAL_07 0x636B82FF /* Filled progress bar */
+#define COLORPAL_08 0x6E7891FF /* Inner raised border */
+#define COLORPAL_09 0x7A84A1FF /* Raised border */
+#define COLORPAL_0A 0x8691B0FF
+#define COLORPAL_0B 0x919EBFFF /* Light blue */
+#define COLORPAL_0C 0xEEEEEEFF /* Text */
+#define COLORPAL_0D 0x238FD3FF /* Selected text background */
+#define COLORPAL_0E 0x737373FF /* Disabled text shadow */
+#define COLORPAL_0F 0x656A75E5 /* Tooltip background */
+#define COLORPAL_10 0xEEE07AFF /* Link */
+#define COLORPAL_11 0xEEECCEFF /* Hovered link */
+#define COLORPAL_1F 0xFFFFFFFF /* White */

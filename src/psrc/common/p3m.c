@@ -320,16 +320,17 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         #ifndef PSRC_MODULE_SERVER
                         if (!(lf & P3M_LOADFLAG_IGNOREEMBTEXS)) {
                             size_t tmp = ds_tell(ds);
-                            unsigned r, c;
+                            unsigned w, h, c;
                             {
                                 struct datastream tmpds;
                                 if (!ds_opensect(ds, sz, 0, &tmpds)) P3M_LOAD_INTERR(retfalse);
-                                t->embedded.data = ptf_load(&tmpds, &r, &c);
+                                t->embedded.data = ptf_load(&tmpds, &w, &h, &c);
                                 ds_close(&tmpds);
                             }
                             tmp = ds_tell(ds) - tmp;
                             if (t->embedded.data) {
-                                t->embedded.res = r;
+                                t->embedded.w = w;
+                                t->embedded.h = h;
                                 t->embedded.ch = c;
                             } else {
                                 plog(LL_WARN, "Failed to decode texture %u", texi - 1);

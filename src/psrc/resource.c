@@ -1203,19 +1203,20 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         } break;
         case RC_TEXTURE: {
             const struct rcopt_texture* o = opt;
+            unsigned w, h, c;
+            uint8_t* data;
             if (acc.ext == rcextensions[RC_TEXTURE][0]) {
                 struct datastream ds;
                 if (!dsFromRcAcc(&acc, &ds)) goto fail;
-                unsigned r, c;
-                uint8_t* data = ptf_load(&ds, &r, &c);
+                data = ptf_load(&ds, &w, &h, &c);
                 ds_close(&ds);
                 if (!data) goto fail;
                 if (o->needsalpha && c == 3) {
                     c = 4;
-                    data = rcmgr_realloc(data, r * r * 4);
-                    for (int y = r - 1; y >= 0; --y) {
-                        int b1 = y * r * 4, b2 = y * r * 3;
-                        for (int x = r - 1; x >= 0; --x) {
+                    data = rcmgr_realloc(data, w * h * 4);
+                    for (int y = h - 1; y >= 0; --y) {
+                        int b1 = y * w * 4, b2 = y * w * 3;
+                        for (int x = w - 1; x >= 0; --x) {
                             data[b1 + x * 4 + 3] = 255;
                             data[b1 + x * 4 + 2] = data[b2 + x * 3 + 2];
                             data[b1 + x * 4 + 1] = data[b2 + x * 3 + 1];
@@ -1223,85 +1224,54 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                         }
                     }
                 }
-                if (o->quality != RCOPT_TEXTURE_QLT_HIGH) {
-                    int r2 = r;
-                    switch ((uint8_t)o->quality) {
-                        case RCOPT_TEXTURE_QLT_MED: r2 /= 2; break;
-                        case RCOPT_TEXTURE_QLT_LOW: r2 /= 4; break;
-                    }
-                    if (r2 < 1) r2 = 1;
-                    unsigned char* data2 = rcmgr_malloc(r * r * c);
-                    int status = stbir_resize_uint8_generic(
-                        data, r, r, 0,
-                        data2, r2, r2, 0,
-                        c, -1, 0,
-                        STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
-                        NULL
-                    );
-                    if (status) {
-                        free(data);
-                        r = r2;
-                        data = data2;
-                    } else {
-                        free(data2);
-                    }
-                }
-                rc = newRc(RC_TEXTURE);
-                rc->texture.width = r;
-                rc->texture.height = r;
-                rc->texture.channels = c;
-                rc->texture.data = data;
-                rc->texture_opt = *o;
             } else {
                 if (acc.src != RCSRCTYPE_FS) goto fail;
-                int w, h, c;
-                if (stbi_info(acc.fs.path, &w, &h, &c)) goto fail;
+                if (stbi_info(acc.fs.path, (int*)&w, (int*)&h, (int*)&c)) goto fail;
                 if (o->needsalpha) {
                     c = 4;
                 } else {
                     if (c < 3) c += 2;
                 }
                 int c2;
-                unsigned char* data = stbi_load(acc.fs.path, &w, &h, &c2, c);
-                if (!data) goto fail;
-                if (o->quality != RCOPT_TEXTURE_QLT_HIGH) {
-                    int w2 = w, h2 = h;
-                    switch ((uint8_t)o->quality) {
-                        case RCOPT_TEXTURE_QLT_MED:
-                            w2 /= 2;
-                            h2 /= 2;
-                            break;
-                        case RCOPT_TEXTURE_QLT_LOW:
-                            w2 /= 4;
-                            h2 /= 4;
-                            break;
-                    }
-                    if (w2 < 1) w2 = 1;
-                    if (h2 < 1) h2 = 1;
-                    unsigned char* data2 = rcmgr_malloc(w * h * c);
-                    int status = stbir_resize_uint8_generic(
-                        data, w, h, 0,
-                        data2, w2, h2, 0,
-                        c, -1, 0,
-                        STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
-                        NULL
-                    );
-                    if (status) {
-                        free(data);
-                        w = w2;
-                        h = h2;
-                        data = data2;
-                    } else {
-                        free(data2);
-                    }
-                }
-                rc = newRc(RC_TEXTURE);
-                rc->texture.width = w;
-                rc->texture.height = h;
-                rc->texture.channels = c;
-                rc->texture.data = data;
-                rc->texture_opt = *o;
+                if (!(data = stbi_load(acc.fs.path, (int*)&w, (int*)&h, (int*)&c2, c))) goto fail;
             }
+            if (o->quality != RCOPT_TEXTURE_QLT_HIGH) {
+                unsigned w2 = w, h2 = h;
+                switch ((uint8_t)o->quality) {
+                    case RCOPT_TEXTURE_QLT_MED:
+                        w2 /= 2;
+                        h2 /= 2;
+                        break;
+                    case RCOPT_TEXTURE_QLT_LOW:
+                        w2 /= 4;
+                        h2 /= 4;
+                        break;
+                }
+                if (w2 < 1) w2 = 1;
+                if (h2 < 1) h2 = 1;
+                uint8_t* data2 = rcmgr_malloc(w * h * c);
+                int status = stbir_resize_uint8_generic(
+                    data, w, h, 0,
+                    data2, w2, h2, 0,
+                    c, -1, 0,
+                    STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
+                    NULL
+                );
+                if (status) {
+                    free(data);
+                    w = w2;
+                    h = h2;
+                    data = data2;
+                } else {
+                    free(data2);
+                }
+            }
+            rc = newRc(RC_TEXTURE);
+            rc->texture.width = w;
+            rc->texture.height = h;
+            rc->texture.channels = c;
+            rc->texture.data = data;
+            rc->texture_opt = *o;
         } break;
         #endif
         case RC_VALUES: {

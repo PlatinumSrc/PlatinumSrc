@@ -109,7 +109,8 @@ struct p3m_texture {
     union {
         struct {
             uint8_t* data;
-            uint16_t res;
+            uint16_t w;
+            uint16_t h;
             uint8_t ch;
         } embedded;
         struct {

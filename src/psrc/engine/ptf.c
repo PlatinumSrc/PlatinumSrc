@@ -4,24 +4,28 @@
 
 #include "../../lz4/lz4cb.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
-void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* res, unsigned* ch) {
+void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* wo, unsigned* ho, unsigned* cho) {
     if (ds_getc(ds) != 'P') return NULL;
     if (ds_getc(ds) != 'T') return NULL;
     if (ds_getc(ds) != 'F') return NULL;
     if (ds_getc(ds) != PTF_REV) return NULL;
-    int info = ds_getc(ds);
-    if (info == DS_END) return NULL;
-    int sz = (info & 0xF);
-    sz = 1 << sz;
-    *res = sz;
-    sz *= sz;
-    unsigned tmpch = ((info >> 4) & 1) + 3;
-    *ch = tmpch;
-    sz *= tmpch;
+    int f = ds_getc(ds);
+    if (f == DS_END) return NULL;
+    int r = ds_getc(ds);
+    if (r == DS_END) return NULL;
+    unsigned sz;
+    {
+        unsigned w = r & 0xF, h = r >> 4;
+        *wo = w = 1 << w;
+        *ho = h = 1 << h;
+        sz = w * h;
+        unsigned ch = (f & 1) + 3;
+        *cho = ch;
+        sz *= ch;
+    }
     void* data = malloc(sz);
     if (!data) return NULL;
     LZ4_readCB_t* rcb;

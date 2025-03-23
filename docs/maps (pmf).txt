@@ -75,6 +75,7 @@ Format:
             <u32: String table size> <char[]: String table>
             <u16: Material count> [Material]...
             <u16: Physics material count> [Physics material]...
+            <u16: Sound material count> [Sound material]...
             <<String>: Air physics material>
             <u8: Weather environment count> [Weather environment]...
             <u8: Gravity environment count> [Gravity environment]...
@@ -132,6 +133,7 @@ Format:
             <u32: String table size> <char[]: String table>
             <u8: Used material count> [<String>: Material name]...
             <u8: Used physics material count> [<String>: Physics material name]...
+            <u8: Used sound material count> [<String>: Sound material name]...
             <u8: Weather environment region count> [<Environment region>: Weather environment region]...
             <u8: Gravity environment region count> [<Environment region>: Gravity environment region]...
             <u8: Dynamic light count> [Dynamic light]...
@@ -196,8 +198,6 @@ Format:
                 <float: Offset>
                 <float: Scale>
             >
-            <float: Sound volume dampening>
-            <float: Sound frequency dampening>
 
         Physics material:
             <<String>: Name>
@@ -211,6 +211,10 @@ Format:
             <float: Minimum speed to cause damage>
             <float: Base damage>
             <float: Extra damage per meter per second>
+
+        Sound material:
+            <float: Volume dampening>
+            <float: Frequency dampening>
 
         Lightmap:
             <u8: 2^(n) size>
@@ -283,6 +287,7 @@ Format:
         Geometry cube data:
             <u8: Material>
             <u8: Physics material>
+            <u8: Sound material>
         Client-side geometry cube data:
             <u8: Lightmap>
             <u8:
@@ -297,6 +302,7 @@ Format:
             <u8: -X material> <u8: -Y material> <u8: -Z material>
             <u8: +X physics material> <u8: +Y physics material> <u8: +Z physics material>
             <u8: -X physics material> <u8: -Y physics material> <u8: -Z physics material>
+            <u8: Sound material>
             <u8:
                 <1 bit: (-X, -Y, -Z) point is moved> <1 bit: (+X, -Y, -Z) point is moved>
                 <1 bit: (-X, -Y, +Z) point is moved> <1 bit: (+X, -Y, +Z) point is moved>

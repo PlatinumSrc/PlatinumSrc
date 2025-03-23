@@ -102,8 +102,8 @@ def save(operator, context, report, filepath,
                 log('DEBUG', f"Adding texture '{tex.name}'...", depth = 2)
                 try:
                     assert(tex.channels == 3 or tex.channels == 4)
-                    assert(tex.size[0] == tex.size[1])
                     assert(log2(tex.size[0]) % 1.0 == 0.0)
+                    assert(log2(tex.size[1]) % 1.0 == 0.0)
                 except:
                     log('WARNING', f"Texture '{tex.name}' should be square, power of 2, and have 3 or 4 channels", depth = 3)
                     return 255
@@ -148,7 +148,7 @@ def save(operator, context, report, filepath,
                 data = lz4.frame.compress(data, compression_level = lz4.frame.COMPRESSIONLEVEL_MAX)
                 m.textures.append(p3m.texture(
                     p3m.texture.types.EMBEDDED,
-                    p3m.texture.embedded(channels = channels, size = tex.size[0], data = data)
+                    p3m.texture.embedded(channels = channels, width = tex.size[0], height = tex.size[1], data = data)
                 ))
                 return l
             def addexttex(tex):
