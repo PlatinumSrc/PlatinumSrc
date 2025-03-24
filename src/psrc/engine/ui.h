@@ -2,6 +2,7 @@
 #define PSRC_ENGINE_UI_H
 
 #include "../resource.h"
+#include "../threading.h"
 #include "../attribs.h"
 #include "../vlb.h"
 
@@ -30,7 +31,7 @@ PACKEDENUM uielemtype {
 };
 
 enum uielemprop {
-    UIELEMPROP_COMMON_CALLBACK, // uielemcallback
+    UIELEMPROP_COMMON_CALLBACK, // uielemcallback, void*
     UIELEMPROP_COMMON_HIDDEN, // unsigned
     UIELEMPROP_COMMON_DISABLED, // unsigned
     UIELEMPROP_COMMON_X, // double
@@ -161,11 +162,13 @@ enum uielemprop {
     UIELEMPROP_MEDIA_SPEED, // double
     UIELEMPROP_MEDIA_VOL, // double
 
+    UIELEMPROP_SEPARATOR_STYLE, // enum uielem_separator_style
+
     UIELEMPROP__COUNT
 };
 
 enum uicontainerprop {
-    UICONTAINERPROP_CALLBACK, // uicontainercallback
+    UICONTAINERPROP_CALLBACK, // uicontainercallback, void*
     UICONTAINERPROP_HIDDEN, // unsigned
     UICONTAINERPROP_X, // double
     UICONTAINERPROP_Y, // double
@@ -240,6 +243,20 @@ enum uielem_media_filtmode {
     UIELEM_MEDIA_FILTMODE_LINEAR
 };
 
+enum uielem_separator_style {
+    UIELEM_SEPARATOR_STYLE_GROOVE,
+    UIELEM_SEPARATOR_STYLE_RIDGE
+};
+
+union uielemdata {
+    
+};
+
+struct uielemgroup_statusbits {
+    uint32_t valid;
+    uint32_t delete;
+};
+
 struct uielem {
     uint8_t valid : 1;
     uint8_t hidden : 1;
@@ -256,27 +273,41 @@ enum uicontainer_scroll {
     UICONTAINER_SCROLL_SHOWN
 };
 
+struct uicontainergroup_statusbits {
+    uint32_t valid;
+    uint32_t delete;
+};
+
 struct uicontainer {
     uint8_t valid : 1;
-    uint8_t hidden : 1;
-    uint8_t delete : 1;
-    uint8_t : 5;
+    uint8_t : 7;
     volatile unsigned refct;
     size_t parent;
     struct VLB(size_t) children;
+    float w;
+    float h;
+    float scale;
+    struct VLB(struct uielemgroup_statusbits) elemstatus;
     struct VLB(struct uielem) elems;
 };
 
 struct uistate {
+    #ifndef PSRC_NOMT
+    struct accesslock lock;
+    #endif
     volatile unsigned refct;
     float w;
     float h;
     float scale;
+    struct VLB(struct uicontainergroup_statusbits) containerstatus;
     struct VLB(struct uicontainer) containers;
     struct VLB(size_t) containersorder;
 };
 
 extern struct uistate uistate;
+
+bool initUI(void);
+void quitUI(void);
 
 size_t newUIElemContainer(size_t idtreedepth, const char** idtree, ... /* props */);
 size_t getUIElemContainer(size_t idtreedepth, const char** idtree);

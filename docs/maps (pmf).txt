@@ -290,12 +290,12 @@ Format:
             <u8: Sound material>
         Client-side geometry cube data:
             <u8: Lightmap>
+            <u32: Index of first quad's first vertex>
             <u8:
                 <2 bits: 0>
                 <1 bit: -Z has face> <1 bit: -Y has face> <1 bit: -X has face>
                 <1 bit: +Z has face> <1 bit: +Y has face> <1 bit: +X has face>
             >
-            <u32: Index of first quad's first vertex>
 
         Extended geometry cube data:
             <u8: +X material> <u8: +Y material> <u8: +Z material>
@@ -316,9 +316,9 @@ Format:
         Client-side extended geometry cube data:
             <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
             <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
+            <u32: Index of first triangle's first vertex>
             <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
             <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
-            <u32: Index of first triangle's first vertex>
 
         Cube visibility data:
             <u32: Other visible cube count>

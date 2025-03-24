@@ -1,6 +1,19 @@
 #include "ui.h"
 
-// ...
+struct uistate uistate;
+
+bool initUI(void) {
+    #ifndef PSRC_NOMT
+    if (!createAccessLock(&uistate.lock)) return false;
+    #endif
+    return true;
+}
+
+void quitUI(void) {
+    #ifndef PSRC_NOMT
+    destroyAccessLock(&uistate.lock);
+    #endif
+}
 
 // Colors
 #define COLORPAL_00 0x000000FF /* Black */

@@ -75,7 +75,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 ---
 ### Building from source
-<details open><summary><b>Building on Unix-like platforms for that same platform</b></summary>
+<details><summary><b>Building on Unix-like platforms for that same platform</b></summary>
 
 - Install GNU Make
 - Install GCC with GNU Binutils, or Clang with LLVM
@@ -84,7 +84,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 - Install SDL 2.x or 1.2.x
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
-<details open><summary><b>Building for Windows</b></summary>
+<details><summary><b>Building for Windows</b></summary>
 
 - If cross-compiling on a Unix-like platform
     - Install GNU Make

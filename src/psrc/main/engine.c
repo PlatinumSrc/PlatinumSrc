@@ -199,6 +199,11 @@ static int bootstrap(void) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
         return 1;
     }
+    plog(LL_INFO, "Initializing UI manager...");
+    if (!initUI()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init UI manager");
+        return 1;
+    }
     plog(LL_INFO, "Initializing input manager...");
     if (!initInput()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init input manager");
@@ -488,6 +493,8 @@ static void unstrap(void) {
     quitAudio(true);
     plog(LL_INFO, "Deinitializing input manager...");
     quitInput();
+    plog(LL_INFO, "Deinitializing UI manager...");
+    quitUI();
     plog(LL_INFO, "Deinitializing renderer...");
     quitRenderer();
 
