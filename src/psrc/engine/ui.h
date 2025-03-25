@@ -24,6 +24,7 @@ PACKEDENUM uielemtype {
     UIELEMTYPE_DROPDOWN,
     UIELEMTYPE_LIST,
     UIELEMTYPE_TABS,
+    UIELEMTYPE_MENUBAR,
     UIELEMTYPE_MENU,
     UIELEMTYPE_MEDIA,
     UIELEMTYPE_SEPARATOR,
@@ -31,7 +32,7 @@ PACKEDENUM uielemtype {
 };
 
 enum uielemprop {
-    UIELEMPROP_COMMON_CALLBACK, // uielemcallback, void*
+    UIELEMPROP_COMMON_CALLBACK, // uielemcb, void*
     UIELEMPROP_COMMON_HIDDEN, // unsigned
     UIELEMPROP_COMMON_DISABLED, // unsigned
     UIELEMPROP_COMMON_X, // double
@@ -39,11 +40,10 @@ enum uielemprop {
     UIELEMPROP_COMMON_W, // double
     UIELEMPROP_COMMON_H, // double
     UIELEMPROP_COMMON_TOOLTIP, // char*
-    UIELEMPROP_COMMON_TOOLTIP_FONT, // size_t ct, char**
+    UIELEMPROP_COMMON_TOOLTIP_FONT, // size_t ct, char**, unsigned pt
     UIELEMPROP_COMMON_TOOLTIP_FRMT, // struct ui_textfrmt*
     UIELEMPROP_COMMON_TOOLTIP_INTERPESC, // unsigned
-    UIELEMPROP_COMMON_TAGS, // char* ... NULL
-    UIELEMPROP_COMMON_RMTAGS, // char* ... NULL
+    UIELEMPROP_COMMON_TOOLTIP_INTERPESC_FONT, // unsigned
 
     UIELEMPROP_BOX_COLOR, // uint32_t
     UIELEMPROP_BOX_BACKGROUND, // char*
@@ -52,21 +52,19 @@ enum uielemprop {
     UIELEMPROP_BOX_ICON, // struct ui_icon*
 
     UIELEMPROP_LABEL_TEXT, // char*
-    UIELEMPROP_LABEL_TEXT_FONT, // size_t ct, char**
+    UIELEMPROP_LABEL_TEXT_FONT, // size_t ct, char**, unsigned pt
     UIELEMPROP_LABEL_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_LABEL_TEXT_INTERPESC, // unsigned
+    UIELEMPROP_LABEL_TEXT_INTERPESC_FONT, // unsigned
     UIELEMPROP_LABEL_TEXT_INTERPESC_LINK, // unsigned
     UIELEMPROP_LABEL_ALIGN_X, // enum ui_align
     UIELEMPROP_LABEL_ALIGN_Y, // enum ui_align
 
     UIELEMPROP_TEXTBOX_TEXT, // char*
-    UIELEMPROP_TEXTBOX_TEXT_FONT, // size_t ct, char**
+    UIELEMPROP_TEXTBOX_PLACEHOLDER, // char*
+    UIELEMPROP_TEXTBOX_TEXT_FONT, // size_t ct, char**, unsigned pt
     UIELEMPROP_TEXTBOX_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_TEXTBOX_TEXT_INTERPESC, // unsigned
-    UIELEMPROP_TEXTBOX_SHADOWTEXT, // char*
-    UIELEMPROP_TEXTBOX_SHADOWTEXT_FONT, // size_t ct, char**
-    UIELEMPROP_TEXTBOX_SHADOWTEXT_FRMT, // struct ui_textfrmt*
-    UIELEMPROP_TEXTBOX_SHADOWTEXT_INTERPESC, // unsigned
     UIELEMPROP_TEXTBOX_PASSWORD, // unsigned
     UIELEMPROP_TEXTBOX_MULTILINE, // unsigned
     UIELEMPROP_TEXTBOX_EDITABLE, // unsigned
@@ -75,7 +73,6 @@ enum uielemprop {
     UIELEMPROP_BUTTON_PRESSED, // unsigned
     UIELEMPROP_BUTTON_ICON, // struct ui_icon*
     UIELEMPROP_BUTTON_TEXT, // char*
-    UIELEMPROP_BUTTON_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_BUTTON_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_BUTTON_TEXT_INTERPESC, // unsigned
     UIELEMPROP_BUTTON_ALIGN_X, // enum ui_align
@@ -94,7 +91,6 @@ enum uielemprop {
     UIELEMPROP_PROGRESSBAR_PROGRESS, // size_t
     UIELEMPROP_PROGRESSBAR_ICON, // struct ui_icon*
     UIELEMPROP_PROGRESSBAR_TEXT, // char*
-    UIELEMPROP_PROGRESSBAR_TEXT_FONT, // size_t ct, char**
     UIELEMPROP_PROGRESSBAR_TEXT_FRMT, // struct ui_textfrmt*
     UIELEMPROP_PROGRESSBAR_TEXT_INTERPESC, // unsigned
     UIELEMPROP_PROGRESSBAR_ALIGN_X, // enum ui_align
@@ -103,49 +99,50 @@ enum uielemprop {
     UIELEMPROP_SCROLLBAR_AMOUNT, // size_t
     UIELEMPROP_SCROLLBAR_SCROLL, // size_t
 
-    UIELEMPROP_DROPDOWN_ITEMS, // size_t ct, struct uielemprop_dropdown_item*
-    UIELEMPROP_DROPDOWN_INSITEMS, // size_t at, size_t ct, struct uielemprop_dropdown_item*
+    UIELEMPROP_DROPDOWN_ITEMS, // size_t ct, struct uielem_dropdown_item*
+    UIELEMPROP_DROPDOWN_INSITEMS, // size_t at, size_t ct, struct uielem_dropdown_item*
     UIELEMPROP_DROPDOWN_DELITEMS, // size_t at, size_t ct
     UIELEMPROP_DROPDOWN_ITEM_ICON, // size_t i, struct ui_icon*
     UIELEMPROP_DROPDOWN_ITEM_TEXT, // size_t i, char*
-    UIELEMPROP_DROPDOWN_ITEM_TEXT_FONT, // size_t i, size_t ct, char**
     UIELEMPROP_DROPDOWN_ITEM_TEXT_FRMT, // size_t i, struct ui_textfrmt*
     UIELEMPROP_DROPDOWN_ITEM_TEXT_INTERPESC, // size_t i, unsigned
 
     UIELEMPROP_LIST_SIZE, // size_t w, size_t h
-    UIELEMPROP_LIST_HEADERS, // size_t ct, struct uielemprop_list_header*
-    UIELEMPROP_LIST_HEADER, // size_t i, struct uielemprop_list_header*
+    UIELEMPROP_LIST_HEADERS, // size_t ct, struct uielem_list_header*
+    UIELEMPROP_LIST_HEADER, // size_t i, struct uielem_list_header*
     UIELEMPROP_LIST_HEADER_ICON, // size_t i, struct ui_icon*
     UIELEMPROP_LIST_HEADER_TEXT, // size_t i, char*
-    UIELEMPROP_LIST_HEADER_TEXT_FONT, // size_t i, size_t ct, char**
     UIELEMPROP_LIST_HEADER_TEXT_FRMT, // size_t i, struct ui_textfrmt*
     UIELEMPROP_LIST_HEADER_TEXT_INTERPESC, // size_t i, unsigned
     UIELEMPROP_LIST_HEADER_ALIGN_X, // size_t i, enum ui_align
     UIELEMPROP_LIST_HEADER_ALIGN_Y, // size_t i, enum ui_align
-    UIELEMPROP_LIST_CELLS, // size_t x, size_t y, size_t w, size_t h, struct uielemprop_list_cell*
-    UIELEMPROP_LIST_CELL, // size_t x, size_t y, struct uielemprop_list_cell*
+    UIELEMPROP_LIST_CELLS, // size_t x, size_t y, size_t w, size_t h, struct uielem_list_cell*
+    UIELEMPROP_LIST_CELL, // size_t x, size_t y, struct uielem_list_cell*
     UIELEMPROP_LIST_CELL_ICON, // size_t x, size_t y, struct ui_icon*
     UIELEMPROP_LIST_CELL_TEXT, // size_t x, size_t y, char*
     UIELEMPROP_LIST_CELL_TEXT_FONT, // size_t x, size_t y, size_t ct, char**
     UIELEMPROP_LIST_CELL_TEXT_FRMT, // size_t x, size_t y, struct ui_textfrmt*
     UIELEMPROP_LIST_CELL_TEXT_INTERPESC, // size_t x, size_t y, unsigned
+    UIELEMPROP_LIST_CELL_TEXT_INTERPESC_FONT, // size_t x, size_t y, unsigned
+    UIELEMPROP_LIST_CELL_TEXT_INTERPESC_LINK, // size_t x, size_t y, unsigned
     UIELEMPROP_LIST_CELL_ALIGN_X, // size_t x, size_t y, enum ui_align
     UIELEMPROP_LIST_CELL_ALIGN_Y, // size_t x, size_t y, enum ui_align
     UIELEMPROP_LIST_SELMODE, // enum uielem_list_selmode
 
-    UIELEMPROP_TABS_ITEMS, // size_t ct, struct uielemprop_tabs_item*
-    UIELEMPROP_TABS_ITEM, // size_t i, struct uielemprop_tabs_item*
+    UIELEMPROP_TABS_ITEMS, // size_t ct, struct uielem_tabs_item*
+    UIELEMPROP_TABS_ITEM, // size_t i, struct uielem_tabs_item*
     UIELEMPROP_TABS_ITEM_ICON, // size_t i, struct ui_icon*
     UIELEMPROP_TABS_ITEM_TEXT, // size_t i, char*
-    UIELEMPROP_TABS_ITEM_TEXT_FONT, // size_t i, size_t ct, char**
     UIELEMPROP_TABS_ITEM_TEXT_FRMT, // size_t i, struct ui_textfrmt*
     UIELEMPROP_TABS_ITEM_TEXT_INTERPESC, // size_t i, unsigned
 
-    UIELEMPROP_MENU_ITEMS, // size_t ct, struct uielemprop_menu_item*
-    UIELEMPROP_MENU_ITEM, // size_t i ... -1, struct uielemprop_menu_item*
+    UIELEMPROP_MENUBAR_ITEMS, // size_t ct, struct uielem_menubar_item*
+    UIELEMPROP_MENUBAR_ITEM, // size_t i, struct uielem_menubar_item*
+
+    UIELEMPROP_MENU_ITEMS, // size_t ct, struct uielem_menu_item*
+    UIELEMPROP_MENU_ITEM, // size_t i ... -1, struct uielem_menu_item*
     UIELEMPROP_MENU_ITEM_ICON, // size_t i ... -1, struct ui_icon*
     UIELEMPROP_MENU_ITEM_TEXT, // size_t i ... -1, char*
-    UIELEMPROP_MENU_ITEM_TEXT_FONT, // size_t i ... -1, size_t ct, char**
     UIELEMPROP_MENU_ITEM_TEXT_FRMT, // size_t i ... -1, struct ui_textfrmt*
     UIELEMPROP_MENU_ITEM_TEXT_INTERPESC, // size_t i ... -1, unsigned
 
@@ -168,7 +165,7 @@ enum uielemprop {
 };
 
 enum uicontainerprop {
-    UICONTAINERPROP_CALLBACK, // uicontainercallback, void*
+    UICONTAINERPROP_CALLBACK, // uicontainercb, void*
     UICONTAINERPROP_HIDDEN, // unsigned
     UICONTAINERPROP_X, // double
     UICONTAINERPROP_Y, // double
@@ -194,7 +191,7 @@ struct ui_textfrmt {
     uint8_t hasfgc : 1;
     uint8_t hasbgc : 1;
     uint8_t hasshc : 1;
-    uint8_t : 1;
+    uint8_t chpt : 1;
 };
 
 PACKEDENUM ui_imageposmode {
@@ -249,19 +246,42 @@ enum uielem_separator_style {
 };
 
 union uielemdata {
-    
+    int placeholder;
 };
+
+struct uielem;
+
+enum uielemevent {
+    UIELEMEVENT_COMMON_UPDATE,
+    UIELEMEVENT_COMMON_CONTAINERUPDATE,
+    UIELEMEVENT_COMMON_MESH,
+    UIELEMEVENT_COMMON_HOVER,
+    UIELEMEVENT_COMMON_UNHOVER,
+    UIELEMEVENT_COMMON_PRESS,
+    UIELEMEVENT_COMMON_RELEASE,
+    UIELEMEVENT_COMMON_ACTIVATE
+};
+union uielemevent_data {
+    union {
+        struct {
+            int placeholder;
+        } mesh;
+    } common;
+};
+enum uielemcb_ret {
+    UIELEMCB_RET_IGNORED,
+    UIELEMCB_RET_HANDLED,
+    UIELEMCB_RET_OVERRIDE
+};
+typedef enum uielemcb_ret (*uielemcb)(void*, enum uielemtype, char* id, size_t i, enum uielemevent, union uielemevent_data*);
 
 struct uielemgroup_statusbits {
     uint32_t valid;
     uint32_t delete;
 };
-
 struct uielem {
-    uint8_t valid : 1;
     uint8_t hidden : 1;
-    uint8_t delete : 1;
-    uint8_t : 5;
+    uint8_t : 7;
     size_t container;
     enum uielemtype type;
     size_t dataindex;
@@ -273,11 +293,28 @@ enum uicontainer_scroll {
     UICONTAINER_SCROLL_SHOWN
 };
 
+struct uicontainer;
+
+enum uicontainerevent {
+    UICONTAINEREVENT_UPDATE,
+    UICONTAINEREVENT_MESH
+};
+union uicontainerevent_data {
+    struct {
+        int placeholder;
+    } mesh;
+};
+enum uicontainercb_ret {
+    UICONTAINERCB_RET_IGNORED,
+    UICONTAINERCB_RET_HANDLED,
+    UICONTAINERCB_RET_OVERRIDE
+};
+typedef enum uicontainercb_ret (*uicontainercb)(void*, char** idtree, size_t i, enum uicontainerevent, union uicontainerevent_data*);
+
 struct uicontainergroup_statusbits {
     uint32_t valid;
     uint32_t delete;
 };
-
 struct uicontainer {
     uint8_t valid : 1;
     uint8_t : 7;
