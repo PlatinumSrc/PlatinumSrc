@@ -116,11 +116,11 @@ static void run(void) {
         if (!selret && ti >= 0) {
             switch ((enum ev)td) {
                 default: break;
-                case EV_TITLE:
+                case EV_TITLE: {
                     titlecolor = (titlecolor + 1) % TITLECOLORS_COUNT;
                     gfx_setlineredraw(0);
                     gfx.redraw = true;
-                    break;
+                } break;
             };
         }
         gfx_update(draw);

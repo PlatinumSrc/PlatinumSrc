@@ -1,5 +1,5 @@
-#ifndef PSRC_COMMON_TIME_H
-#define PSRC_COMMON_TIME_H
+#ifndef PLATINUM_TIME_H
+#define PLATINUM_TIME_H
 
 #include <stdint.h>
 #if _WIN32
