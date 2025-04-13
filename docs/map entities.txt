@@ -34,6 +34,7 @@ Entity type:
     | ENT_TEXT
     | ENT_BILLBLOARD
     | ENT_DECAL
+    | ENT_PORTAL
     | ENT_PROJECTILES
     | ENT_PROJECTILE
     | ENT_HEALTH
@@ -70,6 +71,7 @@ Entity data:
         | <Text entity data>
         | <Billboard entity data>
         | <Decal entity data>
+        | <Portal entity data>
         | <Projectile emitter entity data>
         | <Projectile entity data>
         | <Health emitter entity data>
@@ -603,6 +605,25 @@ Decal entity data:
     <u32: Delay in microseconds before fade>
     <u32: Fade duration in microseconds>
 
+Portal entity data:
+    <u8:
+        <5 bits: 0>
+        <1 bit: Is quad>
+        <1 bit: Follow tail of bone>
+        <1 bit: Inactive>
+    >
+    <float[3]: XYZ position>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <float[3]: Endpoint XYZ position>
+    <<String>: Entity for endpoint to follow>
+    <<String>: Bone for endpoint to follow>
+    <float[3][3]: XYZ triangle coords>
+    <u32: Max nesting>
+    <<String>: Signal to enable>
+    <<String>: Signal to disable>
+    <<String>: Signal to toggle activation>
+
 Projectile emitter entity data:
     <u8:
         <6 bits: 0>
@@ -622,6 +643,7 @@ Projectile emitter entity data:
     <<String>: Animation>
     <<String>: Signal on hit>
     <<String>: Signal to fire>
+
 Projectile entity data:
     <u8:
         <7 bits: 0>

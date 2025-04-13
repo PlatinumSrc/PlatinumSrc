@@ -42,7 +42,7 @@
     o = &(b).data[(b).len++];\
 } while (0)
 
-#define VLB_EXP(b, a, en, ed, ...) do {\
+#define VLB_EXPAND(b, a, en, ed, ...) do {\
     (b).len += (a);\
     if ((b).len > (b).size) {\
         do {\

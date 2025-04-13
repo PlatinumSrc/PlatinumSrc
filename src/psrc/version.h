@@ -3,7 +3,7 @@
 
 #include "platform.h"
 
-#define PSRC_BUILD 2025030300
+#define PSRC_BUILD 2025041300
 
 extern char* titlestr;
 extern char verstr[];

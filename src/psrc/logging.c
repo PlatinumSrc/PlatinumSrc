@@ -108,7 +108,7 @@ static void pl_fputdate(time_t t, FILE* f) {
     static char tmpstr[32];
     struct tm* bdt = localtime(&t);
     if (bdt) {
-        strftime(tmpstr, sizeof(tmpstr), "[ %b %d %Y %H:%M:%S ]: ", bdt);
+        strftime(tmpstr, sizeof(tmpstr), "[%Y-%m-%dT%H:%M:%S%z] ", bdt);
         fputs(tmpstr, f);
     } else {
         fputs("[ ? ]: ", f);

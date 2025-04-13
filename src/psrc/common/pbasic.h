@@ -2,7 +2,6 @@
 #define PSRC_COMMON_PBASIC_H
 
 #include "../string.h"
-#include "../memory.h"
 #include "../threading.h"
 #include "../attribs.h"
 

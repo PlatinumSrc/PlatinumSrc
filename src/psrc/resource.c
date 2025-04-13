@@ -1,6 +1,5 @@
 #include "rcmgralloc.h"
 #include "string.h"
-#include "memory.h"
 #include "undefalloc.h"
 
 #include "resource.h"

@@ -234,7 +234,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                                 if (!wr->weightcount) break;
                                 wr->weights = TOPTR(wvlb.len);
                                 size_t oldlen = wvlb.len;
-                                VLB_EXP(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
+                                VLB_EXPAND(wvlb, wr->weightcount, 3, 2, VLB_FREE(wvlb); VLB_FREE(wrvlb); P3M_LOAD_OOMERR(retfalse););
                                 if (ds_read(ds, wr->weightcount, wvlb.data + oldlen) != wr->weightcount) {
                                     VLB_FREE(wvlb);
                                     VLB_FREE(wrvlb);
@@ -502,7 +502,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 a->actioncount = actct;
                 size_t oldlen = actrefvlb.len;
                 a->actions = TOPTR(oldlen);
-                VLB_EXP(actrefvlb, actct, 3, 2, VLB_FREE(actrefvlb); P3M_LOAD_OOMERR(retfalse););
+                VLB_EXPAND(actrefvlb, actct, 3, 2, VLB_FREE(actrefvlb); P3M_LOAD_OOMERR(retfalse););
                 for (unsigned acti = 0; acti < actct; ++acti) {
                     struct p3m_animationactref* r = &actrefvlb.data[oldlen + acti];
                     r->action = TOPTR(get8(ds));
@@ -546,7 +546,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 a->partlistlen = pllen;
                 size_t ploldlen = plvlb.len;
                 a->partlist = TOPTR(ploldlen);
-                VLB_EXP(plvlb, pllen, 3, 2, VLB_FREE(plvlb); P3M_LOAD_OOMERR(retfalse););
+                VLB_EXPAND(plvlb, pllen, 3, 2, VLB_FREE(plvlb); P3M_LOAD_OOMERR(retfalse););
                 for (unsigned parti = 0; parti < pllen; ++parti) {
                     plvlb.data[ploldlen + parti] = TOPTR(get16(ds));
                 }
