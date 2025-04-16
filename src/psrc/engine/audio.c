@@ -5,7 +5,7 @@
 #include "../logging.h"
 #include "../common.h"
 #include "../common/config.h"
-#include "../common/math/vec3.h"
+#include "../common/math_vec3.h"
 
 #include <stdlib.h>
 #include <limits.h>

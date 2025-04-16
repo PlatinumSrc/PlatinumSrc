@@ -25,7 +25,6 @@ Format:
         <i8: Note (half steps from C-1, negative values are invalid)>
         <u32: Rate>
         <u32: Loop start> <u32: Loop end>
-        <u8: <7 bits: 0> <1 bit: 16-bit>>
         <u8:
             { PTM_SMPTYPE_WAV_U8
             | PTM_SMPTYPE_WAV_I16 }

@@ -22,7 +22,7 @@
     static ALWAYSINLINE uint16_t swaple16(uint16_t v) {return swapbo16(v);}
     static ALWAYSINLINE uint32_t swaple32(uint32_t v) {return swapbo32(v);}
     static ALWAYSINLINE uint64_t swaple64(uint64_t v) {return swapbo64(v);}
-    static ALWAYSINLINE float swaplefloat(float v) {
+    static ALWAYSINLINE float swaplef32(float v) {
         char* d = (char*)&v;
         char tmp = d[0];
         d[0] = d[3];
@@ -49,7 +49,7 @@
     #define swaple16(v) ((uint16_t)(v))
     #define swaple32(v) ((uint32_t)(v))
     #define swaple64(v) ((uint64_t)(v))
-    #define swaplefloat(v) ((float)(v))
+    #define swaplef32(v) ((float)(v))
 #endif
 
 #endif

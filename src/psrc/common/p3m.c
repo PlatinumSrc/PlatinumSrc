@@ -40,7 +40,7 @@ static inline uint32_t get32(struct datastream* ds) {
 static inline float getf32(struct datastream* ds) {
     float v;
     ds_read(ds, 4, &v);
-    return swaplefloat(v);
+    return swaplef32(v);
 }
 
 void p3m_free(struct p3m* m) {
@@ -166,11 +166,11 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 #if BYTEORDER == BO_BE
                 for (unsigned i = 0; i < vertct; ++i) {
                     struct p3m_vertex* v = &p->vertices[i];
-                    v->x = swaplefloat(v->x);
-                    v->y = swaplefloat(v->y);
-                    v->z = swaplefloat(v->z);
-                    v->u = swaplefloat(v->u);
-                    v->v = swaplefloat(v->v);
+                    v->x = swaplef32(v->x);
+                    v->y = swaplef32(v->y);
+                    v->z = swaplef32(v->z);
+                    v->u = swaplef32(v->u);
+                    v->v = swaplef32(v->v);
                 }
                 #endif
                 if (f & P3M_FILEFLAG_PART_HASNORMS) {
@@ -180,9 +180,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                         #if BYTEORDER == BO_BE
                         for (unsigned i = 0; i < vertct; ++i) {
                             struct p3m_normal* n = &p->normals[i];
-                            n->x = swaplefloat(n->x);
-                            n->y = swaplefloat(n->y);
-                            n->z = swaplefloat(n->z);
+                            n->x = swaplef32(n->x);
+                            n->y = swaplef32(n->y);
+                            n->z = swaplef32(n->z);
                         }
                         #endif
                     } else {
@@ -456,15 +456,15 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                 b->name = TOPTR(get16(ds));
                 if (ds_read(ds, 3 * 4, &b->head) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
-                b->head.x = swaplefloat(b->head.x);
-                b->head.y = swaplefloat(b->head.y);
-                b->head.z = swaplefloat(b->head.z);
+                b->head.x = swaplef32(b->head.x);
+                b->head.y = swaplef32(b->head.y);
+                b->head.z = swaplef32(b->head.z);
                 #endif
                 if (ds_read(ds, 3 * 4, &b->tail) != 3 * 4) P3M_LOAD_EOSERR(retfalse);
                 #if BYTEORDER == BO_BE
-                b->tail.x = swaplefloat(b->tail.x);
-                b->tail.y = swaplefloat(b->tail.y);
-                b->tail.z = swaplefloat(b->tail.z);
+                b->tail.x = swaplef32(b->tail.x);
+                b->tail.y = swaplef32(b->tail.y);
+                b->tail.z = swaplef32(b->tail.z);
                 #endif
                 b->childcount = get8(ds);
                 if (b->childcount >= bonect - bonei) {
@@ -633,9 +633,9 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                     }
                     #if BYTEORDER == BO_BE
                     for (size_t i = 0; i < sz; ++i) {
-                        b->transldata[i][0] = swaplefloat(b->transldata[i][0]);
-                        b->transldata[i][1] = swaplefloat(b->transldata[i][1]);
-                        b->transldata[i][2] = swaplefloat(b->transldata[i][2]);
+                        b->transldata[i][0] = swaplef32(b->transldata[i][0]);
+                        b->transldata[i][1] = swaplef32(b->transldata[i][1]);
+                        b->transldata[i][2] = swaplef32(b->transldata[i][2]);
                     }
                     #endif
                 } while (bonei < bonect);

@@ -22,15 +22,8 @@
     #ifdef PSRC_USEMINIMP3
         #include "../minimp3/minimp3_ex.h"
     #endif
+    #include "engine/wav.h"
     #include "engine/ptf.h"
-#endif
-
-#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-    #include <SDL.h>
-#elif defined(PSRC_USESDL1)
-    #include <SDL/SDL.h>
-#else
-    #include <SDL2/SDL.h>
 #endif
 
 #include <stddef.h>
@@ -1036,10 +1029,10 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         } break;
         #ifndef PSRC_MODULE_SERVER
         case RC_SOUND: {
-            if (acc.src != RCSRCTYPE_FS) goto fail;
             const struct rcopt_sound* o = opt;
             if (acc.ext == rcextensions[RC_SOUND][0]) {
                 #ifdef PSRC_USESTBVORBIS
+                if (acc.src != RCSRCTYPE_FS) goto fail;
                 if (o->decodewhole) {
                     stb_vorbis* v = stb_vorbis_open_filename(acc.fs.path, NULL, NULL);
                     if (!v) goto fail;
@@ -1088,6 +1081,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 #endif
             } else if (acc.ext == rcextensions[RC_SOUND][1]) {
                 #ifdef PSRC_USEMINIMP3
+                if (acc.src != RCSRCTYPE_FS) goto fail;
                 mp3dec_ex_t* m = rcmgr_malloc(sizeof(*m));
                 if (o->decodewhole) {
                     if (mp3dec_ex_open(m, acc.fs.path, MP3D_SEEK_TO_SAMPLE)) {free(m); goto fail;}
@@ -1137,67 +1131,42 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 goto fail;
                 #endif
             } else /*if (acc.ext == rcextensions[RC_SOUND][2])*/ {
-                SDL_AudioSpec spec;
-                uint8_t* data;
-                uint32_t sz;
-                {
-                    SDL_RWops* rwops = SDL_RWFromFile(acc.fs.path, "rb");
-                    if (!rwops) goto fail;
-                    if (!SDL_LoadWAV_RW(rwops, false, &spec, &data, &sz)) {SDL_RWclose(rwops); goto fail;}
-                    SDL_RWclose(rwops);
-                }
-                SDL_AudioCVT cvt;
-                int destfrmt;
-                {
-                    bool is8bit;
-                    #ifndef PSRC_USESDL1
-                    is8bit = (SDL_AUDIO_BITSIZE(spec.format) == 8);
-                    #else
-                    is8bit = (spec.format == AUDIO_U8 || spec.format == AUDIO_S8);
-                    #endif
-                    destfrmt = (is8bit) ? AUDIO_U8 : AUDIO_S16SYS;
-                }
-                int ret = SDL_BuildAudioCVT(
-                    &cvt,
-                    spec.format, spec.channels, spec.freq,
-                    destfrmt, (spec.channels > 1) + 1, spec.freq
-                );
-                if (!ret) {
-                    rc = newRc(RC_SOUND);
-                    rc->sound.format = RC_SOUND_FRMT_WAV;
-                    rc->sound.size = sz;
-                    rc->sound.data = data;
-                    rc->sound.len = sz / spec.channels / ((destfrmt == AUDIO_S16SYS) + 1);
-                    rc->sound.freq = spec.freq;
-                    rc->sound.channels = spec.channels;
-                    rc->sound.is8bit = (destfrmt == AUDIO_U8);
-                    rc->sound.stereo = (spec.channels > 1);
-                    rc->sound.sdlfree = 1;
-                    rc->sound_opt = *o;
-                } else if (ret == 1) {
-                    cvt.len = sz;
-                    data = SDL_realloc(data, cvt.len * cvt.len_mult);
-                    cvt.buf = data;
-                    if (SDL_ConvertAudio(&cvt)) {
-                        SDL_FreeWAV(data);
-                    } else {
-                        data = SDL_realloc(data, cvt.len_cvt);
-                        rc = newRc(RC_SOUND);
-                        rc->sound.format = RC_SOUND_FRMT_WAV;
-                        rc->sound.size = cvt.len_cvt;
-                        rc->sound.data = data;
-                        rc->sound.len = cvt.len_cvt / ((spec.channels > 1) + 1) / ((destfrmt == AUDIO_S16SYS) + 1);
-                        rc->sound.freq = spec.freq;
-                        rc->sound.channels = (spec.channels > 1) + 1;
-                        rc->sound.is8bit = (destfrmt == AUDIO_U8);
-                        rc->sound.stereo = (spec.channels > 1);
-                        rc->sound.sdlfree = 1;
-                        rc->sound_opt = *o;
+                struct datastream ds;
+                if (!dsFromRcAcc(&acc, &ds)) goto fail;
+                enum wav_frmt frmt;
+                size_t len;
+                unsigned ch;
+                unsigned freq;
+                void* data = wav_load(&ds, &frmt, &len, &ch, &freq);
+                ds_close(&ds);
+                if (!data) goto fail;
+                if (frmt == WAV_FRMT_I32) {
+                    frmt = WAV_FRMT_I16;
+                    for (register size_t i = 0; i < len; ++i) {
+                        register int32_t s = ((int32_t*)data)[i];
+                        ((int16_t*)data)[i] = (s >= 0) ? s / 65537 : s / 65535;
                     }
-                } else {
-                    SDL_FreeWAV(data);
-                    goto fail;
+                    void* tmp = realloc(data, len * ch * WAV_FRMTSIZE(frmt));
+                    if (tmp) data = tmp;
+                } else if (frmt == WAV_FRMT_F32) {
+                    frmt = WAV_FRMT_I16;
+                    for (register size_t i = 0; i < len; ++i) {
+                        register float s = ((float*)data)[i];
+                        ((int16_t*)data)[i] = (s >= 0.0f) ? s * 32767.5f : s * 32768.5f;
+                    }
+                    void* tmp = realloc(data, len * ch * WAV_FRMTSIZE(frmt));
+                    if (tmp) data = tmp;
                 }
+                rc = newRc(RC_SOUND);
+                rc->sound.format = RC_SOUND_FRMT_WAV;
+                rc->sound.size = len * ch * WAV_FRMTSIZE(frmt);
+                rc->sound.data = data;
+                rc->sound.len = len;
+                rc->sound.freq = freq;
+                rc->sound.channels = ch;
+                rc->sound.is8bit = (frmt == WAV_FRMT_U8);
+                rc->sound.stereo = (ch > 1);
+                rc->sound_opt = *o;
             }
         } break;
         case RC_TEXTURE: {
@@ -1213,14 +1182,20 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 if (o->needsalpha && c == 3) {
                     c = 4;
                     data = rcmgr_realloc(data, w * h * 4);
-                    for (int y = h - 1; y >= 0; --y) {
-                        int b1 = y * w * 4, b2 = y * w * 3;
-                        for (int x = w - 1; x >= 0; --x) {
+                    register unsigned y = h - 1;
+                    while (1) {
+                        register unsigned b1 = y * w * 4, b2 = y * w * 3;
+                        register unsigned x = w - 1;
+                        while (1) {
                             data[b1 + x * 4 + 3] = 255;
                             data[b1 + x * 4 + 2] = data[b2 + x * 3 + 2];
                             data[b1 + x * 4 + 1] = data[b2 + x * 3 + 1];
                             data[b1 + x * 4] = data[b2 + x * 3];
+                            if (!x) break;
+                            --x;
                         }
+                        if (!y) break;
+                        --y;
                     }
                 }
             } else {
@@ -1329,8 +1304,7 @@ static void freeRcData(enum rctype type, struct resource* rc) {
             //pb_deletescript(&rc->script.script);
         } break;
         case RC_SOUND: {
-            if (rc->sound.format == RC_SOUND_FRMT_WAV && rc->sound.sdlfree) SDL_FreeWAV(rc->sound.data);
-            else free(rc->sound.data);
+            free(rc->sound.data);
         } break;
         case RC_TEXTURE: {
             free(rc->texture.data);

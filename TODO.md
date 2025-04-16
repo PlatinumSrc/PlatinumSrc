@@ -26,7 +26,12 @@
     - Audio
         - Music
         - OpenAL support
-        - SPU support
+        - Hardware acceleration
+            - Four settings
+                - Sound fx: SW, Mixing: SW, Output fx: SW
+                - Sound fx: SW, Mixing: SW, Output fx: HW
+                - Sound fx: SW, Mixing: HW, Output fx: HW
+                - Sound fx: HW, Mixing: HW, Output fx: HW
             - Dreamcast
                 - [AICA reference](https://segaretro.org/images/d/de/AICA_E.pdf)
                 - [S3M player](https://github.com/Kochise/dreamcast-docs/blob/master/AICA/SRCS/libs3mplay/libs3mplay/s3mplay)
