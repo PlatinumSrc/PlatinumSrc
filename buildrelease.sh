@@ -9,6 +9,45 @@ NJOBS="$(nproc)"
 
 [[ ${#} -eq 0 ]] && modules=(engine server editor tools) || modules=("${@}")
 
+buildrel() {
+    [ -z "${2}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
+    local _MAKE="${MAKE}"
+    [ -z "${_MAKE}" ] && _MAKE=make
+    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
+    RESPONSE=""
+    while ! "${_MAKE}" "${@:3}" "-j${NJOBS}" 1> /dev/null; do
+        while [[ -z "${RESPONSE}" ]]; do
+            ask "${TBQ}Build failed. Retry?${TRQ} (${TBQ}Y${TRQ}es/${TBQ}N${TRQ}o/${TBQ}S${TRQ}kip/${TBQ}C${TRQ}lean): "
+            case "${RESPONSE,,}" in
+                y | yes | n | no | s | skip)
+                    break
+                    ;;
+                c | clean)
+                    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
+                    ;;
+                *)
+                    RESPONSE=""
+                    ;;
+            esac
+        done
+        case "${RESPONSE,,}" in
+            n | no)
+                RESPONSE="n"
+                break
+                ;;
+            s | skip)
+                RESPONSE="s"
+                break
+                ;;
+            *)
+                RESPONSE=""
+                ;;
+        esac
+    done
+    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
+    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
+    [[ ! "${RESPONSE}" == "n" ]] || _exit 1
+}
 pkgrel() {
     "${ARCHIVER[@]}" "${OUTPUT}" "${FILES[@]}"
 }

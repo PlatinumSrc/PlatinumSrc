@@ -2,17 +2,19 @@ if [ -z "${UTIL_SH+x}" ]; then
 
 UTIL_SH=''
 
-I="\e[0m\e[1m\e[37m[\e[36mi\e[37m]\e[0m"
-E="\e[0m\e[1m\e[37m[\e[31mX\e[37m]\e[0m"
-Q="\e[0m\e[1m\e[37m[\e[32m?\e[37m]\e[0m"
-H="\e[0m\e[1m\e[37m[\e[34m-\e[37m]\e[0m"
-T="\e[0m\e[1m\e[33m>>>\e[0m"
-TB="\e[0m\e[1m\e[37m"
-TR="\e[0m"
-inf() { printf "${I} ${TB}${1}${TR}\n" "${@}"; }
-err() { printf "${E} ${TB}${1}${TR}\n" "${@}"; }
-qry() { printf "${Q} ${TB}${1}${TR}\n" "${@}"; }
-tsk() { printf "${T} ${TB}${1}${TR}\n" "${@}"; }
+I=$'\e[0m\e[1m\e[37m[\e[36mi\e[37m]\e[0m'
+E=$'\e[0m\e[1m\e[37m[\e[31mX\e[37m]\e[0m'
+Q=$'\001\e[0m\e[1m\e[37m\002[\001\e[32m\002?\001\e[37m\002]\001\e[0m\002'
+H=$'\e[0m\e[1m\e[37m[\e[34m-\e[37m]\e[0m'
+T=$'\e[0m\e[1m\e[33m>>>\e[0m'
+TB=$'\e[0m\e[1m\e[37m'
+TR=$'\e[0m'
+TBQ=$'\001\e[1m\e[37m\002'
+TRQ=$'\001\e[0m\002'
+inf() { printf "${I} ${TB}%s${TR}%s\n" "${@}"; }
+err() { printf "${E} ${TB}%s${TR}%s\n" "${@}"; }
+qry() { printf "${Q} ${TB}%s${TR}%s\n" "${@}"; }
+tsk() { printf "${T} ${TB}%s${TR}%s\n" "${@}"; }
 
 PLATNAME="$(uname -s)"
 PLATARCH="$(uname -m)"
@@ -22,13 +24,23 @@ PLATARCH32="$(i386 uname -m)"
 PLATDESC32="${PLATNAME32} ${PLATARCH32}"
 
 ask() {
-    RESPONSE=""
-    printf "${Q} ${1}"
-    read RESPONSE
+    read -e -p "${Q} ${TBQ}${1}${TRQ} ${TBQ}>${TRQ} " -i "${3}" -- "${2}"
+}
+ask_multiline() {
+    read -e -p "${Q} ${TBQ}${1}${TRQ} (press Ctrl+D when done) ${TBQ}>${TRQ} " -i "${3}" -- "${2}"
+    if [ "${?}" -eq 0 ]; then
+        local TMP
+        while true; do
+            read -e -p '> ' TMP
+            [ "${?}" -ne 0 ] && break
+            eval "${2}=\"\$${2}\"\$'\n'\"\${TMP}\""
+        done
+    fi
 }
 pause() {
     printf "${H} ${TB}Press enter to continue...${TR}"
-    read
+    read -s
+    echo
 }
 _exit() {
     local ERR="${?}"
@@ -64,46 +76,6 @@ _tar_r() {
 _zip_r() {
     rm -f -- "${1}.zip"
     zip -qr9 "./${1}.zip" -- "${@:2}"
-}
-
-buildrel() {
-    [ -z "${2}" ] && inf "Building ${1}..." || inf "Building ${1} for ${2}..."
-    local _MAKE="${MAKE}"
-    [ -z "${_MAKE}" ] && _MAKE=make
-    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
-    RESPONSE=""
-    while ! "${_MAKE}" "${@:3}" "-j${NJOBS}" 1> /dev/null; do
-        while [[ -z "${RESPONSE}" ]]; do
-            ask "${TB}Build failed. Retry?${TR} (${TB}Y${TR}es/${TB}N${TR}o/${TB}S${TR}kip/${TB}C${TR}lean): "
-            case "${RESPONSE,,}" in
-                y | yes | n | no | s | skip)
-                    break
-                    ;;
-                c | clean)
-                    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
-                    ;;
-                *)
-                    RESPONSE=""
-                    ;;
-            esac
-        done
-        case "${RESPONSE,,}" in
-            n | no)
-                RESPONSE="n"
-                break
-                ;;
-            s | skip)
-                RESPONSE="s"
-                break
-                ;;
-            *)
-                RESPONSE=""
-                ;;
-        esac
-    done
-    [[ "${RESPONSE}" == "n" ]] || [[ "${RESPONSE}" == "s" ]] || pkgrel || _exit
-    "${_MAKE}" "${@:3}" distclean 1> /dev/null || _exit
-    [[ ! "${RESPONSE}" == "n" ]] || _exit 1
 }
 
 fi

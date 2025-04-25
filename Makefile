@@ -103,6 +103,7 @@ else ifeq ($(CROSS),nxdk)
     XISO := $(OUTDIR)/$(XBE_TITLE).xiso.iso
     XISODIR := $(OUTDIR)/xiso
     NOLTO := y
+    NOMT := y
     NOSIMD := y
     USESTDTHREAD := y
     USEXGU := y
@@ -134,6 +135,7 @@ else ifeq ($(CROSS),ps2)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := pcsx2
     EMUPATHFLAG := --
+    NOMT := y
     USEGSKIT := y
 else ifeq ($(CROSS),dc)
     ifndef KOS_BASE
@@ -406,7 +408,7 @@ ifeq ($(USEGLES30),y)
     _CPPFLAGS += -DPSRC_ENGINE_RENDERER_GL_USEGLES30
 endif
 ifndef DEBUG
-    _CPPFLAGS += -DNDEBUG
+    _CPPFLAGS += -DNDEBUG=1
     ifneq ($(CROSS),nxdk)
         _LDFLAGS += -Wl,--gc-sections
     endif
@@ -779,15 +781,7 @@ else ifeq ($(CROSS),emscr)
 endif
 	@$(call rm,$(TARGET))
 
-externclean:
-ifneq ($(CROSS),nxdk)
-	@:
-else
-	@echo Cleaning NXDK...
-	@'$(MAKE)' --no-print-directory -C '$(NXDK_DIR)' ${MKENV.NXDK} clean
-endif
-
-.PHONY: default build run clean distclean externclean $(_OBJDIR)
+.PHONY: default build run clean distclean $(_OBJDIR)
 
 ifeq ($(CROSS),nxdk)
 

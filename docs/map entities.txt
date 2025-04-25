@@ -35,8 +35,8 @@ Entity type:
     | ENT_BILLBLOARD
     | ENT_DECAL
     | ENT_PORTAL
-    | ENT_PROJECTILES
     | ENT_PROJECTILE
+    | ENT_PROJECTILES
     | ENT_HEALTH
     | ENT_PUSH
     | ENT_BROADCASTER
@@ -72,8 +72,8 @@ Entity data:
         | <Billboard entity data>
         | <Decal entity data>
         | <Portal entity data>
-        | <Projectile emitter entity data>
         | <Projectile entity data>
+        | <Projectile emitter entity data>
         | <Health emitter entity data>
         | <Push entity data>
         | <Broadcaster entity data>
@@ -92,8 +92,8 @@ Headless entity data:
 
 Generic entity data:
     <u8:
-        <7 bits: 0>
-        <1 bit: Do not render shadow>
+        <6 bits: 0>
+        <1 bit: High quality shadow>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
@@ -105,6 +105,8 @@ Generic entity data:
     <<String>: Script resource path>
     <<String>: Model resource path>
     <float: Health>
+    <<String>: Shadow texture resource path (empty for none)>
+    <float[2]: SHadow size>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -112,7 +114,7 @@ Generic entity data:
 Prop entity data:
     <u8:
         <1 bit: 0>
-        <1 bit: Do not render shadow>
+        <1 bit: High quality shadow>
         <1 bit: Do not loop animation>
         <1 bit: Better physics (ignored if 'physics' bit is not set)>
         <1 bit: Physics>
@@ -129,6 +131,8 @@ Prop entity data:
     <float: Drag>
     <<String>: Model resource path>
     <<String>: Animation>
+    <<String>: Shadow texture resource path (empty for none)>
+    <float[2]: SHadow size>
     <<String>: Signal to show>
     <<String>: Signal to hide>
     <<String>: Signal to toggle visibility>
@@ -624,6 +628,20 @@ Portal entity data:
     <<String>: Signal to disable>
     <<String>: Signal to toggle activation>
 
+Projectile entity data:
+    <u8:
+        <7 bits: 0>
+        <1 bit: Replace initiator with self on hit>
+    >
+    <float[3]: XYZ initial position>
+    <float[3]: XYZ direction and velocity>
+    <float: Gravity influence>
+    <float: Drag influence>
+    <float: Wind influence>
+    <<String>: Model resource path>
+    <<String>: Animation>
+    <<String>: Signal on hit>
+
 Projectile emitter entity data:
     <u8:
         <6 bits: 0>
@@ -643,20 +661,6 @@ Projectile emitter entity data:
     <<String>: Animation>
     <<String>: Signal on hit>
     <<String>: Signal to fire>
-
-Projectile entity data:
-    <u8:
-        <7 bits: 0>
-        <1 bit: Replace initiator with self on hit>
-    >
-    <float[3]: XYZ initial position>
-    <float[3]: XYZ direction and velocity>
-    <float: Gravity influence>
-    <float: Drag influence>
-    <float: Wind influence>
-    <<String>: Model resource path>
-    <<String>: Animation>
-    <<String>: Signal on hit>
 
 Health emitter entity data:
     <u8:

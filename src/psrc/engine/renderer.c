@@ -1,5 +1,15 @@
 #include "renderer.h"
 
+#ifdef PSRC_ENGINE_RENDERER_USESR
+    #include "renderer_sw.h"
+#endif
+#ifdef PSRC_ENGINE_RENDERER_USEGL
+    #include "renderer_gl.h"
+#endif
+#ifdef PSRC_ENGINE_RENDERER_USEXGU
+    #include "renderer_xgu.h"
+#endif
+
 #include "../version.h"
 #include "../debug.h"
 #include "../common.h"
@@ -47,18 +57,6 @@ const char* const* rendapi_names[RENDAPI__COUNT] = {
     #endif
 };
 
-static struct rc_model* testmodel;
-
-#ifdef PSRC_ENGINE_RENDERER_USESR
-    #include "renderer/sw.c"
-#endif
-#ifdef PSRC_ENGINE_RENDERER_USEGL
-    #include "renderer/gl.c"
-#endif
-#ifdef PSRC_ENGINE_RENDERER_USEXGU
-    #include "renderer/xgu.c"
-#endif
-
 #if 0 // silence a warning
 static void* r_dummy_takeScreenshot(int* w, int* h, int* sz) {
     (void)w; (void)h; (void)sz;
@@ -92,12 +90,10 @@ static enum rendapi trylist[] = {
 
 void (*render)(void);
 void (*display)(void);
-void* (*takeScreenshot)(int* w, int* h, int* sz);
+void* (*takeScreenshot)(unsigned* w, unsigned* h, unsigned* ch);
 static bool (*beforeCreateWindow)(unsigned*);
 static bool (*afterCreateWindow)(void);
-static bool (*prepRenderer)(void);
 static void (*beforeDestroyWindow)(void);
-static void (*calcProjMat)(void);
 static void (*updateFrame)(void);
 static void (*updateVSync)(void);
 
@@ -189,7 +185,6 @@ static void updateWindowMode(enum rendmode newmode) {
             #endif
         } break;
     }
-    rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
 }
 
 #if PLATFORM != PLAT_NXDK
@@ -243,8 +238,8 @@ static bool createWindow(void) {
     {
         SDL_DisplayMode dtmode;
         SDL_GetDesktopDisplayMode(0, &dtmode);
-        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = dtmode.w;
-        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = dtmode.h;
+        if (!rendstate.res.fullscr.width) rendstate.res.fullscr.width = dtmode.w;
+        if (!rendstate.res.fullscr.height) rendstate.res.fullscr.height = dtmode.h;
         if (rendstate.fps < 0) rendstate.fps = dtmode.refresh_rate;
     }
     switch (rendstate.mode) {
@@ -289,7 +284,6 @@ static bool createWindow(void) {
     plog(LL_INFO | LF_DEBUG, "Windowed resolution: %dx%d", rendstate.res.windowed.width, rendstate.res.windowed.height);
     plog(LL_INFO | LF_DEBUG, "Fullscreen resolution: %dx%d", rendstate.res.fullscr.width, rendstate.res.fullscr.height);
     #endif
-    rendstate.aspect = (double)rendstate.res.current.width / (double)rendstate.res.current.height;
     #ifndef PSRC_USESDL1
     rendstate.window = SDL_CreateWindow(
         titlestr,
@@ -325,14 +319,13 @@ static bool startRenderer_internal(void) {
         #ifdef PSRC_ENGINE_RENDERER_USESR
         case RENDAPI_SW:
             return false; // TODO: implement
+            //if (!r_sw_prepRenderer()) return false;
             //render = r_sw_render;
             //display = r_sw_display;
             //takeScreenshot = r_sw_takeScreenshot;
             //beforeCreateWindow = r_sw_beforeCreateWindow;
             //afterCreateWindow = r_sw_afterCreateWindow;
-            //prepRenderer = r_sw_prepRenderer;
             //beforeDestroyWindow = r_sw_beforeDestroyWindow;
-            //calcProjMat = r_sw_calcProjMat;
             //updateFrame = r_sw_updateFrame;
             //updateVSync = r_sw_updateVSync;
             break;
@@ -348,14 +341,13 @@ static bool startRenderer_internal(void) {
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
         //case RENDAPI_GLES30: // TODO: implement
         #endif
+            if (!r_gl_prepRenderer()) return false;
             render = r_gl_render;
             display = r_gl_display;
             takeScreenshot = r_gl_takeScreenshot;
             beforeCreateWindow = r_gl_beforeCreateWindow;
             afterCreateWindow = r_gl_afterCreateWindow;
-            prepRenderer = r_gl_prepRenderer;
             beforeDestroyWindow = r_gl_beforeDestroyWindow;
-            calcProjMat = r_gl_calcProjMat;
             updateFrame = r_gl_updateFrame;
             updateVSync = r_gl_updateVSync;
             break;
@@ -364,14 +356,13 @@ static bool startRenderer_internal(void) {
         #ifdef PSRC_ENGINE_RENDERER_USEXGU
         case RENDAPI_XGU:
             return false; // TODO: implement
+            //if (!r_xgu_prepRenderer()) return false;
             //render = r_xgu_render;
             //display = r_xgu_display;
-            takeScreenshot = r_dummy_takeScreenshot;
+            //takeScreenshot = r_dummy_takeScreenshot;
             //beforeCreateWindow = r_xgu_beforeCreateWindow;
             //afterCreateWindow = r_xgu_afterCreateWindow;
-            //prepRenderer = r_xgu_prepRenderer;
             //beforeDestroyWindow = r_xgu_beforeDestroyWindow;
-            //calcProjMat = r_xgu_calcProjMat;
             //updateFrame = r_xgu_updateFrame;
             //updateVSync = r_xgu_updateVSync;
             break;
@@ -381,11 +372,6 @@ static bool startRenderer_internal(void) {
             return false;
     }
     if (!createWindow()) return false;
-    if (!prepRenderer()) {
-        rendstate.api = RENDAPI__INVALID;
-        destroyWindow();
-        return false;
-    }
     return true;
 }
 
@@ -472,14 +458,10 @@ bool updateRendererConfig(enum rendopt opt, ...) {
                 rendstate.vsync = va_arg(args, int);
                 updateVSync();
             } break;
-            case RENDOPT_FOV: {
-                rendstate.fov = va_arg(args, double);
-                calcProjMat();
-            } break;
             case RENDOPT_RES: {
                 struct rendres* res = va_arg(args, struct rendres*);
-                if (res->width >= 0) rendstate.res.current.width = res->width;
-                if (res->height >= 0) rendstate.res.current.height = res->height;
+                if (res->width) rendstate.res.current.width = res->width;
+                if (res->height) rendstate.res.current.height = res->height;
                 switch (rendstate.mode) {
                     case RENDMODE_WINDOWED:
                         if (rendstate.res.current.width != rendstate.res.windowed.width ||
@@ -558,17 +540,17 @@ bool initRenderer(void) {
     #endif
     if (tmp) {
         sscanf(
-            tmp, "%dx%d",
+            tmp, "%ux%u",
             &rendstate.res.windowed.width,
             &rendstate.res.windowed.height
         );
         free(tmp);
     }
     tmp = cfg_getvar(&config, "Renderer", "resolution.fullscreen");
-    rendstate.res.fullscr = (struct rendres){-1, -1};
+    rendstate.res.fullscr = (struct rendres){0, 0};
     if (tmp) {
         sscanf(
-            tmp, "%dx%d",
+            tmp, "%ux%u",
             &rendstate.res.fullscr.width,
             &rendstate.res.fullscr.height
         );
@@ -584,8 +566,8 @@ bool initRenderer(void) {
     {
         const SDL_VideoInfo* vinf = SDL_GetVideoInfo();
         rendstate.bpp = vinf->vfmt->BitsPerPixel;
-        if (rendstate.res.fullscr.width < 0) rendstate.res.fullscr.width = vinf->current_w;
-        if (rendstate.res.fullscr.height < 0) rendstate.res.fullscr.height = vinf->current_h;
+        if (!rendstate.res.fullscr.width) rendstate.res.fullscr.width = vinf->current_w;
+        if (!rendstate.res.fullscr.height) rendstate.res.fullscr.height = vinf->current_h;
         if (rendstate.fps < 0) rendstate.fps = 60; // TODO: get the actual hz somehow?
     }
     #endif
@@ -608,18 +590,9 @@ bool initRenderer(void) {
     } else {
         rendstate.vsync = true;
     }
-    tmp = cfg_getvar(&config, "Renderer", "fov");
-    if (tmp) {
-        rendstate.fov = atof(tmp);
-        free(tmp);
-    } else {
-        rendstate.fov = 90.0f;
-    }
-    testmodel = getRc(RC_MODEL, "game:test/test_model", NULL, 0, NULL);
     return true;
 }
 
 void quitRenderer(void) {
-    if (testmodel) rlsRc(testmodel, false);
     free(rendstate.icon);
 }

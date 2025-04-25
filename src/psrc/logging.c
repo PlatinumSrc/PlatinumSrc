@@ -105,13 +105,16 @@ static FILE* logfile = NULL;
 char* logpath = NULL;
 
 static void pl_fputdate(time_t t, FILE* f) {
-    static char tmpstr[32];
+    static char tmpstr[25];
     struct tm* bdt = localtime(&t);
     if (bdt) {
-        strftime(tmpstr, sizeof(tmpstr), "[%Y-%m-%dT%H:%M:%S%z] ", bdt);
+        size_t l = strftime(tmpstr, sizeof(tmpstr), "%Y-%m-%dT%H:%M:%S%z", bdt);
+        if (!l || l >= sizeof(tmpstr)) l = sizeof(tmpstr) - 1;
+        tmpstr[l] = 0;
+        fputc('[', f);
         fputs(tmpstr, f);
-    } else {
-        fputs("[ ? ]: ", f);
+        fputc(']', f);
+        fputc(' ', f);
     }
 }
 static void pl_fputprefix(enum loglevel lvl, FILE* f) {

@@ -1,11 +1,17 @@
-#include "../engine/renderer.h"
-#include "../engine/input.h"
-#include "../engine/ui.h"
-#include "../engine/audio.h"
 #include "../arg.h"
 #if DEBUG(1)
     #include "../profiling.h"
 #endif
+
+#include "../engine/renderer.h"
+#include "../engine/input.h"
+#include "../engine/ui.h"
+#include "../engine/audio.h"
+#include "../engine/client.h"
+
+#include "../common/world.h"
+
+#include "../../stb/stb_image_write.h"
 
 #ifndef PSRC_DEFAULTGAME
     #define PSRC_DEFAULTGAME default
@@ -133,7 +139,7 @@ static int bootstrap(void) {
 
     plog(LL_INFO, "Initializing resource manager...");
     if (!initRcMgr()) {
-        plog(LL_CRIT | LF_FUNCLN, "Failed to init resource manager");
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init resource manager");
         return 1;
     }
 
@@ -192,6 +198,20 @@ static int bootstrap(void) {
         } else {
             plog(LL_INFO, "No mods laoded");
         }
+    }
+
+    plog(LL_INFO, "Initializing client...");
+    if (!initClient()) {
+        plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init client");
+        return 1;
+    }
+    setPlayer(0, "Player 1");
+    tmp = cfg_getvar(&config, "Renderer", "fov");
+    if (tmp) {
+        playerdata.data[0].camera.fov = atof(tmp);
+        free(tmp);
+    } else {
+        playerdata.data[0].camera.fov = 90.0f;
     }
 
     plog(LL_INFO, "Initializing renderer...");
@@ -254,51 +274,51 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.25, 0.6, 0.15}}, 0);
-    //setAudioEnv(AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
+    setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.25, 0.6, 0.15}}, 0);
+    //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
     e2d[0] = new2DAudioEmitter(
-        AUDIOPRIO_MAX, -1, 0,
+        0, AUDIOPRIO_MAX, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.5f, 0.5f}}
     );
     e3d[0] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        0, AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
         0, NULL,
-        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RELPOS, &(struct audio3dfx){.pos = {0.0f, -0.5f, 0.0f}, .relpos = 1}
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RELPOS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, -0.5f, 0.0f), .relpos = 1}
     );
     e3d[1] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, 0,
+        0, AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {3.0f, 3.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, 0.0f, 2.0f}}
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, 0.0f, 2.0f)}
     );
     e3d[2] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, 0,
+        0, AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, 0.0f, 3.0f}}
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, 0.0f, 3.0f)}
     );
     e3d[3] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, 0,
+        0, AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {-10.0f, 2.0f, 10.0f}, .range = 40.0f}
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, -10.0f, 2.0f, 10.0f), .range = 40.0f}
     );
     e3d[4] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, 0,
+        0, AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = {10.0f, 2.0f, 10.0f}, .range = 40.0f}
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 10.0f, 2.0f, 10.0f), .range = 40.0f}
     );
     e3d[5] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, 0,
+        0, AUDIOPRIO_DEFAULT, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {0.0f, -0.5f, -20.0f}}
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, -0.5f, -20.0f)}
     );
     e3d[6] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        0, AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {-5.0f, 1.0f, -20.0f}}
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, -5.0f, 1.0f, -20.0f)}
     );
     e3d[7] = new3DAudioEmitter(
-        AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
+        0, AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {2.0f, 2.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {5.0f, 1.0f, -20.0f}}
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 5.0f, 1.0f, -20.0f)}
     );
     {
         struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL);
@@ -464,6 +484,8 @@ static int bootstrap(void) {
         rendstate.dbgprof = &dbgprof;
     #endif
 
+    stbi_write_png_compression_level = 9;
+
     toff = SDL_GetTicks();
     framestamp = altutime();
 
@@ -497,6 +519,8 @@ static void unstrap(void) {
     quitUI();
     plog(LL_INFO, "Deinitializing renderer...");
     quitRenderer();
+    plog(LL_INFO, "Deinitializing client...");
+    quitClient();
 
     plog(LL_INFO, "Deinitializing resource manager...");
     quitRcMgr(true);
@@ -519,7 +543,7 @@ static void unstrap(void) {
     plog(LL_MS, "Done");
 }
 
-static float fwrap(float n, float d) {
+static inline float fwrap(float n, float d) {
     float tmp = n - (int)(n / d) * d;
     if (tmp < 0.0f) tmp += d;
     return tmp;
@@ -557,7 +581,7 @@ static void loop(void) {
     edit3DAudioEmitter(
         e3d[2], 0, 0,
         0, NULL,
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = {(float)sin(t * 2.5) * 3.0f, 0.0, (float)cos(t * 2.5) * 3.0f}},
+        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, (float)sin(t * 2.5) * 3.0f, 0.0, (float)cos(t * 2.5) * 3.0f)},
         0
     );
     //editAudioEmitter(testemt_obj, false, SOUNDFX_POS(sin(t * 2.5) * 3.0, 0.0, cos(t * 2.5) * 3.0));
@@ -600,35 +624,33 @@ static void loop(void) {
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0f : 2.5f;
 
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&playerdata.lock);
+    #endif
+
+    playerdata.data[0].camera.rot[0] += lookx * lookspeed[1];
+    playerdata.data[0].camera.rot[1] += looky * lookspeed[0];
+    if (playerdata.data[0].camera.rot[0] > 90.0f) playerdata.data[0].camera.rot[0] = 90.0f;
+    else if (playerdata.data[0].camera.rot[0] < -90.0f) playerdata.data[0].camera.rot[0] = -90.0f;
+    playerdata.data[0].camera.rot[1] = fwrap(playerdata.data[0].camera.rot[1], 360.0f);
+    calcClientCameraAngles(&playerdata.data[0]);
     {
         // this can probably be optimized
-        float mul = atan2f(fabsf(movex), fabsf(movez));
-        mul = fabsf(1 / (cosf(mul) + sinf(mul)));
-        movex *= mul;
-        movez *= mul;
-        float yrotrad = rendstate.camrot[1] * (float)M_PI / 180.0f;
-        float tmp[4];
-        tmp[0] = sinf(yrotrad);
-        tmp[1] = cosf(yrotrad);
-        tmp[2] = tmp[1] * movez;
-        tmp[3] = -tmp[0] * movex;
-        tmp[0] *= movez;
-        tmp[1] *= movex;
-        movex = tmp[0] + tmp[1];
-        movez = tmp[2] + tmp[3];
+        float tmp[2];
+        tmp[0] = atan2f(fabsf(movex), fabsf(movez));
+        tmp[0] = fabsf(1.0f / (cosf(tmp[0]) + sinf(tmp[0])));
+        movex *= tmp[0];
+        movez *= tmp[0];
+        tmp[0] = movex * playerdata.data[0].common.cameracalc.cos[1] + movez * playerdata.data[0].common.cameracalc.sin[1];
+        tmp[1] = movez * playerdata.data[0].common.cameracalc.cos[1] - movex * playerdata.data[0].common.cameracalc.sin[1];
+        movex = tmp[0];
+        movez = tmp[1];
     }
-    audiostate.cam.pos[0] = (rendstate.campos[0] += movex * speed * (float)framemult);
-    audiostate.cam.pos[2] = (rendstate.campos[2] += movez * speed * (float)framemult);
-    audiostate.cam.pos[1] = (rendstate.campos[1] += movey * jumpspeed * (float)framemult);
-    rendstate.camrot[0] += lookx * lookspeed[1];
-    rendstate.camrot[1] += looky * lookspeed[0];
-    //rendstate.camrot[2] =  22.5f;
-    if (rendstate.camrot[0] > 90.0f) rendstate.camrot[0] = 90.0f;
-    else if (rendstate.camrot[0] < -90.0f) rendstate.camrot[0] = -90.0f;
-    rendstate.camrot[1] = fwrap(rendstate.camrot[1], 360.0f);
-    audiostate.cam.rot[0] = rendstate.camrot[0];
-    audiostate.cam.rot[1] = rendstate.camrot[1];
-    audiostate.cam.rot[2] = rendstate.camrot[2];
+    playerdata.data[0].camera.pos.pos[0] += movex * speed * (float)framemult;
+    playerdata.data[0].camera.pos.pos[2] += movez * speed * (float)framemult;
+    playerdata.data[0].camera.pos.pos[1] += movey * jumpspeed * (float)framemult;
+
+    updateClient(framemult);
 
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
@@ -638,6 +660,11 @@ static void loop(void) {
     prof_begin(&dbgprof, DBGPROF_RENDERER);
     #endif
     render();
+
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&playerdata.lock);
+    #endif
+
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_RCMGR);
     #endif
@@ -651,12 +678,12 @@ static void loop(void) {
     #endif
 
     if (screenshot) {
-        int sz;
-        void* d = takeScreenshot(NULL, NULL, &sz);
-        FILE* f = fopen("screenshot.data", "wb");
-        fwrite(d, 1, sz, f);
-        fclose(f);
-        free(d);
+        unsigned w, h, ch;
+        void* d = takeScreenshot(&w, &h, &ch);
+        if (d) {
+            stbi_write_png("screenshot.png", w, h, ch, d, w * ch);
+            free(d);
+        }
         screenshot = false;
     }
 

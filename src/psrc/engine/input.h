@@ -136,7 +136,7 @@ PACKEDENUM inputmode {
     INPUTMODE_GETKEY,
 };
 
-struct inputstate {
+extern struct inputstate {
     enum inputmode mode;
     int keystatecount;
     const uint8_t* keystates;
@@ -156,9 +156,7 @@ struct inputstate {
     } actions;
     int curaction;
     int activeaction;
-};
-
-extern struct inputstate inputstate;
+} inputstate;
 
 bool initInput(void);
 void setInputMode(enum inputmode);

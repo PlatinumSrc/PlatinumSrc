@@ -62,8 +62,10 @@ enum dir {
     DIR_SAVES,       // save location; platform-specific dir or 'saves' dir in the user data dir; NULL if there is no
                      // writable filesystem sutiable for saves
     #endif
-    DIR_DATABASES,   // 'databases' in the user data dir, or a dir in 'databases' in the main dir if the user data dir
-                     // is NULL or not available
+    DIR_CONFIGS,     // 'configs' in the user data dir, or in 'data/<userdir name>/' in the main dir if the user data
+                     // dir is NULL
+    DIR_DATABASES,   // 'databases' in the user data dir, or in 'data/<userdir name>/' in the main dir if the user data
+                     // dir is NULL
     #ifndef PSRC_MODULE_SERVER
     DIR_SVDL,        // typically 'server' in 'downloads' in the user data dir; NULL if the user data dir is NULL
     DIR_PLDL,        // typically 'player' in 'downloads' in the user data dir; NULL if the user data dir is NULL

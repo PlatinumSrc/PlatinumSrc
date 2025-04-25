@@ -541,7 +541,7 @@ map_file(SFT_Font *font, const char *filename)
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    font->memory = malloc(sz);
+    if (!(font->memory = malloc(sz))) return -1;
     fread((void *) font->memory, 1, sz, f);
     fclose(f);
     return 0;

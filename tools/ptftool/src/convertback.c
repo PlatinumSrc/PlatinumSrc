@@ -20,7 +20,9 @@ static struct {
         FMT_JPG,
     } format;
     int quality;
-} opt;
+} opt = {
+    .quality = -1
+};
 
 static void ptf2img(char* p) {
     char* np;
@@ -127,7 +129,7 @@ static void ptf2img(char* p) {
     }
     switch (opt.format) {
         case FMT_PNG:
-            if (opt.quality) stbi_write_png_compression_level = opt.quality;
+            stbi_write_png_compression_level = (opt.quality >= 0) ? opt.quality : 9;
             if (stbi_write_png(np, w, h, c, data, 0)) goto noerr;
             break;
         case FMT_BMP:

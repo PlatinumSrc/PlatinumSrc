@@ -1,3 +1,10 @@
+#include "renderer.h"
+#include "renderer_gl.h"
+#include "client.h"
+
+#include "../logging.h"
+#include "../common.h"
+
 #if PLATFORM == PLAT_EMSCR
     #include <GL/gl.h>
     #ifdef GL_KHR_debug
@@ -29,6 +36,7 @@
         #define GL_KHR_debug 0
     #endif
 #endif
+
 #if GL_KHR_debug
     #ifndef PSRC_ENGINE_RENDERER_GL_USEGLAD
         #pragma weak glDebugMessageCallback
@@ -75,15 +83,22 @@
     }
 #endif
 
+static struct rc_model* testmodel;
+
+struct r_gl_playerdata {
+    bool valid;
+    float nearplane;
+    float farplane;
+    float aspect;
+    float projmat[4][4];
+    float viewmat[4][4];
+};
 static struct {
     #ifndef PSRC_USESDL1
     SDL_GLContext ctx;
     #endif
     uint8_t fastclear : 1;
-    float nearplane;
-    float farplane;
-    float projmat[4][4];
-    float viewmat[4][4];
+    uint8_t updateframe : 1;
     union {
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         struct {
@@ -95,25 +110,25 @@ static struct {
         #endif
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
         struct {
-            char _placeholder;
+            char placeholder;
         } gl33;
         #endif
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
         struct {
-            char _placeholder;
+            char placeholder;
         } gles30;
         #endif
     };
-} r_gl_data = {
-    .viewmat = {
-        [3][3] = 1.0f
-    },
-    .projmat = {
-        [2][3] = -1.0f
-    }
-};
+    struct {
+        struct r_gl_playerdata* data;
+        unsigned len;
+        unsigned size;
+    } playerdata;
+} r_gl_data;
 
-static void r_gl_display(void) {
+void (*r_gl_render)(void);
+
+void r_gl_display(void) {
     #ifndef PSRC_USESDL1
     SDL_GL_SwapWindow(rendstate.window);
     #else
@@ -121,57 +136,129 @@ static void r_gl_display(void) {
     #endif
 }
 
-static void r_gl_calcProjMat(void) {
-    float tmp1 = 1.0f / tanf(rendstate.fov * (float)M_PI / 180.0f * 0.5f);
-    float tmp2 = 1.0f / (r_gl_data.nearplane - r_gl_data.farplane);
-    r_gl_data.projmat[0][0] = -(tmp1 / rendstate.aspect);
-    r_gl_data.projmat[1][1] = tmp1;
-    r_gl_data.projmat[2][2] = (r_gl_data.nearplane + r_gl_data.farplane) * tmp2;
-    r_gl_data.projmat[3][2] = 2.0f * r_gl_data.nearplane * r_gl_data.farplane * tmp2;
+static void r_gl_calcProjMat(struct player* pldata, struct r_gl_playerdata* rpldata) {
+    float tmp1 = 1.0f / tanf(pldata->camera.fov * (float)M_PI / 180.0f * 0.5f);
+    float tmp2 = 1.0f / (rpldata->nearplane - rpldata->farplane);
+    rpldata->projmat[0][0] = -(tmp1 / rpldata->aspect);
+    rpldata->projmat[1][1] = tmp1;
+    rpldata->projmat[2][2] = (rpldata->nearplane + rpldata->farplane) * tmp2;
+    rpldata->projmat[3][2] = 2.0f * rpldata->nearplane * rpldata->farplane * tmp2;
 }
 
-static inline void r_gl_calcViewMat(void) {
-    static float up[3];
-    static float front[3];
-    static float rotradx, rotrady, rotradz;
-    rotradx = rendstate.camrot[0] * (float)M_PI / 180.0f;
-    rotrady = rendstate.camrot[1] * -(float)M_PI / 180.0f;
-    rotradz = rendstate.camrot[2] * (float)M_PI / 180.0f;
-    static float sinx, cosx;
-    static float siny, cosy;
-    static float sinz, cosz;
-    sinx = sinf(rotradx);
-    cosx = cosf(rotradx);
-    siny = sinf(rotrady);
-    cosy = cosf(rotrady);
-    sinz = sinf(rotradz);
-    cosz = cosf(rotradz);
-    up[0] = sinx * siny * cosz + cosy * sinz;
-    up[1] = cosx * cosz;
-    up[2] = -sinx * cosy * cosz + siny * sinz;
-    front[0] = cosx * -siny;
-    front[1] = sinx;
-    front[2] = cosx * cosy;
-    r_gl_data.viewmat[0][0] = front[1] * up[2] - front[2] * up[1];
-    r_gl_data.viewmat[1][0] = front[2] * up[0] - front[0] * up[2];
-    r_gl_data.viewmat[2][0] = front[0] * up[1] - front[1] * up[0];
-    r_gl_data.viewmat[3][0] = -(r_gl_data.viewmat[0][0] * rendstate.campos[0] + r_gl_data.viewmat[1][0] * rendstate.campos[1] + r_gl_data.viewmat[2][0] * rendstate.campos[2]);
-    r_gl_data.viewmat[0][1] = up[0];
-    r_gl_data.viewmat[1][1] = up[1];
-    r_gl_data.viewmat[2][1] = up[2];
-    r_gl_data.viewmat[3][1] = -(up[0] * rendstate.campos[0] + up[1] * rendstate.campos[1] + up[2] * rendstate.campos[2]);
-    r_gl_data.viewmat[0][2] = -front[0];
-    r_gl_data.viewmat[1][2] = -front[1];
-    r_gl_data.viewmat[2][2] = -front[2];
-    r_gl_data.viewmat[3][2] = front[0] * rendstate.campos[0] + front[1] * rendstate.campos[1] + front[2] * rendstate.campos[2];
+static inline void r_gl_calcViewMat(struct player* pldata, struct r_gl_playerdata* rpldata) {
+    float up[3];
+    float front[3];
+    {
+        float sinx = pldata->common.cameracalc.isin[0];
+        float siny = pldata->common.cameracalc.isin[1];
+        float sinz = pldata->common.cameracalc.isin[2];
+        float cosx = pldata->common.cameracalc.icos[0];
+        float cosy = pldata->common.cameracalc.icos[1];
+        float cosz = pldata->common.cameracalc.icos[2];
+        up[0] = sinx * siny * cosz + cosy * sinz;
+        up[1] = cosx * cosz;
+        up[2] = -sinx * cosy * cosz + siny * sinz;
+        front[0] = cosx * -siny;
+        front[1] = sinx;
+        front[2] = cosx * cosy;
+    }
+    float pos[3];
+    pos[0] = pldata->common.cameracalc.pos.pos[0];
+    pos[1] = pldata->common.cameracalc.pos.pos[1];
+    pos[2] = pldata->common.cameracalc.pos.pos[2];
+    rpldata->viewmat[0][0] = front[1] * up[2] - front[2] * up[1];
+    rpldata->viewmat[1][0] = front[2] * up[0] - front[0] * up[2];
+    rpldata->viewmat[2][0] = front[0] * up[1] - front[1] * up[0];
+    rpldata->viewmat[3][0] = -(rpldata->viewmat[0][0] * pos[0] + rpldata->viewmat[1][0] * pos[1] + rpldata->viewmat[2][0] * pos[2]);
+    rpldata->viewmat[0][1] = up[0];
+    rpldata->viewmat[1][1] = up[1];
+    rpldata->viewmat[2][1] = up[2];
+    rpldata->viewmat[3][1] = -(up[0] * pos[0] + up[1] * pos[1] + up[2] * pos[2]);
+    rpldata->viewmat[0][2] = -front[0];
+    rpldata->viewmat[1][2] = -front[1];
+    rpldata->viewmat[2][2] = -front[2];
+    rpldata->viewmat[3][2] = front[0] * pos[0] + front[1] * pos[1] + front[2] * pos[2];
 }
 
-static void r_gl_updateFrame(void) {
+static inline void r_gl_initPlayerData(struct r_gl_playerdata* pldata) {
+    pldata->valid = true;
+    pldata->projmat[0][1] = 0.0f;
+    pldata->projmat[0][2] = 0.0f;
+    pldata->projmat[0][3] = 0.0f;
+    pldata->projmat[1][0] = 0.0f;
+    pldata->projmat[1][2] = 0.0f;
+    pldata->projmat[1][3] = 0.0f;
+    pldata->projmat[2][0] = 0.0f;
+    pldata->projmat[2][1] = 0.0f;
+    pldata->projmat[2][3] = -1.0f;
+    pldata->projmat[3][0] = 0.0f;
+    pldata->projmat[3][1] = 0.0f;
+    pldata->projmat[3][3] = 0.0f;
+    pldata->viewmat[0][3] = 0.0f;
+    pldata->viewmat[1][3] = 0.0f;
+    pldata->viewmat[2][3] = 0.0f;
+    pldata->viewmat[3][3] = 1.0f;
+    char* tmp = cfg_getvar(&config, "Renderer", "gl.near");
+    if (tmp) {
+        pldata->nearplane = atof(tmp);
+        free(tmp);
+    } else {
+        pldata->nearplane = 0.1f;
+    }
+    tmp = cfg_getvar(&config, "Renderer", "gl.far");
+    if (tmp) {
+        pldata->farplane = atof(tmp);
+        free(tmp);
+    } else {
+        pldata->farplane = 100.0f;
+    }
+}
+static inline void r_gl_freePlayerData(struct r_gl_playerdata* pldata) {
+    pldata->valid = false;
+}
+static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata* out) {
+    r_gl_calcViewMat(pl, out);
+    if (r_gl_data.updateframe || pl->screen.changed.dim) {
+        out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+        r_gl_calcProjMat(pl, out);
+    }
+}
+
+static void r_gl_updatePlayerData(void) {
+    register unsigned syncmax;
+    if (playerdata.len > r_gl_data.playerdata.len) {
+        syncmax = r_gl_data.playerdata.len;
+        VLB_EXPANDTO(r_gl_data.playerdata, playerdata.len, 3, 2, VLB_OOM_NOP);
+        for (register unsigned i = syncmax; i < r_gl_data.playerdata.len; ++i) {
+            r_gl_initPlayerData(&r_gl_data.playerdata.data[i]);
+            r_gl_syncPlayerData(&playerdata.data[i], &r_gl_data.playerdata.data[i]);
+        }
+    } else if (playerdata.len < r_gl_data.playerdata.len) {
+        syncmax = playerdata.len;
+        for (register unsigned i = playerdata.len; i < r_gl_data.playerdata.len; ++i) {
+            r_gl_freePlayerData(&r_gl_data.playerdata.data[i]);
+        }
+        r_gl_data.playerdata.len = playerdata.len;
+        VLB_SHRINK(r_gl_data.playerdata, VLB_OOM_NOP);
+    } else {
+        syncmax = r_gl_data.playerdata.len;
+    }
+    for (register unsigned i = 0; i < syncmax; ++i) {
+        if (playerdata.data[i].priv.username) {
+            if (!r_gl_data.playerdata.data[i].valid) r_gl_initPlayerData(&r_gl_data.playerdata.data[i]);
+            r_gl_syncPlayerData(&playerdata.data[i], &r_gl_data.playerdata.data[i]);
+        } else {
+            if (r_gl_data.playerdata.data[i].valid) r_gl_freePlayerData(&r_gl_data.playerdata.data[i]);
+        }
+    }
+}
+
+void r_gl_updateFrame(void) {
     glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
-    r_gl_calcProjMat();
+    r_gl_data.updateframe = 1;
 }
 
-static void r_gl_updateVSync(void) {
+void r_gl_updateVSync(void) {
     #ifndef PSRC_USESDL1
     if (rendstate.vsync) {
         if (SDL_GL_SetSwapInterval(-1) == -1) SDL_GL_SetSwapInterval(1);
@@ -233,12 +320,13 @@ static void r_gl_rendermodel_legacy(struct p3m* m, struct p3m_vertex** transvert
 }
 #if 0
 static void r_gl_render_legacy(void) {
+    r_gl_updatePlayerData();
+
     r_gl_clearScreen();
 
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixf((float*)r_gl_data.projmat);
     glMatrixMode(GL_MODELVIEW);
-    r_gl_calcViewMat();
     glLoadMatrixf((float*)r_gl_data.viewmat);
 
     if (rendstate.lighting >= 1) {
@@ -272,9 +360,13 @@ static void r_gl_render_legacy(void) {
     glLoadIdentity();
 
     // TODO: render UI
+
+    glFinish();
 }
 #else
 static void r_gl_render_legacy(void) {
+    r_gl_updatePlayerData();
+
     long lt = SDL_GetTicks();
     double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
@@ -299,248 +391,258 @@ static void r_gl_render_legacy(void) {
         glDepthRange(0.9, 0.5);
     }
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf((float*)r_gl_data.projmat);
-    glMatrixMode(GL_MODELVIEW);
-    r_gl_calcViewMat();
-    glLoadMatrixf((float*)r_gl_data.viewmat);
+    for (unsigned pli = 0; pli < r_gl_data.playerdata.len; ++pli) {
 
-    glDepthMask(GL_TRUE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
+        struct r_gl_playerdata* rpldata = &r_gl_data.playerdata.data[pli];
 
-    float z = 2.0f;
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf((float*)rpldata->projmat);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixf((float*)rpldata->viewmat);
 
-    // opaque geometry
-    glBegin(GL_QUADS);
-        #if 1
-        glColor3f(tsini, tcosn, tsinn);
-        glVertex3f(-1.0f, 1.0f, z);
-        glColor3f(tcosi, tsini, tcosn);
-        glVertex3f(-1.0f, -1.0f, z);
-        glColor3f(tsinn, tcosi, tsini);
-        glVertex3f(1.0f, -1.0f, z);
-        glColor3f(tcosn, tsinn, tcosi);
-        glVertex3f(1.0f, 1.0f, z);
+        glDepthMask(GL_TRUE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+
+        float z = 2.0f;
+
+        // opaque geometry
+        glBegin(GL_QUADS);
+            #if 1
+            glColor3f(tsini, tcosn, tsinn);
+            glVertex3f(-1.0f, 1.0f, z);
+            glColor3f(tcosi, tsini, tcosn);
+            glVertex3f(-1.0f, -1.0f, z);
+            glColor3f(tsinn, tcosi, tsini);
+            glVertex3f(1.0f, -1.0f, z);
+            glColor3f(tcosn, tsinn, tcosi);
+            glVertex3f(1.0f, 1.0f, z);
+            #endif
+            glColor3f(1.0f, 0.0f, 0.0f);
+            glVertex3f(-0.5f, 0.5f, z);
+            glColor3f(0.5f, 1.0f, 0.0f);
+            glVertex3f(-0.5f, -0.5f, z);
+            glColor3f(0.0f, 1.0f, 1.0f);
+            glVertex3f(0.5f, -0.5f, z);
+            glColor3f(0.5f, 0.0f, 1.0f);
+            glVertex3f(0.5f, 0.5f, z);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-1.0f, 0.025f + tsin2, z);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-1.0f, -0.025f + tsin2, z);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(1.0f, -0.025f + tsin2, z);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(1.0f, 0.025f + tsin2, z);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex3f(-0.025f + tsin, 1.0f, z);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex3f(-0.025f + tsin, -1.0f, z);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex3f(0.025f + tsin, -1.0f, z);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex3f(0.025f + tsin, 1.0f, z);
+            glColor3f(0.0f, 0.5f, 0.0f);
+            glVertex3f(-0.5f, -1.0f, z);
+            glColor3f(0.0f, 0.5f, 0.0f);
+            glVertex3f(-0.5f, -1.0f, z - 1.0f);
+            glColor3f(0.0f, 0.5f, 0.0f);
+            glVertex3f(0.5f, -1.0f, z - 1.0f);
+            glColor3f(0.0f, 0.5f, 0.0f);
+            glVertex3f(0.5f, -1.0f, z);
+        glEnd();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+
+        if (testmodel) r_gl_rendermodel_legacy(&testmodel->model, NULL);
+
+        glDepthMask(GL_FALSE);
+        glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+
+        // lightmaps
+        glBegin(GL_QUADS);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glVertex3f(-1.0f, 1.0f, z);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(-1.0f, -1.0f, z);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(1.0f, -1.0f, z);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(1.0f, 1.0f, z);
+        glEnd();
+
+        if (!r_gl_data.fastclear) glDepthRange(1.0, 1.0);
+        else if (r_gl_data.gl11.oddframe) glDepthRange(0.5, 0.5);
+        else glDepthRange(0.5, 0.5);
+
+        rpldata->viewmat[3][0] = 0.0f;
+        rpldata->viewmat[3][1] = 0.0f;
+        rpldata->viewmat[3][2] = 0.0f;
+        glLoadMatrixf((float*)rpldata->viewmat);
+
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+
+        // skybox
+        glBegin(GL_QUADS);
+            // top
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+            // bottom
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+            // front
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+            // back
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+            // left
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tsinn);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tcosn);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+            // right
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+            glColor3f(0.0f, 0.0f, tsini);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(0.0f, 0.0f, tcosi);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+        glEnd();
+
+        {
+            //float s = r_gl_data.nearplane * 100.0f;
+            const float s = 25.0f;
+            glScalef(s, s, s);
+        }
+
+        glDepthMask(GL_FALSE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glEnable(GL_BLEND);
+
+        // clouds
+        static const float cloudheight[2] = {0.1, 0.1};
+        glBegin(GL_QUADS);
+            // top
+            glColor4f(0.0f, tcosn, 0.0f, 0.25f);
+            glVertex3f(-1.0f, cloudheight[0], -1.0f);
+            glColor4f(0.0f, tsinn, 0.0f, 0.25f);
+            glVertex3f(-1.0f, cloudheight[0], 1.0f);
+            glColor4f(0.0f, tcosi, 0.0f, 0.25f);
+            glVertex3f(1.0f, cloudheight[0], 1.0f);
+            glColor4f(0.0f, tsini, 0.0f, 0.25f);
+            glVertex3f(1.0f, cloudheight[0], -1.0f);
+            // bottom
+            glColor4f(tcosn, 0.0f, 0.0f, 0.25f);
+            glVertex3f(-1.0f, cloudheight[1], -1.0f);
+            glColor4f(tcosi, 0.0f, 0.0f, 0.25f);
+            glVertex3f(-1.0f, cloudheight[1], 1.0f);
+            glColor4f(tsinn, 0.0f, 0.0f, 0.25f);
+            glVertex3f(1.0f, cloudheight[1], 1.0f);
+            glColor4f(tsini, 0.0f, 0.0f, 0.25f);
+            glVertex3f(1.0f, cloudheight[1], -1.0f);
+        glEnd();
+
+        if (!r_gl_data.fastclear) glDepthRange(0.0, 0.1);
+        else if (r_gl_data.gl11.oddframe) glDepthRange(0.0, 0.1);
+        else glDepthRange(1.0, 0.9);
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        glDepthMask(GL_TRUE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_CULL_FACE);
+
+        // ui
+        #if DEBUG(1)
+        glBegin(GL_QUADS);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-0.9f, 0.9f, 0.0f);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-0.9f, 0.85f, 0.0f);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-0.1f, 0.85f, 0.0f);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glVertex3f(-0.1f, 0.9f, 0.0f);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(-0.89f, 0.89f, 0.0f);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(-0.89f, 0.86f, 0.0f);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(-0.11f, 0.86f, 0.0f);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glVertex3f(-0.11f, 0.89f, 0.0f);
+            int e = 10000 - rendstate.dbgprof->percent[-1];
+            for (int i = rendstate.dbgprof->pointct - 1; i >= 0; --i) {
+                float rgb[3];
+                rgb[0] = rendstate.dbgprof->colors[i].r / 255.0f;
+                rgb[1] = rendstate.dbgprof->colors[i].g / 255.0f;
+                rgb[2] = rendstate.dbgprof->colors[i].b / 255.0f;
+                float p = -0.89f + e / 10000.f * 0.78f;
+                glColor3f(rgb[0], rgb[1], rgb[2]);
+                glVertex3f(-0.89f, 0.89f, 0.0f);
+                glColor3f(rgb[0], rgb[1], rgb[2]);
+                glVertex3f(-0.89f, 0.86f, 0.0f);
+                glColor3f(rgb[0], rgb[1], rgb[2]);
+                glVertex3f(p, 0.86f, 0.0f);
+                glColor3f(rgb[0], rgb[1], rgb[2]);
+                glVertex3f(p, 0.89f, 0.0f);
+                e -= rendstate.dbgprof->percent[i];
+            }
+        glEnd();
         #endif
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glVertex3f(-0.5f, 0.5f, z);
-        glColor3f(0.5f, 1.0f, 0.0f);
-        glVertex3f(-0.5f, -0.5f, z);
-        glColor3f(0.0f, 1.0f, 1.0f);
-        glVertex3f(0.5f, -0.5f, z);
-        glColor3f(0.5f, 0.0f, 1.0f);
-        glVertex3f(0.5f, 0.5f, z);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-1.0f, 0.025f + tsin2, z);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-1.0f, -0.025f + tsin2, z);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(1.0f, -0.025f + tsin2, z);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(1.0f, 0.025f + tsin2, z);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glVertex3f(-0.025f + tsin, 1.0f, z);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glVertex3f(-0.025f + tsin, -1.0f, z);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glVertex3f(0.025f + tsin, -1.0f, z);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glVertex3f(0.025f + tsin, 1.0f, z);
-        glColor3f(0.0f, 0.5f, 0.0f);
-        glVertex3f(-0.5f, -1.0f, z);
-        glColor3f(0.0f, 0.5f, 0.0f);
-        glVertex3f(-0.5f, -1.0f, z - 1.0f);
-        glColor3f(0.0f, 0.5f, 0.0f);
-        glVertex3f(0.5f, -1.0f, z - 1.0f);
-        glColor3f(0.0f, 0.5f, 0.0f);
-        glVertex3f(0.5f, -1.0f, z);
-    glEnd();
 
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
-
-    if (testmodel) r_gl_rendermodel_legacy(&testmodel->model, NULL);
-
-    glDepthMask(GL_FALSE);
-    glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-
-    // lightmaps
-    glBegin(GL_QUADS);
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glVertex3f(-1.0f, 1.0f, z);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(-1.0f, -1.0f, z);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(1.0f, -1.0f, z);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(1.0f, 1.0f, z);
-    glEnd();
-
-    if (!r_gl_data.fastclear) glDepthRange(1.0, 1.0);
-    else if (r_gl_data.gl11.oddframe) glDepthRange(0.5, 0.5);
-    else glDepthRange(0.5, 0.5);
-
-    r_gl_data.viewmat[3][0] = 0.0f;
-    r_gl_data.viewmat[3][1] = 0.0f;
-    r_gl_data.viewmat[3][2] = 0.0f;
-    glLoadMatrixf((float*)r_gl_data.viewmat);
-
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-    glDisable(GL_BLEND);
-
-    // skybox
-    glBegin(GL_QUADS);
-        // top
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, 1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, 1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, 1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, 1.0f, -1.0f);
-        // bottom
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, -1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, -1.0f, 1.0f);
-        // front
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, 1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, -1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, -1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, 1.0f, 1.0f);
-        // back
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, 1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, 1.0f, -1.0f);
-        // left
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, 1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tsinn);
-        glVertex3f(-1.0f, -1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tcosn);
-        glVertex3f(-1.0f, 1.0f, 1.0f);
-        // right
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, 1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, -1.0f, 1.0f);
-        glColor3f(0.0f, 0.0f, tsini);
-        glVertex3f(1.0f, -1.0f, -1.0f);
-        glColor3f(0.0f, 0.0f, tcosi);
-        glVertex3f(1.0f, 1.0f, -1.0f);
-    glEnd();
-
-    {
-        float s = r_gl_data.nearplane * 100.0f;
-        glScalef(s, s, s);
     }
 
-    glDepthMask(GL_FALSE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    glEnable(GL_BLEND);
-
-    // clouds
-    static const float cloudheight[2] = {0.1, 0.1};
-    glBegin(GL_QUADS);
-        // top
-        glColor4f(0.0f, tcosn, 0.0f, 0.25f);
-        glVertex3f(-1.0f, cloudheight[0], -1.0f);
-        glColor4f(0.0f, tsinn, 0.0f, 0.25f);
-        glVertex3f(-1.0f, cloudheight[0], 1.0f);
-        glColor4f(0.0f, tcosi, 0.0f, 0.25f);
-        glVertex3f(1.0f, cloudheight[0], 1.0f);
-        glColor4f(0.0f, tsini, 0.0f, 0.25f);
-        glVertex3f(1.0f, cloudheight[0], -1.0f);
-        // bottom
-        glColor4f(tcosn, 0.0f, 0.0f, 0.25f);
-        glVertex3f(-1.0f, cloudheight[1], -1.0f);
-        glColor4f(tcosi, 0.0f, 0.0f, 0.25f);
-        glVertex3f(-1.0f, cloudheight[1], 1.0f);
-        glColor4f(tsinn, 0.0f, 0.0f, 0.25f);
-        glVertex3f(1.0f, cloudheight[1], 1.0f);
-        glColor4f(tsini, 0.0f, 0.0f, 0.25f);
-        glVertex3f(1.0f, cloudheight[1], -1.0f);
-    glEnd();
-
-    if (!r_gl_data.fastclear) glDepthRange(0.0, 0.1);
-    else if (r_gl_data.gl11.oddframe) glDepthRange(0.0, 0.1);
-    else glDepthRange(1.0, 0.9);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glDepthMask(GL_TRUE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_CULL_FACE);
-
-    // ui
-    #if DEBUG(1)
-    glBegin(GL_QUADS);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-0.9f, 0.9f, 0.0f);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-0.9f, 0.85f, 0.0f);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-0.1f, 0.85f, 0.0f);
-        glColor3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(-0.1f, 0.9f, 0.0f);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(-0.89f, 0.89f, 0.0f);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(-0.89f, 0.86f, 0.0f);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(-0.11f, 0.86f, 0.0f);
-        glColor3f(0.5f, 0.5f, 0.5f);
-        glVertex3f(-0.11f, 0.89f, 0.0f);
-        int e = 10000 - rendstate.dbgprof->percent[-1];
-        for (int i = rendstate.dbgprof->pointct - 1; i >= 0; --i) {
-            float rgb[3];
-            rgb[0] = rendstate.dbgprof->colors[i].r / 255.0f;
-            rgb[1] = rendstate.dbgprof->colors[i].g / 255.0f;
-            rgb[2] = rendstate.dbgprof->colors[i].b / 255.0f;
-            float p = -0.89f + e / 10000.f * 0.78f;
-            glColor3f(rgb[0], rgb[1], rgb[2]);
-            glVertex3f(-0.89f, 0.89f, 0.0f);
-            glColor3f(rgb[0], rgb[1], rgb[2]);
-            glVertex3f(-0.89f, 0.86f, 0.0f);
-            glColor3f(rgb[0], rgb[1], rgb[2]);
-            glVertex3f(p, 0.86f, 0.0f);
-            glColor3f(rgb[0], rgb[1], rgb[2]);
-            glVertex3f(p, 0.89f, 0.0f);
-            e -= rendstate.dbgprof->percent[i];
-        }
-    glEnd();
-    #endif
+    glFinish();
 }
 #endif
 #endif
 
 #if defined(PSRC_ENGINE_RENDERER_GL_USEGL33) || defined(PSRC_ENGINE_RENDERER_GL_USEGLES30)
 static void r_gl_render_advanced(void) {
+    r_gl_updatePlayerData();
+
     if (r_gl_data.fastclear) {
         glClear(GL_DEPTH_BUFFER_BIT);
     } else {
@@ -570,57 +672,42 @@ static void r_gl_render_advanced(void) {
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
 
-
     // TODO: render UI
+
+    glFinish();
 }
 #endif
 
-static void r_gl_render(void) {
-    switch (rendstate.api) {
-        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
-        case RENDAPI_GL11:
-            r_gl_render_legacy();
-            break;
-        #endif
-        #if defined(PSRC_ENGINE_RENDERER_GL_USEGL33) || defined(PSRC_ENGINE_RENDERER_GL_USEGLES30)
-        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
-        case RENDAPI_GL33:
-        #endif
-        #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
-        case RENDAPI_GLES30:
-        #endif
-            r_gl_render_advanced();
-            break;
-        #endif
-        default:
-            break;
-    }
-    glFinish();
-}
-
-static void* r_gl_takeScreenshot(int* w, int* h, int* s) {
-    if (w) *w = rendstate.res.current.width;
-    if (h) *h = rendstate.res.current.height;
-    int linesz = rendstate.res.current.width * 3;
-    int framesz = linesz * rendstate.res.current.height;
-    if (s) *s = framesz;
+void* r_gl_takeScreenshot(unsigned* w, unsigned* h, unsigned* c) {
+    size_t linesz = rendstate.res.current.width * 3;
+    size_t framesz = linesz * rendstate.res.current.height;
     uint8_t* line = rcmgr_malloc(linesz);
+    if (!line) return NULL;
     uint8_t* frame = rcmgr_malloc(framesz);
+    if (!frame) {
+        free(line);
+        return NULL;
+    }
     uint8_t* top = frame;
     uint8_t* bottom = &frame[linesz * (rendstate.res.current.height - 1)];
     glReadPixels(0, 0, rendstate.res.current.width, rendstate.res.current.height, GL_RGB, GL_UNSIGNED_BYTE, frame);
-    for (int i = 0; i < rendstate.res.current.height / 2; ++i) {
+    register unsigned m = rendstate.res.current.height / 2;
+    for (register unsigned i = 0; i < m; ++i) {
         memcpy(line, top, linesz);
         memcpy(top, bottom, linesz);
         memcpy(bottom, line, linesz);
         top += linesz;
         bottom -= linesz;
     }
+    free(line);
+    *w = rendstate.res.current.width;
+    *h = rendstate.res.current.height;
+    *c = 3;
     return frame;
 }
 
 #define SDL_GL_SetAttribute(a, v) if (SDL_GL_SetAttribute((a), (v))) plog(LL_WARN, "Failed to set " #a " to " #v ": %s", SDL_GetError())
-static bool r_gl_beforeCreateWindow(unsigned* f) {
+bool r_gl_beforeCreateWindow(unsigned* f) {
     switch (rendstate.api) {
         #if PLATFORM != PLAT_EMSCR && !defined(PSRC_USESDL1)
             #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
@@ -676,7 +763,7 @@ static bool r_gl_beforeCreateWindow(unsigned* f) {
     return true;
 }
 
-static bool r_gl_afterCreateWindow(void) {
+bool r_gl_afterCreateWindow(void) {
     #ifndef PSRC_USESDL1
         r_gl_data.ctx = SDL_GL_CreateContext(rendstate.window);
         if (!r_gl_data.ctx) {
@@ -798,20 +885,6 @@ static bool r_gl_afterCreateWindow(void) {
     if (cond[0]) {
         plog(LL_INFO, "  Depth buffer format: D%d", tmpint[0]);
     }
-    tmpstr = cfg_getvar(&config, "Renderer", "gl.near");
-    if (tmpstr) {
-        r_gl_data.nearplane = atof(tmpstr);
-        free(tmpstr);
-    } else {
-        r_gl_data.nearplane = 0.1f;
-    }
-    tmpstr = cfg_getvar(&config, "Renderer", "gl.far");
-    if (tmpstr) {
-        r_gl_data.farplane = atof(tmpstr);
-        free(tmpstr);
-    } else {
-        r_gl_data.farplane = 100.0f;
-    }
     tmpstr = cfg_getvar(&config, "Renderer", "gl.fastclear");
     #if DEBUG(1) || PLATFORM == PLAT_EMSCR
         // makes debugging easier
@@ -820,13 +893,6 @@ static bool r_gl_afterCreateWindow(void) {
         r_gl_data.fastclear = strbool(tmpstr, true);
     #endif
     free(tmpstr);
-    return true;
-}
-
-static bool r_gl_prepRenderer(void) {
-    #if GL_KHR_debug
-        if (glDebugMessageCallback) glDebugMessageCallback(r_gl_dbgcb, NULL);
-    #endif
     glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
     r_gl_updateFrame();
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -837,7 +903,36 @@ static bool r_gl_prepRenderer(void) {
     return true;
 }
 
-static void r_gl_beforeDestroyWindow(void) {
+bool r_gl_prepRenderer(void) {
+    switch (rendstate.api) {
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
+        case RENDAPI_GL11:
+            r_gl_render = r_gl_render_legacy;
+            break;
+        #endif
+        #if defined(PSRC_ENGINE_RENDERER_GL_USEGL33) || defined(PSRC_ENGINE_RENDERER_GL_USEGLES30)
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
+        case RENDAPI_GL33:
+        #endif
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGLES30
+        case RENDAPI_GLES30:
+        #endif
+            r_gl_render = r_gl_render_advanced;
+            break;
+        #endif
+        default:
+            break;
+    }
+    VLB_INIT(r_gl_data.playerdata, 1, VLB_OOM_NOP);
+    testmodel = getRc(RC_MODEL, "game:test/test_model", NULL, 0, NULL);
+    #if GL_KHR_debug
+        if (glDebugMessageCallback) glDebugMessageCallback(r_gl_dbgcb, NULL);
+    #endif
+    return true;
+}
+
+void r_gl_beforeDestroyWindow(void) {
+    if (testmodel) rlsRc(testmodel, false);
     #ifndef PSRC_USESDL1
         if (r_gl_data.ctx) SDL_GL_DeleteContext(r_gl_data.ctx);
     #endif

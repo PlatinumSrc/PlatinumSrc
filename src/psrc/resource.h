@@ -3,6 +3,7 @@
 
 #include "string.h"
 #include "versioning.h"
+#include "platform.h"
 
 #include "common/config.h"
 #include "common/pbasic.h"

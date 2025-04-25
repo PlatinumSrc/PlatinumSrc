@@ -7,6 +7,8 @@
 #include "../platform.h"
 #include "../vlb.h"
 
+#include "../common/world.h"
+
 #ifdef PSRC_USESTBVORBIS
     #include "../../stb/stb_vorbis.h"
 #endif
@@ -74,7 +76,7 @@ struct audiofx {
 #define AUDIO3DFXMASK_RELROT (1 << 7)
 #define AUDIO3DFXMASK_ALL (-1U)
 struct audio3dfx {
-    float pos[3];
+    struct worldcoord pos;
     float range;
     float radius[3];
     float voldamp;
@@ -95,6 +97,7 @@ struct audiocalcfx {
 #define AUDIOEMITTER3DFLAG_PAUSED (1 << 0)
 #define AUDIOEMITTER3DFLAG_NOENV (1 << 1)
 struct audioemitter3d {
+    unsigned player;
     struct audiofx fx;
     struct audio3dfx fx3d;
     struct {
@@ -115,6 +118,7 @@ struct audioemitter3d {
 #define AUDIOEMITTER2DFLAG_PAUSED (1 << 0)
 #define AUDIOEMITTER2DFLAG_APPLYENV (1 << 1)
 struct audioemitter2d {
+    unsigned player;
     struct audiofx fx;
     unsigned cursounds;
     unsigned maxsounds;
@@ -180,18 +184,20 @@ struct audiosound {
     };
 };
 
-#define AUDIOENVMASK_LPFILT (1 << 0)
-#define AUDIOENVMASK_HPFILT (1 << 1)
-#define AUDIOENVMASK_REVERB_DELAY (1 << 2)
-#define AUDIOENVMASK_REVERB_MIX (1 << 3)
-#define AUDIOENVMASK_REVERB_FEEDBACK (1 << 4)
-#define AUDIOENVMASK_REVERB_MERGE (1 << 5)
-#define AUDIOENVMASK_REVERB_LPFILT (1 << 6)
-#define AUDIOENVMASK_REVERB_HPFILT (1 << 7)
+#define AUDIOENVMASK_PANNING (1 << 0)
+#define AUDIOENVMASK_LPFILT (1 << 1)
+#define AUDIOENVMASK_HPFILT (1 << 2)
+#define AUDIOENVMASK_REVERB_DELAY (1 << 3)
+#define AUDIOENVMASK_REVERB_MIX (1 << 4)
+#define AUDIOENVMASK_REVERB_FEEDBACK (1 << 5)
+#define AUDIOENVMASK_REVERB_MERGE (1 << 6)
+#define AUDIOENVMASK_REVERB_LPFILT (1 << 7)
+#define AUDIOENVMASK_REVERB_HPFILT (1 << 8)
 #define AUDIOENVMASK_REVERB (AUDIOENVMASK_REVERB_DELAY | AUDIOENVMASK_REVERB_FEEDBACK | AUDIOENVMASK_REVERB_MIX | \
                             AUDIOENVMASK_REVERB_MERGE | AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
 #define AUDIOENVMASK_ALL (-1U)
 struct audioenv {
+    float panning;
     float lpfilt;
     float hpfilt;
     struct {
@@ -222,7 +228,43 @@ struct audioreverbstate {
     unsigned filtdiv;
 };
 
-struct audiostate {
+struct audioenvstate {
+    uint16_t envch;
+    uint16_t envchimm;
+    float panning;
+    struct {
+        float amount;
+        uint8_t muli;
+        unsigned mul[2];
+        int lastout[2];
+    } lpfilt;
+    struct {
+        float amount;
+        uint8_t muli;
+        unsigned mul[2];
+        int lastout[2];
+        int lastin[2];
+    } hpfilt;
+    struct {
+        float delay;
+        float mix;
+        float feedback;
+        float merge;
+        float lpfilt;
+        float hpfilt;
+        struct audioreverbstate state;
+    } reverb;
+};
+
+struct audioplayerdata {
+    bool valid;
+    struct worldcoord pos;
+    float rotsin[3];
+    float rotcos[3];
+    struct audioenvstate env;
+};
+
+extern struct audiostate {
     #ifndef PSRC_NOMT
     struct accesslock lock;
     #endif
@@ -238,6 +280,7 @@ struct audiostate {
     float soundspeedmul;
     unsigned buflen;
     int* fxbuf[2]; // l/r
+    int* envbuf[2]; // l/r
     int* mixbuf[2]; // l/r
     unsigned decbuflen;
     unsigned outsize;
@@ -256,64 +299,35 @@ struct audiostate {
     struct VLB(struct audiosound) sounds2d;
     struct VLB(size_t) sounds2dorder;
     struct {
-        uint8_t envch;
-        uint8_t envchimm;
-        struct {
-            float amount;
-            uint8_t muli;
-            unsigned mul[2];
-            int lastout[2];
-        } lpfilt;
-        struct {
-            float amount;
-            uint8_t muli;
-            unsigned mul[2];
-            int lastout[2];
-            int lastin[2];
-        } hpfilt;
-        struct {
-            float delay;
-            float mix;
-            float feedback;
-            float merge;
-            float lpfilt;
-            float hpfilt;
-            struct audioreverbstate state;
-        } reverb;
-    } env;
-    struct {
-        float pos[3];
-        float rot[3];
-        float sin[3];
-        float cos[3];
-    } cam;
-};
-
-extern struct audiostate audiostate;
+        struct audioplayerdata* data;
+        unsigned len;
+        unsigned size;
+    } playerdata;
+} audiostate;
 
 bool initAudio(void);
 bool startAudio(void);
 void updateAudioConfig(enum audioopt, ...);
-void updateAudio(float framemult);
+void updateAudio(float framemult); // assumes playerdata has already been locked by the caller
 void stopAudio(void);
 bool restartAudio(void);
 void quitAudio(bool quick);
 
-int new3DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*);
+int new3DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*);
 void edit3DAudioEmitter(int, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*, unsigned immfxmask);
 void stop3DAudioEmitter(int);
 void delete3DAudioEmitter(int);
 bool play3DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play3DSoundCB(...);
 
-int new2DAudioEmitter(int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*);
+int new2DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*);
 void edit2DAudioEmitter(int, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned immfxmask);
 void stop2DAudioEmitter(int);
 void delete2DAudioEmitter(int);
 bool play2DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play2DSoundCB(...);
 
-void setAudioEnv(unsigned mask, struct audioenv*, unsigned immmask);
+void setAudioEnv(unsigned pl, unsigned mask, struct audioenv*, unsigned immmask);
 
 void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
 void setMusicStyle(const char*);

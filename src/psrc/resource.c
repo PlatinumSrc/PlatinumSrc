@@ -6,6 +6,9 @@
 
 #include "common.h"
 #include "debug.h"
+#if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #include "vlb.h"
+#endif
 
 #include "logging.h"
 #include "filesystem.h"
@@ -264,8 +267,8 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
     struct charbuf cb;
     cb_init(&cb, 256);
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    struct membuf dirbmp;
-    mb_init(&dirbmp, 8 * (mods.len + 1));
+    struct VLB(uint8_t) dirbmp;
+    VLB_INIT(dirbmp, 8 * (mods.len + 1), VLB_OOM_NOP /* TODO */);
     #endif
     bool ret = false;
     int dirind = 0;
@@ -378,7 +381,12 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
             f->namecrc = crc;
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
             f->dirbits = (uint8_t*)(uintptr_t)dirbmp.len;
-            mb_putz(&dirbmp, (mods.len + 8) / 8);
+            {
+                size_t oldlen = dirbmp.len;
+                size_t amount = (mods.len + 8) / 8;
+                VLB_EXPAND(dirbmp, amount, 2, 1, VLB_OOM_NOP /* TODO */);
+                memset(dirbmp.data + oldlen, 0, amount);
+            }
             ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
             #endif
             //printf("[%d]: [%d]: {%s}\n", fi, ind, &cb.data[ol]);
@@ -416,7 +424,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
         }
     } else {
         #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        mb_dump(&dirbmp);
+        VLB_FREE(dirbmp);
         #endif
         cb_dump(&cb);
     }
@@ -1181,21 +1189,19 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 if (!data) goto fail;
                 if (o->needsalpha && c == 3) {
                     c = 4;
-                    data = rcmgr_realloc(data, w * h * 4);
-                    register unsigned y = h - 1;
+                    {
+                        void* tmp = rcmgr_realloc(data, w * h * 4);
+                        if (!tmp) {free(data); goto fail;}
+                        data = tmp;
+                    }
+                    uint8_t* srcptr = data + w * h * 3;
+                    uint8_t* dstptr = data + w * h * 4;
                     while (1) {
-                        register unsigned b1 = y * w * 4, b2 = y * w * 3;
-                        register unsigned x = w - 1;
-                        while (1) {
-                            data[b1 + x * 4 + 3] = 255;
-                            data[b1 + x * 4 + 2] = data[b2 + x * 3 + 2];
-                            data[b1 + x * 4 + 1] = data[b2 + x * 3 + 1];
-                            data[b1 + x * 4] = data[b2 + x * 3];
-                            if (!x) break;
-                            --x;
-                        }
-                        if (!y) break;
-                        --y;
+                        *--dstptr = 255;
+                        if (dstptr == srcptr) break;
+                        *--dstptr = *--srcptr;
+                        *--dstptr = *--srcptr;
+                        *--dstptr = *--srcptr;
                     }
                 }
             } else {
@@ -1224,20 +1230,22 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 if (w2 < 1) w2 = 1;
                 if (h2 < 1) h2 = 1;
                 uint8_t* data2 = rcmgr_malloc(w * h * c);
-                int status = stbir_resize_uint8_generic(
-                    data, w, h, 0,
-                    data2, w2, h2, 0,
-                    c, -1, 0,
-                    STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
-                    NULL
-                );
-                if (status) {
-                    free(data);
-                    w = w2;
-                    h = h2;
-                    data = data2;
-                } else {
-                    free(data2);
+                if (data2) {
+                    int status = stbir_resize_uint8_generic(
+                        data, w, h, 0,
+                        data2, w2, h2, 0,
+                        c, -1, 0,
+                        STBIR_EDGE_CLAMP, STBIR_FILTER_TRIANGLE, STBIR_COLORSPACE_LINEAR,
+                        NULL
+                    );
+                    if (status) {
+                        free(data);
+                        data = data2;
+                        w = w2;
+                        h = h2;
+                    } else {
+                        free(data2);
+                    }
                 }
             }
             rc = newRc(RC_TEXTURE);

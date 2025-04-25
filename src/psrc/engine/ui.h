@@ -348,14 +348,14 @@ void quitUI(void);
 
 size_t newUIElemContainer(size_t idtreedepth, const char** idtree, ... /* props */);
 size_t getUIElemContainer(size_t idtreedepth, const char** idtree);
-void rlsUIElemContainer(size_t);
 void editUIElemContainer(size_t, ... /* props */);
 void delUIElemContainer(size_t);
+void rlsUIElemContainer(size_t);
 
 size_t newUIElem(size_t container, const char* id, enum uielemtype, ... /* props */);
 size_t getUIElem(size_t container, const char* id);
+void editUIElem(size_t container, size_t, ... /* props */);
+void delUIElem(size_t container, size_t);
 void rlsUIElem(size_t container, size_t);
-void editUIElem(size_t, ... /* props */);
-void delUIElem(size_t);
 
 #endif
