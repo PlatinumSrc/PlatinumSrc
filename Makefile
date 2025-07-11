@@ -63,6 +63,7 @@ else ifeq ($(CROSS),win32)
     USESR := y
     USEGL := y
     USEGLAD := y
+    USESTATICSDL := y
 else ifeq ($(CROSS),emscr)
     ifeq ($(MODULE),engine)
     else ifneq ($(MODULE),editor)
@@ -361,7 +362,7 @@ ifneq ($(CROSS),nxdk)
             endif
         endif
         ifdef DEBUG
-            _LDFLAGS += -Wl,-R$(EXTDIR)/$(PLATFORM)/lib -Wl,-R$(EXTDIR)/lib
+            #_LDFLAGS += -Wl,-R$(EXTDIR)/$(PLATFORM)/lib -Wl,-R$(EXTDIR)/lib
         endif
         ifeq ($(NATIVE),y)
             _CFLAGS += -march=native -mtune=native
@@ -410,7 +411,9 @@ endif
 ifndef DEBUG
     _CPPFLAGS += -DNDEBUG=1
     ifneq ($(CROSS),nxdk)
-        _LDFLAGS += -Wl,--gc-sections
+        ifneq ($(NOGCSECTIONS),y)
+            _LDFLAGS += -Wl,--gc-sections
+        endif
     endif
     ifndef O
         O := 2
@@ -504,29 +507,39 @@ CFLAGS.lib.SDL :=
 CPPFLAGS.lib.SDL := -DSDL_MAIN_HANDLED
 LDLIBS.lib.SDL := 
 ifneq ($(USESDL1),y)
-    ifeq ($(CROSS),win32)
-        LDLIBS.lib.SDL += -l:libSDL2.a -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
-    else ifeq ($(CROSS),emscr)
+    ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL=2
         LDLIBS.lib.SDL += -sUSE_SDL=2
-    else ifeq ($(CROSS),3ds)
-        LDLIBS.lib.SDL += -lSDL2 -lm
-    else ifeq ($(CROSS),wii)
-        LDLIBS.lib.SDL += -lSDL2 -lwiiuse -lwiikeyboard -lbte -laesnd -lm
-    else ifeq ($(CROSS),gc)
-        LDLIBS.lib.SDL += -lSDL2 -laesnd -lm
-    else ifneq ($(CROSS),nxdk)
-        LDLIBS.lib.SDL += -lSDL2
+    else
+        ifeq ($(USESTATICSDL),y)
+            LDLIBS.lib.SDL += -l:libSDL2.a
+        else
+            LDLIBS.lib.SDL += -lSDL2
+        endif
+        ifeq ($(CROSS),win32)
+            LDLIBS.lib.SDL += -lole32 -loleaut32 -limm32 -lsetupapi -lversion -lgdi32 -lwinmm
+        else ifeq ($(CROSS),3ds)
+            LDLIBS.lib.SDL += -lm
+        else ifeq ($(CROSS),wii)
+            LDLIBS.lib.SDL += -lwiiuse -lwiikeyboard -lbte -laesnd -lm
+        else ifeq ($(CROSS),gc)
+            LDLIBS.lib.SDL += -laesnd -lm
+        endif
     endif
 else
     CPPFLAGS.lib.SDL += -DPSRC_USESDL1
-    ifeq ($(CROSS),win32)
-        LDLIBS.lib.SDL += -l:libSDL.a -liconv -luser32 -lgdi32 -lwinmm -ldxguid
-    else ifeq ($(CROSS),emscr)
+    ifeq ($(CROSS),emscr)
         CFLAGS.lib.SDL += -sUSE_SDL
         LDLIBS.lib.SDL += -sUSE_SDL
     else
-        LDLIBS.lib.SDL += -lSDL
+        ifeq ($(USESTATICSDL),y)
+            LDLIBS.lib.SDL += -l:libSDL.a
+        else
+            LDLIBS.lib.SDL += -lSDL
+        endif
+        ifeq ($(CROSS),win32)
+            LDLIBS.lib.SDL += -liconv -luser32 -lgdi32 -lwinmm -ldxguid
+        endif
     endif
 endif
 

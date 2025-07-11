@@ -121,6 +121,25 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Pass `USESDL1=y NOMT=y` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
+<details><summary><b>Building for older PowerPC MacOS using OSXCross</b></summary>
+
+- Download and set up the [OSXCross ppc-test branch](https://github.com/tpoechtrager/osxcross/tree/ppc-test)
+    - Instructions are in [README.PPC-GCC-5.5.0-SDK-10.5.md](https://github.com/tpoechtrager/osxcross/blob/ppc-test/README.PPC-GCC-5.5.0-SDK-10.5.md)
+    - An older Linux install or chroot may be needed. I had issues compiling on Arch and had to use my Debian 11 chroot.
+    - Using GCC 10.5.0 by setting `GCC_VERSION` to `10.5.0` in the "Build GCC" step is highly recommended. GCC 5.5.0 was not tested.
+    - If you want to target OSX 10.4, use the 10.4u SDK instead of 10.5. There will be versioning issues with libiconv otherwise.
+        - Extracting the libiconv dylib files from the 10.4u SDK and overriding the ones in the 10.5 SDK also works. Back in PlatinumSrc's directory, the Makefile tells the linker to look in `external/$(PLATFORM)/lib` and `external/lib` by default so this would be a good place to put them.
+- Download and compile [panther_sdl2](https://github.com/sezero/panther_sdl2)
+    - Configure with `./configure --disable-video-x11 --disable-joystick --disable-haptic --build=x86_64-unknown-linux-gnu --host=powerpc-apple-darwin9 CC=powerpc-apple-darwin9-gcc --prefix="$MYPREFIX"`
+        - Replace `$MYPREFIX` with or set it to a path where there is or can be an `include` and `lib` visible to the compiler and linker. For convenience, PlatinumSrc's Makefile adds `external/$(PLATFORM)/lib` and `external/lib` as header search paths, and as stated above, adds `external/$(PLATFORM)/lib` and `external/lib` as library search paths.
+    - Compile with `make -j$(nproc)`
+    - If you want to statically link SDL (recommended so you don't have to install the shared library on the Mac)
+        - Install with `make install-hdrs && make install-lib`
+        - Delete the .dylib files to force the linker to statically link SDL
+    - If you want to dynamically link SDL (not recommended)
+        - Install with `make install`
+- Pass `TOOLCHAIN=powerpc-apple-darwin9- CC=gcc NOGCSECTIONS=y USEGLAD=y LDLIBS+='-lobjc -liconv -framework CoreServices -framework Cocoa -framework Carbon -framework IOKit -framework CoreAudio -framework AudioToolbox -framework AudioUnit'` to the Makefile
+</details>
 <details><summary><b>Building for web browsers using Emscripten</b></summary>
 
 - Install GNU Make
@@ -202,11 +221,12 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - `ASAN` - Set to `y` to enable the address sanitizer \(requires `DEBUG` to be set\)
         - `NOSTRIP` - Set to `y` to not strip symbols
         - `NOLTO` - Set to `y` to disable link-time optimization \(ignored if `DEBUG` is set\)
+        - `NOGCSECTIONS` - Set to `y` to disable `-Wl,--gc-sections` \(ignored if `DEBUG` is set\)
         - `NOFASTMATH` - Set to `y` to disable `-ffast-math`
         - `NOSIMD` - Set to `y` to not use SIMD
         - `NOMT` - Set to `y` to disable multithreading
     - Features and backends
-        - `USESTDIODS` - Set to `y` to use fopen\(\), fread\(\), and fclose\(\) in place of open\(\), read\(\), and close\(\) in the datastream code
+        - `USESTDIODS` - Set to `y` to use `fopen()`, `fread()`, and `fclose()` in place of `open()`, `read()`, and `close()` in the datastream code
         - `USEDISCORDGAMESDK` - Set to `y` to include the Discord Game SDK
         - `USEGL` - Set to `y` to include OpenGL support
         - `USEGL11` - Set to `y` to include OpenGL 1.1 support
@@ -214,6 +234,8 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - `USEGLES30` - Set to `y` to include OpenGL ES 3.0 support
         - `USEGLAD` - Set to `y` to use glad instead of the system's GL library directly
         - `USEWEAKGL` - Set to `y` to mark `gl[A-Z]*` symbols as weak
+        - `USESDL1` - Set to `y` to use SDL 1.2.x instead of SDL 2.x
+        - `USESTATICSDL` - Set to `y` to statically link to SDL
         - `USEMINIMP3` - Set to `y` to include MiniMP3 for MP3 support
         - `USESTBVORBIS` - Set to `y` to include stb_vorbis for OGG Vorbis support
         - `USESTDTHREAD` - Set to `y` to use C11 threads

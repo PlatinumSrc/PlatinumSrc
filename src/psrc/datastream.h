@@ -127,7 +127,7 @@ static ALWAYSINLINE bool ds_atend(struct datastream* ds) {
 static inline size_t ds_read(FILE* f, size_t l, void* o) {return fread(o, 1, l, f);}
 static inline size_t ds_skip(FILE* f, size_t l) {size_t d = ftell(f); fseek(f, l, SEEK_CUR); return ftell(f) - d;}
 #define ds_getc fgetc
-#define ds_seek // TODO
+#define ds_seek do {} while (0) /* TODO */
 #define ds_atend feof
 #define ds_text_getc fgetc
 #define ds_text_getc_inline fgetc

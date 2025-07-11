@@ -1,8 +1,13 @@
 #include "time.h"
 
 #include <stddef.h>
-#include <time.h>
 #include <stdbool.h>
+#if PLATFORM != PLAT_MACOS
+    #include <time.h>
+#else
+    #include <mach/mach_time.h>
+    #include <CoreServices/CoreServices.h>
+#endif
 #if PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
 #endif
@@ -24,6 +29,10 @@ uint64_t altutime(void) {
         LARGE_INTEGER time;
         QueryPerformanceCounter(&time);
         return time.QuadPart * perfctmul / perfctfreq.QuadPart;
+    #elif PLATFORM == PLAT_MACOS
+        uint64_t time = mach_absolute_time();
+        Nanoseconds nsec = AbsoluteToNanoseconds(*(AbsoluteTime*)&time);
+        return (*(uint64_t*)&nsec) / 1000;
     #else
         struct timespec time;
         clock_gettime(CLOCK_MONOTONIC, &time);
@@ -45,6 +54,10 @@ void microwait(uint64_t d) {
         LARGE_INTEGER _d = {.QuadPart = d * -10};
         SetWaitableTimer(timer, &_d, 0, NULL, NULL, false);
         WaitForSingleObject(timer, INFINITE);
+    #elif PLATFORM == PLAT_MACOS
+        d *= 1000;
+        AbsoluteTime time = NanosecondsToAbsolute(*(Nanoseconds*)&d);
+        mach_wait_until(*(uint64_t*)&time);
     #else
         struct timespec dts;
         dts.tv_sec = d / 1000000;

@@ -29,7 +29,7 @@
             #define GLDBGCB
         #endif
     #else
-        #include "../../../glad/gl.h"
+        #include "../../glad/gl.h"
         #define GLDBGCB GLAD_API_PTR
     #endif
     #ifndef GL_KHR_debug

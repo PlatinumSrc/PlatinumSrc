@@ -27,6 +27,7 @@ PACKEDENUM uielemtype {
     UIELEMTYPE_MENUBAR,
     UIELEMTYPE_MENU,
     UIELEMTYPE_MEDIA,
+    UIELEMTYPE_MODELVIEWER,
     UIELEMTYPE_SEPARATOR,
     UIELEMTYPE__COUNT
 };
@@ -159,6 +160,18 @@ enum uielemprop {
     UIELEMPROP_MEDIA_SPEED, // double
     UIELEMPROP_MEDIA_VOL, // double
 
+    UIELEMPROP_MODELVIEWER_MODELS, // size_t ct, struct uielem_modelviewer_model*
+    UIELEMPROP_MODELVIEWER_MODEL_RC, // size_t i, struct rc_model*
+    UIELEMPROP_MODELVIEWER_MODEL_POS, // size_t i, float[3]
+    UIELEMPROP_MODELVIEWER_MODEL_ROT, // size_t i, float[3]
+    UIELEMPROP_MODELVIEWER_MODEL_SCALE, // size_t i, float[3]
+    UIELEMPROP_MODELVIEWER_MODEL_ANIM, // size_t i, char*
+    UIELEMPROP_MODELVIEWER_MODEL_LOOPANIM, // size_t i, unsigned
+    UIELEMPROP_MODELVIEWER_LIGHTING, // struct uielem_modelviewer_lighting*
+    UIELEMPROP_MODELVIEWER_OFFSET, // float[3]
+    UIELEMPROP_MODELVIEWER_ROTATION, // float[3]
+    UIELEMPROP_MODELVIEWER_ROTMODE, // enum uielem_modelviewer_rotmode
+
     UIELEMPROP_SEPARATOR_STYLE, // enum uielem_separator_style
 
     UIELEMPROP__COUNT
@@ -243,6 +256,25 @@ enum uielem_media_filtmode {
 enum uielem_separator_style {
     UIELEM_SEPARATOR_STYLE_GROOVE,
     UIELEM_SEPARATOR_STYLE_RIDGE
+};
+
+enum uielem_modelviewer_rotmode {
+    UIELEM_MODELVIEWER_ROTMODE_NONE,
+    UIELEM_MODELVIEWER_ROTMODE_X,
+    UIELEM_MODELVIEWER_ROTMODE_XY
+};
+struct uielem_modelviewer_model {
+    struct rc_model* model;
+    float pos[3];
+    float rot[3];
+    float scale[3];
+    char* animation;
+    bool loopanim;
+};
+struct uielem_modelviewer_lighting {
+    float direction[3];
+    uint32_t color;
+    uint32_t ambientcolor;
 };
 
 union uielemdata {

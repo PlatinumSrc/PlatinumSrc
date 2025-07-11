@@ -19,20 +19,27 @@ Format:
         <u8: Bone count> [Bone]...
         <u8: Animation count> [Animation]...
         <u8: Action count> [Action]...
+        <u8: User-defined field count> [User-defined field]...
         <char[1...]: String table {..., 0}>
 
         Part:
             <u8:
-                <7 bits: 0>
+                <6 bits: 0>
                 <1 bit: Has normals>
+                <1 bit: Has UVs>
             >
             <<String>: Name>
-            <u8: Material index>
-            <u16: Vertex count> [Vertex]... [ [Normal]... ]
+            <u8: Material index> <u8: Material override count> [Material override]...
+            <u16: Vertex count> [Vertex]... [ [UV]... ] [ [Normal]... ]
             <u16: Index count> [u16: Index]...
             <u8: Weight group count> [Weight group]...
+        Material override:
+            <<String>: Animation name>
+            <u8: Priority>
+            <u8: Material index>
         Vertex:
             <float[3]: Position XYZ>
+        UV:
             <float[2]: Texture UV>
         Normal:
             <float[3]: Normal XYZ>
@@ -46,15 +53,51 @@ Format:
 
         Material:
             <u8:
-                { P3M_MATRENDMODE_NORMAL
-                | P3M_MATRENDMODE_ADD }
+                <3 bits: 0>
+                <1 bit: Animated>
+                <4 bits:
+                    { P3M_MATRENDMODE_NORMAL
+                    | P3M_MATRENDMODE_ADD }
+                >
             >
-            <u8: Texture index (0xFF for none)>
+            { <Material data>
+            | <Animated material data> }
+        Material data:
             <u8[4]: RGBA color>
             <u8[3]: RGB emission>
             <u8: Shading>
-            <u8: Shine>
-            <u8: Matcap texture undex (0xFF for none)>
+            <u8: Texture index (0xFF for none)>
+            <u8: Matcap texture index (0xFF for none)>
+        Animated material data:
+            <u32: Microseconds per frame>
+            <u8:
+                { P3M_MATLOOP_NONE
+                | P3M_MATLOOP_LOOP
+                | P3M_MATLOOP_CONT }
+            >
+            <<Material data>: Initial values>
+            <u8: Last frame>
+            <u8: Color keyframe count> <u8: Emission keyframe count> <u8: Shading keyframe count>
+            <u8: Texture keyframe count> <u8: Matcap keyframe count>
+            [u8: Color frame skip]... [u8: Emission frame skip]... [u8: Shading frame skip]...
+            [u8: Texture frame skip]... [u8: Matcap frame skip]...
+            [Color <Animated material color interp mode>]... [Emission <Animated material color interp mode>]...
+            [Shading <Animated material interp mode>]...
+            [u8[4]: Color keyframe data]... [u8[3]: Emission keyframe data]... [u8: Shading keyframe data]...
+            [u8: Texture keyframe data]... [u8: Matcap keyframe data]...
+            < <u8: Texture keyframe>
+        Animated material interp mode:
+            <u8:
+                { P3M_MATINTERP_NONE
+                | P3M_MATINTERP_LINEAR }
+            >
+        Animated material color interp mode:
+            <u8:
+                { P3M_MATCOLORINTERP_NONE
+                | P3M_MATCOLORINTERP_LINEAR_RGB
+                | P3M_MATCOLORINTERP_LINEAR_HSV
+                | P3M_MATCOLORINTERP_LINEAR_OKLCH }
+            >
 
         Texture:
             { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <PTF texture (See 'textures (ptf).txt')>
@@ -90,6 +133,40 @@ Format:
                 { P3M_ACTINTERP_NONE
                 | P3M_ACTINTERP_LINEAR }
             >
+
+        User-defined field:
+            <<String>: Name>
+            <u8:
+                <2 bits: 0>
+                <1 bit: Empty>
+                <1 bit: Is array>
+                <4 bits:
+                    { P3M_UDFTYPE_STR
+                    | P3M_UDFTYPE_BOOL
+                    | P3M_UDFTYPE_I8
+                    | P3M_UDFTYPE_I16
+                    | P3M_UDFTYPE_I32
+                    | P3M_UDFTYPE_I64
+                    | P3M_UDFTYPE_U8
+                    | P3M_UDFTYPE_U16
+                    | P3M_UDFTYPE_U32
+                    | P3M_UDFTYPE_U64
+                    | P3M_UDFTYPE_F32
+                    | P3M_UDFTYPE_F64 }
+                >
+            >
+            [u16: Array length minus 1]
+            { <String>
+            | <i8: Data>
+            | <i16: Data>
+            | <i32: Data>
+            | <i64: Data>
+            | <u8: Data>
+            | <u16: Data>
+            | <u32: Data>
+            | <u64: Data>
+            | <u16: String table offset to first array element>
+            | <u16: String table offset to first <String>> }
 
         String:
             <u16: Offset in string table>

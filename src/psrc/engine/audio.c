@@ -1927,7 +1927,7 @@ void updateAudio(float framemult) {
             audiostate.mixoutbufi = mixoutbufi;
         }
     } else {
-        #ifndef PSRC_USESDL1
+        #if SDL_VERSION_ATLEAST(2, 0, 4)
         unsigned queuesz = SDL_GetQueuedAudioSize(audiostate.output);
         unsigned targetsz = audiostate.outsize * audiostate.outqueue;
         if (queuesz < targetsz) {
@@ -1991,7 +1991,7 @@ bool startAudio(void) {
     SDL_AudioSpec outspec;
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
-    #ifndef PSRC_USESDL1
+    #if SDL_VERSION_ATLEAST(2, 0, 4)
     #ifndef PSRC_NOMT
     tmp = cfg_getvar(&config, "Audio", "callback");
     if (tmp) {
@@ -2039,7 +2039,7 @@ bool startAudio(void) {
         samples |= samples >> 8;
         samples |= samples >> 16;
         inspec.samples = samples + 1;
-        #if !defined(PSRC_USESDL1) && (PLATFLAGS & PLATFLAG_UNIXLIKE)
+        #if !defined(PSRC_USESDL1) && (PLATFLAGS & PLATFLAG_UNIXLIKE) && defined(SDL_AUDIO_ALLOW_SAMPLES_CHANGE)
         flags |= SDL_AUDIO_ALLOW_SAMPLES_CHANGE;
         #endif
     }

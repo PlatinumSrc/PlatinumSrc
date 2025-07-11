@@ -16,6 +16,8 @@
     #include <windows.h>
 #elif PLATFORM == PLAT_DREAMCAST
     #include <dirent.h>
+#elif PLATFORM == PLAT_MACOS
+    #include <limits.h>
 #endif
 
 #include <stdlib.h>
@@ -160,7 +162,16 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
         d = mkpath(dirs[DIR_GAMES], g, NULL);
     }
     {
+        // TODO: improve
+        #if PLATFORM != PLAT_MACOS
         char* tmp = realpath(d, NULL);
+        #else
+        char* tmp = malloc(PATH_MAX);
+        {
+            char* tmp2 = realpath(d, tmp);
+            if (!tmp2) {free(tmp); tmp = NULL;}
+        }
+        #endif
         if (tmp) {
             free(d);
             d = tmp;
@@ -264,7 +275,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                         dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
                     #elif !defined(PSRC_USESDL1)
                         char* tmp;
-                        tmp = SDL_GetPrefPath(NULL, gameinfo.userdir);
+                        tmp = SDL_GetPrefPath("", gameinfo.userdir);
                         if (tmp) {
                             char* tmp2 = tmp;
                             dirs[DIR_USER] = strpath(tmp);

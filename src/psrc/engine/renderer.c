@@ -223,9 +223,13 @@ static bool createWindow(void) {
         return false;
     }
     #ifndef PSRC_USESDL1
+    #ifdef SDL_HINT_NO_SIGNAL_HANDLERS
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
+    #endif
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    #ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+    #endif
     //SDL_SetRelativeMouseMode(SDL_TRUE);
     #endif
     unsigned flags;

@@ -190,8 +190,11 @@ bool initInput(void) {
     if (!options.nocontroller) {
         tmp = cfg_getvar(&config, "Input", "nocontroller");
         if (!strbool(tmp, false)) {
-            if (SDL_Init(SDL_INIT_GAMECONTROLLER)) return false;
-            SDL_GameControllerEventState(SDL_ENABLE);
+            if (!SDL_Init(SDL_INIT_GAMECONTROLLER)) {
+                SDL_GameControllerEventState(SDL_ENABLE);
+            } else {
+                plog(LL_WARN, "Failed to init controller support");
+            }
         }
         free(tmp);
     }

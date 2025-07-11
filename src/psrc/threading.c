@@ -31,8 +31,6 @@ static void* threadwrapper(void* t) {
                 pthread_setname_np(((thread_t*)t)->thread, "%s", ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_FREEBSD || PLATFORM == PLAT_OPENBSD
                 pthread_set_name_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
-            #elif PLATFORM == PLAT_MACOS
-                pthread_setname_np(((thread_t*)t)->name);
             #endif
         #endif
     #endif

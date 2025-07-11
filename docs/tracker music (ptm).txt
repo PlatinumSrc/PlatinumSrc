@@ -40,6 +40,10 @@ Format:
         <u32: Decay duration (in microseconds)> <i32: Note influence>
         <u32: Release duration (in microseconds)> <i32: Note influence>
 
+    Instrument bank:
+        <u8: Name length> <char[1...]: Name>
+        <u8: Used instrument count> [u16: Instrument]...
+
     Song:
         <u8: Song name length> <char[1...]: Song name>
         <u8: Authors length> <char[0...]: Authors>
@@ -47,7 +51,7 @@ Format:
         <u8: BPM>
         <u8: Notes per beat>
         <u8: Pattern length minus 1>
-        <u8: Used instrument count> [u16: Instrument]...
+        <u8: Instrument bank (0xFF to use the first 255 instruments)>
         <u8: Track count> <u8[0..32]: Tracks enabled bitmask (LSByte to MSByte)> [Track]...
         <u8: Song pattern count> [Song pattern]...
         <u8: Style count> [Style]...
