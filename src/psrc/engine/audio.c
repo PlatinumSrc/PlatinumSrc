@@ -413,6 +413,7 @@ void delete2DAudioEmitter(int ei) {
     #endif
 }
 
+// TODO: handle alloc failure
 static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask, const struct audiofx* fx) {
     s->loop = 0;
     s->pos = 0;
