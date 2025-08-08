@@ -208,6 +208,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - `NOMT` - Set to `y` to disable multithreading
     - Features and backends
         - `USESTDIODS` - Set to `y` to use `fopen()`, `fread()`, and `fclose()` in place of `open()`, `read()`, and `close()` in the datastream code
+        - `USESDLDS` - Set to `y` to use SDL_RWops functions in place of `open()`, `read()`, and `close()` in the datastream code
         - `USEDISCORDGAMESDK` - Set to `y` to include the Discord Game SDK
         - `USEGL` - Set to `y` to include OpenGL support
         - `USEGL11` - Set to `y` to include OpenGL 1.1 support

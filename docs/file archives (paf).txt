@@ -3,6 +3,7 @@ PAF - PlatinumSrc Archive File/Format
 - .paf file extension
 - Current version is 0.0
 - All data should be little endian
+- LZ4F should be used for compression
 
 Format:
 
@@ -62,7 +63,12 @@ Format:
             <u32: Position of <Directory>, <File>, or position of <String> containing the link path>
 
         File:
-            <u32: Total size of file>
+            <u8:
+                { PAF_FILEZ_NONE
+                | PAF_FILEZ_LZ4 (LZ4F) }
+            >
+            [u32: Size of file before compression] 
+            <u32: Total size of file data>
             <u32: Size of data array in current segment>
             <u32: Bytes used in data array of current segment>
             <u32: Position of first <File continuation>>

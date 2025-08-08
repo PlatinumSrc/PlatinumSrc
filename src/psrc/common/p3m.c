@@ -13,14 +13,11 @@
 
 #include "../debug.h"
 #include "../attribs.h"
+#include "../util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
-#define _STR(x) #x
-#define STR(x) _STR(x)
-#define TOPTR(x) ((void*)(uintptr_t)(x))
 
 #define get8 ds_getc_noerr
 static ALWAYSINLINE uint16_t get16(struct datastream* ds) {

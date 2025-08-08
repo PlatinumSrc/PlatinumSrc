@@ -8,6 +8,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#ifdef PSRC_DATASTREAM_USESDL
+    #include "incsdl.h"
+#endif
 
 PACKEDENUM ds_mode {
     DS_MODE_MEM,
@@ -17,15 +20,13 @@ PACKEDENUM ds_mode {
 };
 
 #define DS_END (-1)
+#define DS_GETSZ_FAIL ((size_t)-1)
 
 typedef void (*ds_mem_freecb)(void* ctx, void* buf);
-typedef bool (*ds_cb_readcb)(void* ctx, void* buf, size_t lenrq, size_t* lenout);
-typedef void (*ds_cb_closecb)(void* ctx);
 struct ds_cbfuncs {
-    void* readctx;
-    void* seekctx;
-    void* closectx;
+    void* ctx;
     bool (*read)(void* ctx, void* buf, size_t lenrq, size_t* lenout);
+    size_t (*getsz)(void* ctx);
     bool (*seek)(void* ctx, size_t off);
     void (*close)(void* ctx);
 };
@@ -42,10 +43,12 @@ struct datastream {
             void* freectx;
         } mem;
         struct {
-            #ifndef PSRC_DATASTREAM_USESTDIO
-            int fd;
+            #if defined(PSRC_DATASTREAM_USESTDIO)
+                FILE* f;
+            #elif defined(PSRC_DATASTREAM_USESDL)
+                SDL_RWops* rwo;
             #else
-            FILE* f;
+                int fd;
             #endif
         } file;
         struct ds_cbfuncs cb;
@@ -71,6 +74,7 @@ static ALWAYSINLINE int ds_getc(struct datastream*);
 bool ds_seek(struct datastream*, size_t off);
 static ALWAYSINLINE size_t ds_tell(struct datastream*);
 static ALWAYSINLINE bool ds_atend(struct datastream*);
+size_t ds_getsz(struct datastream*);
 
 int ds_text_getc(struct datastream*);
 static inline int ds_text_getc_inline(struct datastream*);

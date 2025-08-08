@@ -7,19 +7,14 @@
 #include "filesystem.h"
 #include "resource.h"
 #include "time.h"
+#include "util.h"
 
 #include "common/config.h"
 
 #ifndef PSRC_MODULE_SERVER
-    #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-        #include <SDL.h>
-    #elif defined(PSRC_USESDL1)
-        #include <SDL/SDL.h>
-        #ifdef main
-            #undef main
-        #endif
-    #else
-        #include <SDL2/SDL.h>
+    #include "incsdl.h"
+    #if defined(PSRC_USESDL1) && defined(main)
+        #undef main
     #endif
     #if PLATFORM == PLAT_GDK
         #include <SDL_main.h>
@@ -36,7 +31,9 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>
-#if PLATFORM == PLAT_NXDK
+#if PLATFORM == PLAT_ANDROID
+    #include <android/log.h>
+#elif PLATFORM == PLAT_NXDK
     #include <xboxkrnl/xboxkrnl.h>
     #include <winapi/winnt.h>
     #include <hal/video.h>
@@ -63,9 +60,6 @@
 #endif
 
 #include "glue.h"
-
-#define _STR(x) #x
-#define STR(x) _STR(x)
 
 #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
 static thread_t watchdogthread;
@@ -228,6 +222,9 @@ static void emscrmain(void) {
 #define main SDL_main
 #endif
 
+#if PLATFORM == PLAT_ANDROID
+__attribute__((visibility ("default")))
+#endif
 int main(int argc, char** argv) {
     makeVerStrs();
 
@@ -240,11 +237,14 @@ int main(int argc, char** argv) {
     puts(verstr);
     puts(platstr);
     #if PLATFORM == PLAT_LINUX
-    setenv("SDL_VIDEODRIVER", "wayland", false);
+        setenv("SDL_VIDEODRIVER", "wayland", false);
+    #elif PLATFORM == PLAT_ANDROID
+        __android_log_write(ANDROID_LOG_INFO, "PlatinumSrc", verstr);
+        __android_log_write(ANDROID_LOG_INFO, "PlatinumSrc", platstr);
     #elif PLATFORM == PLAT_NXDK
-    pb_print("%s\n", verstr);
-    pb_print("%s\n", platstr);
-    pbgl_swap_buffers();
+        pb_print("%s\n", verstr);
+        pb_print("%s\n", platstr);
+        pbgl_swap_buffers();
     #endif
 
     if (!initLogging()) {

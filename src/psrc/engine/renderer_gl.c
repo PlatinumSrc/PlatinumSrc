@@ -837,6 +837,7 @@ bool r_gl_afterCreateWindow(void) {
             plog(LL_INFO, "    %s", tmplist[i]);
             ++passed;
         }
+        #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
         if (rendstate.api == RENDAPI_GL11) {
             for (size_t i = 0, foundext = 0; i < ct; ++i) {
                 if (!*tmplist[i]) continue;
@@ -850,22 +851,27 @@ bool r_gl_afterCreateWindow(void) {
                 if (foundext == 2) break;
             }
         }
+        #endif
         free(*tmplist);
         free(tmplist);
     }
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     if (rendstate.api == RENDAPI_GL11) {
         plog(LL_INFO, "  GL_ARB_multitexture is %ssupported", (r_gl_data.gl11.has_ARB_multitexture) ? "" : "not ");
         plog(LL_INFO, "  GL_ARB_texture_border_clamp is %ssupported", (r_gl_data.gl11.has_ARB_texture_border_clamp) ? "" : "not ");
     }
+    #endif
     #if GL_KHR_debug
         plog(LL_INFO, "  GL_KHR_debug is %ssupported", (glDebugMessageCallback) ? "" : "not ");
     #else
         plog(LL_INFO, "  GL_KHR_debug is not supported");
     #endif
+    #ifdef PSRC_ENGINE_RENDERER_GL_USEGL11
     if (rendstate.api == RENDAPI_GL11) {
         glGetIntegerv(GL_MAX_LIGHTS, &r_gl_data.gl11.maxlights);
         plog(LL_INFO, "  Max lights: %d", r_gl_data.gl11.maxlights);
     }
+    #endif
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);
     if (cond[0]) plog(LL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);

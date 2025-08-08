@@ -1,6 +1,7 @@
 #include "rcmgralloc.h"
 #include "string.h"
 #include "undefalloc.h"
+#include "util.h"
 
 #include "resource.h"
 
@@ -182,6 +183,12 @@ struct rcaccess {
     };
 };
 
+struct rcaccdataptr {
+    uint8_t* data;
+    size_t sz;
+    bool free;
+};
+
 static struct {
     struct modinfo* data;
     int len;
@@ -277,8 +284,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
         struct lsstate s;
         if (p != RCPREFIX_NATIVE) {
             switch (p) {
-                default:
-                case RCPREFIX_INTERNAL:
+                DEFAULTCASE(RCPREFIX_INTERNAL):
                     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
                     if (dirbits && !((dirbits[dirind / 8] >> (dirind % 8)) & 1)) {if (dirind > mods.len) goto longbreak; else goto longcont;}
                     #endif
@@ -784,8 +790,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
 static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, uint32_t pathcrc, struct rcaccess* acc) {
     (void)pathcrc;
     switch (prefix) {
-        default:
-        case RCPREFIX_INTERNAL: {
+        DEFAULTCASE(RCPREFIX_INTERNAL): {
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
             #ifndef PSRC_NOMT
             acquireReadAccess(&lscache.lock);
@@ -885,18 +890,46 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
 }
 #undef GRA_TRYFS
 #undef GRA_TRYFS_UNLOCKLSCRD
-static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
-    switch (acc->src) {
-        case RCSRCTYPE_FS: return ds_openfile(acc->fs.path, 0, ds);
-    }
-    return false;
-}
 static void delRcAcc(struct rcaccess* acc) {
     switch (acc->src) {
         case RCSRCTYPE_FS:
             free(acc->fs.path);
             break;
     }
+}
+static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
+    switch (acc->src) {
+        case RCSRCTYPE_FS: return ds_openfile(acc->fs.path, 0, ds);
+    }
+    return false;
+}
+static bool newDataPtrFromRcAcc(struct rcaccess* acc, struct rcaccdataptr* dptr) {
+    switch (acc->src) {
+        case RCSRCTYPE_FS: {
+            struct datastream ds;
+            if (!ds_openfile(acc->fs.path, 0, &ds)) break;
+            size_t sz = ds_getsz(&ds);
+            if (sz == DS_GETSZ_FAIL) { // TODO: handle this and read into a vlb?
+                ds_close(&ds);
+                break;
+            }
+            uint8_t* data = rcmgr_malloc(sz);
+            if (!data) {
+                ds_close(&ds);
+                break;
+            }
+            ds_read(&ds, sz, data); // TODO: fail if size doesn't match?
+            ds_close(&ds);
+            dptr->data = data;
+            dptr->sz = sz;
+            dptr->free = true;
+            return true;
+        } break;
+    }
+    return false;
+}
+static inline void delDataPtr(struct rcaccdataptr* dptr) {
+    if (dptr->free) free(dptr->data);
 }
 
 static struct resource* newRc(enum rctype type) {
@@ -1004,7 +1037,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         #ifndef PSRC_MODULE_SERVER
         case RC_FONT: {
             if (acc.src != RCSRCTYPE_FS) goto fail;
-            SFT_Font* font = sft_loadfile(acc.fs.path);
+            SFT_Font* font = sft_loadfile(acc.fs.path); // TODO: make sft_loadds
             if (!font) goto fail;
             rc = newRc(RC_FONT);
             rc->font.font = font;
@@ -1040,11 +1073,15 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             const struct rcopt_sound* o = opt;
             if (acc.ext == rcextensions[RC_SOUND][0]) {
                 #ifdef PSRC_USESTBVORBIS
-                if (acc.src != RCSRCTYPE_FS) goto fail;
+                struct rcaccdataptr dptr;
+                if (!newDataPtrFromRcAcc(&acc, &dptr)) goto fail;
+                stb_vorbis* v = stb_vorbis_open_memory(dptr.data, dptr.sz, NULL, NULL);
+                if (!v) {
+                    delDataPtr(&dptr);
+                    goto fail;
+                }
+                rc = newRc(RC_SOUND);
                 if (o->decodewhole) {
-                    stb_vorbis* v = stb_vorbis_open_filename(acc.fs.path, NULL, NULL);
-                    if (!v) goto fail;
-                    rc = newRc(RC_SOUND);
                     rc->sound.format = RC_SOUND_FRMT_WAV;
                     stb_vorbis_info info = stb_vorbis_get_info(v);
                     long len = stb_vorbis_stream_length_in_samples(v);
@@ -1057,43 +1094,39 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.channels = info.channels;
                     rc->sound.is8bit = false;
                     rc->sound.stereo = (info.channels > 1);
-                    rc->sound_opt = *o;
                     stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)rc->sound.data, len * ch);
-                    stb_vorbis_close(v);
                 } else {
-                    FILE* f = fopen(acc.fs.path, "rb");
-                    if (!f) goto fail;
-                    fseek(f, 0, SEEK_END);
-                    long sz = ftell(f);
-                    if (sz <= 0) {fclose(f); goto fail;}
-                    uint8_t* data = rcmgr_malloc(sz);
-                    fseek(f, 0, SEEK_SET);
-                    fread(data, 1, sz, f);
-                    fclose(f);
-                    stb_vorbis* v = stb_vorbis_open_memory(data, sz, NULL, NULL);
-                    if (!v) {free(data); goto fail;}
-                    rc = newRc(RC_SOUND);
                     rc->sound.format = RC_SOUND_FRMT_VORBIS;
-                    rc->sound.size = sz;
-                    rc->sound.data = data;
+                    rc->sound.size = dptr.sz;
+                    rc->sound.data = dptr.data;
                     rc->sound.len = stb_vorbis_stream_length_in_samples(v);
                     stb_vorbis_info info = stb_vorbis_get_info(v);
                     rc->sound.freq = info.sample_rate;
                     rc->sound.channels = info.channels;
                     rc->sound.stereo = (info.channels > 1);
-                    rc->sound_opt = *o;
-                    stb_vorbis_close(v);
                 }
+                stb_vorbis_close(v);
+                delDataPtr(&dptr);
+                rc->sound_opt = *o;
                 #else
                 goto fail;
                 #endif
             } else if (acc.ext == rcextensions[RC_SOUND][1]) {
                 #ifdef PSRC_USEMINIMP3
-                if (acc.src != RCSRCTYPE_FS) goto fail;
                 mp3dec_ex_t* m = rcmgr_malloc(sizeof(*m));
+                if (!m) goto fail;
+                struct rcaccdataptr dptr;
+                if (!newDataPtrFromRcAcc(&acc, &dptr)) {
+                    free(m);
+                    goto fail;
+                }
+                if (mp3dec_ex_open_buf(m, dptr.data, dptr.sz, MP3D_SEEK_TO_SAMPLE)) {
+                    free(m);
+                    delDataPtr(&dptr);
+                    goto fail;
+                }
+                rc = newRc(RC_SOUND);
                 if (o->decodewhole) {
-                    if (mp3dec_ex_open(m, acc.fs.path, MP3D_SEEK_TO_SAMPLE)) {free(m); goto fail;}
-                    rc = newRc(RC_SOUND);
                     rc->sound.format = RC_SOUND_FRMT_WAV;
                     int len = m->samples / m->info.channels;
                     int size = m->samples * sizeof(mp3d_sample_t);
@@ -1104,37 +1137,20 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.channels = m->info.channels;
                     rc->sound.is8bit = false;
                     rc->sound.stereo = (m->info.channels > 1);
-                    rc->sound_opt = *o;
                     mp3dec_ex_read(m, (mp3d_sample_t*)rc->sound.data, m->samples);
-                    mp3dec_ex_close(m);
                 } else {
-                    FILE* f = fopen(acc.fs.path, "rb");
-                    if (!f) goto fail;
-                    fseek(f, 0, SEEK_END);
-                    long sz = ftell(f);
-                    if (sz <= 0) {fclose(f); goto fail;}
-                    uint8_t* data = rcmgr_malloc(sz);
-                    fseek(f, 0, SEEK_SET);
-                    fread(data, 1, sz, f);
-                    fclose(f);
-                    if (mp3dec_ex_open_buf(m, data, sz, MP3D_SEEK_TO_SAMPLE)) {
-                        free(data);
-                        free(m);
-                        goto fail;
-                    }
-                    rc = newRc(RC_SOUND);
                     rc->sound.format = RC_SOUND_FRMT_MP3;
-                    rc->sound.size = sz;
-                    rc->sound.data = data;
+                    rc->sound.size = dptr.sz;
+                    rc->sound.data = dptr.data;
                     rc->sound.len = m->samples / m->info.channels;
                     rc->sound.freq = m->info.hz;
                     rc->sound.channels = m->info.channels;
                     rc->sound.stereo = (m->info.channels > 1);
-                    rc->sound_opt = *o;
-                    mp3dec_ex_close(m);
-                    free(data);
                 }
+                mp3dec_ex_close(m);
                 free(m);
+                delDataPtr(&dptr);
+                rc->sound_opt = *o;
                 #else
                 goto fail;
                 #endif
@@ -1184,7 +1200,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             if (acc.ext == rcextensions[RC_TEXTURE][0]) {
                 struct datastream ds;
                 if (!dsFromRcAcc(&acc, &ds)) goto fail;
-                data = ptf_load(&ds, &w, &h, &c);
+                data = ptf_load(&ds, &w, &h, &c); // TODO: add datastream version
                 ds_close(&ds);
                 if (!data) goto fail;
                 if (o->needsalpha && c == 3) {

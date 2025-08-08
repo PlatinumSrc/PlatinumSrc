@@ -4,6 +4,7 @@
 #include "../attribs.h"
 #include "../logging.h"
 #include "../common.h"
+#include "../util.h"
 
 #include "client.h"
 
@@ -103,7 +104,7 @@ static inline void deleteSound(struct audiosound* s) {
     void* ctx;
     if (!(s->iflags & SOUNDIFLAG_USESCB)) {
         switch (s->rc->format) {
-            /*case RC_SOUND_FRMT_WAV*/ default: cb = (audiocb)mixsound_cb_wav; break;
+            DEFAULTCASE(RC_SOUND_FRMT_WAV): cb = (audiocb)mixsound_cb_wav; break;
             #ifdef PSRC_USESTBVORBIS
             case RC_SOUND_FRMT_VORBIS: cb = (audiocb)mixsound_cb_vorbis; break;
             #endif
@@ -446,7 +447,7 @@ static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask
     lockRc(rc);
     s->rc = rc;
     switch (s->rc->format) {
-        /*case RC_SOUND_FRMT_WAV*/ default:
+        DEFAULTCASE(RC_SOUND_FRMT_WAV):
             if (s->rc->is8bit) s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * s->rc->channels * sizeof(*s->wav.cvtbuf));
             break;
         #ifdef PSRC_USESTBVORBIS
@@ -685,14 +686,14 @@ static void doReverb(struct audioreverbstate* r, unsigned len, int* bufl, int* b
         out[1] = lplastoutr = lplastoutr + (hplastoutr - lplastoutr) * lpmul / filtdiv;
         bufl[i] += out[0] * mix / 256;
         bufr[i] += out[1] * mix / 256;
-        in[0] += out[0] * feedback / 256;
-        in[1] += out[1] * feedback / 256;
-        if (in[0] < -32768) in[0] = -32768;
-        else if (in[0] > 32767) in[0] = 32767;
-        if (in[1] < -32768) in[1] = -32768;
-        else if (in[1] > 32767) in[1] = 32767;
-        r->buf[0][head] = in[0];
-        r->buf[1][head] = in[1];
+        out[0] = out[0] * feedback / 256 + in[0];
+        out[1] = out[1] * feedback / 256 + in[1];
+        if (out[0] < -32768) out[0] = -32768;
+        else if (out[0] > 32767) out[0] = 32767;
+        if (out[1] < -32768) out[1] = -32768;
+        else if (out[1] > 32767) out[1] = 32767;
+        r->buf[0][head] = out[0];
+        r->buf[1][head] = out[1];
         head = (head + 1) % r->size;
         tail = (tail + 1) % r->size;
     }
@@ -759,14 +760,14 @@ static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl,
         out[1] = lplastoutr = lplastoutr + (hplastoutr - lplastoutr) * lpmul / filtdiv;
         bufl[i] += out[0] * mix / 256;
         bufr[i] += out[1] * mix / 256;
-        in[0] += out[0] * feedback / 256;
-        in[1] += out[1] * feedback / 256;
-        if (in[0] < -32768) in[0] = -32768;
-        else if (in[0] > 32767) in[0] = 32767;
-        if (in[1] < -32768) in[1] = -32768;
-        else if (in[1] > 32767) in[1] = 32767;
-        r->buf[0][head] = in[0];
-        r->buf[1][head] = in[1];
+        out[0] = out[0] * feedback / 256 + in[0];
+        out[1] = out[1] * feedback / 256 + in[1];
+        if (out[0] < -32768) out[0] = -32768;
+        else if (out[0] > 32767) out[0] = 32767;
+        if (out[1] < -32768) out[1] = -32768;
+        else if (out[1] > 32767) out[1] = 32767;
+        r->buf[0][head] = out[0];
+        r->buf[1][head] = out[1];
         head = (head + 1) % r->size;
         tail = (tail + 1) % r->size;
     }
@@ -1451,7 +1452,7 @@ static bool mixsound(struct audiosound* s, bool mixmono, int** outp) {
     unsigned ch;
     if (!(s->iflags & SOUNDIFLAG_USESCB)) {
         switch (s->rc->format) {
-            /*case RC_SOUND_FRMT_WAV*/ default: cb = (audiocb)mixsound_cb_wav; break;
+            DEFAULTCASE(RC_SOUND_FRMT_WAV): cb = (audiocb)mixsound_cb_wav; break;
             #ifdef PSRC_USESTBVORBIS
             case RC_SOUND_FRMT_VORBIS: cb = (audiocb)mixsound_cb_vorbis; break;
             #endif

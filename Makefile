@@ -11,9 +11,6 @@ OUTDIR := .
 
 ifeq ($(OS),Windows_NT)
     CROSS := win32
-    KERNEL := NT
-else
-    KERNEL := $(shell uname -s)
 endif
 
 ifeq ($(CROSS),)
@@ -32,6 +29,7 @@ ifeq ($(CROSS),)
     endif
     USESR := y
     USEGL := y
+    KERNEL := $(shell uname -s)
     ifeq ($(KERNEL),Darwin)
         USEGLAD := y
     endif
@@ -64,6 +62,21 @@ else ifeq ($(CROSS),win32)
     USEGL := y
     USEGLAD := y
     USESTATICSDL := y
+else ifeq ($(CROSS),android)
+    ifeq ($(MODULE),engine)
+    else ifneq ($(MODULE),editor)
+        $(error Invalid module: $(MODULE))
+    endif
+    PLATFORM := Android
+    _CC := $(CC)
+    _LD := $(_CC)
+    NOLTO := y
+    NOSTRIP := y
+    NOGCSECTIONS := y
+    USEGLES30 := y
+    USEGLAD := y
+    USESTDTHREAD := y
+    USESDLDS := y
 else ifeq ($(CROSS),emscr)
     ifeq ($(MODULE),engine)
     else ifneq ($(MODULE),editor)
@@ -302,6 +315,11 @@ ifneq ($(CROSS),nxdk)
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
     ifeq ($(CROSS),win32)
         _LDFLAGS += -static -static-libgcc
+    else ifeq ($(CROSS),android)
+        _CFLAGS += -fPIC -fcf-protection=none
+        #_CFLAGS += -fno-stack-clash-protection
+        _LDFLAGS += -shared
+        _LDLIBS += -llog -landroid
     else ifeq ($(CROSS),emscr)
         _LDFLAGS += -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall -sWASM_BIGINT
         ifndef EMSCR_SHELL
@@ -383,6 +401,9 @@ ifeq ($(NOMT),y)
 endif
 ifeq ($(USESTDIODS),y)
     _CPPFLAGS += -DPSRC_DATASTREAM_USESTDIO
+endif
+ifeq ($(USESDLDS),y)
+    _CPPFLAGS += -DPSRC_DATASTREAM_USESDL
 endif
 ifeq ($(USEMINIMP3),y)
     _CPPFLAGS += -DPSRC_USEMINIMP3
@@ -478,10 +499,14 @@ ifeq ($(CROSS),win32)
 endif
 
 ifeq ($(USEMINIMP3),y)
-    CPPFLAGS.dir.minimp3 := 
+    CPPFLAGS.dir.minimp3 := -DMINIMP3_NO_STDIO
     ifeq ($(NOSIMD),y)
         CPPFLAGS.dir.minimp3 += -DMINIMP3_NO_SIMD
     endif
+endif
+
+ifeq ($(USESTBVORBIS),y)
+    CPPFLAGS.dir.stbvorbis := -DSTB_VORBIS_NO_STDIO
 endif
 
 ifeq ($(CROSS),)
@@ -547,7 +572,7 @@ ifeq ($(MODULE),engine)
     _CPPFLAGS += -DPSRC_MODULE_ENGINE
     _WRFLAGS += -DPSRC_MODULE_ENGINE
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.stbvorbis) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
@@ -561,7 +586,7 @@ else ifeq ($(MODULE),editor)
     _CPPFLAGS += -DPSRC_MODULE_EDITOR
     _WRFLAGS += -DPSRC_MODULE_EDITOR
     _CFLAGS += $(CFLAGS.lib.SDL)
-    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
+    _CPPFLAGS += $(CPPFLAGS.dir.lz4) $(CPPFLAGS.dir.stb) $(CPPFLAGS.dir.minimp3) $(CPPFLAGS.dir.stbvorbis) $(CPPFLAGS.dir.schrift) $(CPPFLAGS.dir.psrc)
     _CPPFLAGS += $(CPPFLAGS.lib.SDL) $(CPPFLAGS.lib.discord_game_sdk)
     _LDLIBS += $(LDLIBS.dir.psrc_engine) $(LDLIBS.dir.psrc)
     _LDLIBS += $(LDLIBS.lib.discord_game_sdk) $(LDLIBS.lib.SDL)
@@ -610,6 +635,8 @@ ifdef DEBUG
 endif
 ifeq ($(CROSS),win32)
     BINPATH := $(BIN).exe
+else ifeq ($(CROSS),android)
+    BINPATH := lib$(BIN).so
 else ifeq ($(CROSS),emscr)
     BINPATH := index.html
 else ifeq ($(CROSS),nxdk)

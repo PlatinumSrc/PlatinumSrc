@@ -6,12 +6,20 @@ This is an extension of 'maps (pmf).txt'
 - For global or level entities with positions, the position is relative to the center of the center chunk. For chunk
   entities, the position is relative to the center of that chunk.
 
+Entities:
+    <u32: i16/u16 count> [u16: i16/u16 data]...
+    <u32: i32/u32/float count> [u32: i32/u32/float data]...
+    <u32: i64/u64/double count> [u64: i64/u64/double data]...
+    <u32: Entity data container count> [Entity data container]...
+    <u32: Entity count> [Entity]...
+
 Entity:
     <u32: Gamemodes bitmask>
-    <u32: Size of following data>
     <<String>: Name>
-    <u8: <Entity type>> <Entity data>
-    <u32: Custom property count> [ <Entity property data type> <Entity property data> ]...
+    <u32: Custom property count>
+    { <u32: 0> | <u32: Data container index> | <u32: Index in i32/u32/float table to <u32: Data container index>...> }
+    <u8: <Entity type>>
+    <Entity data>
 
 Entity type:
     { ENT_DUMMY
@@ -19,13 +27,9 @@ Entity type:
     | ENT_GENERIC
     | ENT_PROP
     | ENT_CUBE
+    | ENT_INTERSECTABLE
     | ENT_DOOR
     | ENT_TRIGGER
-    | ENT_BUTTON
-    | ENT_SWITCH
-    | ENT_VALVE
-    | ENT_MOUNTABLE
-    | ENT_HURTABLE
     | ENT_LIGHT
     | ENT_BEAM
     | ENT_PARTICLES
@@ -34,13 +38,9 @@ Entity type:
     | ENT_TEXT
     | ENT_BILLBLOARD
     | ENT_DECAL
-    | ENT_PORTAL
     | ENT_PROJECTILE
-    | ENT_PROJECTILES
-    | ENT_HEALTH
     | ENT_PUSH
     | ENT_BROADCASTER
-    | ENT_DISPATCHER
     | ENT_COUNTER
     | ENT_EXCOUNTER
     | ENT_TIMER
@@ -56,13 +56,9 @@ Entity data:
         | <Generic entity data>
         | <Prop entity data>
         | <Cube entity data>
+        | <Intersectable entity data>
         | <Door entity data>
         | <Trigger box entity data>
-        | <Button entity data>
-        | <Switch entity data>
-        | <Valve entity data>
-        | <Mountable entity data>
-        | <Hurtable entity data>
         | <Light entity data>
         | <Beam entity data>
         | <Particle emitter entity data>
@@ -71,10 +67,7 @@ Entity data:
         | <Text entity data>
         | <Billboard entity data>
         | <Decal entity data>
-        | <Portal entity data>
         | <Projectile entity data>
-        | <Projectile emitter entity data>
-        | <Health emitter entity data>
         | <Push entity data>
         | <Broadcaster entity data>
         | <Counter entity data>
@@ -111,7 +104,6 @@ Generic entity data:
     <float: Drag>
     <<String>: Script resource path>
     <<String>: Model resource path>
-    <float: Health>
     <<String>: Shadow texture resource path (empty for none)>
     <float[2]: Shadow size>
     <<String>: Signal to activate>
@@ -161,7 +153,10 @@ Prop entity data:
     <<String>: Signal to stop animation>
 
 Cube entity data:
-    <u8:
+    <u16:
+        <2 bits: 0>
+        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
+        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
         <2 bits: 0>
         <1 bit: Draw backfaces>
         <1 bit: No collision>
@@ -174,19 +169,7 @@ Cube entity data:
     <float[3]: XYZ rotation>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <u8:
-        <2 bits: 0>
-        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
-        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
-    >
+    <<Entity box corner offsets>: Shape>
     <<String>: +X material> <<String>: +Y material> <<String>: +Z material>
     <<String>: -X material> <<String>: -Y material> <<String>: -Z material>
     <float[2]: +X top left texture UV> <float[2]: +X top right texture UV>
@@ -210,14 +193,34 @@ Cube entity data:
     <<String>: Signal to disable collision>
     <<String>: Signal to toggle collision>
 
-Door entity data:
+Intersectable entity data:
     <u8:
+        <4 bits:
+            { ENT_INTERSECTABLE_AABB
+            | ENT_INTERSECTABLE_SHPERE
+            | ENT_INTERSECTABLE_BOX }
+        >
+        <3 bits: 0>
+        <1 bit: Follow tail of bone>
+    >
+    <float[3]: XYZ position>
+    <float[3]: XYZ rotation>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    { <u32: Index in i32/u32/float table to <float[3]: Radius>
+    | <u32: Index in i32/u32/float table to <<Entity box corner offsets>: Box bounds> }
+
+Door entity data:
+    <u16:
         <2 bits: 0>
-        <1 bit: Replace initiator with self when closed>
-        <1 bit: Replace initiator with self when opened>
-        <1 bit: Cull backfaces>
-        <1 bit: Non-interactable>
-        <1 bit: Locked>
+        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
+        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
+        <2 bits: 0>
+        <1 bit: No collision>
+        <1 bit: Do not inherit scale>
+        <1 bit: Do not inherit rotation>
+        <1 bit: Follow tail of bone>
+        <1 bit: Draw backfaces>
         <1 bit: Open>
     >
     <float[3]: XYZ closed position>
@@ -226,49 +229,20 @@ Door entity data:
     <float[3]: XYZ open position>
     <float[3]: XYZ open rotation>
     <float[3]: XYZ open scale>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <u8:
-        <2 bits: 0>
-        <1 bit: Show -Z face> <1 bit: Show -Y face> <1 bit: Show -X face>
-        <1 bit: Show +Z face> <1 bit: Show +Y face> <1 bit: Show +X face>
-    >
-    <<String>: +X material> <<String>: +Y material> <<String>: +Z material>
-    <<String>: -X material> <<String>: -Y material> <<String>: -Z material>
-    <float[2]: +X top left texture UV> <float[2]: +X top right texture UV>
-    <float[2]: +X bottom left texture UV> <float[2]: +X bottom right texture UV>
-    <float[2]: +Y top left texture UV> <float[2]: +Y top right texture UV>
-    <float[2]: +Y bottom left texture UV> <float[2]: +Y bottom right texture UV>
-    <float[2]: +Z top left texture UV> <float[2]: +Z top right texture UV>
-    <float[2]: +Z bottom left texture UV> <float[2]: +Z bottom right texture UV>
-    <float[2]: -X top left texture UV> <float[2]: -X top right texture UV>
-    <float[2]: -X bottom left texture UV> <float[2]: -X bottom right texture UV>
-    <float[2]: -Y top left texture UV> <float[2]: -Y top right texture UV>
-    <float[2]: -Y bottom left texture UV> <float[2]: -Y bottom right texture UV>
-    <float[2]: -Z top left texture UV> <float[2]: -Z top right texture UV>
-    <float[2]: -Z bottom left texture UV> <float[2]: -Z bottom right texture UV>
+    <<String>: Entity to follow>
+    <<String>: Bone to follow>
+    <<Entity box corner offsets>: Collider>
+    <<String>: Model resource path>
+    <<String>: Open animation>
+    <<String>: Close animation>
     <<String>: Physics material>
     <u32: Delay in microseconds before opening>
-    <u32: Open duration in microseconds>
+    <u32: Open duration in microseconds (0 to use the animation duration)>
     <u32: Delay in microseconds before closing>
-    <u32: Close duration in microseconds>
-    <<String>: Signal when opened>
-    <<String>: Signal when closed>
+    <u32: Close duration in microseconds (0 to use the animation duration)>
     <<String>: Signal to open>
     <<String>: Signal to close>
     <<String>: Signal to toggle open/closed>
-    <<String>: Signal to lock>
-    <<String>: Signal to unlock>
-    <<String>: Signal to toggle lock>
-    <<String>: Signal to make interactable>
-    <<String>: Signal to make non-interactable>
-    <<String>: Signal to toggle interactability>
 
 Trigger box entity data:
     <u8:
@@ -284,14 +258,7 @@ Trigger box entity data:
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+    <<Entity box corner offsets>: Bounds>
     <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
     <<String>: Team filter (if empty, do not filter team)>
     <<String>: Output when entering>
@@ -304,147 +271,38 @@ Trigger box entity data:
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
 
-Button entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Press text>
-    <<String>: Output signal>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Switch entity data:
-    <u8:
-        <5 bits: 0>
-        <1 bit: On>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Switch on text>
-    <<String>: Switch off text>
-    <<String>: Signal when switched on>
-    <<String>: Signal when switched off>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Valve entity data:
-    <u8:
-        <5 bits: 0>
-        <1 bit: Open>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <<String>: Open text>
-    <<String>: Close text>
-    <u32: Open duration in microseconds>
-    <u32: Close duration in microseconds>
-    <<String>: Signal when started opening>
-    <<String>: Signal when stopped opening>
-    <<String>: Signal when opened>
-    <<String>: Signal when started closing>
-    <<String>: Signal when stopped closing>
-    <<String>: Signal when closed>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Mountable entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <<String>: Mount text>
-    <<String>: Dismount text>
-    <<String>: Signal when mounted>
-    <<String>: Signal when dismounted>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
-Hurtable entity data:
-    <u8:
-        <2 bits: 0>
-        <1 bit: Take healing from health emitter>
-        <1 bit: Do not take damage from health emitter>
-        <1 bit: Do not take damage from hitscan>
-        <1 bit: One-time>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: (+X, +Y, +Z) corner XYZ offset>
-    <float[3]: (-X, +Y, +Z) corner XYZ offset>
-    <float[3]: (+X, +Y, -Z) corner XYZ offset>
-    <float[3]: (-X, +Y, -Z) corner XYZ offset>
-    <float[3]: (+X, -Y, +Z) corner XYZ offset>
-    <float[3]: (-X, -Y, +Z) corner XYZ offset>
-    <float[3]: (+X, -Y, -Z) corner XYZ offset>
-    <float[3]: (-X, -Y, -Z) corner XYZ offset>
-    <float: Health>
-    <<String>: Signal when killed>
-    <<String>: Signal to reset>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
 Light entity data:
     <u8:
-        <6 bits: 0>
+        <4 bits:
+            { ENT_LIGHT_POINT
+            | ENT_LIGHT_SPOT
+            | ENT_LIGHT_AREA }
+        >
+        <2 bits: 0>
         <1 bit: Follow tail of bone>
         <1 bit: Inactive>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
-    <u8:
-        { ENT_LIGHT_POINT
-        | ENT_LIGHT_SPOT
-        | ENT_LIGHT_AREA }
-    >
     <u8[3]: RGB color>
     <float: Intensity>
     <float[3]: Size>
     <float: Range>
-    { <u8[24]: Padding>
-    | <float: Cone radius> <u8[20]: Padding>
-    | <float: Start X angle> <float: End X angle>
-      <float: Start Y angle> <float: End Y angle>
-      <float: Start Z angle> <float: End Z angle> }
+    { <u32: 0>
+    | <float: Cone radius>
+    | <u32: Index in i32/u32/float table to <Light entity area angles>> }
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
+Light entity area angles:
+    <float: Start X angle> <float: End X angle>
+    <float: Start Y angle> <float: End Y angle>
+    <float: Start Z angle> <float: End Z angle>
 
 Beam entity data:
     <u8:
-        <5 bits: 0>
-        <1 bit: Glow texture wrap is not relative to size>
+        <4 bits: 0>
         <1 bit: Texture wrap is not relative to size>
         <1 bit: Tail follows tail of bone>
         <1 bit: Head follows tail of bone>
@@ -466,10 +324,6 @@ Beam entity data:
     <<String>: Material>
     <float: Texture wrap>
     <float: Scroll>
-    <float: Glow radius>
-    <<String>: Glow material>
-    <float: Glow texture wrap>
-    <float: Glow scroll>
     <u32: Ripple noise seed>
     <float: Max ripple noise at head>
     <float: Max ripple noise at middle>
@@ -480,18 +334,10 @@ Beam entity data:
     <u8: Max alpha noise>
     <u8: Alpha noise smoothening>
     <float: Alpha noise speed>
-    <u32: Glow alpha noise seed>
-    <u8: Max glow alpha noise>
-    <u8: Glow alpha noise smoothening>
-    <float: Glow alpha noise speed>
     <u32: Radius noise seed>
     <float: Max radius noise>
     <u8: Radius noise smoothening>
     <float: Radius noise speed>
-    <u32: Glow radius noise seed>
-    <float: Max glow radius noise>
-    <u8: Glow radius noise smoothening>
-    <float: Glow radius noise speed>
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -545,7 +391,8 @@ Particle emitter entity data:
 
 Gib emitter entity data:
     <u8:
-        <6 bits: 0>
+        <5 bits: 0>
+        <1 bit: Better physics>
         <1 bit: Follow tail of bone>
         <1 bit: Delete after activation>
     >
@@ -557,9 +404,15 @@ Gib emitter entity data:
     <float[3]: XYZ direction and velocity>
     <float[3]: XYZ direction randomness>
     <float[3]: XYZ velocity randomness>
+    <float: Mass>
+    <float: Drag>
     <float: Gravity influence>
-    <float: Drag influence>
     <float: Wind influence>
+    <u8: Collision sound count>
+    { <u32: 0>
+    | <<String>: Collision sound resource path>
+    | <u32: Index in i32/u32/float table to <<String>: Collision sound resource path>...> }
+    <u32: Delay before fade in microseconds>
     <u32: Fade time in microseconds>
     <<String>: Signal to activate (activated immediately if empty)>
 
@@ -628,25 +481,6 @@ Decal entity data:
     <u32: Delay in microseconds before fade>
     <u32: Fade duration in microseconds>
 
-Portal entity data:
-    <u8:
-        <5 bits: 0>
-        <1 bit: Is quad>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: Endpoint XYZ position>
-    <<String>: Entity for endpoint to follow>
-    <<String>: Bone for endpoint to follow>
-    <float[3][3]: XYZ triangle coords>
-    <u32: Max nesting>
-    <<String>: Signal to enable>
-    <<String>: Signal to disable>
-    <<String>: Signal to toggle activation>
-
 Projectile entity data:
     <u8:
         <7 bits: 0>
@@ -654,56 +488,13 @@ Projectile entity data:
     >
     <float[3]: XYZ initial position>
     <float[3]: XYZ direction and velocity>
+    <float: Mass>
+    <float: Drag>
     <float: Gravity influence>
-    <float: Drag influence>
     <float: Wind influence>
     <<String>: Model resource path>
     <<String>: Animation>
     <<String>: Signal on hit>
-
-Projectile emitter entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Replace initiator with self on hit>
-        <1 bit: Inactive>
-    >
-    <u32: Random seed>
-    <float[3]: XYZ initial projectile position offset>
-    <float[3]: XYZ initial projectile position randomness>
-    <float[3]: XYZ direction and velocity>
-    <float[3]: XYZ direction randomness>
-    <float[3]: XYZ velocity randomness>
-    <float: Gravity influence>
-    <float: Drag influence>
-    <float: Wind influence>
-    <<String>: Model resource path>
-    <<String>: Animation>
-    <<String>: Signal on hit>
-    <<String>: Signal to fire>
-
-Health emitter entity data:
-    <u8:
-        <1 bit: 0>
-        <1 bit: One-time>
-        <1 bit: Team filter is blacklist>
-        <1 bit: Type filter is blacklist>
-        <1 bit: Enable type filter>
-        <1 bit: Cubic>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
-    >
-    <float[3]: XYZ position>
-    <<String>: Entity to follow>
-    <<String>: Bone to follow>
-    <float[3]: Radius>
-    <float: Falloff>
-    <u8: Type filter { <Entity type> | ENT_PLAYER } (ignored if 'enable type filter' bit is not set)>
-    <<String>: Team filter (if empty, do not filter team)>
-    <float: Health per interval>
-    <u32: Interval time in microseconds (if 0, the interval is 1 second and health is given each tick)>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
 
 Push entity data:
     <u8:
@@ -711,7 +502,7 @@ Push entity data:
         <1 bit: Team filter is blacklist>
         <1 bit: Type filter is blacklist>
         <1 bit: Enable type filter>
-        <1 bit: Cubic>
+        <1 bit: Radius is cubic>
         <1 bit: Delete after activation>
         <1 bit: Follow tail of bone>
         <1 bit: Inactive>
@@ -746,19 +537,6 @@ Broadcaster entity data:
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
 
-Dispatcher entity data:
-    <u8:
-        <6 bits: 0>
-        <1 bit: Replace initiator with self for output>
-        <1 bit: Inactive>
-    >
-    <<String>: Input signal>
-    <<String>: Output event name>
-    <<String>: Output event data>
-    <<String>: Signal to activate>
-    <<String>: Signal to deactivate>
-    <<String>: Signal to toggle activation>
-
 Counter entity data:
     <u8:
         { ENT_COUNTER_CMP_EQ | ENT_COUNTER_CMP_NE
@@ -766,12 +544,13 @@ Counter entity data:
         | ENT_COUNTER_CMP_GT | ENT_COUNTER_CMP_GE }
     >
     <u32: Initial value>
-    <u32: Max value>
+    <u32: Target value>
     <<String>: Signal to increment>
     <<String>: Signal to decrement>
     <<String>: Signal to reset>
-    <<String>: Signal to compare to max (if empty, compares on every change)>
+    <<String>: Signal to compare to target (if empty, compares on every change)>
     <<String>: Output signal>
+
 Extended counter entity data:
     <u8:
         { ENT_COUNTER_CMP_EQ | ENT_COUNTER_CMP_NE
@@ -779,19 +558,24 @@ Extended counter entity data:
         | ENT_COUNTER_CMP_GT | ENT_COUNTER_CMP_GE }
     >
     <u64: Initial value>
-    <u64: Max value>
+    <u64: Target value>
     <<String>: Signal to increment>
     <<String>: Signal to decrement>
     <<String>: Signal to reset>
-    <<String>: Signal to compare to max (if empty, compares on every change)>
+    <<String>: Signal to compare to target (if empty, compares on every change)>
     <<String>: Output signal>
 
 Timer entity data:
     <u32: Initial value in microseconds>
+    <<String>: Signal to pause>
+    <<String>: Signal to resume>
     <<String>: Signal to reset>
     <<String>: Output signal>
+
 Extended timer entity data:
     <u64: Initial value in microseconds>
+    <<String>: Signal to pause>
+    <<String>: Signal to resume>
     <<String>: Signal to reset>
     <<String>: Output signal>
 
@@ -801,28 +585,30 @@ Setter entity data:
         <1 bit: Multiply by tick time>
     >
     <<String>: Target entity (if empty, use initiator of signal)>
-    <<String>: Property name>
-    <Entity property data type> <Entity property data>
+    <u8: Expected <Entity type>>
+    <u8: Attribute to set (ENTATTR_...)>
+    <u32: Attribute data container index>
     <<String>: Signal to activate>
 
 Audio emitter entity data:
     <u8:
         <3 bits: 0>
         <1 bit: No doppler>
+        <1 bit: Radius is cubic>
         <1 bit: Wrap>
         <1 bit: Loop>
-        <1 bit: Cubic>
         <1 bit: Follow tail of bone>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
-    <float[3]: Radius>
-    <float[2]: Volume>
+    <i64: Offset in microseconds>
     <float: Speed>
+    <float[2]: Volume>
+    <float[2]: Low-pass filter L/R>
+    <float[2]: High-pass filter L/R>
     <float: Range>
-    <float: Low-pass filter>
-    <float: High-pass filter>
+    <float[3]: Radius>
     <<String>: Sound resource path>
     <<String>: Signal to play>
 
@@ -851,9 +637,20 @@ Fast light controller entity data:
     <<String>: Signal to turn off>
     <<String>: Signal to toggle>
 
-Entity property data type:
+Entity box corner offsets:
+    <float[3]: (+X, +Y, +Z) corner XYZ offset>
+    <float[3]: (-X, +Y, +Z) corner XYZ offset>
+    <float[3]: (+X, +Y, -Z) corner XYZ offset>
+    <float[3]: (-X, +Y, -Z) corner XYZ offset>
+    <float[3]: (+X, -Y, +Z) corner XYZ offset>
+    <float[3]: (-X, -Y, +Z) corner XYZ offset>
+    <float[3]: (+X, -Y, -Z) corner XYZ offset>
+    <float[3]: (-X, -Y, -Z) corner XYZ offset>
+
+Entity property:
     <u8:
-        { ENTPROP_TYPE_BOOL
+        { ENTPROP_TYPE_NONE
+        | ENTPROP_TYPE_BOOL
         | ENTPROP_TYPE_I8
         | ENTPROP_TYPE_I16
         | ENTPROP_TYPE_I32
@@ -864,36 +661,36 @@ Entity property data type:
         | ENTPROP_TYPE_U64
         | ENTPROP_TYPE_F32
         | ENTPROP_TYPE_F64
-        | ENTPROP_TYPE_VEC
         | ENTPROP_TYPE_STR }
     >
     <u32: Dimensions>
-    [u32: Length]...
-Entity property data:
-    { <u8>
-    | <i8>
-    | <i16>
-    | <i32>
-    | <i64>
-    | <u8>
-    | <u16>
-    | <u32>
-    | <u64>
-    | <float>
-    | <double>
-    | <float[3]>
+    { <u32: 0>
+    | <u32: Length>
+    | <u32: Index in i32/u32/float table to <u32: Length>...> }
+    { <u32: 0>
+    | <u8: Inline value> <u8[3]: Padding>
+    | <i8: Inline value> <u8[3]: Padding>
+    | <i16: Inline value> <u8[2]: Padding>
+    | <i32: Inline value>
+    | <u32: Index in i64/u64/double table to <i64>>
+    | <u8: Inline value> <u8[3]: Padding>
+    | <u16: Inline value> <u8[2]: Padding>
+    | <u32: Inline value>
+    | <u32: Index in i64/u64/double table to <u64>>
+    | <float: Inline value>
+    | <u32: Index in i64/u64/double table to <double>>
     | <String>
-    | [u8: Bitmap]...
-    | [i8]...
-    | [i16]...
-    | [i32]...
-    | [i64]...
-    | [u8]...
-    | [u16]...
-    | [u32]...
-    | [u64]...
-    | [float]...
-    | [double]...
-    | [float[3]]...
-    | [String]... }
+    | <u32: 0>
+    | <<String table offset>: Offset to <u8: Bitmap>...>
+    | <<String table offset>: Offset to <i8>...>
+    | <u32: Index in i16/u16 table to <i16>...>
+    | <u32: Index in i32/u32/float table to <i32>...>
+    | <u32: Index in i64/u64/double table to <i64>...>
+    | <<String table offset>: Offset to <u8>...>
+    | <u32: Index in i16/u16 table to <u16>...>
+    | <u32: Index in i32/u32/float table to <u32>...>
+    | <u32: Index in i64/u64/double table to <u64>...>
+    | <u32: Index in i32/u32/float table to <float>...>
+    | <u32: Index in i64/u64/double table to <double>...>
+    | <u32: Index in i32/u32/float table to <String>...> }
 

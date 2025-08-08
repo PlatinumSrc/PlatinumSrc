@@ -18,11 +18,7 @@
             #include <windows.h>
         #endif
         #ifndef PSRC_USESDL1
-            #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-                #include <SDL.h>
-            #else
-                #include <SDL2/SDL.h>
-            #endif
+            #include "incsdl.h"
         #endif
     #endif
 #else

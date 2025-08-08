@@ -47,8 +47,30 @@ Notes:
                   this material (defaults to max).
                 - p3m:texture - A resource path string (external texture), or image or image texture object (embedded
                   texture) (defaults to no texture).
-                - p3m:matcap - A resource path string (external texture), or image or image texture object (embedded
-                  texture) (defaults to no matcap texture).
+                - p3m:matcap - Same as 'p3m:texture' but for the matcap texture (also defaults to no matcap texture).
+                - p3m:contscroll - An int or bool specifying if the texture scroll value is preserved from the previous
+                  animation.
+                - p3m:scroll:texture - A float array of 2 (XY) specifying how many units to scroll the texture every
+                  second.
+                - p3m:scroll:matcap - Same as 'p3m:scroll:texture' but for the matcap texture.
+                - p3m:keyframes:color - A string holding a semicolon-separated list of '<skip>,<interp>,<color>' 
+                  keyframes.
+                    - '<skip>' is how many frames to skip between the last keyframe and this one (assumed to be 0 if
+                      left blank).
+                    - '<interp>' is the interpolation mode of the current keyframe which can be blank (to reuse the mode
+                      in the previous keyframe), 'none', 'linear', 'linear:rgb', 'rgb', 'linear:hsv', 'hsv',
+                      'linear:oklch', or 'oklch'. 'linear' and 'rgb' are equivalent to 'linear:rgb', 'hsv' is equivalent
+                      to 'linear:hsv', and 'oklch' is equivalent to 'linear:oklch'.
+                    - '<color>' is a 3, 4, 6, or 8-digit hexadecimal color code. Using an 'X' (in the case of a 3 or
+                      4-digit hex code) or 'XX' (in the case of a 6 or 8-digit hex code) will reuse the value from the
+                      last keyframe. For the alpha channel, omitting it (using a 3 or 6-digit code) will have the same
+                      effect.
+                - p3m:keyframes:emission - Same as 'p3m:color:keyframes' but only accepts 3 or 6-digit color codes (no
+                  alpha channel).
+                - p3m:keyframes:shading - A list of integers or a string containing comma-separated values interpretable
+                  as integers. The integers must be in the range 0 - 255 inclusive.
+                - p3m:keyframes:texture - 
+                - p3m:keyframes:matcap - 
 
             Image textures:
                 - p3m:alpha - A bool to force exporting or force not exporting the alpha channel of the image.
@@ -64,9 +86,9 @@ Notes:
                   defaults, and '-' will use the defaults and hide the listed parts.
 
             Collections:
-                - p3m:custom[:<type>]:<name> - Custom properties matching this pattern in collections containing
-                  exported meshes will be added to the model's user-defined fields with the name being the text provided
-                  at <name>. <type> and the preceding colon are optional, but if provided, <type> must be one of the
+                - p3m:udf[:<type>]:<name> - Custom properties matching this pattern in collections containing exported
+                  meshes will be added to the model's user-defined fields with the name being the text provided at
+                  <name>. <type> and the preceding colon are optional, but if provided, <type> must be one of the
                   following:
                     - u<W> or i<W> where <W> is a width of 8, 16, 32, or 64 - The property data must be an integer, or a
                       string or text data-block containing a value interpretable as an integer.

@@ -4,16 +4,10 @@
 #include "../platform.h"
 #include "../threading.h"
 
-#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-    #include <SDL.h>
-#elif defined(PSRC_USESDL1)
-    #include <SDL/SDL.h>
-    #if PLATFORM == PLAT_DREAMCAST
-        #include <dc/maple.h>
-        #include <dc/maple/controller.h>
-    #endif
-#else
-    #include <SDL2/SDL.h>
+#include "../incsdl.h"
+#if defined(PSRC_USESDL1) && PLATFORM == PLAT_DREAMCAST
+    #include <dc/maple.h>
+    #include <dc/maple/controller.h>
 #endif
 
 #include <stdbool.h>

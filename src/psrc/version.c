@@ -1,5 +1,6 @@
 #include "version.h"
 #include "platform.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -9,9 +10,6 @@
 #endif
 
 #include "glue.h"
-
-#define _STR(x) #x
-#define STR(x) _STR(x)
 
 char* titlestr;
 char verstr[128];

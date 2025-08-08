@@ -6,11 +6,7 @@
 #include "logging.h"
 
 #if !defined(PSRC_USESDL1) && PLATFORM != PLAT_3DS && PLATFORM != PLAT_WII && PLATFORM != PLAT_GAMECUBE
-    #if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-        #include <SDL.h>
-    #else
-        #include <SDL2/SDL.h>
-    #endif
+    #include "incsdl.h"
 #endif
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #include <windows.h>
@@ -60,53 +56,63 @@ void setupBaseDirs(void) {
     if (options.maindir) {
         dirs[DIR_MAIN] = strpath(options.maindir);
     } else {
-        #if PLATFORM == PLAT_NXDK
-        dirs[DIR_MAIN] = "D:\\";
-        #elif PLATFORM == PLAT_DREAMCAST
-        DIR* d = opendir("/cd");
-        if (d) {
-            closedir(d);
-            dirs[DIR_MAIN] = "/cd";
-        } else {
-            dirs[DIR_MAIN] = "/sd/psrc";
-        }
-        #elif PLATFORM == PLAT_3DS
-        dirs[DIR_MAIN] = "sdmc:/3ds/psrc";
-        #elif PLATFORM == PLAT_WII
-        dirs[DIR_MAIN] = "/apps/psrc";
-        #elif PLATFORM == PLAT_GAMECUBE
-        dirs[DIR_MAIN] = "/";
-        #elif !defined(PSRC_USESDL1)
-        char* tmp = SDL_GetBasePath();
-        if (tmp) {
-            char* tmp2 = tmp;
-            tmp = strpath(tmp);
-            SDL_free(tmp2);
-            dirs[DIR_MAIN] = tmp;
-        } else {
-            plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
-            dirs[DIR_MAIN] = ".";
-        }
-        #elif PLATFORM == PLAT_WIN32
-        char* tmp = malloc(MAX_PATH + 1);
-        DWORD r = GetModuleFileName(NULL, tmp, MAX_PATH);
-        if (r) {
-            for (int i = r - 1; i >= 0; --i) {
-                if (ispathsep(tmp[i])) {
-                    tmp[i] = 0;
-                    tmp = realloc(tmp, i + 1);
-                    break;
+        #if PLATFORM == PLAT_ANDROID
+            dirs[DIR_MAIN] = (char*)SDL_AndroidGetExternalStoragePath();
+            if (!dirs[DIR_MAIN]) {
+                plog(LL_WARN, "Failed to get external storage path: %s", SDL_GetError());
+                dirs[DIR_MAIN] = (char*)SDL_AndroidGetInternalStoragePath();
+                if (!dirs[DIR_MAIN]) {
+                    plog(LL_WARN, "Failed to get internal storage path: %s", SDL_GetError());
+                    dirs[DIR_MAIN] = "";
                 }
             }
-            dirs[DIR_MAIN] = tmp;
-        } else {
-            free(tmp);
+        #elif PLATFORM == PLAT_NXDK
+            dirs[DIR_MAIN] = "D:\\";
+        #elif PLATFORM == PLAT_DREAMCAST
+            DIR* d = opendir("/cd");
+            if (d) {
+                closedir(d);
+                dirs[DIR_MAIN] = "/cd";
+            } else {
+                dirs[DIR_MAIN] = "/sd/psrc";
+            }
+        #elif PLATFORM == PLAT_3DS
+            dirs[DIR_MAIN] = "sdmc:/3ds/psrc";
+        #elif PLATFORM == PLAT_WII
+            dirs[DIR_MAIN] = "/apps/psrc";
+        #elif PLATFORM == PLAT_GAMECUBE
+            dirs[DIR_MAIN] = "/";
+        #elif !defined(PSRC_USESDL1)
+            char* tmp = SDL_GetBasePath();
+            if (tmp) {
+                char* tmp2 = tmp;
+                tmp = strpath(tmp);
+                SDL_free(tmp2);
+                dirs[DIR_MAIN] = tmp;
+            } else {
+                plog(LL_WARN, "Failed to get main directory: %s", SDL_GetError());
+                dirs[DIR_MAIN] = ".";
+            }
+        #elif PLATFORM == PLAT_WIN32
+            char* tmp = malloc(MAX_PATH + 1);
+            DWORD r = GetModuleFileName(NULL, tmp, MAX_PATH);
+            if (r) {
+                for (int i = r - 1; i >= 0; --i) {
+                    if (ispathsep(tmp[i])) {
+                        tmp[i] = 0;
+                        tmp = realloc(tmp, i + 1);
+                        break;
+                    }
+                }
+                dirs[DIR_MAIN] = tmp;
+            } else {
+                free(tmp);
+                plog(LL_WARN, "Failed to get main directory");
+                dirs[DIR_MAIN] = ".";
+            }
+        #else // TODO: implement more platforms
             plog(LL_WARN, "Failed to get main directory");
             dirs[DIR_MAIN] = ".";
-        }
-        #else // TODO: implement more platforms
-        plog(LL_WARN, "Failed to get main directory");
-        dirs[DIR_MAIN] = ".";
         #endif
     }
     dirs[DIR_INTERNAL] = mkpath(dirs[DIR_MAIN], "internal", NULL);
@@ -164,13 +170,13 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
     {
         // TODO: improve
         #if PLATFORM != PLAT_MACOS
-        char* tmp = realpath(d, NULL);
+            char* tmp = realpath(d, NULL);
         #else
-        char* tmp = malloc(PATH_MAX);
-        {
-            char* tmp2 = realpath(d, tmp);
-            if (!tmp2) {free(tmp); tmp = NULL;}
-        }
+            char* tmp = malloc(PATH_MAX);
+            {
+                char* tmp2 = realpath(d, tmp);
+                if (!tmp2) {free(tmp); tmp = NULL;}
+            }
         #endif
         if (tmp) {
             free(d);
@@ -271,7 +277,15 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                 if (options.userdir) {
                     dirs[DIR_USER] = strpath(options.userdir);
                 } else {
-                    #if PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE || PLATFORM == PLAT_EMSCR
+                    #if PLATFORM == PLAT_ANDROID
+                        char* tmp = (char*)SDL_AndroidGetInternalStoragePath();
+                        if (tmp) {
+                            dirs[DIR_USER] = mkpath(tmp, "data", gameinfo.userdir, NULL);
+                        } else {
+                            plog(LL_WARN, "Failed to get internal storage path: %s", SDL_GetError());
+                            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
+                        }
+                    #elif PLATFORM == PLAT_3DS || PLATFORM == PLAT_WII || PLATFORM == PLAT_GAMECUBE || PLATFORM == PLAT_EMSCR
                         dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
                     #elif !defined(PSRC_USESDL1)
                         char* tmp;
@@ -290,7 +304,7 @@ bool setGame(const char* g, bool p, struct charbuf* err) {
                             dirs[DIR_USER] = mkpath(tmp, gameinfo.userdir, NULL);
                         } else {
                             plog(LL_WARN, "Failed to get user directory");
-                            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", n, NULL);
+                            dirs[DIR_USER] = mkpath(dirs[DIR_MAIN], "data", gameinfo.userdir, NULL);
                         }
                     #else
                         plog(LL_WARN, "Failed to get user directory");

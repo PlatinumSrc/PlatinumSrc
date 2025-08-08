@@ -1,9 +1,7 @@
 #include "pmp.h"
 
 #include "../byteorder.h"
-
-#define _STR(x) #x
-#define STR(x) _STR(x)
+#include "../util.h"
 
 bool pmp_read_open(char* p, bool text, struct pmp_read* pr) {
     FILE* f;

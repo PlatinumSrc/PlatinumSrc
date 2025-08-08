@@ -9,13 +9,7 @@
 #endif
 #include "../resource.h"
 
-#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-    #include <SDL.h>
-#elif defined(PSRC_USESDL1)
-    #include <SDL/SDL.h>
-#else
-    #include <SDL2/SDL.h>
-#endif
+#include "../incsdl.h"
 
 #include <stdbool.h>
 #include <stdint.h>

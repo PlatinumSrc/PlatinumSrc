@@ -274,8 +274,10 @@ static int bootstrap(void) {
         cb_dump(&e);
     }
 
-    setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.25, 0.6, 0.15}}, 0);
+    setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.2, 0.6, 0.15}}, 0);
+    //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.35, 0.8, 0.9, 0.2, 0.2, 0.2}}, 0);
     //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
+    //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.065, 0.5, 1.0, 0.0, 0.3, 0.0}}, 0);
     e2d[0] = new2DAudioEmitter(
         0, AUDIOPRIO_MAX, -1, 0,
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.5f, 0.5f}}
@@ -331,7 +333,7 @@ static int bootstrap(void) {
             play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, 0, 0, NULL);
             rlsRc(tmpsnd, false);
         }
-        tmpsnd = getRc(RC_SOUND, "sounds/ac1", &audiostate.soundrcopt, 0, NULL);
+        tmpsnd = getRc(RC_SOUND, "sounds/env/ac1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);

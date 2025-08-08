@@ -6,14 +6,14 @@
 
 #include <string.h>
 #include <stdlib.h>
-#ifndef PSRC_DATASTREAM_USESTDIO
+#if defined(PSRC_DATASTREAM_USESTDIO)
+    #include <stdio.h>
+#elif !defined(PSRC_DATASTREAM_USESDL)
     #include <fcntl.h>
     #include <unistd.h>
     #ifndef O_BINARY
         #define O_BINARY 0
     #endif
-#else
-    #include <stdio.h>
 #endif
 
 void ds_openmem(void* b, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
@@ -41,30 +41,34 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
             return false;
         }
     }
-    #ifndef PSRC_DATASTREAM_USESTDIO
-    if ((ds->file.fd = open(p, O_RDONLY | O_BINARY, 0)) < 0) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-        return false;
-    }
+    #if defined(PSRC_DATASTREAM_USESTDIO)
+        if (!(ds->file.f = fopen(p, "rb"))) {
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+            return false;
+        }
+    #elif defined(PSRC_DATASTREAM_USESDL)
+//        #if PLATFORM == PLAT_ANDROID
+//            if (p[0] == '.' && p[1] == '/') p += 2; // Skip ./ on Android so that SDL can correctly search in the embedded assets
+//        #endif
+        if (!(ds->file.rwo = SDL_RWFromFile(p, "rb"))) {
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+            return false;
+        }
     #else
-    if (!(ds->file.f = fopen(p, "rb"))) {
-        plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
-        return false;
-    }
+        if ((ds->file.fd = open(p, O_RDONLY | O_BINARY, 0)) < 0) {
+            plog(LL_WARN | LF_FUNC, LE_CANTOPEN(p, errno));
+            return false;
+        }
     #endif
-    if (!bufsz) {
-        #if PLATFORM == PLAT_DREAMCAST
-        bufsz = 2048 * 4; // 4 CD sectors (8192)
-        #else
-        bufsz = 512 * 8; // 8 HDD sectors (4096)
-        #endif
-    }
+    if (!bufsz) bufsz = 4096; // 8 HDD sectors or 2 CD sectors
     ds->buf = malloc(bufsz);
     if (!ds->buf) {
-        #ifndef PSRC_DATASTREAM_USESTDIO
-        close(ds->file.fd);
+        #if defined(PSRC_DATASTREAM_USESTDIO)
+            fclose(ds->file.f);
+        #elif defined(PSRC_DATASTREAM_USESDL)
+            SDL_RWclose(ds->file.rwo);
         #else
-        fclose(ds->file.f);
+            close(ds->file.fd);
         #endif
         return false;
     }
@@ -115,16 +119,18 @@ void ds_close(struct datastream* ds) {
             break;
         case DS_MODE_FILE:
             free(ds->buf);
-            #ifndef PSRC_DATASTREAM_USESTDIO
-            close(ds->file.fd);
+            #if defined(PSRC_DATASTREAM_USESTDIO)
+                fclose(ds->file.f);
+            #elif defined(PSRC_DATASTREAM_USESDL)
+                SDL_RWclose(ds->file.rwo);
             #else
-            fclose(ds->file.f);
+                close(ds->file.fd);
             #endif
             free(ds->path);
             break;
         case DS_MODE_CB:
             free(ds->buf);
-            if (ds->cb.close) ds->cb.close(ds->cb.closectx);
+            if (ds->cb.close) ds->cb.close(ds->cb.ctx);
             break;
         case DS_MODE_SECT:
             free(ds->buf);
@@ -189,24 +195,17 @@ bool ds_seek(struct datastream* ds, size_t o) {
             return true;
         } break;
         case DS_MODE_FILE: {
-            #ifndef PSRC_DATASTREAM_USESTDIO
-            off_t r = lseek(ds->file.fd, o, SEEK_SET);
-            if (r == -1) return false;
-            if ((size_t)r != o) {
-                lseek(ds->file.fd, ds->passed + ds->datasz, SEEK_SET);
-                return false;
-            }
+            #if defined(PSRC_DATASTREAM_USESTDIO)
+                if (fseek(ds->file.f, o, SEEK_SET) == -1) return false;
+            #elif defined(PSRC_DATASTREAM_USESDL)
+                if (SDL_RWseek(ds->file.rwo, o, SEEK_SET) == -1) return false;
             #else
-            if (fseek(ds->file.f, o, SEEK_SET) == -1) return false;
-            if ((size_t)ftell(ds->file.f) != o) {
-                fseek(ds->file.f, ds->passed + ds->datasz, SEEK_SET);
-                return false;
-            }
+                if (lseek(ds->file.fd, o, SEEK_SET) == -1) return false;
             #endif
         } break;
         case DS_MODE_CB: {
             if (!ds->cb.seek) return false;
-            if (!ds->cb.seek(ds->cb.seekctx, o)) return false;
+            if (!ds->cb.seek(ds->cb.ctx, o)) return false;
         } break;
         case DS_MODE_SECT: {
             if (o >= ds->sect.lim) return false;
@@ -217,6 +216,42 @@ bool ds_seek(struct datastream* ds, size_t o) {
     ds->pos = 0;
     ds->datasz = 0;
     return true;
+}
+
+size_t ds_getsz(struct datastream* ds) {
+    switch (ds->mode) {
+        case DS_MODE_MEM: {
+            return ds->datasz;
+        } break;
+        case DS_MODE_FILE: {
+            #if defined(PSRC_DATASTREAM_USESTDIO)
+                long c = ftell(ds->file.f);
+                if (c == -1) break;
+                fseek(ds->file.fd, 0, SEEK_END);
+                long e = ftell(ds->file.f);
+                fseek(ds->file.fd, c, SEEK_SET);
+                return e;
+            #elif defined(PSRC_DATASTREAM_USESDL)
+                int64_t sz = SDL_RWsize(ds->file.rwo);
+                if (sz < 0) break;
+                return sz;
+            #else
+                off_t c = lseek(ds->file.fd, 0, SEEK_CUR);
+                if (c == -1) break;
+                off_t e = lseek(ds->file.fd, 0, SEEK_END);
+                lseek(ds->file.fd, c, SEEK_SET);
+                return e;
+            #endif
+        } break;
+        case DS_MODE_CB: {
+            if (!ds->cb.getsz) break;
+            return ds->cb.getsz(ds->cb.ctx);
+        } break;
+        case DS_MODE_SECT: {
+            return ds->sect.lim;
+        } break;
+    }
+    return -1;
 }
 
 int ds_text__getc(struct datastream* ds) {
@@ -232,24 +267,32 @@ bool ds__refill(struct datastream* ds) {
     ds->passed += ds->datasz;
     ds->pos = 0;
     if (ds->mode == DS_MODE_FILE) {
-        #ifndef PSRC_DATASTREAM_USESTDIO
-            ssize_t r = read(ds->file.fd, ds->buf, ds->bufsz);
-            if (r == 0 || r == -1) {
-                ds->datasz = 0;
-                ds->atend = 1;
-                return false;
-            }
-            ds->datasz = r;
-        #else
+        #if defined(PSRC_DATASTREAM_USESTDIO)
             if (feof(ds->file.f)) {
                 ds->datasz = 0;
                 ds->atend = 1;
                 return false;
             }
             ds->datasz = fread(ds->buf, 1, ds->bufsz, ds->file.f);
+        #elif defined(PSRC_DATASTREAM_USESDL)
+            size_t r = SDL_RWread(ds->file.rwo, ds->buf, 1, ds->bufsz);
+            if (!r) {
+                ds->datasz = 0;
+                ds->atend = 1;
+                return false;
+            }
+            ds->datasz = r;
+        #else
+            ssize_t r = read(ds->file.fd, ds->buf, ds->bufsz);
+            if (!r || r == -1) {
+                ds->datasz = 0;
+                ds->atend = 1;
+                return false;
+            }
+            ds->datasz = r;
         #endif
     } else if (ds->mode == DS_MODE_CB) {
-        if (!ds->cb.read(ds->cb.readctx, ds->buf, ds->bufsz, &ds->datasz)) {
+        if (!ds->cb.read(ds->cb.ctx, ds->buf, ds->bufsz, &ds->datasz)) {
             ds->datasz = 0;
             ds->atend = 1;
             return false;

@@ -71,11 +71,17 @@ Format:
         Animated material data:
             <u32: Microseconds per frame>
             <u8:
-                { P3M_MATLOOP_NONE
-                | P3M_MATLOOP_LOOP
-                | P3M_MATLOOP_CONT }
+                <3 bits: 0>
+                <1 bit: Preserve texture scroll>
+                <4 bits:
+                    { P3M_MATLOOP_NONE
+                    | P3M_MATLOOP_LOOP
+                    | P3M_MATLOOP_CONT }
+                >
             >
             <<Material data>: Initial values>
+            <float[2]: Texture scroll per second>
+            <float[2]: Matcap texture scroll per second>
             <u8: Last frame>
             <u8: Color keyframe count> <u8: Emission keyframe count> <u8: Shading keyframe count>
             <u8: Texture keyframe count> <u8: Matcap keyframe count>
@@ -85,7 +91,6 @@ Format:
             [Shading <Animated material interp mode>]...
             [u8[4]: Color keyframe data]... [u8[3]: Emission keyframe data]... [u8: Shading keyframe data]...
             [u8: Texture keyframe data]... [u8: Matcap keyframe data]...
-            < <u8: Texture keyframe>
         Animated material interp mode:
             <u8:
                 { P3M_MATINTERP_NONE
@@ -165,10 +170,12 @@ Format:
             | <u16: Data>
             | <u32: Data>
             | <u64: Data>
-            | <u16: String table offset to first array element>
-            | <u16: String table offset to first <String>> }
+            | <<String table offset>: Offset to first array element>
+            | <<String table offset>: Offset to first <String>> }
 
-        String:
+        String table offset:
             <u16: Offset in string table>
+        String:
+            <<String table offset>: Offset to null-terminated string>
 
 

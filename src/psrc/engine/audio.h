@@ -16,13 +16,7 @@
     #include "../../minimp3/minimp3_ex.h"
 #endif
 
-#if PLATFORM == PLAT_NXDK || PLATFORM == PLAT_GDK
-    #include <SDL.h>
-#elif defined(PSRC_USESDL1)
-    #include <SDL/SDL.h>
-#else
-    #include <SDL2/SDL.h>
-#endif
+#include "../incsdl.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -60,7 +54,7 @@ enum audioopt {
 #define AUDIOFXMASK_ALL (-1U)
 struct audiofx {
     int64_t toff;
-    float speed; 
+    float speed;
     float vol[2];
     float lpfilt[2];
     float hpfilt[2];

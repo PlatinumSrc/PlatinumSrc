@@ -3,6 +3,7 @@
 
 #include "version.h"
 #include "debug.h"
+#include "util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,27 +15,22 @@
 #include <stdbool.h>
 
 #if defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)
-    #if PLATFORM == PLAT_NXDK
+    #if PLATFORM != PLAT_NXDK
+        #include "incsdl.h"
+    #else
         #include <pbkit/pbkit.h>
         #include <pbkit/nv_regs.h>
-    #elif PLATFORM == PLAT_GDK
-        #include <SDL.h>
-    #elif defined(PSRC_USESDL1)
-        #include <SDL/SDL.h>
-    #else
-        #include <SDL2/SDL.h>
     #endif
 #endif
 #if PLATFORM == PLAT_WIN32
     #include <windows.h>
     static WORD conattr;
     static HANDLE conh;
+#elif PLATFORM == PLAT_ANDROID
+    #include <android/log.h>
 #endif
 
 #include "glue.h"
-
-#define _STR(x) #x
-#define STR(x) _STR(x)
 
 #ifndef PSRC_NOMT
 mutex_t loglock;
@@ -300,41 +296,60 @@ static void plog_internal(enum loglevel lvl, const char* func, const char* file,
         fputc('\n', logfile);
         fflush(logfile);
     }
-    FILE* f;
-    #if PLATFORM != PLAT_EMSCR
-    switch (lvl & 0xFF) {
-        default:
+    #if PLATFORM != PLAT_ANDROID
+        FILE* f;
+        #if PLATFORM != PLAT_EMSCR
+            switch (lvl & 0xFF) {
+                default:
+                    f = stdout;
+                    break;
+                case LL_WARN:
+                case LL_ERROR:
+                case LL_CRIT:
+                    f = stderr;
+                    break;
+            }
+        #else
             f = stdout;
-            break;
-        case LL_WARN:
-        case LL_ERROR:
-        case LL_CRIT:
-            f = stderr;
-            break;
-    }
+        #endif
+        bool istty;
+        #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
+            istty = isatty(fileno(f));
+        #else
+            istty = true;
+        #endif
+        if (istty) {
+            pl_fputprefix_color(lvl, f);
+        } else {
+            pl_fputdate(t, f);
+            pl_fputprefix(lvl, f);
+        }
+        fputs(ring[ringnext].text, f);
+        if (istty) {
+            pl_fputsuffix_color(lvl, f);
+        } else {
+            pl_fputsuffix(lvl, f);
+        }
+        fputc('\n', f);
+        fflush(f);
     #else
-    f = stdout;
+        android_LogPriority p;
+        switch (lvl & 0xFF) {
+            default:
+                p = (!(lvl & LF_DEBUG) ? ANDROID_LOG_INFO : ANDROID_LOG_DEBUG);
+                break;
+            case LL_WARN:
+                p = ANDROID_LOG_WARN;
+                break;
+            case LL_ERROR:
+                p = ANDROID_LOG_ERROR;
+                break;
+            case LL_CRIT:
+                p = ANDROID_LOG_FATAL;
+                break;
+        }
+        __android_log_write(p, "PlatinumSrc", ring[ringnext].text);
     #endif
-    bool istty;
-    #if (PLATFLAGS & PLATFLAG_UNIXLIKE)
-    istty = isatty(fileno(f));
-    #else
-    istty = true;
-    #endif
-    if (istty) {
-        pl_fputprefix_color(lvl, f);
-    } else {
-        pl_fputdate(t, f);
-        pl_fputprefix(lvl, f);
-    }
-    fputs(ring[ringnext].text, f);
-    if (istty) {
-        pl_fputsuffix_color(lvl, f);
-    } else {
-        pl_fputsuffix(lvl, f);
-    }
-    fputc('\n', f);
-    fflush(f);
     #if (defined(PSRC_MODULE_ENGINE) || defined(PSRC_MODULE_EDITOR)) && PLATFORM != PLAT_NXDK
         if (lvl & LF_MSGBOX) {
             #if PLATFORM != PLAT_WIN32

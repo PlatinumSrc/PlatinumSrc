@@ -23,7 +23,7 @@ Format:
         <u32: Size of embedded resource archive> [Embedded resource PAF archive (See 'archives (paf).txt')]
         <u16: Extension count> [u32: Size of extension]... [Extension]...
         <u8: Level count> [u32: Level data size]... [Level data]...
-        <u32: Entity count> [Entity (see 'map entities.txt')]...
+        <Entities (see 'map entities.txt')>
 
         Level data:
             <u8:
@@ -90,7 +90,7 @@ Format:
             [Client-side material]...
         Server level data:
             <u32: String table size> <char[]: String table>
-            <u32: Entity count> [Entity (see 'map entities.txt')]...
+            <Entities (see 'map entities.txt')>
 
         Sound environment:
             <<String>: Name>
@@ -144,6 +144,7 @@ Format:
             <u8: Sky environment region count> [<Environment region>: Sky environment region]...
             <u8: Lightmap count> [Lightmap]...
             <u32: Vertex count> [Vertex]...
+            <u32: Normal count> [Normal]...
             [Client-side dynamic light]...
             [Client-side fast light]...
             [Client-side cube]...
@@ -151,7 +152,7 @@ Format:
             <u32: String table size> <char[]: String table>
             <u8: Region count> [Region]...
             [Server-side cube]...
-            <u32: Entity count> [Entity (see 'map entities.txt')]...
+            <Entities (see 'map entities.txt')>
 
         Region:
             <float[3]: (+X, +Y, +Z) corner>
@@ -182,16 +183,16 @@ Format:
                 | ENTMAT_RENDMODE_ADD }
             >
         Client-side material:
-            <<String>: Texture (untextured if empty)>
-            <u8: Extra texture count> [<String>: Extra texture]...
-            <u32: Texture advance time in microseconds>
-            <float[2]: Texture UV scroll>
             <u8[3]: RGB color>
             <u8: Alpha (ignored if 'transparent' bit is not set)>
             <u8[3]: RGB emission>
             <u8: Shading>
-            <u8: Shine>
-            <<String>: Matcap texture>
+            <<String>: Texture (untextured if empty)>
+            <<String>: Matcap texture (none if empty)>
+            <u8: Extra texture count> [<String>: Extra texture]...
+            <u32: Texture advance time in microseconds>
+            <float[2]: Texture UV scroll per second>
+            <float[2]: Matcap texture UV scroll per second>
             <Wave info (ignored if 'liquid' bit is not set)
                 <float[3]: Velocity>
                 <float: Wind influence>
@@ -224,6 +225,8 @@ Format:
             <float[3]: XYZ>
             <float[2]: Texture UV>
             <float[2]: Lightmap UV>
+        Normal:
+            <float[3]: XYZ>
 
         Dynamic light:
             <u8:
@@ -258,19 +261,36 @@ Format:
 
         Cube:
             <u8:
-                <1 bit: Draw backfaces>
-                <1 bit: Has pathfinding data>
-                <1 bit: Has lighting data>
-                <1 bit: Has visibility data>
-                <4 bits: { PMF_CUBE_EMPTY | PMF_CUBE_PARENT | PMF_CUBE_GEOMETRY | PMF_CUBE_EXTGEOMETRY }>
+                <4 bits:
+                    { 0
+                    | <Geometry cube bits>
+                    | <Collider cube bits> }
+                >
+                <4 bits:
+                    { PMF_CUBE_EMPTY
+                    | PMF_CUBE_PARENT
+                    | PMF_CUBE_GEOMETRY
+                    | PMF_CUBE_VISINFO
+                    | PMF_CUBE_LIGHTINFO
+                    | PMF_CUBE_PATHINFO
+                    | PMF_CUBE_COLLIDER }
+                >
             >
-            [Cube visibility data]
-            [ { <Parent cube data> | <Geometry cube data> | <Extended geometry cube data> } ]
+            [
+                { <Parent cube data>
+                | <Geometry cube data>
+                | <Visibility info cube data>
+                | <Collider cube data> }
+            ]
         Client-side cube:
-            [Cube lighting data]
-            [ { <Client-side geometry cube data> | <Client-side extended geometry cube data> } ]
+            [
+                { <Client-side geometry cube data>
+                | <Lighting info cube data> }
+            ]
         Server-side cube:
-            [Cube pathfinding data]
+            [
+                <Pathfinding info cube data>
+            ]
 
         Parent cube data:
             <u8:
@@ -285,10 +305,22 @@ Format:
             [u32: (+X, -Y, -Z) child index] [u32: (-X, -Y, -Z) child index]
 
         Geometry cube data:
+            { <Basic geometry cube data>
+            | <Extended geometry cube data> }
+        Client-side geometry cube data:
+            { <Client-side basic geometry cube data>
+            | <Client-side extended geometry cube data> }
+        Geometry cube bits:
+            <1 bits: 0>
+            <1 bit: Draw backfaces>
+            <1 bit: Client-side data is extended>
+            <1 bit: Common data is extended>
+
+        Basic geometry cube data:
             <u8: Material>
             <u8: Physics material>
             <u8: Sound material>
-        Client-side geometry cube data:
+        Basic client-side geometry cube data:
             <u8: Lightmap>
             <u32: Index of first quad's first vertex>
             <u8:
@@ -316,29 +348,52 @@ Format:
         Client-side extended geometry cube data:
             <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
             <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
-            <u32: Index of first triangle's first vertex>
             <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
             <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
+            <u32: Index of first triangle's first vertex>
+            <u32: Index of first triangle's first vertex's normal>
 
-        Cube visibility data:
+        Visibility info cube data:
+            <u32: Child>
             <u32: Other visible cube count>
             [u32: Visible cube index]...
             <u32: Other visible chunk count>
-            [
-                <Chunk index>
-                <u32: Visible cube count (0 means all)> [u32: Cube index]...
-            ]...
+            [Visibility info cube chunk]...
+        Visibility info cube chunk:
+            <Chunk index>
+            <u32: Visible cube count (0 means all)> [u32: Cube index]...
 
-        Cube lighting data:
+        Lighting info cube data:
+            <u32: Child>
             <u8[3]: Base light>
-            <u8: Dynamic light count> [ <u8: Dynamic light index> <u8: Multiplier> ]...
-            <u8: Fast light count> [ <u8: Fast light index> <u8: Multiplier> ]...
+            <u8: Dynamic light count> [Lighting info cube light reference]...
+            <u8: Fast light count> [Lighting info cube light reference]...
+        Lighting info cube light reference:
+            <u8: Index>
+            <u8: Multiplier>
 
-        Cube pathfinding data:
-            <u8: Attribute count> [ <<String>: Attribute name> <float[3]: XYZ direction to face> ]...
+        Pathfinding info cube data:
+            <u32: Child>
+            <u8: Attribute count> [Pathfinding info cube attribute]...
+        Pathfinding info cube attribute:
+            <<String>: Name>
+            <<String>: Data>
 
-        String:
+        Collider cube data:
+            <u32: Child>
+            <Collider cube box>...
+        Collider cube box:
+            <float[3]: (+X, +Y, +Z) XYZ> <float[3]: (-X, +Y, +Z) XYZ>
+            <float[3]: (+X, +Y, -Z) XYZ> <float[3]: (-X, +Y, -Z) XYZ>
+            <float[3]: (+X, -Y, +Z) XYZ> <float[3]: (-X, -Y, +Z) XYZ>
+            <float[3]: (+X, -Y, -Z) XYZ> <float[3]: (-X, -Y, -Z) XYZ>
+        Collider cube bits:
+            <4 bits: Box count minus 1>
+
+        String table offset:
             <u32: Offset in respective string table>
+        String:
+            <<String table offset>: Offset to null-terminated string>
 
         Extension:
             (See 'map extensions.txt')
