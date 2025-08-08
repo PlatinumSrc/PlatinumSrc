@@ -26,6 +26,6 @@ Building:
 
     - Ensure 'ANDROID_HOME' is set, and run './gradlew build'.
     - Rebuilding appears to not work correctly unless you remove the APKs using something like
-      'rm -r app/build/outputs/apk'.
+      'rm -r app/build/outputs/apk/*'.
 
 

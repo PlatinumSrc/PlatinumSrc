@@ -628,9 +628,11 @@ else
 BIN := psrc
 endif
 ifdef DEBUG
-    BIN := $(BIN)_debug
-    ifeq ($(ASAN),y)
-        BIN := $(BIN)_asan
+    ifneq ($(CROSS),android)
+        BIN := $(BIN)_debug
+        ifeq ($(ASAN),y)
+            BIN := $(BIN)_asan
+        endif
     endif
 endif
 ifeq ($(CROSS),win32)
