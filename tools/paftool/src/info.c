@@ -1,11 +1,16 @@
 #include <stdio.h>
 
 const char* paftool_info_help =
-   "<INPUT> <COMMAND> ... - Display information about the INPUT archive\n"
+   "INPUT COMMAND ... - Display information about the INPUT archive\n"
    "        ls, list [OPTION]... [--] [PATH]... - List all or a list of PATHs\n"
-   "            -e, --escape    - Escape special characters\n"
-   "            -p, --plain     - Output just the path\n"
-   "            -t, --tree      - Output a tree instead of a list\n"
+   "            -e, --escape            - Escape special characters\n"
+   "            -E, --extra             - Output extra info like file size\n"
+   "            -h, --human-readable    - Output sizes in B, KiB, MiB, and GiB (requires -E)\n"
+   "                --si                - Output sizes in B, KB, MB, and GB (requires -E)\n"
+   "            -t, --tree              - Output a tree instead of a list\n"
+   "            -v, --verbose           - Output even more info (implies -E)\n"
+   "        stat [OPTION]... [--] PATH... - Display info about the provided PATHs\n"
+   "            -L, --dereference       - Follow links\n"
    "        u, usage - Display usage statistics"
 ;
 

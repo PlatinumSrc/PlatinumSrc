@@ -8,20 +8,6 @@
 
 #include "glue.h"
 
-// inefficient but it works
-char* strcombine(const char* s, ...) {
-    struct charbuf b;
-    cb_init(&b, 256);
-    va_list v;
-    va_start(v, s);
-    while (s) {
-        cb_addstr(&b, s);
-        s = va_arg(v, char*);
-    }
-    va_end(v);
-    return cb_finalize(&b);
-}
-
 char** splitstrlist(const char* s, char delim, bool nullterm, size_t* l) {
     size_t len = 0;
     size_t size = 4;

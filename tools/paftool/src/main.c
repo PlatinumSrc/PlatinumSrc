@@ -8,18 +8,18 @@
 
 int main(int argc, char** argv) {
     if (argc < 2 || !strcmp(argv[1], "--help")) {
-        printf("USAGE: %s <COMMAND> ...\n", argv[0]);
+        printf("USAGE: %s COMMAND ...\n", argv[0]);
         putchar('\n');
         puts("COMMANDS:");
         printf(
             "    c, create %s\n"
             "    e, x, extract %s\n"
-            "    m, modify %s\n"
-            "    i, info %s\n",
+            "    i, info %s\n"
+            "    m, modify %s\n",
             paftool_create_help,
             paftool_extract_help,
-            paftool_modify_help,
-            paftool_info_help
+            paftool_info_help,
+            paftool_modify_help
         );
         return 0;
     } else if (!strcmp(argv[1], "c") || !strcmp(argv[1], "create")) {

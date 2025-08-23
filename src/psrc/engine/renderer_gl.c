@@ -155,11 +155,11 @@ static inline void r_gl_calcViewMat(struct player* pldata, struct r_gl_playerdat
         float cosx = pldata->common.cameracalc.icos[0];
         float cosy = pldata->common.cameracalc.icos[1];
         float cosz = pldata->common.cameracalc.icos[2];
-        up[0] = sinx * siny * cosz + cosy * sinz;
+        up[0] = -sinx * siny * cosz - cosy * sinz;
         up[1] = cosx * cosz;
-        up[2] = -sinx * cosy * cosz + siny * sinz;
+        up[2] = sinx * cosy * cosz - siny * sinz;
         front[0] = cosx * -siny;
-        front[1] = sinx;
+        front[1] = -sinx;
         front[2] = cosx * cosy;
     }
     float pos[3];

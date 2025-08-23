@@ -10,7 +10,6 @@
 
 struct charbuf VLB(char);
 
-char* strcombine(const char*, ...);
 char** splitstrlist(const char*, char delim, bool nullterm, size_t* len);
 char** splitstr(const char*, const char* delims, bool nullterm, size_t* len);
 char* makestrlist(const char* const* str, size_t len, char delim);

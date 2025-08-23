@@ -9,7 +9,7 @@
 #include "client.h"
 
 #include "../common/config.h"
-#include "../common/math_vec3.h"
+#include "../common/math.h"
 
 #include <stdlib.h>
 #include <limits.h>
@@ -794,6 +794,7 @@ static void doReverb_interp(struct audioreverbstate* r, unsigned len, int* bufl,
 }
 
 static inline void calc3DEmitterFx(struct audioemitter3d* e) {
+    //if (!e->cursounds) return;
     struct audioplayerdata* pldata = &audiostate.playerdata.data[e->player];
     if (!pldata->valid) return;
     float pos[3];
@@ -852,7 +853,18 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
             goto skipcalc;
         }
     }
-    if (!e->fx3d.relrot) vec3_trigrotate(pos, pldata->rotsin, pldata->rotcos, pos);
+    if (!e->fx3d.relrot) {
+        float mat[3][3];
+        //printf("[%p]:\n", (void*)e);
+        mat3_createrotmat(pldata->rotsin, pldata->rotcos, mat);
+        //printf("[%.3f, %.3f, %.3f]\n", (double)mat[0][0], (double)mat[0][1], (double)mat[0][2]);
+        //printf("[%.3f, %.3f, %.3f]\n", (double)mat[1][0], (double)mat[1][1], (double)mat[1][2]);
+        //printf("[%.3f, %.3f, %.3f]\n", (double)mat[2][0], (double)mat[2][1], (double)mat[2][2]);
+        //printf("[%.3f, %.3f, %.3f] -> ", (double)pos[0], (double)pos[1], (double)pos[2]);
+        mat3_mul_vec3(mat, pos, pos);
+        //printf(" [%.3f, %.3f, %.3f]\n", (double)pos[0], (double)pos[1], (double)pos[2]);
+        //vec3_trigrotate(pos, pldata->rotsin, pldata->rotcos, pos);
+    }
     if (pos[2] >= 0.0f) {
         pos[0] *= 1.0f + 0.4f * pos[2];
         if (pos[0] < -1.0f) pos[0] = -1.0f;

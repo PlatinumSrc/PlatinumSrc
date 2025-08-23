@@ -12,30 +12,30 @@ Format:
     Header:
         <char[3]: {'P', 'A', 'F'}>
         <u8: Major version>
-    Data:
         <u32: Position of root <Directory>>
-        <Free space tracker>
+        <u32: Position of <Free space tracker> (0 if none yet)>
+    Data:
         { <Free space>
+        | <Free space tracker>
         | <Free space tracker continuation> 
         | <Directory>
         | <Directory continuation>
         | <File>
         | <File continuation>
-        | <String> }...
+        | <String>
+        | <String continuation> }...
 
         Free space:
             <u8[]: Unused>
 
         Free space tracker:
-            <u32: Total slots>
+            <u32: Total slots used>
             <u32: Slots in current segment>
-            <u32: Slots used in current segment>
-            <u32: Position of first <Free space tracker continuation>>
+            <u32: Position of first <Free space tracker continuation> (0 if none yet)>
             [Free space tracker slot]...
         Free space tracker continuation:
             <u32: Slots in current segment>
-            <u32: Slots used in current segment>
-            <u32: Position of next <Free space tracker continuation>>
+            <u32: Position of next <Free space tracker continuation> (0 if none yet)>
             [Free space tracker slot]...
         Free space tracker slot:
             <u32: Position of <Free space>>
@@ -44,13 +44,11 @@ Format:
         Directory:
             <u32: Total entries>
             <u32: Entry slots in current segment>
-            <u32: Entry slots used in current segment>
-            <u32: Position of first <Directory continuation>>
+            <u32: Position of first <Directory continuation> (0 if none yet)>
             [Directory entry]...
         Directory continuation:
             <u32: Entry slots in current segment>
-            <u32: Entry slots used in current segment>
-            <u32: Position of next <Directory continuation>>
+            <u32: Position of next <Directory continuation> (0 if none yet)>
             [Directory entry]...
         Directory entry:
             <u8:
@@ -63,26 +61,29 @@ Format:
             <u32: Position of <Directory>, <File>, or position of <String> containing the link path>
 
         File:
-            <u8:
-                { PAF_FILEZ_NONE
+            <u8: Compression
+                { PAF_FILEZ_NONE (No compression)
                 | PAF_FILEZ_LZ4 (LZ4F) }
             >
-            [u32: Size of file before compression] 
             <u32: Total size of file data>
+            { <u32: Reserved> | <u32: Total size of file before compression> }
             <u32: Size of data array in current segment>
-            <u32: Bytes used in data array of current segment>
-            <u32: Position of first <File continuation>>
+            <u32: Position of first <File continuation> (0 if none yet)>
             <u8[]: Data>
         File continuation:
             <u32: Size of data array in current segment>
-            <u32: Bytes used in data array of current segment>
-            <u32: Position of next <File continuation>>
-            <u32: Position of previous <File continuation> or <File>>
+            <u32: Position of next <File continuation> (0 if none yet)>
+            <u32: Position of previous <File continuation> or <File> (0 if none yet)>
             <u8[]: Data>
 
         String:
-            <u32: Data array size>
             <u32: String length>
+            <u32: Size of data array in current segment>
+            <u32: Position of first <String continuation> (0 if none yet)>
             <char[]: Data>
+        String continuation:
+            <u32: Size of data array in current segment>
+            <u32: Position of next <String continuation> (0 if none yet)>
+            <char[]: Data>            
 
 

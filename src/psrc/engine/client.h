@@ -5,7 +5,7 @@
 #include "../threading.h"
 
 #include "../common/world.h"
-#include "../common/math_vec3.h"
+#include "../common/math.h"
 #include "../common/config.h"
 
 #include <stdbool.h>

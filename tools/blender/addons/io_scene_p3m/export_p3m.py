@@ -495,7 +495,7 @@ def save(operator, context, report, filepath,
                 outdata = p3m.action.data(b, tmp)
                 evalframes(cl[0], 0.0, outdata.transframeskips, outdata.transinterps, outdata.transdata)
                 if len(outdata.transframeskips) > p3m.action.data.KEYFRAMES_MAX:
-                    log('ERROR', f"Transform keyframes for bone '{b}' under action '{act.name}' exceeds keyframe limit of {p3m.action.data.KEYFRAMES_MAX}", depth = 2)
+                    log('ERROR', f"Translation keyframes for bone '{b}' under action '{act.name}' exceeds keyframe limit of {p3m.action.data.KEYFRAMES_MAX}", depth = 2)
                     return -1
                 evalframes(cl[1], 0.0, outdata.rotframeskips, outdata.rotinterps, outdata.rotdata)
                 if len(outdata.rotframeskips) > p3m.action.data.KEYFRAMES_MAX:

@@ -323,6 +323,7 @@ static int bootstrap(void) {
         AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 5.0f, 1.0f, -20.0f)}
     );
     {
+        #if 1
         struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play2DSound(e2d[0], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
@@ -369,6 +370,13 @@ static int bootstrap(void) {
             play3DSound(e3d[7], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
+        #else
+        struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/env/ac1", &audiostate.soundrcopt, 0, NULL);
+        if (tmpsnd) {
+            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            rlsRc(tmpsnd, false);
+        }
+        #endif
     }
 
     // TODO: cleanup
@@ -632,6 +640,7 @@ static void loop(void) {
 
     playerdata.data[0].camera.rot[0] += lookx * lookspeed[1];
     playerdata.data[0].camera.rot[1] += looky * lookspeed[0];
+    //playerdata.data[0].camera.rot[2] = 90;
     if (playerdata.data[0].camera.rot[0] > 90.0f) playerdata.data[0].camera.rot[0] = 90.0f;
     else if (playerdata.data[0].camera.rot[0] < -90.0f) playerdata.data[0].camera.rot[0] = -90.0f;
     playerdata.data[0].camera.rot[1] = fwrap(playerdata.data[0].camera.rot[1], 360.0f);

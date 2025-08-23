@@ -10,7 +10,7 @@
 #include "glue.h"
 
 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD) && !defined(PSRC_THREADING_USESTDTHREAD)
-DWORD WINAPI threadwrapper(LPVOID t) {
+static DWORD WINAPI threadwrapper(LPVOID t) {
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     ExitThread(0);
     return 0;
@@ -51,13 +51,13 @@ bool createThread(thread_t* t, const char* n, threadfunc_t f, void* a) {
     t->data.shouldclose = false;
     bool fail;
     #ifndef PSRC_THREADING_USESTDTHREAD
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
-    fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
+            fail = !(t->thread = CreateThread(NULL, 0, threadwrapper, t, 0, NULL));
+        #else
+            fail = pthread_create(&t->thread, NULL, threadwrapper, t);
+        #endif
     #else
-    fail = pthread_create(&t->thread, NULL, threadwrapper, t);
-    #endif
-    #else
-    fail = (thrd_create(&t->thread, (thrd_start_t)threadwrapper, t) != thrd_success);
+        fail = (thrd_create(&t->thread, (thrd_start_t)threadwrapper, t) != thrd_success);
     #endif
     if (fail) {
         free(t->name);
@@ -82,15 +82,15 @@ void destroyThread(thread_t* t, void** r) {
     #endif
     t->data.shouldclose = true;
     #ifndef PSRC_THREADING_USESTDTHREAD
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
-    WaitForSingleObject(t->thread, INFINITE);
-    if (r) *r = t->ret;
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
+            WaitForSingleObject(t->thread, INFINITE);
+            if (r) *r = t->ret;
+        #else
+            pthread_join(t->thread, r);
+        #endif
     #else
-    pthread_join(t->thread, r);
-    #endif
-    #else
-    thrd_join(t->thread, NULL);
-    if (r) *r = t->ret;
+        thrd_join(t->thread, NULL);
+        if (r) *r = t->ret;
     #endif
     #if DEBUG(1)
     plog(LL_INFO | LF_DEBUG, "Stopped thread %s", (t->name) ? t->name : "(null)");

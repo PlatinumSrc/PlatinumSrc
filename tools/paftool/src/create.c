@@ -11,7 +11,18 @@
 #include <string.h>
 
 const char* paftool_create_help =
-   "<OUTPUT> [PATH]... - Create an archive out of the provided PATHs"
+   "OUTPUT [OPTION]... [--] [PATH]... - Create an archive out of the provided PATHs\n"
+   "        -c, --compress WHAT     - Compress the given type of files (can be used multiple times and in conjunction with -C)\n"
+   "            WHAT    - a, all            - compress all files\n"
+   "                      b, bin, binary    - compress non-empty files that contain non-printable characters\n"
+   "                      t, text           - compress non-empty files that do not contain non-printable characters\n"
+   "                      .EXT              - compress all files whose file extension matches EXT\n"
+   "        -C, --no-compress WHAT  - Do not compress the given type of files (takes the same values as -c for WHAT)\n"
+   "        -f, --force             - Overwrite\n"
+   "        -l, --resolve-links     - Detect and attempt to turn symlinks into links in the archive\n"
+   "        -L, --ignore-links      - Detect and ignore symlinks\n"
+   "        -v, --verbose           - For each path added, give details about it after that addition\n"
+   "        -w, --writing           - Optimize for writing instead of size (default if no PATHs are provided)"
 ;
 
 struct ftreeuserdata VLB(uint32_t);
@@ -164,7 +175,7 @@ int paftool_create(char* argv0, int argc, char** argv) {
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
         fwrite(&tmpu32, 4, 1, f);
-        puts("Scanning files...");
+        //puts("Scanning files...");
         struct ftree tree;
         ftree_init(&tree, argc - 1, argv + 1);
         //ftree_list(&tree);
