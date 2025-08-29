@@ -75,6 +75,8 @@ build_engine() {
     ARCHIVER=_zip_u
 
     FILES=(psrc.exe)
+    OUTPUT="${BASE}_windows_x86_64"
+    buildrel "${1}" "Windows x86_64" "${@:2}" CROSS=win32 TOOLCHAIN=x86_64-w64-mingw32-
     OUTPUT="${BASE}_windows_i686"
     buildrel "${1}" "Windows 2000+ i686" "${@:2}" CROSS=win32 M32=y TOOLCHAIN='wine '
     OUTPUT="${BASE}_win9x_i686"

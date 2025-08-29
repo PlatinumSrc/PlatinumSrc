@@ -7,7 +7,7 @@ Setup:
        myorg/mygame/' or 'com/mystudio/mygame/'. Keep the SDL files in 'org/libsdl/app/'.
      5. Update the namespace in 'app/build.gradle' from 'org.psrc.psrc' to match the new path ('org.myorg.mygame' for
        example).
-     6. Update the app name 'app/src/main/res/values/strings.xml' and the icons in 'app/src/main/res/mipmap-*'.
+     6. Update the app name in 'app/src/main/res/values/strings.xml' and the icons in 'app/src/main/res/mipmap-*'.
      7. Use the PAF tool to create an archive with the 'internal' dir only including the 'engine' and 'server' subdirs,
         and a 'games' dir with your game folder in it.
         Example:

@@ -43,7 +43,7 @@
 #define VLB_INIT(VLB__b, VLB__sz, ...) do {\
     (VLB__b).data = malloc((VLB__sz) * sizeof(*(VLB__b).data));\
     (VLB__b).len = 0;\
-    if ((VLB__sz) && (VLB__b).data) (VLB__b).size = (VLB__sz);\
+    if ((VLB__sz) != 0 && (VLB__b).data) (VLB__b).size = (VLB__sz);\
     else {(VLB__b).size = 0; {__VA_ARGS__}}\
 } while (0)
 #define VLB_FREE(b) free((b).data)

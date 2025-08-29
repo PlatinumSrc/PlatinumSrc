@@ -118,10 +118,10 @@ struct rcopt_model {
 
 // RC_SCRIPT
 struct rc_script {
-    struct pbscript script;
+    struct pb_script script;
 };
 struct rcopt_script {
-    struct pbc_opt compileropt;
+    struct pb_compopt compileropt;
 };
 
 // RC_SOUND
@@ -234,9 +234,9 @@ bool lsRc(const char* id, bool allownative, struct rcls*);
 bool lsCacheRc(const char* id, bool allownative, struct rcls* l);
 void freeRcls(struct rcls*);
 
-void loadMods(const char* const* names, int count);
-struct modinfo* queryMods(int* count);
+void loadMods(const char* const* names, size_t count);
+struct modinfo* queryMods(size_t* count);
 void freeModList(struct modinfo*);
-void setCustomFiles(struct customfile*, int count);
+void setCustomFiles(struct customfile*, size_t count);
 
 #endif

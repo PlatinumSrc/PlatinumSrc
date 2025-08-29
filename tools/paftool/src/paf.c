@@ -4,10 +4,18 @@
 #include <unistd.h>
 
 #define PAF_SPCFREE_FSTEXP_TARGETSLOTCT 16
-static uint32_t paf_spcalloc(struct paf* p, uint32_t pos, uint32_t sz);
+enum paf_spcalloc_cb_ret {
+    PAF_SPCALLOC_CB_RET_PASS,
+    PAF_SPCALLOC_CB_RET_TAKE,
+    PAF_SPCALLOC_CB_RET_HALT
+};
+typedef enum paf_spcalloc_cb_ret (*paf_spcalloc_cb)(void* userdata, uint32_t pos, uint32_t sz, uint32_t* takesz);
+static uint32_t paf_spcalloc(struct paf* p, paf_spcalloc_cb cb, void* userdata);
 static void paf_spcfree(struct paf* p, uint32_t pos, uint32_t sz);
 
 static char* paf_readstr(struct paf* p, uint32_t pos, uint32_t* len);
+void paf_writestr(struct paf* p, uint32_t pos, const char* d, uint32_t len);
+void paf_updatestr(struct paf* p, uint32_t pos, const char* d, uint32_t len);
 
 void paf_create(FILE* f, struct paf* p, uint32_t rentct, uint32_t fstslotct) {
     p->f = f;
@@ -95,12 +103,36 @@ bool paf_nextent(struct paf* p, struct paf_dirent* e) {
 }
 
 static char* paf_readstr(struct paf* p, uint32_t pos, uint32_t* len) {
-    return NULL;
+    uint32_t oldpos = ftell(p->f);
+    fseek(p->f, pos, SEEK_SET);
+    struct paf_fmt_str s;
+    paf_fmt_rd_str(p->f, &s);
+    char* d = malloc(s.strlen + 1);
+    *len = s.strlen;
+    d[s.strlen] = 0;
+    char* tmpd = d;
+    while (1) {
+        if (s.strlen <= s.bytect) {
+            fread(tmpd, 1, s.strlen, p->f);
+            break;
+        } else {
+            fread(tmpd, 1, s.bytect, p->f);
+            s.strlen -= s.bytect;
+            fseek(p->f, s.contpos, SEEK_SET);
+            struct paf_fmt_str_cont sc;
+            paf_fmt_rd_str_cont(p->f, &sc);
+            s.bytect = sc.bytect;
+            s.contpos = sc.contpos;
+        }
+    }
+    fseek(p->f, oldpos, SEEK_SET);
+    return d;
 }
 
 // TODO: make this allocation and dellocation logic smarter
-// pos is assumed to only be non-zero if a contiguous allocation is wanted and other cases are not handled
-static uint32_t paf_spcalloc(struct paf* p, uint32_t pos, uint32_t sz) {
+// - pos is assumed to only be non-zero if a contiguous allocation is wanted and other cases are not handled
+// - possibly other problems
+static uint32_t paf_spcalloc(struct paf* p, paf_spcalloc_cb cb, void* userdata) {
     if (!p->fstpos) return 0;
     uint32_t oldpos = ftell(p->f);
     fseek(p->f, p->fstpos, SEEK_SET);
@@ -110,22 +142,20 @@ static uint32_t paf_spcalloc(struct paf* p, uint32_t pos, uint32_t sz) {
     uint32_t sloti;
     uint32_t slotpos;
     struct paf_fmt_freespctrkr_slot slot;
+    uint32_t sz;
     while (1) {
         if (tmpfst.usedslots <= tmpfst.slotct) {
             for (sloti = 0; sloti < tmpfst.usedslots; ++sloti) {
                 paf_fmt_rd_freespctrkr_slot(p->f, &slot);
-                if (pos) {
-                    if (slot.pos == pos) {
-                        if (slot.size >= sz) {
-                            slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
-                            goto slotfound;
-                        }
+                switch (cb(userdata, slot.pos, slot.sz, &sz)) {
+                    case PAF_SPCALLOC_CB_RET_PASS:
+                        break;
+                    case PAF_SPCALLOC_CB_RET_TAKE:
+                        slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
+                        goto slotfound;
+                    case PAF_SPCALLOC_CB_RET_HALT:
                         fseek(p->f, oldpos, SEEK_SET);
                         return 0;
-                    }
-                } else if (slot.size >= sz) {
-                    slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
-                    goto slotfound;
                 }
             }
             fseek(p->f, oldpos, SEEK_SET);
@@ -133,18 +163,15 @@ static uint32_t paf_spcalloc(struct paf* p, uint32_t pos, uint32_t sz) {
         } else {
             for (sloti = 0; sloti < tmpfst.slotct; ++sloti) {
                 paf_fmt_rd_freespctrkr_slot(p->f, &slot);
-                if (pos) {
-                    if (slot.pos == pos) {
-                        if (slot.size >= sz) {
-                            slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
-                            goto slotfound;
-                        }
+                switch (cb(userdata, slot.pos, slot.sz, &sz)) {
+                    case PAF_SPCALLOC_CB_RET_PASS:
+                        break;
+                    case PAF_SPCALLOC_CB_RET_TAKE:
+                        slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
+                        goto slotfound;
+                    case PAF_SPCALLOC_CB_RET_HALT:
                         fseek(p->f, oldpos, SEEK_SET);
                         return 0;
-                    }
-                } else if (slot.size >= sz) {
-                    slotpos = ftell(p->f) - PAF_FMT_FREESPCTRKR_SLOT_SZ;
-                    goto slotfound;
                 }
             }
             tmpfst.usedslots -= tmpfst.slotct;

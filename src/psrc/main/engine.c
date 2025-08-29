@@ -181,11 +181,11 @@ static int bootstrap(void) {
             free(*l);
             free(l);
         }
-        int ct;
+        size_t ct;
         struct modinfo* data = queryMods(&ct);
         if (data) {
             plog(LL_INFO, "Mod info:");
-            for (int i = 0; i < ct; ++i) {
+            for (size_t i = 0; i < ct; ++i) {
                 plog(LL_INFO, "  %s (%s)", data[i].name, data[i].dir);
                 plog(LL_INFO, "    Path: %s", data[i].path);
                 if (data[i].author) plog(LL_INFO, "    Author: %s", data[i].author);

@@ -191,8 +191,8 @@ struct rcaccdataptr {
 
 static struct {
     struct modinfo* data;
-    int len;
-    int size;
+    size_t len;
+    size_t size;
     #ifndef PSRC_NOMT
     struct accesslock lock;
     #endif
@@ -278,7 +278,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
     VLB_INIT(dirbmp, 8 * (mods.len + 1), VLB_OOM_NOP /* TODO */);
     #endif
     bool ret = false;
-    int dirind = 0;
+    size_t dirind = 0;
     char* dir;
     while (1) {
         struct lsstate s;
@@ -318,7 +318,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
         const char* n;
         const char* ln;
         while (getls(&s, &n, &ln)) {
-            int ind;
+            unsigned ind;
             size_t ol = cb.len;
             {
                 int isfile = isFile(ln);
@@ -330,7 +330,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
                     if (cb.len == ol) continue;
                     if (cb.data[cb.len] == '.') {
                         char* tmp = &cb.data[cb.len + 1];
-                        for (int j = 0; j < RC__COUNT; ++j) {
+                        for (unsigned j = 0; j < RC__COUNT; ++j) {
                             const char* const* exts = rcextensions[j];
                             do {
                                 if (!strcmp(tmp, *exts)) {
@@ -805,7 +805,7 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             #endif
             struct charbuf cb;
             cb_init(&cb, 256);
-            for (int i = 0; i < mods.len; ++i) {
+            for (size_t i = 0; i < mods.len; ++i) {
                 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
                 if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
                 #endif
@@ -837,7 +837,7 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             #endif
             struct charbuf cb;
             cb_init(&cb, 256);
-            for (int i = 0; i < mods.len; ++i) {
+            for (size_t i = 0; i < mods.len; ++i) {
                 #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
                 if (!((dirbits[i / 8] >> (i % 8)) & 1)) continue;
                 #endif
@@ -1060,7 +1060,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         case RC_SCRIPT: {
             if (acc.src != RCSRCTYPE_FS) goto fail;
             const struct rcopt_script* o = opt;
-            struct pbscript s;
+            struct pb_script s;
             goto fail;
             //if (!pb_compilefile(acc.fs.path, &o->compileropt, &s, err)) goto fail;
             (void)err;
@@ -1385,8 +1385,7 @@ static ALWAYSINLINE void freeModListEntry(struct modinfo* m) {
     free(m->desc);
 }
 
-static inline int loadMods_add(struct charbuf* cb) {
-    if (mods.len == INT_MAX) return -1;
+static inline size_t loadMods_add(struct charbuf* cb) {
     {
         cb_nullterm(cb);
         int tmp = isFile(cb->data);
@@ -1416,8 +1415,12 @@ static inline int loadMods_add(struct charbuf* cb) {
         ds_close(&ds);
     }
     if (mods.len == mods.size) {
-        mods.size = mods.size * 3 / 2;
-        mods.data = rcmgr_realloc(mods.data, mods.size * sizeof(*mods.data));
+        size_t newsz = mods.size * 3 / 2;
+        struct modinfo* newptr = rcmgr_realloc(mods.data, newsz * sizeof(*mods.data));
+        plog(LL_ERROR, LE_MEMALLOC);
+        if (!newptr) return -1;
+        mods.size = newsz;
+        mods.data = newptr;
     }
     mods.data[mods.len].name = cfg_getvar(&cfg, NULL, "name");
     mods.data[mods.len].author = cfg_getvar(&cfg, NULL, "author");
@@ -1432,16 +1435,16 @@ static inline int loadMods_add(struct charbuf* cb) {
     cfg_close(&cfg);
     return mods.len++;
 }
-void loadMods(const char* const* l, int ct) {
+void loadMods(const char* const* l, size_t ct) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&mods.lock);
     #endif
-    for (int i = 0; i < mods.len; ++i) {
+    for (size_t i = 0; i < mods.len; ++i) {
         freeModListEntry(&mods.data[i]);
     }
     mods.len = 0;
     clRcCache();
-    if (ct < 0) {
+    if (ct == (size_t)-1) {
         do {
             ++ct;
         } while (l[ct]);
@@ -1452,27 +1455,28 @@ void loadMods(const char* const* l, int ct) {
         return;
     }
     if (!mods.size) {
+        mods.data = rcmgr_malloc(4 * sizeof(*mods.data));
+        if (!mods.data) return;
         mods.size = 4;
-        mods.data = rcmgr_malloc(mods.size * sizeof(*mods.data));
     }
     struct charbuf cb;
     cb_init(&cb, 256);
     #ifndef PSRC_MODULE_SERVER
     if (dirs[DIR_USERMODS]) {
-        for (int i = 0; i < ct; ++i) {
+        for (size_t i = 0; i < ct; ++i) {
             if (!*l[i]) continue;
             char* n = sanfilename(l[i], '_');
             cb_addstr(&cb, dirs[DIR_USERMODS]);
             cb_add(&cb, PATHSEP);
             cb_addstr(&cb, n);
-            int mi = loadMods_add(&cb);
-            if (mi < 0) {
+            size_t mi = loadMods_add(&cb);
+            if (mi == (size_t)-1) {
                 cb_clear(&cb);
                 cb_addstr(&cb, dirs[DIR_MODS]);
                 cb_add(&cb, PATHSEP);
                 cb_addstr(&cb, n);
                 mi = loadMods_add(&cb);
-                if (mi < 0) {
+                if (mi == (size_t)-1) {
                     plog(LL_ERROR, "Failed to load mod '%s'", n);
                     free(n);
                     cb_clear(&cb);
@@ -1485,14 +1489,14 @@ void loadMods(const char* const* l, int ct) {
         }
     } else {
     #endif
-        for (int i = 0; i < ct; ++i) {
+        for (size_t i = 0; i < ct; ++i) {
             if (!*l[i]) continue;
             char* n = sanfilename(l[i], '_');
             cb_addstr(&cb, dirs[DIR_MODS]);
             cb_add(&cb, PATHSEP);
             cb_addstr(&cb, n);
-            int mi = loadMods_add(&cb);
-            if (mi < 0) {
+            size_t mi = loadMods_add(&cb);
+            if (mi == (size_t)-1) {
                 plog(LL_ERROR, "Failed to load mod '%s'", n);
                 free(n);
                 cb_clear(&cb);
@@ -1515,7 +1519,7 @@ void freeModList(struct modinfo* m) {
     free(m->path);
     free(m);
 }
-struct modinfo* queryMods(int* len) {
+struct modinfo* queryMods(size_t* len) {
     #ifndef PSRC_NOMT
     acquireReadAccess(&mods.lock);
     #endif
@@ -1530,7 +1534,7 @@ struct modinfo* queryMods(int* len) {
     struct modinfo* data = rcmgr_malloc(mods.len * sizeof(*data));
     struct charbuf cb;
     cb_init(&cb, 256);
-    for (int i = 0; i < mods.len; ++i) {
+    for (size_t i = 0; i < mods.len; ++i) {
         data[i].path = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].path); cb_add(&cb, 0);
         data[i].dir = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].dir); cb_add(&cb, 0);
         data[i].name = (char*)(uintptr_t)cb.len; cb_addstr(&cb, mods.data[i].name); cb_add(&cb, 0);
@@ -1542,7 +1546,7 @@ struct modinfo* queryMods(int* len) {
     }
     --cb.len;
     cb_finalize(&cb);
-    for (int i = 0; i < mods.len; ++i) {
+    for (size_t i = 0; i < mods.len; ++i) {
         data[i].path += (uintptr_t)cb.data;
         data[i].dir += (uintptr_t)cb.data;
         data[i].name += (uintptr_t)cb.data;

@@ -62,7 +62,7 @@ bool paf_openfile(struct paf*);
 void paf_rewindfile(struct paf*);
 void paf_writefile(struct paf*, uint32_t datasz, const uint8_t* data);
 void paf_readfile(struct paf*, uint32_t datasz, uint8_t* data);
-void paf_skipfile(struct paf*, uint32_t datasz, uint8_t* data);
+void paf_skipfile(struct paf*, uint32_t len);
 char* paf_readlink(struct paf*);
 // these 3 create funcs will replace the current entry; rewind first to append; current entry is set to the one created or replaced; name = NULL to keep existing name
 void paf_createdir(struct paf*, unsigned flags, char* name, uint32_t namelen, uint32_t namecrc, uint32_t entct);

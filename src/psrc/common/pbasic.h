@@ -7,10 +7,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdio.h>
 
-PACKEDENUM pbtype {
-    PBTYPE__SPECIAL = -1,
+PACKEDENUM pb_type {
     PBTYPE_VOID,
     PBTYPE_BOOL,
     PBTYPE_I8,
@@ -23,121 +21,15 @@ PACKEDENUM pbtype {
     PBTYPE_U64,
     PBTYPE_F32,
     PBTYPE_F64,
-    PBTYPE_VEC,
     PBTYPE_STR
 };
 
-struct pbdata_vec {
-    float x;
-    float y;
-    float z;
-};
-struct pbdata {
-    enum pbtype type;
-    uint32_t dim;
-    union {
-        size_t size;
-        size_t* sizes;
-    };
-    union {
-        uint8_t b;
-        int8_t i8;
-        int16_t i16;
-        int32_t i32;
-        int64_t i64;
-        uint8_t u8;
-        uint16_t u16;
-        uint32_t u32;
-        uint64_t u64;
-        float f32;
-        double f64;
-        struct pbdata_vec vec;
-        struct charbuf str;
-        struct {
-            union {
-                uint8_t* b; // packed bitmap
-                int8_t* i8;
-                int16_t* i16;
-                int32_t* i32;
-                int64_t* i64;
-                uint8_t* u8;
-                uint16_t* u16;
-                uint32_t* u32;
-                uint64_t* u64;
-                float* f32;
-                double* f64;
-                struct pbdata_vec* vec;
-                struct charbuf* str;
-            };
-        } array;
-    } data;
+struct pb_script {
+    int placeholder;
 };
 
-struct pbc_opt {
-    char _placeholder;
-};
-
-struct pbscript_string {
-    size_t len;
-    char data[];
-};
-struct pbscript_const {
-    enum pbtype type;
-    uint32_t dim;
-    union {
-        size_t size;
-        size_t* sizes;
-    };
-    union {
-        uint8_t b;
-        int8_t i8;
-        int16_t i16;
-        int32_t i32;
-        int64_t* i64;
-        uint8_t u8;
-        uint16_t u16;
-        uint32_t u32;
-        uint64_t* u64;
-        float f32;
-        double* f64;
-        float* vec;
-        struct pbscript_string* str;
-        struct {
-            union {
-                uint8_t* b; // packed bitmap
-                int8_t* i8;
-                int16_t* i16;
-                int32_t* i32;
-                int64_t* i64;
-                uint8_t* u8;
-                uint16_t* u16;
-                uint32_t* u32;
-                uint64_t* u64;
-                float* f32;
-                double* f64;
-                float* vec;
-                struct pbscript_string* str;
-            };
-        } array;
-    } data;
-};
-struct pbscript {
-    const uint8_t* program;
-    const char* names;
-    struct {
-        uint8_t* data;
-        struct pbscript_const* values;
-        size_t* sizes;
-    } consts;
-    struct {
-        const char** names;
-        uint8_t* data;
-        struct pbscript_const* values;
-        size_t* sizes;
-    } globals;
-    struct {
-        const char** names;
-    } subs;
+struct pb_compopt {
+    int placeholder;
 };
 
 #endif
