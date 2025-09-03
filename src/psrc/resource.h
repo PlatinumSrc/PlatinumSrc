@@ -99,12 +99,6 @@ struct rc_font {
 struct rc_map {
     int _placeholder;
 };
-#pragma pack(push, 1)
-struct rcopt_map {
-    enum rcopt_map_loadsect loadsections;
-    enum rcopt_texture_qlt texture_quality;
-};
-#pragma pack(pop)
 
 // RC_MODEL
 struct rc_model {
@@ -118,10 +112,11 @@ struct rcopt_model {
 
 // RC_SCRIPT
 struct rc_script {
-    struct pb_script script;
+    size_t progid;
 };
 struct rcopt_script {
-    struct pb_compopt compileropt;
+    struct pbasic* state;
+    struct pb_compiler_opt compopt;
 };
 
 // RC_SOUND

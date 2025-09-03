@@ -4,32 +4,533 @@
 #include "../string.h"
 #include "../threading.h"
 #include "../attribs.h"
+#include "../vlb.h"
+#include "../datastream.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
+struct pbasic;
+struct pb_compiler;
+struct pb_rodata;
+
+enum pb_error {
+    PB_ERROR_NONE,
+    PB_ERROR_SYNTAX,
+    PB_ERROR_TYPE,
+    PB_ERROR_INDEX,
+    PB_ERROR_ARG,
+    PB_ERROR_MEMORY,
+    PB_ERROR_INTERNAL,
+    PB_ERROR__COUNT
+};
+
+PACKEDENUM pb_op {
+    PB_OP_NOP,          // Padding
+    PB_OP_HALT,         // Exit program with no return value
+    PB_OP_EXIT,         // Exit with a return value (pops: retval)
+    PB_OP_ENTERSCOPE,   // Enter a new scope (reads: localvarct)
+    PB_OP_EXITSCOPE,    // Exit the current scope
+    PB_OP_DIMGLOBAL,    // Set up a global var (reads: id, typeid, dims; pops: [size]...)
+    PB_OP_REDIMGLOBAL,  // Resize or redefine a global var (reads: id, typeid, dims; pops: [size]...)
+    PB_OP_DIMLOCAL,     // Set up a local var or arg (reads: offset, typeid, dims; pops: [size]...)
+    PB_OP_REDIMLOCAL,   // Resize or redefine a local var or arg (reads: offset, typeid, dims; pops: [size]...)
+    PB_OP_DEFSUB,       // Define a sub (reads: id, tblindex)
+    PB_OP_PUSHCONST,    // Push a constant (reads: id; pushes: obj)
+    PB_OP_PUSHGLOBAL,   // Push a global variable (reads: id; pushes: obj)
+    PB_OP_PUSHLOCAL,    // Push a local variable or argument (reads: offset; pushes: obj)
+    PB_OP_PUSHGARG,     // Push a global arg (ARGV(...)) (pops: index; pushes: obj)
+    PB_OP_PUSHGARGCT,   // Push the global arg count (ARGC()) (pushes: obj)
+    PB_OP_PUSHSUB,      // Push a sub ID (SUB()) (reads: id; pushes: obj)
+    PB_OP_POP,          // Remove items from the stack (reads: count; pops: elem)
+    PB_OP_REF,          // Creates a reference (pops: obj; pushes: ref)
+    PB_OP_DEREF,        // Dereferences a reference (pops: obj; pushes: obj)
+    PB_OP_DEREFVA,      // Dereferences a reference or expands a vararg collection (pops: obj; pushes: obj)
+    PB_OP_INDEX,        // Creates an index obj from the index or adds the index to an existing index obj (reads: index; pops: obj; pushes: obj)
+    PB_OP_MEMB,         // Gets a member of a COMPLEX (reads: membid; pops: obj; pushes: obj)
+    PB_OP_DUP,          // Pushes a dup (pushes: dup)
+    PB_OP_FRAME,        // Pushes a frame marker (pushes: framemrkr)
+    PB_OP_SET,          // Set an obj (pops: value, obj)
+    PB_OP_DELGLOBAL,    // Delete a global var (reads: index)
+    PB_OP_DELLOCAL,     // Delete a local var or arg (reads: offset)
+    PB_OP_DELSUB,       // Delete a sub (reads: id)
+    PB_OP_JMP,          // Jump (reads: offset)
+    PB_OP_B,            // Branch (reads: trueoff, falseoff; pops: cond)
+    PB_OP_JMPI,         // Indexed jump (reads: minval, maxval, offset...; pops: index)
+    PB_OP_JSR,          // Jump to a sub (GOSUB(...)) (reads: id; pops: args..., framemrkr; pushes: retval)
+    PB_OP_JSRI,         // Jump to a sub on the stack (GOSUBID(...)) (pops: args..., framemrkr, sub; pushes: retval)
+    PB_OP_RET,          // Return from a sub without a return value
+    PB_OP_RETV,         // Return from a sub with a return value (pops: retval)
+    PB_OP_CCALL,        // Call a C routine (reads: id, datawordct, [data]...; pops: [...]...; pushes: [...]...)
+    PB_OP_LEN,          // Get the length of an array or the number of args in a VA object (LEN(...)) (pops: obj; pushes: length)
+    PB_OP_ADD,          // Add (+) (pops: right, left; pushes: result)
+    PB_OP_SUB,          // Subtract (-) (pops: right, left; pushes: result)
+    PB_OP_MUL,          // Multiply (*) (pops: right, left; pushes: result)
+    PB_OP_DIV,          // Divide (/) (pops: right, left; pushes: result)
+    PB_OP_REM,          // Remainder (%) (pops: right, left; pushes: result)
+    PB_OP_POW,          // Power (POW()) (pops: exp, base; pushes: result)
+    PB_OP_ABS,          // Sine (ABS()) (pops: in; pushes: result)
+    PB_OP_CEIL,         // Ceiling (CEIL()) (pops: in; pushes: result)
+    PB_OP_FLOOR,        // Floor (FLOOR()) (pops: in; pushes: result)
+    PB_OP_MIN,          // Minimum (MIN()) (pops: in; pushes: result)
+    PB_OP_MAX,          // Maximum (MAX()) (pops: in; pushes: result)
+    PB_OP_ROUND,        // Round (ROUND()) (pops: in; pushes: result)
+    PB_OP_SIN,          // Sine (SIN()) (pops: in; pushes: result)
+    PB_OP_COS,          // Cosine (COS()) (pops: in; pushes: result)
+    PB_OP_TAN,          // Tangent (TAN()) (pops: in; pushes: result)
+    PB_OP_STR,          // Stringify (STR()) (pops: padchar, padto, uppercase, base, val; pushes: result)
+    PB_OP_EQ,           // Equal (==) (pops: right, left; pushes: result)
+    PB_OP_APEQ,         // Approximately equal (~=) (pops: right, left; pushes: result)
+    PB_OP_GT,           // Greater than (>) (pops: right, left; pushes: result)
+    PB_OP_GE,           // Greater or equal (>=) (pops: right, left; pushes: result)
+    PB_OP_LT,           // Less than (<) (pops: right, left; pushes: result)
+    PB_OP_LE,           // Less or equal (<=) (pops: right, left; pushes: result)
+    PB_OP_LNOT,         // Logical NOT (!) (pops: cond; pushes: result)
+    PB_OP_BNOT,         // Bitwise NOT (~) (pops: value; pushes: result)
+    PB_OP_AND,          // Bitwise AND (&) (pops: right, left; pushes: result)
+    PB_OP_OR,           // Bitwise OR (|) (pops: right, left; pushes: result)
+    PB_OP_XOR,          // Bitwise XOR (^) (pops: value, with; pushes: result)
+    PB_OP_CAST,         // Cast to another type (reads: typeid; pops: value; pushes: result)
+    PB_OP_TYPEEQ,       // Type of top value is equal to type ID (TYPE(...) == ...) (reads: typeid; pushes: result)
+    PB_OP_TYPEAPEQ,     // Type of top value is approximately equal to type ID (TYPE(...) ~= ...) (reads: typeid; pushes: result)
+    PB_OP_TYPESZ,       // Get the size of a type (SIZE(TYPE ...)) (reads: typeid; pushes: size)
+    PB_OP_TYPESZOF,     // Get the size of the type of an object (SIZE(TYPEOF ...)) (pops: obj; pushes: size)
+    PB_OP_VANEXT,       // Gets the next vararg (VA(NEXT)) (pops: vaobj; pushes: argobj)
+    PB_OP_VASKIP,       // Go forwards by the specified amount (VA(SKIP ...)) (pops: amount, vaobj)
+    PB_OP_VABACK,       // Go back by the specified amount (VA(BACK ...)) (pops: amount, vaobj)
+    PB_OP_VATELL,       // Gets the index of the current arg (VA(TELL)) (pops: vaobj; pushes: index)
+    PB_OP_VASEEK,       // Go to the specified arg (VA(SEEK)) (pops: index, vaobj)
+    PB_OP_VAINS,        // Inserts an object at the end (VA(INS ...)) (pops: obj, vaobj)
+    PB_OP_VAINSI,       // Inserts an object at the specified index (VA(INS ..., ...)) (pops: obj, index, vaobj)
+    PB_OP_VADEL,        // Removes the specified arg (VA(DEL ...)) (pops: index, vaobj)
+    PB_OP_VAREPL,       // Replaces the specified arg (VA(REPL ...)) (pops: obj, index, vaobj)
+    PB_OP_EVLSNSYNC,    // Adds an event listener for a SYNC event (EVENT(LISTEN SYNC ..., SUB ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNSYNCI,   // Adds an event listener from the stack for a SYNC event (EVENT(LISTEN SYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNASYNC,   // Adds an event listener for an ASYNC event (EVENT(LISTEN ASYNC ..., SUB ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNASYNCI,  // Adds an event listener from the stack for an ASYNC event (EVENT(LISTENID ASYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVIGNSYNC,    // Removes an event listener from a SYNC event (EVENT IGNORE SYNC ...) (pops: id, event)
+    PB_OP_EVIGNASYNC,   // Removes an event listener from an ASYNC event (EVENT IGNORE ASYNC ...) (pops: id, event)
+    PB_OP_EVFIRESYNC,   // Fires a SYNC event (EVENT(FIRE SYNC ...)) (pops: args..., framemrkr, event; pushes: retval)
+    PB_OP_EVFIREASYNC,  // Fires an ASYNC event (EVENT FIRE ASYNC ...) (pops: args..., framemrkr, event)
+    PB_OP_SLEEP,        // Sleep (SLEEP ...) (pops: seconds (f32/f64) or microseconds)
+    PB_OP_SLEEPINF,     // Sleep (SLEEP)
+    PB_OP_SETLINE,      // Set the current line for debugging and error info (reads: line)
+    PB_OP_SETCOL        // Set the current column for debugging and error info (reads: col)
+};
+
 PACKEDENUM pb_type {
-    PBTYPE_VOID,
-    PBTYPE_BOOL,
-    PBTYPE_I8,
-    PBTYPE_I16,
-    PBTYPE_I32,
-    PBTYPE_I64,
-    PBTYPE_U8,
-    PBTYPE_U16,
-    PBTYPE_U32,
-    PBTYPE_U64,
-    PBTYPE_F32,
-    PBTYPE_F64,
-    PBTYPE_STR
+    PB_TYPE_ANY,
+    PB_TYPE_VOID,
+    PB_TYPE_NULL,
+    PB_TYPE_STR,
+    PB_TYPE_BOOL,
+    PB_TYPE_I8,
+    PB_TYPE_I16,
+    PB_TYPE_I32,
+    PB_TYPE_I64,
+    PB_TYPE_U8,
+    PB_TYPE_U16,
+    PB_TYPE_U32,
+    PB_TYPE_U64,
+    PB_TYPE_F32,
+    PB_TYPE_F64,
+    PB_TYPE_VARARG,
+    PB_TYPE__COUNT
 };
 
-struct pb_script {
+PACKEDENUM pb_typedef_type {
+    PB_TYPEDEF_TYPE_ALIAS,
+    PB_TYPEDEF_TYPE_COMPLEX,
+    PB_TYPEDEF_TYPE_REF,
+    PB_TYPEDEF_TYPE_CONST,
+    PB_TYPEDEF_TYPE_NULLABLE
+};
+struct pb_typedef_complex {
+    uint32_t membct;
+    uint32_t* membids;
+};
+struct pb_typedef {
+    enum pb_typedef_type type;
+    union {
+        uint32_t alias;
+        struct pb_typedef_complex* complex;
+        uint32_t ref;
+        uint32_t constant;
+        uint32_t nullable;
+    };
+};
+
+struct pb_memb {
+    const char* name;
+    uint32_t namecrc;
+};
+
+struct pb_rodata_str {
+    const char* data;
+    uint32_t len;
+};
+struct pb_rodata_vararg {
+    struct pb_rodata* args;
+    uint32_t argct;
+};
+struct pb_rodata_complex {
+    struct pb_rodata* membs;
+    uint32_t membct;
+};
+struct pb_rodata {
+    uint32_t type;
+    uint32_t dims;
+    union {
+        uint32_t len;
+        const uint32_t* lens;
+    };
+    union {
+        struct pb_rodata_str str;
+        bool boolean; // would be named 'bool'
+        int8_t i8;
+        int16_t i16;
+        int32_t i32;
+        int64_t i64;
+        uint8_t u8;
+        uint16_t u16;
+        uint32_t u32;
+        uint64_t u64;
+        float f32;
+        double f64;
+        struct pb_rodata_vararg vararg;
+        struct pb_rodata_complex complex;
+        union {
+            struct pb_rodata_str* str;
+            uint8_t* boolean;
+            int8_t* i8;
+            int16_t* i16;
+            int32_t* i32;
+            int64_t* i64;
+            uint8_t* u8;
+            uint16_t* u16;
+            uint32_t* u32;
+            uint64_t* u64;
+            float* f32;
+            double* f64;
+            struct pb_rodata_vararg* vararg;
+            struct pb_rodata_complex* complex;
+        } array;
+    };
+};
+
+PACKEDENUM pb_obj_type {
+    PB_OBJ_TYPE_CONST,
+    PB_OBJ_TYPE_DATA,
+    PB_OBJ_TYPE_INDEX,
+    PB_OBJ_TYPE_ARGC,
+    PB_OBJ_TYPE_ARGV,
+    PB_OBJ_TYPE_SUB,
+    PB_OBJ_TYPE_EXTERNAL
+};
+struct pb_obj_data_vararg {
+    uint32_t* args;
+    uint32_t argct;
+};
+struct pb_obj_data_complex {
+    uint32_t* membs;
+    uint32_t membct;
+};
+struct pb_obj_data {
+    uint32_t type;
+    uint32_t dims;
+    union {
+        uint32_t len;
+        const uint32_t* lens;
+    };
+    union {
+        struct charbuf str;
+        bool boolean; // would be named 'bool'
+        int8_t i8;
+        int16_t i16;
+        int32_t i32;
+        int64_t i64;
+        uint8_t u8;
+        uint16_t u16;
+        uint32_t u32;
+        uint64_t u64;
+        float f32;
+        double f64;
+        struct pb_obj_data_vararg vararg;
+        struct pb_obj_data_complex complex;
+        union {
+            struct charbuf* str;
+            uint8_t* boolean;
+            int8_t* i8;
+            int16_t* i16;
+            int32_t* i32;
+            int64_t* i64;
+            uint8_t* u8;
+            uint16_t* u16;
+            uint32_t* u32;
+            uint64_t* u64;
+            float* f32;
+            double* f64;
+            struct pb_obj_data_vararg* vararg;
+            struct pb_obj_data_complex* complex;
+        } array;
+    };
+};
+struct pb_obj {
+    enum pb_obj_type type;
+    union {
+        struct pb_rodata* constant; // would be named 'const'
+        struct pb_obj_data* data;
+        struct {
+            uint32_t obj;
+            uint32_t dims;
+            union {
+                uint32_t index;
+                struct VLB(uint32_t) inds;
+            };
+        } index;
+        struct {
+            uint32_t index;
+        } argv;
+        struct {
+            uint32_t id;
+        } sub;
+        struct {
+            uint32_t procid;
+            uint32_t obj;
+        } external;
+    };
+};
+
+PACKEDENUM pb_stackelem_type {
+    PB_STACKELEM_TYPE_DUP,
+    PB_STACKELEM_TYPE_OBJ,
+    PB_STACKELEM_TYPE_FRAME
+};
+struct pb_stackelem {
+    enum pb_stackelem_type type;
+    union {
+        uint32_t obj;
+    };
+};
+
+struct pb_prog_sub {
+    const uint32_t* bytecode;
+    uint32_t argtypect;
+    const uint32_t* argtypes;
+    uint32_t rettype;
+};
+struct pb_prog {
+    const uint32_t* bytecode;
+    const void* constdata;
+    struct pb_rodata* consts;
+    uint32_t constct;
+    uint32_t gvarct;
+};
+
+PACKEDENUM pb_proc_status_waitingon {
+    PB_PROC_STATUS_WAITINGON_SLEEP,
+    PB_PROC_STATUS_WAITINGON_CHILD,
+    PB_PROC_STATUS_WAITINGON_EVENT
+};
+struct pb_proc_status {
+    uint8_t running : 1;
+    uint8_t finished : 1;
+    uint8_t error : 1;
+    uint8_t waiting : 1;
+    enum pb_proc_status_waitingon waitingon;
+};
+struct pb_proc {
+    struct pb_proc_status status;
+    uint32_t progid;
+    uint32_t argc;
+    struct pb_rodata* argv;
+    struct VLB(struct pb_obj) objs;
+    struct VLB(uint32_t) gvars;
+    struct VLB(uint32_t) lvars;
+    struct VLB(struct pb_stackelem) stack;
+};
+
+struct pb_proc_exec_opt {
+    uint32_t mininst;           // min amount of inst to run before considering return conditions
+    uint32_t maxinst;           // max amount of inst to run before returning (0 for inf)
+    unsigned retonsleep : 1;    // return on PB_OP_SLEEP
+    unsigned retbeforesub : 1;  // return before PB_OP_JSR or PB_OP_JSRV
+    unsigned retafterret : 1;   // return after PB_OP_RET or PB_OP_RETV
+    unsigned retafterjmpf : 1;  // return after PB_OP_JMP forwards
+    unsigned retafterjmpb : 1;  // return after PB_OP_JMP backwards
+    unsigned retafterbf : 1;    // return after PB_OP_B forwards
+    unsigned retafterbb : 1;    // return after PB_OP_B backwards
+    unsigned retafterccall : 1; // return after PB_OP_CCALL
+};
+#define PB_PROC_EXEC_OPT_DEFAULTS {.mininst = 0, .maxinst = 256, .retonsleep = 1, .retafterret = 1, .retafterjmpb = 1, .retafterbb = 1, .retafterccall = 1}
+
+typedef enum pb_error (*pb_proc_ccallcb)(struct pbasic*, uint32_t procid, const void* userdata);
+
+typedef enum pb_error (*pb_event_synchandler)(struct pbasic*, uint32_t procid, const char* name, uint32_t namelen, void* userdata);
+typedef enum pb_error (*pb_event_asynchandler)(struct pbasic*, uint32_t procid, const char* name, uint32_t namelen, void* userdata);
+
+typedef enum pb_error (*pb_compiler_addon_readnamedcb)(struct pb_compiler*, const char* ns, uint32_t nslen, uint32_t nscrc, const char* name, uint32_t namelen, uint32_t namecrc);
+struct pb_compiler_addon {
+    pb_compiler_addon_readnamedcb preproccmd;
+    pb_compiler_addon_readnamedcb preprocfunc;
+    pb_compiler_addon_readnamedcb preprocvar;
+    pb_compiler_addon_readnamedcb cmd;
+    pb_compiler_addon_readnamedcb func;
+    pb_compiler_addon_readnamedcb var;
+};
+
+PACKEDENUM pb_preproc_type {
+    PB_PREPROC_TYPE_VOID,
+    PB_PREPROC_TYPE_U32,
+    PB_PREPROC_TYPE_U64,
+    PB_PREPROC_TYPE_STR
+};
+struct pb_preproc_macro {
+    enum pb_preproc_type type;
+    const char* name;
+    uint32_t namecrc;
+    union {
+        uint32_t u32;
+        uint64_t u64;
+        struct {
+            const char* data;
+            uint32_t len;
+        } str;
+    };
+};
+
+PACKEDENUM pb_compiler_opt_olvl {
+    PB_COMPILER_OPT_OLVL_0,
+    PB_COMPILER_OPT_OLVL_1,
+    PB_COMPILER_OPT_OLVL_DEFAULT = 1,
+    PB_COMPILER_OPT_OLVL_MIN = 0,
+    PB_COMPILER_OPT_OLVL_MAX = 1
+};
+PACKEDENUM pb_compiler_opt_dbglvl {
+    PB_COMPILER_OPT_DBGLVL_OFF,
+    PB_COMPILER_OPT_DBGLVL_LINES,
+    PB_COMPILER_OPT_DBGLVL_COLS,
+    PB_COMPILER_OPT_DBGLVL_DEFAULT = 1,
+    PB_COMPILER_OPT_DBGLVL_MIN = 0,
+    PB_COMPILER_OPT_DBGLVL_MAX = 2
+};
+struct pb_compiler_opt {
+    enum pb_compiler_opt_olvl olvl;
+    enum pb_compiler_opt_dbglvl dbglvl;
+    const char* name;
+    const struct pb_preproc_macro* macros;
+    uint32_t macroct;
+    const struct pb_compiler_addon* addons;
+    uint32_t addonct;
+};
+#define PB_COMPILER_OPT_DEFAULTS {.olvl = PB_COMPILER_OPT_OLVL_DEFAULT, .dbglvl = PB_COMPILER_OPT_DBGLVL_DEFAULT}
+
+struct pb_compiler {
+    struct pbasic* pb;
+    uint32_t progid;
     int placeholder;
 };
 
-struct pb_compopt {
-    int placeholder;
+struct pbasic {
+    struct {
+        struct pb_typedef* data;
+        size_t len;
+        size_t size;
+        #ifndef PSRC_NOMT
+        struct accesslock lock;
+        #endif
+    } typedefs;
+    struct {
+        struct pb_memb* data;
+        size_t len;
+        size_t size;
+        #ifndef PSRC_NOMT
+        struct accesslock lock;
+        #endif
+    } membs;
+    struct {
+        struct pb_prog* data;
+        size_t len;
+        size_t size;
+        #ifndef PSRC_NOMT
+        struct accesslock lock;
+        #endif
+    } progs;
+    struct {
+        struct pb_proc* data;
+        size_t len;
+        size_t size;
+        #ifndef PSRC_NOMT
+        struct accesslock lock;
+        #endif
+    } procs;
+    struct {
+        struct VLB(struct pb_event_sync) sync;
+        struct VLB(struct pb_event_async) async;
+        #ifndef PSRC_NOMT
+        struct accesslock lock;
+        #endif
+    } events;
+    const pb_proc_ccallcb* ccalltable;
 };
+
+struct pb_create_opt {
+    const pb_proc_ccallcb* ccalltable;
+};
+
+enum pb_error pb_create(struct pbasic*, const struct pb_create_opt*);
+void pb_destroy(struct pbasic*);
+
+enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const struct pb_compiler_opt*, uint32_t* progidout, struct charbuf* err);
+void pb_prog_destroy(struct pbasic*, uint32_t progid);
+
+enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
+void pb_proc_destroy(struct pbasic*, uint32_t procid);
+enum pb_error pb_proc_reset(struct pbasic*, uint32_t procid, uint32_t progid, uint32_t argc, struct pb_rodata* argv);
+enum pb_error pb_proc_exec(struct pbasic*, uint32_t procid, struct pb_proc_exec_opt*, struct charbuf* err);
+void pb_proc_kill(struct pbasic*, uint32_t procid);
+
+enum pb_error pb_event_firesync(struct pbasic*, const char* name, uint32_t namelen, uint32_t argc, struct pb_rodata* argv, struct pb_rodata* ret);
+uint32_t pb_event_setsynchandler(struct pbasic*, const char* name, uint32_t namelen, pb_event_synchandler, void* userdata);
+bool pb_event_delsynchandler(struct pbasic*, const char* name, uint32_t namelen, uint32_t id);
+enum pb_error pb_event_fireasync(struct pbasic*, const char* name, uint32_t namelen, uint32_t argc, struct pb_rodata* argv);
+uint32_t pb_event_setasynchandler(struct pbasic*, const char* name, uint32_t namelen, pb_event_asynchandler, void* userdata);
+bool pb_event_delasynchandler(struct pbasic*, const char* name, uint32_t namelen, uint32_t id);
+
+void pb_rodata_destroy(struct pbasic*, struct pb_rodata*);
+
+static ALWAYSINLINE void pb_proc_getstatus(struct pbasic* pb, uint32_t procid, struct pb_proc_status* status) {
+    #ifndef PSRC_NOMT
+    acquireReadAccess(&pb->procs.lock);
+    #endif
+    *status = pb->procs.data[procid].status;
+    #ifndef PSRC_NOMT
+    releaseReadAccess(&pb->procs.lock);
+    #endif
+}
+
+extern const char* pb__error_str[PB_ERROR__COUNT];
+static ALWAYSINLINE const char* pb_strerror(enum pb_error e) {
+    return pb__error_str[e];
+}
+
+static inline bool pb_util_checkdims(uint32_t dims, const uint32_t* sizes) {
+    if (dims < 2) return true;
+    uint32_t sz1 = sizes[0];
+    uint32_t sz2 = sizes[1];
+    uint32_t tmp1 = (sz1 >> 16) * (sz2 & 0xFFFF);
+    uint32_t tmp2 = (sz1 & 0xFFFF) * (sz2 >> 16);
+    for (uint32_t i = 2; i < dims; ++i) {
+        if ((sz1 >> 16) * (sz2 >> 16) + (tmp1 >> 16) + (tmp2 >> 16)) return false;
+        sz1 *= sz2;
+        sz2 = sizes[i];
+        tmp1 = (sz1 >> 16) * (sz2 & 0xFFFF);
+        tmp2 = (sz1 & 0xFFFF) * (sz2 >> 16);
+    }
+    return !((sz1 >> 16) * (sz2 >> 16) + (tmp1 >> 16) + (tmp2 >> 16));
+}
+void pb_util_compiler_opt_createclone(const struct pb_compiler_opt*, struct pb_compiler_opt*);
+void pb_util_compiler_opt_destroyclone(struct pb_compiler_opt*);
+bool pb_util_compiler_opt_cmp(const struct pb_compiler_opt*, const struct pb_compiler_opt*);
 
 #endif

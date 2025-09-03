@@ -45,22 +45,24 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Needs a GX renderer
 - PS2
     - Needs a GSKit renderer
+- Android
+    - Need to finish the touch UI
+    - Needs a GLES 3.0 renderer
 </details>
 <details><summary><b>Wanted</b></summary>
 
-- Android
-    - Need to finish the touch UI
-    - Need to figure out how to build directly from the Makefile
 - UWP/GameSDK
     - Needs a D3D 9 renderer
-- Xbox \(XDK\)
-    - Needs a D3D 7/8 renderer
 - PSP
 - PS Vita
 - Switch
+</details>
+<details><summary><b>Maybe</b></summary>
+
+- Xbox \(XDK\)
+    - Needs a D3D 7/8 renderer
 - N64
-- DS
-- DSi
+- MSDOS
 </details>
 
 ---
@@ -184,11 +186,15 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
             - `editor` - Map editor
         - `CROSS` - Cross compile
             - `win32` - Windows 2000+ or Windows 98 with KernelEx
+            - `android` - Android
             - `emscr` - Emscripten
-            - `nxdk` - Xbox using NXDK
+            - `nxdk` - Xbox using the NXDK
             - `dc` - Dreamcast using KallistiOS
             <!--
-            - `ps2` - PS2 using ps2dev sdk
+            - `ps2` - PS2 using ps2dev
+            - `3ds` - 3DS using devkitPro
+            - `wii` - PS2 using devkitPro
+            - `gc` - PS2 using devkitPro
             -->
         - `ONLYBIN` - Set to `y` to skip making a disc image.
         - `O` - Set the optimization level \(default is `2` if `DEBUG` is unset or `g` if `DEBUG` is set\)

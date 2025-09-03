@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<language id="pbasic" name="PlatinumSrc BASIC" version="2.0" _section="Script">
+  <metadata>
+    <property name="mimetypes">text/x-basic</property>
+    <property name="globs">*.bas</property>
+    <property name="line-comment-start">'</property>
+    <property name="block-comment-start">`</property>
+    <property name="block-comment-end">`</property>
+  </metadata>
+
+  <styles>
+    <style id="escaped-character" name="Escaped Character" map-to="def:special-char"/>
+    <style id="comment" name="Comment" map-to="def:comment"/>
+    <style id="preprocessor" name="Preprocessor" map-to="def:preprocessor"/>
+    <style id="included-file" name="Included File" map-to="c:included-file"/>
+    <style id="special-constants" name="Special Constants" map-to="def:special-constant"/>
+    <style id="keyword" name="Keyword" map-to="def:keyword"/>
+    <style id="type" name="Data Type" map-to="def:type"/>
+    <style id="string" name="String" map-to="def:string"/>
+    <style id="decimal" name="Decimal number" map-to="def:decimal"/>
+    <style id="float" name="Floating point number" map-to="def:floating-point"/>
+    <style id="hexadecimal" name="Hexadecimal number" map-to="def:base-n-integer"/>
+    <style id="binary" name="Hexadecimal number" map-to="def:base-n-integer"/>
+    <style id="boolean" name="Boolean value" map-to="def:boolean"/>
+  </styles>
+
+  <default-regex-options case-sensitive="false"/>
+
+  <definitions>
+
+    <define-regex id="escaped-character" extended="true">
+      \\([\\\"abefnrtv]|x[0-9a-f][0-9a-f])
+    </define-regex>
+
+    <context id="line-comment" style-ref="comment" end-at-line-end="true" class="comment" class-disabled="no-spell-check">
+      <start>'</start>
+      <include>
+        <context ref="def:in-comment"/>
+      </include>
+    </context>
+
+    <context id="block-comment" style-ref="comment" class="comment" class-disabled="no-spell-check">
+      <start>`</start>
+      <end>`</end>
+      <include>
+        <context ref="def:in-comment"/>
+      </include>
+    </context>
+
+    <context id="include" style-ref="preprocessor">
+      <match extended="true">^\s*\#\s*include\s*(.*)</match>
+      <include>
+        <context id="included-file" sub-pattern="1" style-ref="included-file" class="path"/>
+      </include>
+    </context>
+
+    <context id="preprocessor" style-ref="preprocessor" end-at-line-end="true">
+      <start extended="true">^\s*\#\s*(IF|ELIF|ELSE|END|DIM|LET|DEL)\b</start>
+      <include>
+        <context ref="def:line-continue"/>
+        <context ref="line-comment"/>
+      </include>
+    </context>
+
+    <context id="keywords" style-ref="keyword">
+      <prefix>(?&lt;![\w\.:])</prefix>
+      <keyword>ABS</keyword>
+      <keyword>ARGC</keyword>
+      <keyword>ARGV</keyword>
+      <keyword>BREAK</keyword>
+      <keyword>CASE</keyword>
+      <keyword>CEIL</keyword>
+      <keyword>COMPLEX</keyword>
+      <keyword>COS</keyword>
+      <keyword>DEFAULT</keyword>
+      <keyword>DEL</keyword>
+      <keyword>DELSUB</keyword>
+      <keyword>DIM</keyword>
+      <keyword>DO</keyword>
+      <keyword>ELIF</keyword>
+      <keyword>ELSE</keyword>
+      <keyword>END</keyword>
+      <keyword>EVENT</keyword>
+      <keyword>EXIT</keyword>
+      <keyword>FALL</keyword>
+      <keyword>FLOOR</keyword>
+      <keyword>FOR</keyword>
+      <keyword>GOSUB</keyword>
+      <keyword>GOSUBID</keyword>
+      <keyword>GOTO</keyword>
+      <keyword>IF</keyword>
+      <keyword>LEN</keyword>
+      <keyword>LET</keyword>
+      <keyword>LOOP</keyword>
+      <keyword>MAX</keyword>
+      <keyword>MIN</keyword>
+      <keyword>OPR</keyword>
+      <keyword>POW</keyword>
+      <keyword>RETURN</keyword>
+      <keyword>ROUND</keyword>
+      <keyword>SIN</keyword>
+      <keyword>SIZE</keyword>
+      <keyword>SLEEP</keyword>
+      <keyword>STR</keyword>
+      <keyword>SUB</keyword>
+      <keyword>SWITCH</keyword>
+      <keyword>TAN</keyword>
+      <keyword>TYPEDEF</keyword>
+      <keyword>UNUSING</keyword>
+      <keyword>USING</keyword>
+      <keyword>VA</keyword>
+      <keyword>WHILE</keyword>
+    </context>
+
+    <context id="symbolic-keywords" style-ref="keyword">
+      <match>(?&lt;![\w\.:])\#(?=\s*?\()(?![\w\.:])</match>
+    </context>
+
+    <context id="types" style-ref="type">
+      <prefix>(?&lt;![\w\.:])</prefix>
+      <keyword>ANY</keyword>
+      <keyword>VOID</keyword>
+      <keyword>STR</keyword>
+      <keyword>BOOL</keyword>
+      <keyword>I8</keyword>
+      <keyword>I16</keyword>
+      <keyword>I32</keyword>
+      <keyword>I64</keyword>
+      <keyword>U8</keyword>
+      <keyword>U16</keyword>
+      <keyword>U32</keyword>
+      <keyword>U64</keyword>
+      <keyword>F32</keyword>
+      <keyword>F64</keyword>
+      <keyword>REF</keyword>
+      <keyword>CONST</keyword>
+      <keyword>NULLABLE</keyword>
+    </context>
+
+    <context id="symbolic-types" style-ref="type">
+      <match>(?&lt;![\w\.:])\.\.\.(?![\w\.:])</match>
+    </context>
+
+    <context id="string" style-ref="string" end-at-line-end="true" class="string" class-disabled="no-spell-check">
+      <start>"</start>
+      <end>"(U8|I8)?</end>
+      <include>
+        <context id="escaped-character" style-ref="escaped-character">
+          <match>\%{escaped-character}</match>
+        </context>
+        <context ref="def:line-continue"/>
+      </include>
+    </context>
+
+    <context id="decimal" style-ref="decimal">
+      <match extended="true">
+        (?&lt;![\w\.:])[0-9]+(I8|I16|I32|I64|U8|U16|U32|U64)?(?![\w\.:])
+      </match>
+    </context>
+
+    <context id="float" style-ref="float">
+      <match extended="true">
+        (?&lt;![\w\.:])([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(F32|F64)?(?![\w\.:])
+      </match>
+    </context>
+
+    <context id="hexadecimal" style-ref="hexadecimal">
+      <match extended="true">
+        (?&lt;![\w\.:])0x[0-9a-f]+(I8|I16|I32|I64|U8|U16|U32|U64)?(?![\w\.:])
+      </match>
+    </context>
+
+    <context id="binary" style-ref="binary">
+      <match extended="true">
+        (?&lt;![\w\.:])0b[01]+(I8|I16|I32|I64|U8|U16|U32|U64)?(?![\w\.:])
+      </match>
+    </context>
+
+    <context id="boolean" style-ref="boolean">
+      <prefix>(?&lt;![\w\.:])</prefix>
+      <keyword>TRUE</keyword>
+      <keyword>FALSE</keyword>
+    </context>
+
+    <context id="special-constants" style-ref="special-constants">
+      <prefix>(?&lt;![\w\.:])</prefix>
+      <keyword>NULL</keyword>
+    </context>
+
+    <context id="pbasic" class="no-spell-check">
+      <include>
+        <context ref="gtk-doc:inline-docs-section"/>
+        <context ref="line-comment"/>
+        <context ref="block-comment"/>
+        <context ref="include"/>
+        <context ref="preprocessor"/>
+        <context ref="keywords"/>
+        <context ref="symbolic-keywords"/>
+        <context ref="types"/>
+        <context ref="symbolic-types"/>
+        <context ref="string"/>
+        <context ref="decimal"/>
+        <context ref="float"/>
+        <context ref="hexadecimal"/>
+        <context ref="binary"/>
+        <context ref="boolean"/>
+        <context ref="special-constants"/>
+        <context ref="def:line-continue"/>
+      </include>
+    </context>
+
+  </definitions>
+
+</language>

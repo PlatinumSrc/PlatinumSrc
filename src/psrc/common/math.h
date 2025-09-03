@@ -1,7 +1,7 @@
-#ifndef PSRC_COMMON_MATH_VEC3_H
-#define PSRC_COMMON_MATH_VEC3_H
+#ifndef PSRC_COMMON_MATH_H
+#define PSRC_COMMON_MATH_H
 
-#include "math_util.h"
+#include "math_defs.h"
 
 #include <math.h>
 

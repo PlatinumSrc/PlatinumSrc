@@ -121,13 +121,25 @@ build_tools() {
 
     ARCHIVER=_tar
 
-    FILES=(tools/platinum/platinum tools/ptftool/ptftool)
+    FILES=(
+        tools/crc/crc
+        tools/paftool/paftool
+        tools/pkdtool/pkdtool
+        tools/platinum/platinum
+        tools/ptftool/ptftool
+    )
     OUTPUT="${BASE}_${FPLATDESC}"
     MAKE=debmake buildrel "${1}" "${PLATDESC}" -C tools "${@:2}"
 
     ARCHIVER=_zip
 
-    FILES=(tools/platinum/platinum.exe tools/ptftool/ptftool.exe)
+    FILES=(
+        tools/crc/crc.exe
+        tools/paftool/paftool.exe
+        tools/pkdtool/pkdtool.exe
+        tools/platinum/platinum.exe
+        tools/ptftool/ptftool.exe
+    )
     OUTPUT="${BASE}_windows_i686"
     buildrel "${1}" "Windows i686" -C tools "${@:2}" OS=Windows_NT CC=gcc CFLAGS+=-m32 TOOLCHAIN='wine ' null=NUL
 }

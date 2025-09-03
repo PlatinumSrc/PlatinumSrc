@@ -102,7 +102,7 @@ struct resource {
         };
         struct {
             struct rc_map map;
-            struct rcopt_map map_opt;
+            //struct rcopt_map map_opt;
             void* map_end;
         };
         struct {
@@ -164,11 +164,11 @@ static struct {
 static const void* const defaultrcopts[RC__COUNT] = {
     NULL,
     NULL,
-    &(struct rcopt_map){0},
+    NULL,
     &(struct rcopt_model){0},
-    &(struct rcopt_script){0},
-    &(struct rcopt_sound){true},
-    &(struct rcopt_texture){false, RCOPT_TEXTURE_QLT_HIGH},
+    &(struct rcopt_script){.compopt = PB_COMPILER_OPT_DEFAULTS},
+    &(struct rcopt_sound){.decodewhole = true},
+    &(struct rcopt_texture){.needsalpha = false, .quality = RCOPT_TEXTURE_QLT_HIGH},
     NULL,
     NULL
 };
@@ -708,6 +708,10 @@ static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* o
         case RC_MODEL: {
             if (((const struct rcopt_model*)opt)->flags != rc->model_opt.flags) return false;
         } return true;
+        case RC_SCRIPT: {
+            if (((const struct rcopt_script*)opt)->state != rc->script_opt.state) return false;
+            //if (!pb_util_compiler_opt_cmp(&((const struct rcopt_script*)opt)->compopt, &rc->script_opt.compopt)) return false;
+        } return true;
         case RC_TEXTURE: {
             if (((const struct rcopt_texture*)opt)->needsalpha != rc->texture_opt.needsalpha) return false;
             if (((const struct rcopt_texture*)opt)->quality != rc->texture_opt.quality) return false;
@@ -1058,14 +1062,19 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             rc->model_opt = *o;
         } break;
         case RC_SCRIPT: {
-            if (acc.src != RCSRCTYPE_FS) goto fail;
             const struct rcopt_script* o = opt;
-            struct pb_script s;
-            goto fail;
-            //if (!pb_compilefile(acc.fs.path, &o->compileropt, &s, err)) goto fail;
+            struct datastream ds;
+            if (!dsFromRcAcc(&acc, &ds)) goto fail;
+            {
+                ds_close(&ds);
+                goto fail;
+            }
+            size_t progid = 0;
+            //size_t progid = pb_prog_create(&ds, &s, err);
+            //if (progid == -1) goto fail;
             (void)err;
             rc = newRc(RC_SCRIPT);
-            rc->script.script = s;
+            rc->script.progid = progid;
             rc->script_opt = *o;
         } break;
         #ifndef PSRC_MODULE_SERVER
@@ -1325,7 +1334,7 @@ static void freeRcData(enum rctype type, struct resource* rc) {
             p3m_free(&rc->model.model);
         } break;
         case RC_SCRIPT: {
-            //pb_deletescript(&rc->script.script);
+            //pb_prog_destroy(&rc->scropt_opt.state, &rc->script.progid);
         } break;
         case RC_SOUND: {
             free(rc->sound.data);

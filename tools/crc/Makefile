@@ -1,3 +1,3 @@
-BIN := platinum
+BIN := crc
 
 include ../common.mk
