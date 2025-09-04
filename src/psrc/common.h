@@ -6,30 +6,7 @@
 
 #include "common/config.h"
 
-#include <stdbool.h>
-
 extern unsigned quitreq;
-
-extern struct options {
-    char* game;
-    char* mods;
-    #ifndef PSRC_MODULE_SERVER
-    char* icon;
-    #endif
-    bool set__setup;
-    struct cfg set;
-    char* maindir;
-    char* gamesdir;
-    char* modsdir;
-    #ifndef PSRC_MODULE_SERVER
-    char* userdir;
-    #endif
-    char* config;
-    #ifndef PSRC_MODULE_SERVER
-    bool nouserconfig;
-    bool nocontroller;
-    #endif
-} options;
 
 extern struct gameinfo {
     char* dir;
@@ -77,7 +54,9 @@ extern char* dirdesc[DIR__COUNT];
 
 extern struct cfg config;
 
-void setupBaseDirs(void);
-bool setGame(const char*, bool maybepath, struct charbuf* err);
+#define PSRC_COMMON_PBMACROS \
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_engine", .namecrc = 0xC983DB14, .u8 = 0},\
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_server", .namecrc = 0x7B46146F, .u8 = 1},\
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_editor", .namecrc = 0xEDDA3023, .u8 = 2}
 
 #endif

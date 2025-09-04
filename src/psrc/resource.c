@@ -166,7 +166,7 @@ static const void* const defaultrcopts[RC__COUNT] = {
     NULL,
     NULL,
     &(struct rcopt_model){0},
-    &(struct rcopt_script){.compopt = PB_COMPILER_OPT_DEFAULTS},
+    &(struct rcopt_script){0},
     &(struct rcopt_sound){.decodewhole = true},
     &(struct rcopt_texture){.needsalpha = false, .quality = RCOPT_TEXTURE_QLT_HIGH},
     NULL,
@@ -709,7 +709,7 @@ static inline bool cmpRcOpt(enum rctype type, struct resource* rc, const void* o
             if (((const struct rcopt_model*)opt)->flags != rc->model_opt.flags) return false;
         } return true;
         case RC_SCRIPT: {
-            if (((const struct rcopt_script*)opt)->state != rc->script_opt.state) return false;
+            if (((const struct rcopt_script*)opt)->pb != rc->script_opt.pb) return false;
             //if (!pb_util_compiler_opt_cmp(&((const struct rcopt_script*)opt)->compopt, &rc->script_opt.compopt)) return false;
         } return true;
         case RC_TEXTURE: {
@@ -901,9 +901,9 @@ static void delRcAcc(struct rcaccess* acc) {
             break;
     }
 }
-static bool dsFromRcAcc(struct rcaccess* acc, struct datastream* ds) {
+static bool dsFromRcAcc(struct rcaccess* acc, const char* n, bool fn, struct datastream* ds) {
     switch (acc->src) {
-        case RCSRCTYPE_FS: return ds_openfile(acc->fs.path, 0, ds);
+        case RCSRCTYPE_FS: return ds_openfile(acc->fs.path, n, fn, 0, ds);
     }
     return false;
 }
@@ -911,7 +911,7 @@ static bool newDataPtrFromRcAcc(struct rcaccess* acc, struct rcaccdataptr* dptr)
     switch (acc->src) {
         case RCSRCTYPE_FS: {
             struct datastream ds;
-            if (!ds_openfile(acc->fs.path, 0, &ds)) break;
+            if (!ds_openfile(acc->fs.path, NULL, false, 0, &ds)) break;
             size_t sz = ds_getsz(&ds);
             if (sz == DS_GETSZ_FAIL) { // TODO: handle this and read into a vlb?
                 ds_close(&ds);
@@ -1033,7 +1033,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
     switch (type) {
         case RC_CONFIG: {
             struct datastream ds;
-            if (!dsFromRcAcc(&acc, &ds)) goto fail;
+            if (!dsFromRcAcc(&acc, NULL, false, &ds)) goto fail;
             rc = newRc(RC_CONFIG);
             cfg_open(&ds, &rc->config.config);
             ds_close(&ds);
@@ -1050,7 +1050,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         case RC_MODEL: {
             const struct rcopt_model* o = opt;
             struct datastream ds;
-            if (!dsFromRcAcc(&acc, &ds)) goto fail;
+            if (!dsFromRcAcc(&acc, NULL, false, &ds)) goto fail;
             struct p3m m;
             if (!p3m_load(&ds, o->flags, &m)) {
                 ds_close(&ds);
@@ -1064,15 +1064,11 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         case RC_SCRIPT: {
             const struct rcopt_script* o = opt;
             struct datastream ds;
-            if (!dsFromRcAcc(&acc, &ds)) goto fail;
-            {
-                ds_close(&ds);
-                goto fail;
-            }
-            size_t progid = 0;
-            //size_t progid = pb_prog_create(&ds, &s, err);
-            //if (progid == -1) goto fail;
-            (void)err;
+            if (!dsFromRcAcc(&acc, strdup(id), true, &ds)) goto fail;
+            uint32_t progid;
+            enum pb_error e = pb_prog_compile(o->pb, &ds, o->compopt, &progid, err);
+            ds_close(&ds);
+            if (e != PB_ERROR_NONE) goto fail;
             rc = newRc(RC_SCRIPT);
             rc->script.progid = progid;
             rc->script_opt = *o;
@@ -1165,7 +1161,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 #endif
             } else /*if (acc.ext == rcextensions[RC_SOUND][2])*/ {
                 struct datastream ds;
-                if (!dsFromRcAcc(&acc, &ds)) goto fail;
+                if (!dsFromRcAcc(&acc, NULL, false, &ds)) goto fail;
                 enum wav_frmt frmt;
                 size_t len;
                 unsigned ch;
@@ -1208,7 +1204,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             uint8_t* data;
             if (acc.ext == rcextensions[RC_TEXTURE][0]) {
                 struct datastream ds;
-                if (!dsFromRcAcc(&acc, &ds)) goto fail;
+                if (!dsFromRcAcc(&acc, NULL, false, &ds)) goto fail;
                 data = ptf_load(&ds, &w, &h, &c); // TODO: add datastream version
                 ds_close(&ds);
                 if (!data) goto fail;
@@ -1283,7 +1279,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         #endif
         case RC_VALUES: {
             struct datastream ds;
-            if (!dsFromRcAcc(&acc, &ds)) goto fail;
+            if (!dsFromRcAcc(&acc, NULL, false, &ds)) goto fail;
             rc = newRc(RC_VALUES);
             cfg_open(&ds, &rc->values.values);
             ds_close(&ds);
@@ -1334,7 +1330,7 @@ static void freeRcData(enum rctype type, struct resource* rc) {
             p3m_free(&rc->model.model);
         } break;
         case RC_SCRIPT: {
-            //pb_prog_destroy(&rc->scropt_opt.state, &rc->script.progid);
+            pb_prog_destroy(rc->script_opt.pb, rc->script.progid);
         } break;
         case RC_SOUND: {
             free(rc->sound.data);
@@ -1399,7 +1395,7 @@ static inline size_t loadMods_add(struct charbuf* cb) {
         cb_nullterm(cb);
         int tmp = isFile(cb->data);
         if (tmp < 0) {
-            #if DEBUG(1)
+            #if DEBUG(2)
             plog(LL_WARN | LF_DEBUG, "'%s' does not exist", cb->data);
             #endif
             return -1;
@@ -1416,7 +1412,7 @@ static inline size_t loadMods_add(struct charbuf* cb) {
     struct cfg cfg;
     {
         struct datastream ds;
-        if (!ds_openfile(cb->data, 0, &ds)) {
+        if (!ds_openfile(cb->data, NULL, false, 0, &ds)) {
             plog(LL_WARN, "No mod.cfg in '%s'", cb_peek(cb));
             return -1;
         }

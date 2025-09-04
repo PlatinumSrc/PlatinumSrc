@@ -112,11 +112,11 @@ struct rcopt_model {
 
 // RC_SCRIPT
 struct rc_script {
-    size_t progid;
+    uint32_t progid;
 };
 struct rcopt_script {
-    struct pbasic* state;
-    struct pb_compiler_opt compopt;
+    struct pbasic* pb;
+    const struct pb_compiler_opt* compopt;
 };
 
 // RC_SOUND

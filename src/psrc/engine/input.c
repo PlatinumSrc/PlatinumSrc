@@ -1,4 +1,5 @@
 #include "input.h"
+#include "common.h"
 #include "renderer.h"
 #include "../logging.h"
 #include "../string.h"
@@ -187,7 +188,7 @@ bool initInput(void) {
     #endif
     #ifndef PSRC_USESDL1
     char* tmp;
-    if (!options.nocontroller) {
+    if (!engine.opt.nocontroller) {
         tmp = cfg_getvar(&config, "Input", "nocontroller");
         if (!strbool(tmp, false)) {
             if (!SDL_Init(SDL_INIT_GAMECONTROLLER)) {

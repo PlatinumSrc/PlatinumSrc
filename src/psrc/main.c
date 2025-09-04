@@ -4,10 +4,7 @@
 #include "common.h"
 #include "logging.h"
 #include "string.h"
-#include "filesystem.h"
-#include "resource.h"
 #include "time.h"
-#include "util.h"
 
 #include "common/config.h"
 
@@ -93,20 +90,11 @@ static void rearmWatchdog(unsigned sec) {
 #endif
 
 #if defined(PSRC_MODULE_ENGINE)
-    #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:engine/icon
-    #endif
-    #include "main/engine.c"
+    #include "engine/engine.h"
 #elif defined(PSRC_MODULE_SERVER)
-    #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:server/icon
-    #endif
-    #include "main/server.c"
+    #include "server/server.h"
 #elif defined(PSRC_MODULE_EDITOR)
-    #ifndef PSRC_DEFAULTLOGO
-        #define PSRC_DEFAULTLOGO internal:editor/icon
-    #endif
-    #include "main/editor.c"
+    #include "editor/editor.h"
 #endif
 
 #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
@@ -237,7 +225,9 @@ int main(int argc, char** argv) {
     puts(verstr);
     puts(platstr);
     #if PLATFORM == PLAT_LINUX
-        setenv("SDL_VIDEODRIVER", "wayland", false);
+        #ifndef PSRC_MODULE_SERVER
+            setenv("SDL_VIDEODRIVER", "wayland", false);
+        #endif
     #elif PLATFORM == PLAT_ANDROID
         __android_log_write(ANDROID_LOG_INFO, "PlatinumSrc", verstr);
         __android_log_write(ANDROID_LOG_INFO, "PlatinumSrc", platstr);
@@ -305,7 +295,6 @@ int main(int argc, char** argv) {
         }
     #endif
 
-    setupBaseDirs();
     #if PLATFORM != PLAT_EMSCR
         ret = bootstrap();
         if (!ret) {

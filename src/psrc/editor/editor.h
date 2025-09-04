@@ -1,5 +1,5 @@
-#ifndef PSRC_SERVER_SERVER_H
-#define PSRC_SERVER_SERVER_H
+#ifndef PSRC_EDITOR_EDITOR_H
+#define PSRC_EDITOR_EDITOR_H
 
 int parseargs(int argc, char** argv);
 int bootstrap(void);

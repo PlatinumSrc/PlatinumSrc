@@ -13,8 +13,10 @@
     <style id="escaped-character" name="Escaped Character" map-to="def:special-char"/>
     <style id="comment" name="Comment" map-to="def:comment"/>
     <style id="preprocessor" name="Preprocessor" map-to="def:preprocessor"/>
+    <!--style id="included-file" name="Included File" map-to="def:string"/-->
     <style id="included-file" name="Included File" map-to="c:included-file"/>
-    <style id="special-constants" name="Special Constants" map-to="def:special-constant"/>
+    <!--style id="special-constants" name="Special Constants" map-to="def:special-constant"/-->
+    <style id="special-constants" name="Special Constants" map-to="c:common-defines"/>
     <style id="keyword" name="Keyword" map-to="def:keyword"/>
     <style id="type" name="Data Type" map-to="def:type"/>
     <style id="string" name="String" map-to="def:string"/>
@@ -56,7 +58,8 @@
     </context>
 
     <context id="preprocessor" style-ref="preprocessor" end-at-line-end="true">
-      <start extended="true">^\s*\#\s*(IF|ELIF|ELSE|END|DIM|LET|DEL)\b</start>
+      <!--start extended="true">^\s*\#\s*(IF|ELIF|ELSE|END|DIM|LET|DEL)\b</start-->
+      <start extended="true">^\s*\#.*\b</start>
       <include>
         <context ref="def:line-continue"/>
         <context ref="line-comment"/>

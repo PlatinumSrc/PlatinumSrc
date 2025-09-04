@@ -677,7 +677,7 @@ void cfg_open(PSRC_DATASTREAM_T ds, struct cfg* cfg) {
     if (ds) {
         #ifndef PSRC_REUSABLE
         #if DEBUG(1)
-        plog(LL_INFO | LF_DEBUG, "Reading config from '%s'...", ds->path);
+        plog(LL_INFO | LF_DEBUG, "Reading config from '%s'...", ds->name);
         #endif
         #endif
         cfg_read(cfg, ds, true);
@@ -687,7 +687,7 @@ void cfg_open(PSRC_DATASTREAM_T ds, struct cfg* cfg) {
 void cfg_merge(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
     #ifndef PSRC_REUSABLE
     #if !defined(PSRC_REUSABLE) && DEBUG(1)
-    plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) from '%s'...", ds->path);
+    plog(LL_INFO | LF_DEBUG | LF_DEBUG, "Reading config (to merge) from '%s'...", ds->name);
     #endif
     #endif
     cfg_read(cfg, ds, overwrite);

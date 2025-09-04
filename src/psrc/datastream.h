@@ -12,18 +12,18 @@
     #include "incsdl.h"
 #endif
 
-PACKEDENUM ds_mode {
-    DS_MODE_MEM,
-    DS_MODE_FILE,
-    DS_MODE_CB,
-    DS_MODE_SECT
+PACKEDENUM ds_type {
+    DS_TYPE_MEM,
+    DS_TYPE_FILE,
+    DS_TYPE_CB,
+    DS_TYPE_SECT
 };
 
 #define DS_END (-1)
 #define DS_GETSZ_FAIL ((size_t)-1)
 
 typedef void (*ds_mem_freecb)(void* ctx, void* buf);
-struct ds_cbfuncs {
+struct ds_cb_funcs {
     void* ctx;
     bool (*read)(void* ctx, void* buf, size_t lenrq, size_t* lenout);
     size_t (*getsz)(void* ctx);
@@ -51,22 +51,23 @@ struct datastream {
                 int fd;
             #endif
         } file;
-        struct ds_cbfuncs cb;
+        struct ds_cb_funcs cb;
         struct {
             struct datastream* ds;
             size_t base;
             size_t lim;
         } sect;
     };
-    char* path;
+    const char* name;
     uint8_t atend : 1;
-    enum ds_mode mode : 6;
+    uint8_t freename : 1;
+    enum ds_type type : 6;
 };
 
-void ds_openmem(void* buf, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream*);
-bool ds_openfile(const char* path, size_t bufsz, struct datastream*);
-bool ds_opencb(struct ds_cbfuncs*, size_t bufsz, struct datastream*);
-bool ds_opensect(struct datastream*, size_t lim, size_t bufsz, struct datastream*);
+void ds_openmem(void* buf, size_t sz, const char* name, bool freename, ds_mem_freecb freecb, void* freectx, struct datastream*);
+bool ds_openfile(const char* path, const char* name, bool freename, size_t bufsz, struct datastream*);
+bool ds_opencb(struct ds_cb_funcs*, const char* name, bool freename, size_t bufsz, struct datastream*);
+bool ds_opensect(struct datastream*, size_t lim, const char* name, bool freename, size_t bufsz, struct datastream*);
 
 size_t ds_read(struct datastream*, size_t len, void* outbuf);
 size_t ds_skip(struct datastream*, size_t len);
@@ -94,10 +95,6 @@ static ALWAYSINLINE uint8_t ds_getc_noerr(struct datastream* ds) {
     return ds->buf[ds->pos++];
 }
 
-static ALWAYSINLINE int ds_text__getc_inline(struct datastream* ds) {
-    if (ds->pos == ds->datasz && !ds__refill(ds)) return DS_END;
-    return ds->buf[ds->pos++];
-}
 static inline int ds_text_getc_inline(struct datastream* ds) {
     int c;
     do {
@@ -108,7 +105,7 @@ static inline int ds_text_getc_inline(struct datastream* ds) {
 static inline int ds_text_getc_fullinline(struct datastream* ds) {
     int c;
     do {
-        c = ds_text__getc_inline(ds);
+        c = ds_getc(ds);
     } while (c == '\r' || !c);
     return c;
 }

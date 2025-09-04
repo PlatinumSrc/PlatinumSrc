@@ -1,13 +1,27 @@
+#ifdef PSRC_MODULE_ENGINE
+
+#include "common.h"
+#include "renderer.h"
+#include "input.h"
+#include "ui.h"
+#include "audio.h"
+#include "client.h"
+
+#include "../version.h"
+#include "../platform.h"
+#include "../debug.h"
+#include "../common.h"
+#include "../logging.h"
+#include "../string.h"
+#include "../filesystem.h"
+#include "../resource.h"
+#include "../time.h"
+#include "../util.h"
 #include "../arg.h"
 #if DEBUG(1)
     #include "../profiling.h"
 #endif
-
-#include "../engine/renderer.h"
-#include "../engine/input.h"
-#include "../engine/ui.h"
-#include "../engine/audio.h"
-#include "../engine/client.h"
+#include "../incsdl.h"
 
 #include "../common/world.h"
 
@@ -15,6 +29,9 @@
 
 #ifndef PSRC_DEFAULTGAME
     #define PSRC_DEFAULTGAME default
+#endif
+#ifndef PSRC_DEFAULTLOGO
+    #define PSRC_DEFAULTLOGO internal:engine/icon
 #endif
 
 struct rc_script* mainscript;
@@ -74,13 +91,15 @@ static inline void printprofpoint(uint8_t r, uint8_t g, uint8_t b, unsigned t, u
 }
 #endif
 
-static int bootstrap(void) {
+int bootstrap(void) {
     plog(LL_MS, "Starting engine...");
 
-    char* tmp = (options.config) ? strpath(options.config) : mkpath(dirs[DIR_INTERNAL], "engine", "config.cfg", NULL);
+    setupBaseDirs();
+
+    char* tmp = (engine.opt.config) ? strpath(engine.opt.config) : mkpath(dirs[DIR_INTERNAL], "engine", "config.cfg", NULL);
     {
         struct datastream ds;
-        bool ret = ds_openfile(tmp, 0, &ds);
+        bool ret = ds_openfile(tmp, NULL, false, 0, &ds);
         free(tmp);
         if (ret) {
             cfg_open(&ds, &config);
@@ -90,19 +109,19 @@ static int bootstrap(void) {
             cfg_open(NULL, &config);
         }
     }
-    if (options.set__setup) cfg_mergemem(&config, &options.set, true);
+    if (engine.opt.set__setup) cfg_mergemem(&config, &engine.opt.set, true);
 
     {
         struct charbuf err;
         cb_init(&err, 256);
-        if (options.game) {
-            if (!setGame(options.game, true, &err)) {
+        if (engine.opt.game) {
+            if (!setGame(engine.opt.game, true, &err)) {
                 plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
                 cb_dump(&err);
                 return 1;
             }
-            free(options.game);
-            options.game = NULL;
+            free(engine.opt.game);
+            engine.opt.game = NULL;
         } else if ((tmp = cfg_getvar(&config, NULL, "defaultgame"))) {
             if (!setGame(tmp, false, &err)) {
                 plog(LL_CRIT | LF_MSGBOX, "%s", cb_peek(&err));
@@ -122,15 +141,15 @@ static int bootstrap(void) {
     }
 
     if (dirs[DIR_USER]) {
-        if (!options.nouserconfig) {
+        if (!engine.opt.nouserconfig) {
             tmp = mkpath(dirs[DIR_USER], "config.cfg", NULL);
             struct datastream ds;
-            bool ret = ds_openfile(tmp, 0, &ds);
+            bool ret = ds_openfile(tmp, NULL, false, 0, &ds);
             free(tmp);
             if (ret) {
                 cfg_merge(&config, &ds, true);
                 ds_close(&ds);
-                if (options.set__setup) cfg_mergemem(&config, &options.set, true);
+                if (engine.opt.set__setup) cfg_mergemem(&config, &engine.opt.set, true);
             } else {
                 plog(LL_WARN, "Failed to load user config");
             }
@@ -145,16 +164,16 @@ static int bootstrap(void) {
 
     {
         tmp = cfg_getvar(&config, NULL, "mods");
-        if (options.mods) {
+        if (engine.opt.mods) {
             if (tmp) {
                 size_t ct1, ct2;
                 char** l1;
                 char** l2;
                 l1 = splitstrlist(tmp, ',', false, &ct1);
                 free(tmp);
-                l2 = splitstrlist(options.mods, ',', false, &ct2);
-                free(options.mods);
-                options.mods = NULL;
+                l2 = splitstrlist(engine.opt.mods, ',', false, &ct2);
+                free(engine.opt.mods);
+                engine.opt.mods = NULL;
                 l1 = realloc(l1, (ct1 + ct2) * sizeof(*l1));
                 for (size_t i = 0; i < ct2; ++i) {
                     l1[i + ct1] = l2[i];
@@ -166,9 +185,9 @@ static int bootstrap(void) {
                 free(l1);
             } else {
                 size_t ct;
-                char** l = splitstrlist(options.mods, ',', false, &ct);
-                free(options.mods);
-                options.mods = NULL;
+                char** l = splitstrlist(engine.opt.mods, ',', false, &ct);
+                free(engine.opt.mods);
+                engine.opt.mods = NULL;
                 loadMods((const char* const *)l, ct);
                 free(*l);
                 free(l);
@@ -236,8 +255,8 @@ static int bootstrap(void) {
     }
 
     // TODO: move into the renderer
-    if (options.icon) {
-        rendstate.icon = strpath(options.icon);
+    if (engine.opt.icon) {
+        rendstate.icon = strpath(engine.opt.icon);
     } else {
         // TODO: set icon from gameinfo.icon
         /*
@@ -266,10 +285,16 @@ static int bootstrap(void) {
     {
         struct charbuf e;
         cb_init(&e, 128);
-        mainscript = getRc(RC_SCRIPT, "main", NULL, 0, &e);
+        mainscript = getRc(RC_SCRIPT, "main", &(struct rcopt_script){.pb = &engine.pb.pb, .compopt = &engine.pb.compopt}, 0, &e);
         if (!mainscript) {
-            plog(LL_CRIT /*| LF_MSGBOX*/, "Could not start main script: %s", cb_peek(&e));
-            //return 1;
+            cb_undo(&e, 1);
+            plog(LL_CRIT | LF_MSGBOX, "Could not start main script:\n%s", cb_peek(&e));
+            cb_dump(&e);
+            return 1;
+        }
+        if (e.len) {
+            --e.len;
+            plog(LL_WARN, "Main script compiled with warnings:\n%s", cb_peek(&e));
         }
         cb_dump(&e);
     }
@@ -504,7 +529,7 @@ static int bootstrap(void) {
     return 0;
 }
 
-static void unstrap(void) {
+void unstrap(void) {
     plog(LL_MS, "Stopping engine...");
 
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
@@ -520,6 +545,8 @@ static void unstrap(void) {
     #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
     cancelWatchdog();
     #endif
+
+    rlsRc(mainscript, false);
 
     plog(LL_INFO, "Deinitializing audio manager...");
     quitAudio(true);
@@ -558,7 +585,7 @@ static inline float fwrap(float n, float d) {
     if (tmp < 0.0f) tmp += d;
     return tmp;
 }
-static void loop(void) {
+void loop(void) {
     #if DEBUG(1)
     prof_start(&dbgprof);
     #endif
@@ -748,7 +775,7 @@ static void loop(void) {
     #endif
 }
 
-static int parseargs(int argc, char** argv) {
+int parseargs(int argc, char** argv) {
     struct args a;
     args_init(&a, argc, argv);
     struct charbuf opt;
@@ -823,8 +850,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.game);
-            cb_reinit(&val, 256, &options.game);
+            free(engine.opt.game);
+            cb_reinit(&val, 256, &engine.opt.game);
         } else if (!strcmp(opt.data, "mods")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -832,8 +859,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.mods);
-            cb_reinit(&val, 256, &options.mods);
+            free(engine.opt.mods);
+            cb_reinit(&val, 256, &engine.opt.mods);
         } else if (!strcmp(opt.data, "icon")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -841,8 +868,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.icon);
-            cb_reinit(&val, 256, &options.icon);
+            free(engine.opt.icon);
+            cb_reinit(&val, 256, &engine.opt.icon);
         } else if (!strcmp(opt.data, "set") || !strcmp(opt.data, "s")) {
             e = args_getoptval(&a, 0, -1, &val, &err);
             if (e == -1) {
@@ -850,9 +877,9 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            if (!options.set__setup) {
-                 cfg_open(NULL, &options.set);
-                 options.set__setup = true;
+            if (!engine.opt.set__setup) {
+                 cfg_open(NULL, &engine.opt.set);
+                 engine.opt.set__setup = true;
              }
             char* sect = NULL;
             while (1) {
@@ -875,7 +902,7 @@ static int parseargs(int argc, char** argv) {
                     free(sect);
                     cb_reinit(&var, 32, &sect);
                 } else {
-                    cfg_setvar(&options.set, sect, cb_peek(&var), cb_peek(&val), true);
+                    cfg_setvar(&engine.opt.set, sect, cb_peek(&var), cb_peek(&val), true);
                     cb_clear(&val);
                 }
                 cb_clear(&var);
@@ -888,8 +915,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.maindir);
-            cb_reinit(&val, 256, &options.maindir);
+            free(engine.opt.maindir);
+            cb_reinit(&val, 256, &engine.opt.maindir);
         } else if (!strcmp(opt.data, "gamesdir")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -897,8 +924,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.gamesdir);
-            cb_reinit(&val, 256, &options.gamesdir);
+            free(engine.opt.gamesdir);
+            cb_reinit(&val, 256, &engine.opt.gamesdir);
         } else if (!strcmp(opt.data, "modsdir")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -906,8 +933,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.modsdir);
-            cb_reinit(&val, 256, &options.modsdir);
+            free(engine.opt.modsdir);
+            cb_reinit(&val, 256, &engine.opt.modsdir);
         } else if (!strcmp(opt.data, "userdir")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -915,8 +942,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.userdir);
-            cb_reinit(&val, 256, &options.userdir);
+            free(engine.opt.userdir);
+            cb_reinit(&val, 256, &engine.opt.userdir);
         } else if (!strcmp(opt.data, "config") || !strcmp(opt.data, "cfg") || !strcmp(opt.data, "c")) {
             e = args_getoptval(&a, 1, -1, &val, &err);
             if (e == -1) {
@@ -924,8 +951,8 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            free(options.config);
-            cb_reinit(&val, 256, &options.config);
+            free(engine.opt.config);
+            cb_reinit(&val, 256, &engine.opt.config);
         } else if (!strcmp(opt.data, "nouserconfig") || !strcmp(opt.data, "nousercfg")) {
             e = args_getoptval(&a, 0, -1, &val, &err);
             if (e == -1) {
@@ -933,7 +960,7 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            options.nouserconfig = true;
+            engine.opt.nouserconfig = true;
         } else if (!strcmp(opt.data, "nocontroller")) {
             e = args_getoptval(&a, 0, -1, &val, &err);
             if (e == -1) {
@@ -941,7 +968,7 @@ static int parseargs(int argc, char** argv) {
                 ret = 1;
                 break;
             }
-            options.nocontroller = true;
+            engine.opt.nocontroller = true;
         } else {
             fprintf(stderr, "Unknown option: -%s\n", opt.data);
             ret = 1;
@@ -956,3 +983,9 @@ static int parseargs(int argc, char** argv) {
     cb_dump(&err);
     return ret;
 }
+
+#else
+
+extern int empty;
+
+#endif

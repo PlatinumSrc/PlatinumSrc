@@ -16,18 +16,19 @@
     #endif
 #endif
 
-void ds_openmem(void* b, size_t sz, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
+void ds_openmem(void* b, size_t sz, const char* n, bool fn, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
     ds->buf = b;
     ds->pos = 0;
     ds->passed = 0;
     ds->datasz = sz;
     ds->mem.free = freecb;
     ds->mem.freectx = freectx;
-    ds->path = "<memory>";
+    ds->name = (n) ? n : "<memory>";
+    ds->freename = fn;
     ds->atend = 0;
-    ds->mode = DS_MODE_MEM;
+    ds->type = DS_TYPE_MEM;
 }
-bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
+bool ds_openfile(const char* p, const char* n, bool fn, size_t bufsz, struct datastream* ds) {
     {
         int tmp = isFile(p);
         if (tmp < 1) {
@@ -76,12 +77,18 @@ bool ds_openfile(const char* p, size_t bufsz, struct datastream* ds) {
     ds->passed = 0;
     ds->datasz = 0;
     ds->bufsz = bufsz;
-    ds->path = strpath(p);
+    if (n) {
+        ds->name = n;
+        ds->freename = fn;
+    } else {
+        ds->name = strpath(p);
+        ds->freename = 1;
+    }
     ds->atend = 0;
-    ds->mode = DS_MODE_FILE;
+    ds->type = DS_TYPE_FILE;
     return true;
 }
-bool ds_opencb(struct ds_cbfuncs* funcs, size_t bufsz, struct datastream* ds) {
+bool ds_opencb(struct ds_cb_funcs* funcs, const char* n, bool fn, size_t bufsz, struct datastream* ds) {
     if (!bufsz) bufsz = 4096;
     ds->buf = malloc(bufsz);
     if (!ds->buf) return false;
@@ -90,12 +97,13 @@ bool ds_opencb(struct ds_cbfuncs* funcs, size_t bufsz, struct datastream* ds) {
     ds->datasz = 0;
     ds->bufsz = bufsz;
     ds->cb = *funcs;
-    ds->path = "<callback>";
+    ds->name = (n) ? n : "<callback>";
+    ds->freename = fn;
     ds->atend = 0;
-    ds->mode = DS_MODE_CB;
+    ds->type = DS_TYPE_CB;
     return true;
 }
-bool ds_opensect(struct datastream* ids, size_t lim, size_t bufsz, struct datastream* ds) {
+bool ds_opensect(struct datastream* ids, size_t lim, const char* n, bool fn, size_t bufsz, struct datastream* ds) {
     if (!bufsz) bufsz = 256;
     ds->buf = malloc(bufsz);
     if (!ds->buf) return false;
@@ -106,18 +114,19 @@ bool ds_opensect(struct datastream* ids, size_t lim, size_t bufsz, struct datast
     ds->sect.ds = ids;
     ds->sect.base = ds_tell(ids);
     ds->sect.lim = lim;
-    ds->path = ids->path;
+    ds->name = (n) ? n : ids->name;
+    ds->freename = fn;
     ds->atend = 0;
-    ds->mode = DS_MODE_SECT;
+    ds->type = DS_TYPE_SECT;
     return true;
 }
 
 void ds_close(struct datastream* ds) {
-    switch (ds->mode) {
-        case DS_MODE_MEM:
+    switch (ds->type) {
+        case DS_TYPE_MEM:
             if (ds->mem.free) ds->mem.free(ds->mem.freectx, ds->buf);
             break;
-        case DS_MODE_FILE:
+        case DS_TYPE_FILE:
             free(ds->buf);
             #if defined(PSRC_DATASTREAM_USESTDIO)
                 fclose(ds->file.f);
@@ -126,13 +135,13 @@ void ds_close(struct datastream* ds) {
             #else
                 close(ds->file.fd);
             #endif
-            free(ds->path);
+            free((char*)ds->name);
             break;
-        case DS_MODE_CB:
+        case DS_TYPE_CB:
             free(ds->buf);
             if (ds->cb.close) ds->cb.close(ds->cb.ctx);
             break;
-        case DS_MODE_SECT:
+        case DS_TYPE_SECT:
             free(ds->buf);
             break;
     }
@@ -141,7 +150,7 @@ void ds_close(struct datastream* ds) {
 int ds_text_getc(struct datastream* ds) {
     int c;
     do {
-        c = ds_text__getc_inline(ds);
+        c = ds_getc(ds);
     } while (c == '\r' || !c);
     return c;
 }
@@ -188,13 +197,13 @@ size_t ds_skip(struct datastream* ds, size_t l) {
 }
 
 bool ds_seek(struct datastream* ds, size_t o) {
-    switch (ds->mode) {
-        case DS_MODE_MEM: {
+    switch (ds->type) {
+        case DS_TYPE_MEM: {
             if (o >= ds->datasz) return false;
             ds->pos = o;
             return true;
         } break;
-        case DS_MODE_FILE: {
+        case DS_TYPE_FILE: {
             #if defined(PSRC_DATASTREAM_USESTDIO)
                 if (fseek(ds->file.f, o, SEEK_SET) == -1) return false;
             #elif defined(PSRC_DATASTREAM_USESDL)
@@ -203,11 +212,11 @@ bool ds_seek(struct datastream* ds, size_t o) {
                 if (lseek(ds->file.fd, o, SEEK_SET) == -1) return false;
             #endif
         } break;
-        case DS_MODE_CB: {
+        case DS_TYPE_CB: {
             if (!ds->cb.seek) return false;
             if (!ds->cb.seek(ds->cb.ctx, o)) return false;
         } break;
-        case DS_MODE_SECT: {
+        case DS_TYPE_SECT: {
             if (o >= ds->sect.lim) return false;
             if (!ds_seek(ds->sect.ds, ds->sect.base + o)) return false;
         } break;
@@ -219,11 +228,11 @@ bool ds_seek(struct datastream* ds, size_t o) {
 }
 
 size_t ds_getsz(struct datastream* ds) {
-    switch (ds->mode) {
-        case DS_MODE_MEM: {
+    switch (ds->type) {
+        case DS_TYPE_MEM: {
             return ds->datasz;
         } break;
-        case DS_MODE_FILE: {
+        case DS_TYPE_FILE: {
             #if defined(PSRC_DATASTREAM_USESTDIO)
                 long c = ftell(ds->file.f);
                 if (c == -1) break;
@@ -243,11 +252,11 @@ size_t ds_getsz(struct datastream* ds) {
                 return e;
             #endif
         } break;
-        case DS_MODE_CB: {
+        case DS_TYPE_CB: {
             if (!ds->cb.getsz) break;
             return ds->cb.getsz(ds->cb.ctx);
         } break;
-        case DS_MODE_SECT: {
+        case DS_TYPE_SECT: {
             return ds->sect.lim;
         } break;
     }
@@ -255,18 +264,18 @@ size_t ds_getsz(struct datastream* ds) {
 }
 
 int ds_text__getc(struct datastream* ds) {
-    return ds_text__getc_inline(ds);
+    return ds_getc(ds);
 }
 
 bool ds__refill(struct datastream* ds) {
     if (ds->atend) return false;
-    if (ds->mode == DS_MODE_MEM) {
+    if (ds->type == DS_TYPE_MEM) {
         ds->atend = 1;
         return false;
     }
     ds->passed += ds->datasz;
     ds->pos = 0;
-    if (ds->mode == DS_MODE_FILE) {
+    if (ds->type == DS_TYPE_FILE) {
         #if defined(PSRC_DATASTREAM_USESTDIO)
             if (feof(ds->file.f)) {
                 ds->datasz = 0;
@@ -291,7 +300,7 @@ bool ds__refill(struct datastream* ds) {
             }
             ds->datasz = r;
         #endif
-    } else if (ds->mode == DS_MODE_CB) {
+    } else if (ds->type == DS_TYPE_CB) {
         if (!ds->cb.read(ds->cb.ctx, ds->buf, ds->bufsz, &ds->datasz)) {
             ds->datasz = 0;
             ds->atend = 1;

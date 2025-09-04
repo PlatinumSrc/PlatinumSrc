@@ -1,7 +1,7 @@
-#ifndef PSRC_BASE64_H
-#define PSRC_BASE64_H
+#ifndef PSRC_COMMON_BASE64_H
+#define PSRC_COMMON_BASE64_H
 
-#include "string.h"
+#include "../string.h"
 
 #include <stdbool.h>
 

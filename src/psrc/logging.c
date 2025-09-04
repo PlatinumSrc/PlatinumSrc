@@ -415,6 +415,9 @@ static void plog_nolock(enum loglevel lvl, const char* func, const char* file, u
 #define plog_nolock(lvl, ...) plog_nolock(lvl, __func__, __FILE__, __LINE__, __VA_ARGS__)
 
 bool plog_setfile(const char* f) {
+    #if DEBUG(1)
+    return true;
+    #endif
     #ifndef PSRC_NOMT
     lockMutex(&loglock);
     #endif

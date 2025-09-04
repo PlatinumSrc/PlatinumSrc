@@ -320,7 +320,7 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
                             unsigned w, h, c;
                             {
                                 struct datastream tmpds;
-                                if (!ds_opensect(ds, sz, 0, &tmpds)) P3M_LOAD_INTERR(retfalse);
+                                if (!ds_opensect(ds, sz, NULL, false, 0, &tmpds)) P3M_LOAD_INTERR(retfalse);
                                 t->embedded.data = ptf_load(&tmpds, &w, &h, &c);
                                 ds_close(&tmpds);
                             }

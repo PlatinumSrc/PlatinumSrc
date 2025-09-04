@@ -43,9 +43,9 @@ PACKEDENUM pb_op {
     PB_OP_PUSHGARGCT,   // Push the global arg count (ARGC()) (pushes: obj)
     PB_OP_PUSHSUB,      // Push a sub ID (SUB()) (reads: id; pushes: obj)
     PB_OP_POP,          // Remove items from the stack (reads: count; pops: elem)
-    PB_OP_REF,          // Creates a reference (pops: obj; pushes: ref)
-    PB_OP_DEREF,        // Dereferences a reference (pops: obj; pushes: obj)
-    PB_OP_DEREFVA,      // Dereferences a reference or expands a vararg collection (pops: obj; pushes: obj)
+    PB_OP_REF,          // Creates a reference (@) (pops: obj; pushes: ref)
+    PB_OP_DEREF,        // Dereferences a reference ($) (pops: obj; pushes: obj)
+    PB_OP_DEREFVA,      // Dereferences a reference or expands a vararg collection ($) (pops: obj; pushes: obj)
     PB_OP_INDEX,        // Creates an index obj from the index or adds the index to an existing index obj (reads: index; pops: obj; pushes: obj)
     PB_OP_MEMB,         // Gets a member of a COMPLEX (reads: membid; pops: obj; pushes: obj)
     PB_OP_DUP,          // Pushes a dup (pushes: dup)
@@ -115,13 +115,13 @@ PACKEDENUM pb_op {
     PB_OP_SLEEP,        // Sleep (SLEEP ...) (pops: seconds (f32/f64) or microseconds)
     PB_OP_SLEEPINF,     // Sleep (SLEEP)
     PB_OP_SETLINE,      // Set the current line for debugging and error info (reads: line)
-    PB_OP_SETCOL        // Set the current column for debugging and error info (reads: col)
+    PB_OP_SETCOL,       // Set the current column for debugging and error info (reads: col)
+    PB_OP_SETNAME       // Set the current file/arena name for debugging and error info (reads: index)
 };
 
 PACKEDENUM pb_type {
-    PB_TYPE_ANY,
     PB_TYPE_VOID,
-    PB_TYPE_NULL,
+    PB_TYPE_ANY,
     PB_TYPE_STR,
     PB_TYPE_BOOL,
     PB_TYPE_I8,
@@ -186,7 +186,7 @@ struct pb_rodata {
     };
     union {
         struct pb_rodata_str str;
-        bool boolean; // would be named 'bool'
+        bool b; // would be named 'bool'
         int8_t i8;
         int16_t i16;
         int32_t i32;
@@ -201,7 +201,7 @@ struct pb_rodata {
         struct pb_rodata_complex complex;
         union {
             struct pb_rodata_str* str;
-            uint8_t* boolean;
+            uint8_t* b;
             int8_t* i8;
             int16_t* i16;
             int32_t* i32;
@@ -244,7 +244,7 @@ struct pb_obj_data {
     };
     union {
         struct charbuf str;
-        bool boolean; // would be named 'bool'
+        bool b;
         int8_t i8;
         int16_t i16;
         int32_t i32;
@@ -259,7 +259,7 @@ struct pb_obj_data {
         struct pb_obj_data_complex complex;
         union {
             struct charbuf* str;
-            uint8_t* boolean;
+            uint8_t* b;
             int8_t* i8;
             int16_t* i16;
             int32_t* i32;
@@ -315,8 +315,11 @@ struct pb_stackelem {
 
 struct pb_prog_sub {
     const uint32_t* bytecode;
-    uint32_t argtypect;
-    const uint32_t* argtypes;
+    uint32_t argct;
+    union {
+        uint32_t argtype;
+        const uint32_t* argtypes;
+    };
     uint32_t rettype;
 };
 struct pb_prog {
@@ -325,6 +328,8 @@ struct pb_prog {
     struct pb_rodata* consts;
     uint32_t constct;
     uint32_t gvarct;
+    const char** filenames;
+    uint32_t filenamect;
 };
 
 PACKEDENUM pb_proc_status_waitingon {
@@ -381,17 +386,35 @@ struct pb_compiler_addon {
 
 PACKEDENUM pb_preproc_type {
     PB_PREPROC_TYPE_VOID,
+    PB_PREPROC_TYPE_STR,
+    PB_PREPROC_TYPE_BOOL,
+    PB_PREPROC_TYPE_I8,
+    PB_PREPROC_TYPE_I16,
+    PB_PREPROC_TYPE_I32,
+    PB_PREPROC_TYPE_I64,
+    PB_PREPROC_TYPE_U8,
+    PB_PREPROC_TYPE_U16,
     PB_PREPROC_TYPE_U32,
     PB_PREPROC_TYPE_U64,
-    PB_PREPROC_TYPE_STR
+    PB_PREPROC_TYPE_F32,
+    PB_PREPROC_TYPE_F64
 };
 struct pb_preproc_macro {
     enum pb_preproc_type type;
     const char* name;
     uint32_t namecrc;
     union {
+        bool b;
+        int8_t i8;
+        int16_t i16;
+        int32_t i32;
+        int64_t i64;
+        uint8_t u8;
+        uint16_t u16;
         uint32_t u32;
         uint64_t u64;
+        float f32;
+        double f64;
         struct {
             const char* data;
             uint32_t len;
@@ -408,8 +431,8 @@ PACKEDENUM pb_compiler_opt_olvl {
 };
 PACKEDENUM pb_compiler_opt_dbglvl {
     PB_COMPILER_OPT_DBGLVL_OFF,
-    PB_COMPILER_OPT_DBGLVL_LINES,
-    PB_COMPILER_OPT_DBGLVL_COLS,
+    PB_COMPILER_OPT_DBGLVL_BASIC,
+    PB_COMPILER_OPT_DBGLVL_FULL,
     PB_COMPILER_OPT_DBGLVL_DEFAULT = 1,
     PB_COMPILER_OPT_DBGLVL_MIN = 0,
     PB_COMPILER_OPT_DBGLVL_MAX = 2
@@ -417,19 +440,70 @@ PACKEDENUM pb_compiler_opt_dbglvl {
 struct pb_compiler_opt {
     enum pb_compiler_opt_olvl olvl;
     enum pb_compiler_opt_dbglvl dbglvl;
-    const char* name;
     const struct pb_preproc_macro* macros;
     uint32_t macroct;
     const struct pb_compiler_addon* addons;
     uint32_t addonct;
+    const char* errprefix;
 };
 #define PB_COMPILER_OPT_DEFAULTS {.olvl = PB_COMPILER_OPT_OLVL_DEFAULT, .dbglvl = PB_COMPILER_OPT_DBGLVL_DEFAULT}
-
+struct pb_compiler_errloc {
+    uint32_t index;
+    uint32_t line;
+    uint32_t col;
+};
+struct pb_compiler_stream {
+    struct datastream* ds;
+    int last;
+    unsigned unget : 1;
+    uint32_t line;
+    uint32_t col;
+    char* type;
+    //char* name;
+    uint32_t incline;
+    uint32_t inccol;
+};
+struct pb_compiler_label {
+    char* name;
+    uint32_t namecrc;
+    uint32_t inst;
+};
+struct pb_compiler_irelem {
+    uint32_t next;
+    uint32_t pos;
+};
+struct pb_compiler_progir {
+    struct VLB(uint32_t) irdata;
+    struct VLB(struct pb_compiler_irelem) irelems;
+    struct VLB(struct pb_compiler_label) labels;
+    struct VLB(struct pb_rodata) consts;
+};
+struct pb_compiler_sub {
+    struct pb_compiler_progir progir;
+    uint32_t argct;
+    union {
+        uint32_t argtype;
+        const uint32_t* argtypes;
+    };
+    uint32_t rettype;
+};
 struct pb_compiler {
     struct pbasic* pb;
+    const struct pb_compiler_opt* opt;
     uint32_t progid;
-    int placeholder;
+    struct pb_compiler_stream stream;
+    struct VLB(struct pb_compiler_stream) prevstreams;
+    struct datastream macrods;
+    struct VLB(char*) usingnames;
+    struct charbuf curns;
+    struct VLB(struct pb_preproc_macro) macros;
+    struct pb_compiler_progir progir;
+    struct VLB(struct pb_compiler_sub) subs;
+    struct VLB(uint32_t) initsubs;
+    struct charbuf* err;
 };
+
+#define PB_COMPITF_GETC_END (-1)
 
 struct pbasic {
     struct {
@@ -507,6 +581,13 @@ static ALWAYSINLINE void pb_proc_getstatus(struct pbasic* pb, uint32_t procid, s
     #ifndef PSRC_NOMT
     releaseReadAccess(&pb->procs.lock);
     #endif
+}
+
+static ALWAYSINLINE void pb_compitf_mkerrloc(struct pb_compiler* pbc, struct pb_compiler_errloc* errloc) {
+    errloc->index = pbc->prevstreams.len;
+    errloc->line = pbc->stream.line;
+    errloc->col = pbc->stream.col;
+    
 }
 
 extern const char* pb__error_str[PB_ERROR__COUNT];

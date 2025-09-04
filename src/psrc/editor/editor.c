@@ -1,13 +1,13 @@
-#ifdef PSRC_MODULE_SERVER
+#ifdef PSRC_MODULE_EDITOR
 
-#include "server.h"
+#include "editor.h"
 
 #ifndef PSRC_DEFAULTLOGO
-    #define PSRC_DEFAULTLOGO internal:server/icon
+    #define PSRC_DEFAULTLOGO internal:editor/icon
 #endif
 
 int bootstrap(void) {
-    plog(LL_MS, "Starting server...");
+    plog(LL_MS, "Starting editor...");
 
     plog(LL_MS, "Almost there...");
 
@@ -17,7 +17,7 @@ int bootstrap(void) {
 }
 
 void unstrap(void) {
-    plog(LL_MS, "Stopping server...");
+    plog(LL_MS, "Stopping editor...");
 
     plog(LL_MS, "Done");
 }
