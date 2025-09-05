@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 struct pbasic;
 struct pb_compiler;
@@ -91,10 +92,8 @@ PACKEDENUM pb_op {
     PB_OP_OR,           // Bitwise OR (|) (pops: right, left; pushes: result)
     PB_OP_XOR,          // Bitwise XOR (^) (pops: value, with; pushes: result)
     PB_OP_CAST,         // Cast to another type (reads: typeid; pops: value; pushes: result)
-    PB_OP_TYPEEQ,       // Type of top value is equal to type ID (TYPE(...) == ...) (reads: typeid; pushes: result)
-    PB_OP_TYPEAPEQ,     // Type of top value is approximately equal to type ID (TYPE(...) ~= ...) (reads: typeid; pushes: result)
-    PB_OP_TYPESZ,       // Get the size of a type (SIZE(TYPE ...)) (reads: typeid; pushes: size)
-    PB_OP_TYPESZOF,     // Get the size of the type of an object (SIZE(TYPEOF ...)) (pops: obj; pushes: size)
+    PB_OP_TYPEEQ,       // Type of top value is equal to type ID (TYPE(IS ...)) (reads: typeid; pushes: result)
+    PB_OP_TYPEAPEQ,     // Type of top value is approximately equal to type ID (TYPE(SIMILAR ...)) (reads: typeid; pushes: result)
     PB_OP_VANEXT,       // Gets the next vararg (VA(NEXT)) (pops: vaobj; pushes: argobj)
     PB_OP_VASKIP,       // Go forwards by the specified amount (VA(SKIP ...)) (pops: amount, vaobj)
     PB_OP_VABACK,       // Go back by the specified amount (VA(BACK ...)) (pops: amount, vaobj)
@@ -458,6 +457,7 @@ struct pb_compiler_stream {
     unsigned unget : 1;
     uint32_t line;
     uint32_t col;
+    uint32_t oldcol;
     char* type;
     //char* name;
     uint32_t incline;
@@ -502,8 +502,6 @@ struct pb_compiler {
     struct VLB(uint32_t) initsubs;
     struct charbuf* err;
 };
-
-#define PB_COMPITF_GETC_END (-1)
 
 struct pbasic {
     struct {
@@ -558,6 +556,9 @@ void pb_destroy(struct pbasic*);
 enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const struct pb_compiler_opt*, uint32_t* progidout, struct charbuf* err);
 void pb_prog_destroy(struct pbasic*, uint32_t progid);
 
+void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, struct pb_compiler_errloc*);
+int pb_compitf_getc(struct pb_compiler*);
+
 enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
 void pb_proc_destroy(struct pbasic*, uint32_t procid);
 enum pb_error pb_proc_reset(struct pbasic*, uint32_t procid, uint32_t progid, uint32_t argc, struct pb_rodata* argv);
@@ -583,11 +584,50 @@ static ALWAYSINLINE void pb_proc_getstatus(struct pbasic* pb, uint32_t procid, s
     #endif
 }
 
-static ALWAYSINLINE void pb_compitf_mkerrloc(struct pb_compiler* pbc, struct pb_compiler_errloc* errloc) {
+static ALWAYSINLINE void pb_compitf_mkerrloc(struct pb_compiler* pbc, int prevchar, struct pb_compiler_errloc* errloc) {
     errloc->index = pbc->prevstreams.len;
-    errloc->line = pbc->stream.line;
-    errloc->col = pbc->stream.col;
-    
+    if (prevchar == -1) {
+        errloc->line = pbc->stream.line;
+        errloc->col = pbc->stream.col;
+    } else {
+        if (prevchar != '\n') {
+            errloc->line = pbc->stream.line;
+            errloc->col = pbc->stream.col - 1;
+        } else {
+            errloc->line = pbc->stream.line - 1;
+            errloc->col = pbc->stream.oldcol;
+        }
+    }
+}
+static ALWAYSINLINE void pb_compitf_ungetc(struct pb_compiler* pbc, int c) {
+    if (c != '\n') {
+        --pbc->stream.col;
+    } else {
+        --pbc->stream.line;
+        pbc->stream.col = pbc->stream.oldcol;
+    }
+    pbc->stream.last = c;
+    pbc->stream.unget = 1;
+}
+static inline void pb_compitf_readlinecomment(struct pb_compiler* pbc) {
+    while (1) {
+        int c = pb_compitf_getc(pbc);
+        if (c == '\n') break;
+        if (c == DS_END || !c) {
+            pb_compitf_ungetc(pbc, c);
+            break;
+        }
+    }
+}
+static inline bool pb_compitf_readblockcomment(struct pb_compiler* pbc) {
+    while (1) {
+        int c = pb_compitf_getc(pbc);
+        if (c == '`') return true;
+        if (c == DS_END || !c) {
+            pb_compitf_ungetc(pbc, c);
+            return false;
+        }
+    }
 }
 
 extern const char* pb__error_str[PB_ERROR__COUNT];

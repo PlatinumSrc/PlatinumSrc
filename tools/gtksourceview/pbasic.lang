@@ -63,6 +63,7 @@
       <include>
         <context ref="def:line-continue"/>
         <context ref="line-comment"/>
+        <context ref="block-comment"/>
       </include>
     </context>
 

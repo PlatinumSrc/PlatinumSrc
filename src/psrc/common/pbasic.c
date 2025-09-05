@@ -1,3 +1,5 @@
+#include "../rcmgralloc.h"
+
 #include "pbasic.h"
 
 #include <stdio.h>
@@ -73,30 +75,129 @@ void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg
 
 int pb_compitf_getc(struct pb_compiler* pbc) {
     again:;
-    if (pbc->stream.unget) return pbc->stream.last;
+    if (pbc->stream.unget) {
+        pbc->stream.unget = 0;
+        return pbc->stream.last;
+    }
     int c = ds_text_getc_fullinline(pbc->stream.ds);
-    if (c != DS_END && c) return c;
-    if (!pbc->prevstreams.len) return PB_COMPITF_GETC_END;
+    if (c != DS_END && c) {
+        if (c != '\n') {
+            ++pbc->stream.col;
+        } else {
+            ++pbc->stream.line;
+            pbc->stream.oldcol = pbc->stream.col;
+            pbc->stream.col = 1;
+        }
+        return c;
+    }
+    if (!pbc->prevstreams.len) return -1;
     ds_close(pbc->stream.ds);
     pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
     goto again;
 }
 
+static enum pb_error pb_preproc_parseline(struct pb_compiler* pbc) {
+    pb_compitf_readlinecomment(pbc);
+    return PB_ERROR_NONE;
+}
+
+static enum pb_error pb_compiler_parseline(struct pb_compiler* pbc) {
+    pb_compitf_readlinecomment(pbc);
+    return PB_ERROR_NONE;
+}
+
 enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const struct pb_compiler_opt* opt, uint32_t* progidout, struct charbuf* err) {
     if (!opt) opt = &defaultcompopt;
     struct pb_compiler pbc = {.pb = pb, .opt = opt, .err = err};
+    enum pb_error e = PB_ERROR_NONE;
     pb_compitf_puterr(&pbc, PB_ERROR_NONE, "Compiler is under development", NULL);
 
-    VLB_INIT(pbc.prevstreams, 1, goto memerr;);
-    pbc.stream = (struct pb_compiler_stream){.ds = ds, .type = (ds->type == DS_TYPE_FILE) ? "file" : "stream"};
+    VLB_INIT(pbc.prevstreams, 1, goto emem;);
+    pbc.stream = (struct pb_compiler_stream){.ds = ds, .line = 1, .col = 1, .type = (ds->type == DS_TYPE_FILE) ? "file" : "stream"};
 
+    while (1) {
+        int c, lc;
+        struct pb_compiler_errloc el;
+
+        do {
+            c = pb_compitf_getc(&pbc);
+        } while (c == ' ' || c == '\t');
+        if (c == -1) break;
+
+        lc = tolower(c);
+        if ((lc >= 'a' && lc <= 'z') || c == '_') {
+            pb_compitf_ungetc(&pbc, c);
+            e = pb_compiler_parseline(&pbc);
+            if (e != PB_ERROR_NONE) goto reterr;
+        } else if (c == '\'') {
+            pb_compitf_readlinecomment(&pbc);
+        } else if (c != '\n') {
+            if (c == '#') {
+                ppreprocagain:;
+                do {
+                    c = pb_compitf_getc(&pbc);
+                } while (c == ' ' || c == '\t');
+                lc = tolower(c);
+                if ((lc >= 'a' && lc <= 'z') || c == '_') {
+                    pb_compitf_ungetc(&pbc, c);
+                    e = pb_preproc_parseline(&pbc);
+                    if (e != PB_ERROR_NONE) goto reterr;
+                } else if (c == '\'') {
+                    pb_compitf_readlinecomment(&pbc);
+                } else if (c != '\n') {
+                    pb_compitf_mkerrloc(&pbc, c, &el);
+                    if (c == '`') {
+                        if (!pb_compitf_readblockcomment(&pbc)) goto pecomment;
+                        goto ppreprocagain;
+                    }
+                    if (c >= '0' && c <= '9') goto pebadid;
+                    if (c == -1) goto pebadeof;
+                    goto pebadchar;
+                }
+            } else if (c == '`') {
+                pb_compitf_mkerrloc(&pbc, 0, &el);
+                if (!pb_compitf_readblockcomment(&pbc)) goto pecomment;
+            } else if (c >= '0' && c <= '9') {
+                pb_compitf_mkerrloc(&pbc, 0, &el);
+                goto pebadid;
+            } else {
+                pb_compitf_mkerrloc(&pbc, 0, &el);
+                goto pebadchar;
+            }
+        }
+
+        continue;
+        pebadid:;
+        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Invalid identifier", &el);
+        goto reterr;
+        //pewantid:;
+        //pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Expected identifier", &el);
+        //goto reterr;
+        pebadchar:;
+        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected character", &el);
+        goto reterr;
+        //pebadeol:;
+        //pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected end of line", &el);
+        //goto reterr;
+        pebadeof:;
+        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected end of line", &el);
+        goto reterr;
+        pecomment:;
+        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unterminated comment", &el);
+        goto reterr;
+    }
+    //pbreak:;
+
+    goto ret;
+
+    emem:;
+    pb_compitf_puterr(&pbc, (e = PB_ERROR_MEMORY), NULL, NULL);
+    reterr:;
+
+    ret:;
     VLB_FREE(pbc.prevstreams);
 
-    return PB_ERROR_NONE;
-
-    memerr:;
-    pb_compitf_puterr(&pbc, PB_ERROR_MEMORY, NULL, NULL);
-    return PB_ERROR_MEMORY;
+    return e;
 }
 
 void pb_prog_destroy(struct pbasic* pb, uint32_t progid) {
