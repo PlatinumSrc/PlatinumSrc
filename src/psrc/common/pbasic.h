@@ -36,13 +36,11 @@ PACKEDENUM pb_op {
     PB_OP_REDIMGLOBAL,  // Resize or redefine a global var (reads: id, typeid, dims; pops: [size]...)
     PB_OP_DIMLOCAL,     // Set up a local var or arg (reads: offset, typeid, dims; pops: [size]...)
     PB_OP_REDIMLOCAL,   // Resize or redefine a local var or arg (reads: offset, typeid, dims; pops: [size]...)
-    PB_OP_DEFSUB,       // Define a sub (reads: id, tblindex)
     PB_OP_PUSHCONST,    // Push a constant (reads: id; pushes: obj)
     PB_OP_PUSHGLOBAL,   // Push a global variable (reads: id; pushes: obj)
     PB_OP_PUSHLOCAL,    // Push a local variable or argument (reads: offset; pushes: obj)
     PB_OP_PUSHGARG,     // Push a global arg (ARGV(...)) (pops: index; pushes: obj)
     PB_OP_PUSHGARGCT,   // Push the global arg count (ARGC()) (pushes: obj)
-    PB_OP_PUSHSUB,      // Push a sub ID (SUB()) (reads: id; pushes: obj)
     PB_OP_POP,          // Remove items from the stack (reads: count; pops: elem)
     PB_OP_REF,          // Creates a reference (@) (pops: obj; pushes: ref)
     PB_OP_DEREF,        // Dereferences a reference ($) (pops: obj; pushes: obj)
@@ -54,7 +52,6 @@ PACKEDENUM pb_op {
     PB_OP_SET,          // Set an obj (pops: value, obj)
     PB_OP_DELGLOBAL,    // Delete a global var (reads: index)
     PB_OP_DELLOCAL,     // Delete a local var or arg (reads: offset)
-    PB_OP_DELSUB,       // Delete a sub (reads: id)
     PB_OP_JMP,          // Jump (reads: offset)
     PB_OP_B,            // Branch (reads: trueoff, falseoff; pops: cond)
     PB_OP_JMPI,         // Indexed jump (reads: minval, maxval, offset...; pops: index)
@@ -134,6 +131,7 @@ PACKEDENUM pb_type {
     PB_TYPE_F32,
     PB_TYPE_F64,
     PB_TYPE_VARARG,
+    PB_TYPE_SUB,
     PB_TYPE__COUNT
 };
 
@@ -197,6 +195,7 @@ struct pb_rodata {
         float f32;
         double f64;
         struct pb_rodata_vararg vararg;
+        uint32_t sub;
         struct pb_rodata_complex complex;
         union {
             struct pb_rodata_str* str;
@@ -212,6 +211,7 @@ struct pb_rodata {
             float* f32;
             double* f64;
             struct pb_rodata_vararg* vararg;
+            uint32_t* sub;
             struct pb_rodata_complex* complex;
         } array;
     };
@@ -255,6 +255,7 @@ struct pb_obj_data {
         float f32;
         double f64;
         struct pb_obj_data_vararg vararg;
+        uint32_t sub;
         struct pb_obj_data_complex complex;
         union {
             struct charbuf* str;
@@ -270,6 +271,7 @@ struct pb_obj_data {
             float* f32;
             double* f64;
             struct pb_obj_data_vararg* vararg;
+            uint32_t* sub;
             struct pb_obj_data_complex* complex;
         } array;
     };
@@ -400,7 +402,10 @@ PACKEDENUM pb_preproc_type {
 };
 struct pb_preproc_macro {
     enum pb_preproc_type type;
-    const char* name;
+    union {
+        const char* name;
+        size_t namei;
+    };
     uint32_t namecrc;
     union {
         bool b;
@@ -446,22 +451,107 @@ struct pb_compiler_opt {
     const char* errprefix;
 };
 #define PB_COMPILER_OPT_DEFAULTS {.olvl = PB_COMPILER_OPT_OLVL_DEFAULT, .dbglvl = PB_COMPILER_OPT_DBGLVL_DEFAULT}
-struct pb_compiler_errloc {
-    uint32_t index;
+struct pb_compiler_srcloc {
+    uint32_t src;
     uint32_t line;
     uint32_t col;
 };
+PACKEDENUM pb_compiler_tok_type {
+    PB_COMPILER_TOK_TYPE_NAME,
+    PB_COMPILER_TOK_TYPE_SYM,
+    PB_COMPILER_TOK_TYPE_DATA
+};
+PACKEDENUM pb_compiler_tok_subtype {
+    PB_COMPILER_TOK_SUBTYPE_SYM_EXCL,
+    PB_COMPILER_TOK_SUBTYPE_SYM_EXCLEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR,
+    PB_COMPILER_TOK_SUBTYPE_SYM_PERC,
+    PB_COMPILER_TOK_SUBTYPE_SYM_PERCEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_AMP,
+    PB_COMPILER_TOK_SUBTYPE_SYM_AMPAMP,
+    PB_COMPILER_TOK_SUBTYPE_SYM_AMPEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_OPENPAREN,
+    PB_COMPILER_TOK_SUBTYPE_SYM_CLOSEPAREN,
+    PB_COMPILER_TOK_SUBTYPE_SYM_AST,
+    PB_COMPILER_TOK_SUBTYPE_SYM_ASTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_PLUS,
+    PB_COMPILER_TOK_SUBTYPE_SYM_PLUSPLUS,
+    PB_COMPILER_TOK_SUBTYPE_SYM_PLUSEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_COMMA,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DASH,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DASHDASH,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DOT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_SLASH,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTLT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTGT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTLTLT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTLTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_LTLTLTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_EQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_EQEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GTGT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GTGTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_AT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB,
+    PB_COMPILER_TOK_SUBTYPE_SYM_CLOSESQB,
+    PB_COMPILER_TOK_SUBTYPE_SYM_CARET,
+    PB_COMPILER_TOK_SUBTYPE_SYM_CARETEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_OPENCURB,
+    PB_COMPILER_TOK_SUBTYPE_SYM_BAR,
+    PB_COMPILER_TOK_SUBTYPE_SYM_BARBAR,
+    PB_COMPILER_TOK_SUBTYPE_SYM_BAREQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_CLOSECURB,
+    PB_COMPILER_TOK_SUBTYPE_SYM_TILDE,
+    PB_COMPILER_TOK_SUBTYPE_SYM_TILDEEQ,
+    PB_COMPILER_TOK_SUBTYPE_DATA_STR = 0,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I8,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I16,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I32,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I64,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U8,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U16,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U32,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U64,
+    PB_COMPILER_TOK_SUBTYPE_DATA_F32,
+    PB_COMPILER_TOK_SUBTYPE_DATA_F64
+};
+struct pb_compiler_tok {
+    enum pb_compiler_tok_type type;
+    enum pb_compiler_tok_subtype subtype;
+    struct pb_compiler_srcloc loc;
+    union {
+        size_t name;
+        struct {
+            size_t data;
+            uint32_t data_strlen;
+        };
+    };
+};
+struct pb_compiler_tokcoll {
+    struct pb_compiler_tok* data;
+    size_t len;
+    size_t size;
+    struct charbuf strings;
+    struct VLB(uint32_t) brackets;
+};
+struct pb_compiler_source {
+    size_t name;
+    char* type;
+    struct pb_compiler_srcloc from;
+};
 struct pb_compiler_stream {
     struct datastream* ds;
-    int last;
-    unsigned unget : 1;
     uint32_t line;
     uint32_t col;
     uint32_t oldcol;
-    char* type;
-    //char* name;
-    uint32_t incline;
-    uint32_t inccol;
+    uint32_t src;
 };
 struct pb_compiler_label {
     char* name;
@@ -491,12 +581,26 @@ struct pb_compiler {
     struct pbasic* pb;
     const struct pb_compiler_opt* opt;
     uint32_t progid;
+    unsigned preproccond : 1;
     struct pb_compiler_stream stream;
     struct VLB(struct pb_compiler_stream) prevstreams;
+    struct {
+        struct pb_compiler_source* data;
+        size_t len;
+        size_t size;
+        struct charbuf names;
+    } sources;
     struct datastream macrods;
     struct VLB(char*) usingnames;
     struct charbuf curns;
-    struct VLB(struct pb_preproc_macro) macros;
+    struct {
+        struct pb_preproc_macro* data;
+        size_t len;
+        size_t size;
+        struct charbuf names;
+    } macros;
+    struct pb_compiler_tokcoll comptok;
+    struct pb_compiler_tokcoll preproctok;
     struct pb_compiler_progir progir;
     struct VLB(struct pb_compiler_sub) subs;
     struct VLB(uint32_t) initsubs;
@@ -556,7 +660,7 @@ void pb_destroy(struct pbasic*);
 enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const struct pb_compiler_opt*, uint32_t* progidout, struct charbuf* err);
 void pb_prog_destroy(struct pbasic*, uint32_t progid);
 
-void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, struct pb_compiler_errloc*);
+void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, const struct pb_compiler_srcloc*);
 int pb_compitf_getc(struct pb_compiler*);
 
 enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
@@ -584,50 +688,24 @@ static ALWAYSINLINE void pb_proc_getstatus(struct pbasic* pb, uint32_t procid, s
     #endif
 }
 
-static ALWAYSINLINE void pb_compitf_mkerrloc(struct pb_compiler* pbc, int prevchar, struct pb_compiler_errloc* errloc) {
-    errloc->index = pbc->prevstreams.len;
+static inline void pb_compitf_mksrcloc(struct pb_compiler* pbc, int prevchar, struct pb_compiler_srcloc* l) {
+    l->src = pbc->stream.src;
     if (prevchar == -1) {
-        errloc->line = pbc->stream.line;
-        errloc->col = pbc->stream.col;
+        l->line = pbc->stream.line;
+        l->col = pbc->stream.col;
     } else {
         if (prevchar != '\n') {
-            errloc->line = pbc->stream.line;
-            errloc->col = pbc->stream.col - 1;
+            l->line = pbc->stream.line;
+            l->col = pbc->stream.col - 1;
         } else {
-            errloc->line = pbc->stream.line - 1;
-            errloc->col = pbc->stream.oldcol;
+            l->line = pbc->stream.line - 1;
+            l->col = pbc->stream.oldcol;
         }
     }
 }
-static ALWAYSINLINE void pb_compitf_ungetc(struct pb_compiler* pbc, int c) {
-    if (c != '\n') {
-        --pbc->stream.col;
-    } else {
-        --pbc->stream.line;
-        pbc->stream.col = pbc->stream.oldcol;
-    }
-    pbc->stream.last = c;
-    pbc->stream.unget = 1;
-}
-static inline void pb_compitf_readlinecomment(struct pb_compiler* pbc) {
-    while (1) {
-        int c = pb_compitf_getc(pbc);
-        if (c == '\n') break;
-        if (c == DS_END || !c) {
-            pb_compitf_ungetc(pbc, c);
-            break;
-        }
-    }
-}
-static inline bool pb_compitf_readblockcomment(struct pb_compiler* pbc) {
-    while (1) {
-        int c = pb_compitf_getc(pbc);
-        if (c == '`') return true;
-        if (c == DS_END || !c) {
-            pb_compitf_ungetc(pbc, c);
-            return false;
-        }
-    }
+static ALWAYSINLINE void pb_compitf_puterrln(struct pb_compiler* pbc, enum pb_error e, const char* msg, struct pb_compiler_srcloc* el) {
+    pb_compitf_puterr(pbc, e, msg, el);
+    cb_add(pbc->err, '\n');
 }
 
 extern const char* pb__error_str[PB_ERROR__COUNT];

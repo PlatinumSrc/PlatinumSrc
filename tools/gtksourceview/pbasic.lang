@@ -31,9 +31,10 @@
 
   <definitions>
 
-    <define-regex id="escaped-character" extended="true">
-      \\([\\\"abefnrtv]|x[0-9a-f][0-9a-f])
+    <define-regex id="escaped-character" extended="true" case-sensitive="true">
+      \\([0\\\"abefnrtv]|x[0-9A-Fa-f][0-9A-Fa-f])
     </define-regex>
+    <!--|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}-->
 
     <context id="line-comment" style-ref="comment" end-at-line-end="true" class="comment" class-disabled="no-spell-check">
       <start>'</start>
@@ -77,6 +78,7 @@
       <keyword>CEIL</keyword>
       <keyword>COMPLEX</keyword>
       <keyword>COS</keyword>
+      <keyword>DECLSUB</keyword>
       <keyword>DEFAULT</keyword>
       <keyword>DEL</keyword>
       <keyword>DELSUB</keyword>
@@ -140,6 +142,7 @@
       <keyword>REF</keyword>
       <keyword>CONST</keyword>
       <keyword>NULLABLE</keyword>
+      <keyword>SUB</keyword>
     </context>
 
     <context id="symbolic-types" style-ref="type">
@@ -148,7 +151,7 @@
 
     <context id="string" style-ref="string" end-at-line-end="true" class="string" class-disabled="no-spell-check">
       <start>"</start>
-      <end>"(U8|I8)?</end>
+      <end>"</end>
       <include>
         <context id="escaped-character" style-ref="escaped-character">
           <match>\%{escaped-character}</match>
@@ -165,7 +168,7 @@
 
     <context id="float" style-ref="float">
       <match extended="true">
-        (?&lt;![\w\.:])([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(F32|F64)?(?![\w\.:])
+        (?&lt;![\w\.:])(([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)([Ee][+-]?[0-9]+)?(F32|F64)?|[0-9]+([Ee][+-]?[0-9]+(F32|F64)?|([Ee][+-]?[0-9]+)?(F32|F64)))(?![\w\.:])
       </match>
     </context>
 

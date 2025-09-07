@@ -2,6 +2,8 @@
 
 #include "pbasic.h"
 
+#include "../debug.h"
+
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -17,17 +19,13 @@ const char* pb__error_str[PB_ERROR__COUNT] = {
 
 static const struct pb_compiler_opt defaultcompopt = PB_COMPILER_OPT_DEFAULTS;
 
-void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg, struct pb_compiler_errloc* el) {
+void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg, const struct pb_compiler_srcloc* el) {
     if (pbc->opt->errprefix) cb_addstr(pbc->err, pbc->opt->errprefix);
     if (e == PB_ERROR_NONE) cb_addstr(pbc->err, "Warning");
     else cb_addstr(pbc->err, pb__error_str[e]);
     if (el) {
-        size_t i = el->index;
-        struct pb_compiler_stream* s = (i == pbc->prevstreams.len) ? &pbc->stream : &pbc->prevstreams.data[i];
-        while (!s->type) {
-            s = &pbc->prevstreams.data[--i];
-        }
-        uint32_t incline = s->incline, inccol = s->inccol;
+        struct pb_compiler_source* s = &pbc->sources.data[el->src];
+        uint32_t incline = s->from.line, inccol = s->from.col;
         char tmp[12];
         cb_addstr(pbc->err, " at line ");
         snprintf(tmp, 12, "%"PRIu32, el->line);
@@ -37,48 +35,37 @@ void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg
         cb_addstr(pbc->err, tmp);
         cb_addstr(pbc->err, " of ");
         cb_addstr(pbc->err, s->type);
-        if (s->ds->name) {
+        cb_add(pbc->err, ' ');
+        cb_add(pbc->err, '\'');
+        cb_addstr(pbc->err, pbc->sources.names.data + s->name);
+        cb_add(pbc->err, '\'');
+        while (incline) {
+            s = &pbc->sources.data[s->from.src];
+            cb_addstr(pbc->err, " from line ");
+            snprintf(tmp, 12, "%"PRIu32, incline);
+            cb_addstr(pbc->err, tmp);
+            cb_addstr(pbc->err, " column ");
+            snprintf(tmp, 12, "%"PRIu32, inccol);
+            cb_addstr(pbc->err, tmp);
+            cb_addstr(pbc->err, " of ");
+            cb_addstr(pbc->err, s->type);
             cb_add(pbc->err, ' ');
             cb_add(pbc->err, '\'');
-            cb_addstr(pbc->err, s->ds->name);
+            cb_addstr(pbc->err, pbc->sources.names.data + s->name);
             cb_add(pbc->err, '\'');
-        }
-        while (i) {
-            s = &pbc->prevstreams.data[--i];
-            if (s->type) {
-                cb_addstr(pbc->err, " from line ");
-                snprintf(tmp, 12, "%"PRIu32, incline);
-                cb_addstr(pbc->err, tmp);
-                cb_addstr(pbc->err, " column ");
-                snprintf(tmp, 12, "%"PRIu32, inccol);
-                cb_addstr(pbc->err, tmp);
-                cb_addstr(pbc->err, " of ");
-                cb_addstr(pbc->err, s->type);
-                if (s->ds->name) {
-                    cb_add(pbc->err, ' ');
-                    cb_add(pbc->err, '\'');
-                    cb_addstr(pbc->err, s->ds->name);
-                    cb_add(pbc->err, '\'');
-                }
-                incline = s->incline;
-                inccol = s->inccol;
-            }
+            incline = s->from.line;
+            inccol = s->from.col;
         }
     }
     if (msg) {
         cb_add(pbc->err, ':');
         cb_add(pbc->err, ' ');
-        cb_addstr(pbc->err, msg);
+        if (*msg) cb_addstr(pbc->err, msg);
     }
-    cb_add(pbc->err, '\n');
 }
 
-int pb_compitf_getc(struct pb_compiler* pbc) {
+static ALWAYSINLINE int pb_compitf_getc_inline(struct pb_compiler* pbc) {
     again:;
-    if (pbc->stream.unget) {
-        pbc->stream.unget = 0;
-        return pbc->stream.last;
-    }
     int c = ds_text_getc_fullinline(pbc->stream.ds);
     if (c != DS_END && c) {
         if (c != '\n') {
@@ -95,106 +82,99 @@ int pb_compitf_getc(struct pb_compiler* pbc) {
     pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
     goto again;
 }
-
-static enum pb_error pb_preproc_parseline(struct pb_compiler* pbc) {
-    pb_compitf_readlinecomment(pbc);
-    return PB_ERROR_NONE;
+static int pb_compitf_getc_local(struct pb_compiler* pbc) {
+    return pb_compitf_getc_inline(pbc);
+}
+int pb_compitf_getc(struct pb_compiler* pbc) {
+    return pb_compitf_getc_inline(pbc);
 }
 
-static enum pb_error pb_compiler_parseline(struct pb_compiler* pbc) {
-    pb_compitf_readlinecomment(pbc);
-    return PB_ERROR_NONE;
-}
+#include "pbasic/tokenize.c"
 
 enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const struct pb_compiler_opt* opt, uint32_t* progidout, struct charbuf* err) {
     if (!opt) opt = &defaultcompopt;
     struct pb_compiler pbc = {.pb = pb, .opt = opt, .err = err};
     enum pb_error e = PB_ERROR_NONE;
-    pb_compitf_puterr(&pbc, PB_ERROR_NONE, "Compiler is under development", NULL);
+    //e = PB_ERROR_INTERNAL;
+    pb_compitf_puterrln(&pbc, PB_ERROR_NONE, "Compiler is under development", NULL);
 
     VLB_INIT(pbc.prevstreams, 1, goto emem;);
-    pbc.stream = (struct pb_compiler_stream){.ds = ds, .line = 1, .col = 1, .type = (ds->type == DS_TYPE_FILE) ? "file" : "stream"};
+
+    VLB_INIT(pbc.sources, 2, goto emem;);
+    if (!cb_init(&pbc.sources.names, 64)) goto emem;
+
+    VLB_INIT(pbc.comptok, 64, goto emem;);
+    if (!cb_init(&pbc.comptok.strings, 256)) goto emem;
+    VLB_INIT(pbc.comptok.brackets, 8, goto emem;);
+
+    VLB_INIT(pbc.preproctok, 32, goto emem;);
+    if (!cb_init(&pbc.preproctok.strings, 256)) goto emem;
+    VLB_INIT(pbc.preproctok.brackets, 8, goto emem;);
+
+    if (!cb_addstr(&pbc.sources.names, ds->name) || !cb_add(&pbc.sources.names, 0)) goto emem;
+    VLB_ADD(pbc.sources, (struct pb_compiler_source){.type = "file"}, 3, 2, goto emem;);
+    pbc.stream = (struct pb_compiler_stream){.ds = ds, .line = 1, .col = 1};
 
     while (1) {
-        int c, lc;
-        struct pb_compiler_errloc el;
+        int c;
+        //struct pb_compiler_srcloc el;
 
         do {
-            c = pb_compitf_getc(&pbc);
+            c = pb_compitf_getc_local(&pbc);
         } while (c == ' ' || c == '\t');
         if (c == -1) break;
 
-        lc = tolower(c);
-        if ((lc >= 'a' && lc <= 'z') || c == '_') {
-            pb_compitf_ungetc(&pbc, c);
-            e = pb_compiler_parseline(&pbc);
-            if (e != PB_ERROR_NONE) goto reterr;
-        } else if (c == '\'') {
-            pb_compitf_readlinecomment(&pbc);
-        } else if (c != '\n') {
-            if (c == '#') {
-                ppreprocagain:;
-                do {
-                    c = pb_compitf_getc(&pbc);
-                } while (c == ' ' || c == '\t');
-                lc = tolower(c);
-                if ((lc >= 'a' && lc <= 'z') || c == '_') {
-                    pb_compitf_ungetc(&pbc, c);
-                    e = pb_preproc_parseline(&pbc);
-                    if (e != PB_ERROR_NONE) goto reterr;
-                } else if (c == '\'') {
-                    pb_compitf_readlinecomment(&pbc);
-                } else if (c != '\n') {
-                    pb_compitf_mkerrloc(&pbc, c, &el);
-                    if (c == '`') {
-                        if (!pb_compitf_readblockcomment(&pbc)) goto pecomment;
-                        goto ppreprocagain;
-                    }
-                    if (c >= '0' && c <= '9') goto pebadid;
-                    if (c == -1) goto pebadeof;
-                    goto pebadchar;
-                }
-            } else if (c == '`') {
-                pb_compitf_mkerrloc(&pbc, 0, &el);
-                if (!pb_compitf_readblockcomment(&pbc)) goto pecomment;
-            } else if (c >= '0' && c <= '9') {
-                pb_compitf_mkerrloc(&pbc, 0, &el);
-                goto pebadid;
-            } else {
-                pb_compitf_mkerrloc(&pbc, 0, &el);
-                goto pebadchar;
+        if (c == '#') {
+            do {
+                c = pb_compitf_getc_local(&pbc);
+            } while (c == ' ' || c == '\t');
+            if (c == -1) break;
+            int r = tokenize(&pbc, &pbc.preproctok, true, &c, &e);
+            if (r == -1) goto reterr;
+            #if DEBUG(1)
+            printf("PREPROC[%zu]: ", pbc.preproctok.len);
+            dbg_printtok(&pbc.preproctok);
+            #endif
+            if (pbc.preproctok.len) {
+                pbc.preproctok.len = 0;
+                pbc.preproctok.strings.len = 0;
             }
+        } else if (c == '\n' || c == ';' || c == -1) {
+            endstmt:;
+            #if DEBUG(1)
+            printf("COMPILER[%zu]: ", pbc.comptok.len);
+            dbg_printtok(&pbc.comptok);
+            #endif
+            if (pbc.comptok.len) {
+                pbc.comptok.len = 0;
+                pbc.comptok.strings.len = 0;
+            }
+        } else {
+            int r = tokenize(&pbc, &pbc.comptok, false, &c, &e);
+            if (r == 1) goto endstmt;
+            if (r == -1) goto reterr;
         }
-
-        continue;
-        pebadid:;
-        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Invalid identifier", &el);
-        goto reterr;
-        //pewantid:;
-        //pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Expected identifier", &el);
-        //goto reterr;
-        pebadchar:;
-        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected character", &el);
-        goto reterr;
-        //pebadeol:;
-        //pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected end of line", &el);
-        //goto reterr;
-        pebadeof:;
-        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unexpected end of line", &el);
-        goto reterr;
-        pecomment:;
-        pb_compitf_puterr(&pbc, (e = PB_ERROR_SYNTAX), "Unterminated comment", &el);
-        goto reterr;
     }
-    //pbreak:;
 
     goto ret;
 
     emem:;
-    pb_compitf_puterr(&pbc, (e = PB_ERROR_MEMORY), NULL, NULL);
+    pb_compitf_puterrln(&pbc, (e = PB_ERROR_MEMORY), NULL, NULL);
     reterr:;
 
     ret:;
+
+    VLB_FREE(pbc.preproctok.brackets);
+    cb_dump(&pbc.preproctok.strings);
+    VLB_FREE(pbc.preproctok);
+
+    VLB_FREE(pbc.comptok.brackets);
+    cb_dump(&pbc.comptok.strings);
+    VLB_FREE(pbc.comptok);
+
+    VLB_FREE(pbc.sources.names);
+    VLB_FREE(pbc.sources);
+
     VLB_FREE(pbc.prevstreams);
 
     return e;
