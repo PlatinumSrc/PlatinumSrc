@@ -32,7 +32,7 @@
   <definitions>
 
     <define-regex id="escaped-character" extended="true" case-sensitive="true">
-      \\([0\\\"abefnrtv]|x[0-9A-Fa-f][0-9A-Fa-f])
+      \\([0\\\"abefnrtv]|x[0-9A-Fa-f][0-9A-Fa-f]|u[0-9A-Fa-f]{,8})
     </define-regex>
     <!--|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}-->
 

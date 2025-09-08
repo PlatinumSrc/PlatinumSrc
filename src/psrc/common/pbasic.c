@@ -1,16 +1,17 @@
 #include "../rcmgralloc.h"
-
 #include "pbasic.h"
-
 #include "../debug.h"
 
 #include <stdio.h>
 #include <inttypes.h>
 
+int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
+
 const char* pb__error_str[PB_ERROR__COUNT] = {
     "No error",
     "Syntax error",
     "Type error",
+    "Value error",
     "Index error",
     "Argument error",
     "Memory error",
@@ -64,24 +65,6 @@ void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg
     }
 }
 
-static ALWAYSINLINE int pb_compitf_getc_inline(struct pb_compiler* pbc) {
-    again:;
-    int c = ds_text_getc_fullinline(pbc->stream.ds);
-    if (c != DS_END && c) {
-        if (c != '\n') {
-            ++pbc->stream.col;
-        } else {
-            ++pbc->stream.line;
-            pbc->stream.oldcol = pbc->stream.col;
-            pbc->stream.col = 1;
-        }
-        return c;
-    }
-    if (!pbc->prevstreams.len) return -1;
-    ds_close(pbc->stream.ds);
-    pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
-    goto again;
-}
 static int pb_compitf_getc_local(struct pb_compiler* pbc) {
     return pb_compitf_getc_inline(pbc);
 }
@@ -89,8 +72,91 @@ int pb_compitf_getc(struct pb_compiler* pbc) {
     return pb_compitf_getc_inline(pbc);
 }
 
-#include "pbasic/tokenize.c"
-
+#if DEBUG(1)
+static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
+    if (!tc->len) {
+        puts("---");
+        return;
+    }
+    static const char* const symstr[] = {
+        "!", "!=",
+        "$",
+        "%", "%=",
+        "&", "&&", "&=",
+        "(",
+        ")",
+        "*", "*=",
+        "+", "++", "+=",
+        ",",
+        "-", "--", "-=",
+        ".",
+        "/",
+        "<", "<<", "<=", "<>", "<<<", "<<=", "<<<=",
+        "=", "==",
+        ">", ">>", ">=", ">>>", ">>=", ">>>=",
+        "@",
+        "[",
+        "]",
+        "^", "^=",
+        "{",
+        "|", "||", "|=",
+        "}",
+        "~", "~="
+    };
+    static const char* const datastr[] = {
+        "STR",
+        "I8", "I16", "I32", "I64",
+        "U8", "U16", "U32", "U64",
+        "F32", "F64"
+    };
+    size_t i = 0;
+    while (1) {
+        struct pb_compiler_tok* t = &tc->data[i];
+        switch (t->type) {
+            case PB_COMPILER_TOK_TYPE_NAME:
+                printf("NAME{%s}", tc->strings.data + t->name);
+                break;
+            case PB_COMPILER_TOK_TYPE_SYM:
+                printf("SYM{%s}", symstr[t->subtype]);
+                break;
+            case PB_COMPILER_TOK_TYPE_DATA:
+                if (t->subtype == PB_COMPILER_TOK_SUBTYPE_DATA_STR) {
+                    char* s = tc->strings.data + t->data;
+                    printf("DATA:%s{", datastr[t->subtype]);
+                    for (size_t i = 0; i < t->data_strlen; ++i) {
+                        char c = s[i];
+                        if (!c) {
+                            putchar('}');
+                            putchar('\\');
+                            putchar('0');
+                            putchar('{');
+                        } else if (c == '\n') {
+                            putchar('}');
+                            putchar('\\');
+                            putchar('n');
+                            putchar('{');
+                        } else if (c == '\r') {
+                            putchar('}');
+                            putchar('\\');
+                            putchar('r');
+                            putchar('{');
+                        } else {
+                            putchar(s[i]);
+                        }
+                    }
+                    putchar('}');
+                } else {
+                    printf("DATA:%s{%s}", datastr[t->subtype], tc->strings.data + t->data);
+                }
+                break;
+        }
+        ++i;
+        if (i == tc->len) break;
+        putchar(' ');
+    }
+    putchar('\n');
+}
+#endif
 enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const struct pb_compiler_opt* opt, uint32_t* progidout, struct charbuf* err) {
     if (!opt) opt = &defaultcompopt;
     struct pb_compiler pbc = {.pb = pb, .opt = opt, .err = err};
@@ -129,7 +195,7 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const st
                 c = pb_compitf_getc_local(&pbc);
             } while (c == ' ' || c == '\t');
             if (c == -1) break;
-            int r = tokenize(&pbc, &pbc.preproctok, true, &c, &e);
+            int r = pb__tokenize(&pbc, &pbc.preproctok, true, &c, &e);
             if (r == -1) goto reterr;
             #if DEBUG(1)
             printf("PREPROC[%zu]: ", pbc.preproctok.len);
@@ -150,7 +216,7 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const st
                 pbc.comptok.strings.len = 0;
             }
         } else {
-            int r = tokenize(&pbc, &pbc.comptok, false, &c, &e);
+            int r = pb__tokenize(&pbc, &pbc.comptok, false, &c, &e);
             if (r == 1) goto endstmt;
             if (r == -1) goto reterr;
         }

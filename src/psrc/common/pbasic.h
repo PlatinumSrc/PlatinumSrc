@@ -19,6 +19,7 @@ enum pb_error {
     PB_ERROR_NONE,
     PB_ERROR_SYNTAX,
     PB_ERROR_TYPE,
+    PB_ERROR_VALUE,
     PB_ERROR_INDEX,
     PB_ERROR_ARG,
     PB_ERROR_MEMORY,
@@ -540,6 +541,8 @@ struct pb_compiler_tokcoll {
     size_t size;
     struct charbuf strings;
     struct VLB(uint32_t) brackets;
+    char preprocinsstage;
+    size_t preprocinspos;
 };
 struct pb_compiler_source {
     size_t name;
@@ -590,7 +593,6 @@ struct pb_compiler {
         size_t size;
         struct charbuf names;
     } sources;
-    struct datastream macrods;
     struct VLB(char*) usingnames;
     struct charbuf curns;
     struct {
@@ -706,6 +708,24 @@ static inline void pb_compitf_mksrcloc(struct pb_compiler* pbc, int prevchar, st
 static ALWAYSINLINE void pb_compitf_puterrln(struct pb_compiler* pbc, enum pb_error e, const char* msg, struct pb_compiler_srcloc* el) {
     pb_compitf_puterr(pbc, e, msg, el);
     cb_add(pbc->err, '\n');
+}
+static ALWAYSINLINE int pb_compitf_getc_inline(struct pb_compiler* pbc) {
+    again:;
+    int c = ds_text_getc_fullinline(pbc->stream.ds);
+    if (c != DS_END && c) {
+        if (c != '\n') {
+            ++pbc->stream.col;
+        } else {
+            ++pbc->stream.line;
+            pbc->stream.oldcol = pbc->stream.col;
+            pbc->stream.col = 1;
+        }
+        return c;
+    }
+    if (!pbc->prevstreams.len) return -1;
+    ds_close(pbc->stream.ds);
+    pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
+    goto again;
 }
 
 extern const char* pb__error_str[PB_ERROR__COUNT];

@@ -1,4 +1,16 @@
-static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
+#include "../rcmgralloc.h"
+#include "pbasic.h"
+#include "../debug.h"
+
+#if DEBUG(1)
+    #include <stdio.h>
+#endif
+
+static int pb_compitf_getc_local(struct pb_compiler* pbc) {
+    return pb_compitf_getc_inline(pbc);
+}
+
+int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
     struct pb_compiler_srcloc el;
     int c = *cptr;
     while (1) {
@@ -47,6 +59,18 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
             struct pb_compiler_tok* t;
             VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
             pb_compitf_mksrcloc(pbc, 0, &t->loc);
+            if (tc->preprocinsstage == '#') {
+                if (c == '(') {
+                    tc->preprocinsstage = '(';
+                    tc->preprocinspos = tc->len;
+                    t->type = PB_COMPILER_TOK_TYPE_SYM;
+                    goto isopenparen;
+                } else {
+                    --tc->len;
+                    pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected '(' after '#'", &t->loc);
+                    goto reterr;
+                }
+            }
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == ':') {
                 t->type = PB_COMPILER_TOK_TYPE_NAME;
                 t->name = tc->strings.len;
@@ -282,6 +306,7 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                 sskipsetup:;
                 while (1) {
                     c = pb_compitf_getc_local(pbc);
+                    sskipgetc:;
                     if (c == '"') {
                         t->data_strlen = tc->strings.len - t->data;
                         break;
@@ -306,47 +331,112 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                                 c = pb_compitf_getc_local(pbc);
                                 if (c >= '0' && c <= '9') {
                                     tmpc = c - '0';
-                                } else if (c >= 'A' || c <= 'F') {
-                                    tmpc = c - ('a' - 10);
-                                } else if (c >= 'a' || c <= 'f') {
+                                } else if (c >= 'A' && c <= 'F') {
+                                    tmpc = c - ('A' - 10);
+                                } else if (c >= 'a' && c <= 'f') {
                                     tmpc = c - ('a' - 10);
                                 } else {
                                     if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'x')) {
                                         --tc->len;
                                         goto emem;
                                     }
-                                    goto swbadseq;
+                                    pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Unfinished '\\x' escape sequence", &el);
+                                    break;
                                 }
                                 tmpc <<= 4;
                                 c = pb_compitf_getc_local(pbc);
                                 if (c >= '0' && c <= '9') {
                                     tmpc |= c - '0';
-                                } else if (c >= 'A' || c <= 'F') {
-                                    tmpc |= c - ('a' - 10);
-                                } else if (c >= 'a' || c <= 'f') {
+                                } else if (c >= 'A' && c <= 'F') {
+                                    tmpc |= c - ('A' - 10);
+                                } else if (c >= 'a' && c <= 'f') {
                                     tmpc |= c - ('a' - 10);
                                 } else {
                                     tmpc >>= 4;
-                                    goto sskipgetc;
+                                    goto sxskipgetc;
                                 }
                                 c = pb_compitf_getc_local(pbc);
-                                sskipgetc:;
+                                sxskipgetc:;
                                 if (!cb_add(&tc->strings, tmpc)) {
                                     --tc->len;
                                     goto emem;
                                 }
-                            } continue;
+                            } goto sskipgetc;
+                            case 'u': {
+                                uint32_t tmpc;
+                                c = pb_compitf_getc_local(pbc);
+                                if (c >= '0' && c <= '9') {
+                                    tmpc = c - '0';
+                                } else if (c >= 'A' && c <= 'F') {
+                                    tmpc = c - ('A' - 10);
+                                } else if (c >= 'a' && c <= 'f') {
+                                    tmpc = c - ('a' - 10);
+                                } else {
+                                    if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'u')) {
+                                        --tc->len;
+                                        goto emem;
+                                    }
+                                    pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Unfinished '\\u' escape sequence", &el);
+                                    break;
+                                }
+                                for (uint_fast8_t i = 0; i < 7; ++i) {
+                                    tmpc <<= 4;
+                                    c = pb_compitf_getc_local(pbc);
+                                    if (c >= '0' && c <= '9') {
+                                        tmpc |= c - '0';
+                                    } else if (c >= 'A' && c <= 'F') {
+                                        tmpc |= c - ('A' - 10);
+                                    } else if (c >= 'a' && c <= 'f') {
+                                        tmpc |= c - ('a' - 10);
+                                    } else {
+                                        tmpc >>= 4;
+                                        goto suskipgetc;
+                                    }
+                                }
+                                c = pb_compitf_getc_local(pbc);
+                                suskipgetc:;
+                                unsigned char chars[4];
+                                uint_fast8_t charct;
+                                if (tmpc < 0x80U) {
+                                    charct = 1;
+                                    chars[0] = tmpc;
+                                } else if (tmpc < 0x800U) {
+                                    charct = 2;
+                                    chars[0] = 0xC0U | ((tmpc >> 6) & 0x1FU);
+                                    chars[1] = 0x80U | (tmpc & 0x3FU);
+                                } else if (tmpc < 0x10000U) {
+                                    charct = 3;
+                                    chars[0] = 0xE0U | ((tmpc >> 12) & 0xFU);
+                                    chars[1] = 0x80U | ((tmpc >> 6) & 0x3FU);
+                                    chars[2] = 0x80U | (tmpc & 0x3FU);
+                                } else if (tmpc < 0x110000U) {
+                                    charct = 4;
+                                    chars[0] = 0xF0U | ((tmpc >> 24) & 0x7U);
+                                    chars[1] = 0x80U | ((tmpc >> 12) & 0x3FU);
+                                    chars[2] = 0x80U | ((tmpc >> 6) & 0x3FU);
+                                    chars[3] = 0x80U | (tmpc & 0x3FU);
+                                } else {
+                                    --tc->len;
+                                    pb_compitf_puterrln(pbc, (*e = PB_ERROR_VALUE), "Unencodable '\\u' escape sequence", &el);
+                                    goto reterr;
+                                }
+                                for (uint_fast8_t i = 0; i < charct; ++i) {
+                                    if (!cb_add(&tc->strings, chars[i])) {
+                                        --tc->len;
+                                        goto emem;
+                                    }
+                                }
+                            } goto sskipgetc;
                             case '\n': {
                                 --tc->len;
-                                pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Line continuation is invalid in strings", &t->loc);
+                                pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Line continuation is invalid in strings", &el);
                             } goto reterr;
                             default: {
                                 if (!cb_add(&tc->strings, '\\')) {
                                     --tc->len;
                                     goto emem;
                                 }
-                                swbadseq:;
-                                pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Invalid escape sequence", &t->loc);
+                                pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Invalid escape sequence", &el);
                             } break;
                         }
                     } else if (c == '\n' || c == -1) {
@@ -376,6 +466,10 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                             goto skipgetc;
                         }
                     } break;
+                    case '#': {
+                        tc->preprocinsstage = '#';
+                        --tc->len;
+                    } break;
                     case '$': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR; break;
                     case '%': {
                         c = pb_compitf_getc_local(pbc);
@@ -398,18 +492,45 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                         }
                     } break;
                     case '(': {
+                        isopenparen:;
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_OPENPAREN;
                         size_t tmp = tc->len - 1;
                         VLB_ADD(tc->brackets, tmp, 3, 2, --tc->len; goto emem;);
                     } break;
                     case ')': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENPAREN) {
+                            el = t->loc;
                             --tc->len;
-                            pb_compitf_mksrcloc(pbc, 0, &el);
                             goto eparen;
                         }
-                        t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSEPAREN;
                         --tc->brackets.len;
+                        if (!tc->preprocinsstage) {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSEPAREN;
+                        } else {
+                            size_t l = tc->len - tc->preprocinspos - 1;
+                            t = &tc->data[tc->preprocinspos];
+                            if (l == 1) {
+                                if (t->type != PB_COMPILER_TOK_TYPE_NAME) goto pbadtok;
+                                const char* name = tc->strings.data + t->name;
+                                #if DEBUG(1)
+                                printf("PREPROCINS: {%s}\n", name);
+                                #endif
+                            } else if (l == 2) {
+                                if (t->type != PB_COMPILER_TOK_TYPE_NAME) goto pbadtok;
+                                const char* name = tc->strings.data + t->name;
+                                ++t;
+                                if (t->type != PB_COMPILER_TOK_TYPE_SYM || t->subtype != PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR) goto pbadtok;
+                                #if DEBUG(1)
+                                printf("PREPROCINS $: {%s}\n", name);
+                                #endif
+                            } else {
+                                pbadtok:;
+                                pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected identifier or identifier and '$'", &t->loc);
+                                goto reterr;
+                            }
+                            tc->len = tc->preprocinspos - 1;
+                            tc->preprocinsstage = 0;
+                        }
                     } break;
                     case '*': {
                         c = pb_compitf_getc_local(pbc);
@@ -513,8 +634,8 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                     } break;
                     case ']': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB) {
+                            el = t->loc;
                             --tc->len;
-                            pb_compitf_mksrcloc(pbc, 0, &el);
                             goto esqb;
                         }
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSESQB;
@@ -547,8 +668,8 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                     } break;
                     case '}': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENCURB) {
+                            el = t->loc;
                             --tc->len;
-                            pb_compitf_mksrcloc(pbc, 0, &el);
                             goto ecurb;
                         }
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSECURB;
@@ -564,8 +685,8 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
                         }
                     } break;
                     default: {
+                        el = t->loc;
                         --tc->len;
-                        pb_compitf_mksrcloc(pbc, 0, &el);
                     } goto ebadchar;
                 }
             }
@@ -650,89 +771,3 @@ static int tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, boo
     reterr:;
     return -1;
 }
-
-#if DEBUG(1)
-static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
-    if (!tc->len) {
-        puts("---");
-        return;
-    }
-    static const char* const symstr[] = {
-        "!", "!=",
-        "$",
-        "%", "%=",
-        "&", "&&", "&=",
-        "(",
-        ")",
-        "*", "*=",
-        "+", "++", "+=",
-        ",",
-        "-", "--", "-=",
-        ".",
-        "/",
-        "<", "<<", "<=", "<>", "<<<", "<<=", "<<<=",
-        "=", "==",
-        ">", ">>", ">=", ">>>", ">>=", ">>>=",
-        "@",
-        "[",
-        "]",
-        "^", "^=",
-        "{",
-        "|", "||", "|=",
-        "}",
-        "~", "~="
-    };
-    static const char* const datastr[] = {
-        "STR",
-        "I8", "I16", "I32", "I64",
-        "U8", "U16", "U32", "U64",
-        "F32", "F64"
-    };
-    size_t i = 0;
-    while (1) {
-        struct pb_compiler_tok* t = &tc->data[i];
-        switch (t->type) {
-            case PB_COMPILER_TOK_TYPE_NAME:
-                printf("NAME{%s}", tc->strings.data + t->name);
-                break;
-            case PB_COMPILER_TOK_TYPE_SYM:
-                printf("SYM{%s}", symstr[t->subtype]);
-                break;
-            case PB_COMPILER_TOK_TYPE_DATA:
-                if (t->subtype == PB_COMPILER_TOK_SUBTYPE_DATA_STR) {
-                    char* s = tc->strings.data + t->data;
-                    printf("DATA:%s{", datastr[t->subtype]);
-                    for (size_t i = 0; i < t->data_strlen; ++i) {
-                        char c = s[i];
-                        if (!c) {
-                            putchar('}');
-                            putchar('\\');
-                            putchar('0');
-                            putchar('{');
-                        } else if (c == '\n') {
-                            putchar('}');
-                            putchar('\\');
-                            putchar('n');
-                            putchar('{');
-                        } else if (c == '\r') {
-                            putchar('}');
-                            putchar('\\');
-                            putchar('r');
-                            putchar('{');
-                        } else {
-                            putchar(s[i]);
-                        }
-                    }
-                    putchar('}');
-                } else {
-                    printf("DATA:%s{%s}", datastr[t->subtype], tc->strings.data + t->data);
-                }
-                break;
-        }
-        ++i;
-        if (i == tc->len) break;
-        putchar(' ');
-    }
-    putchar('\n');
-}
-#endif
