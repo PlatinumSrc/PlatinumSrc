@@ -369,10 +369,10 @@ bool p3m_load(struct datastream* ds, uint8_t lf, struct p3m* m) {
         #endif
         for (unsigned mati = 0; mati < matct; ++mati) {
             struct p3m_material* mat = &m->materials[mati];
-            if ((uintptr_t)mat->texture == 255) {
-                mat->texture = NULL;
-            } else if ((uintptr_t)mat->texture < texct) {
+            if ((uintptr_t)mat->texture < texct) {
                 mat->texture = m->textures + (uintptr_t)mat->texture;
+            } else if ((uintptr_t)mat->texture == 255) {
+                mat->texture = NULL;
             } else {
                 plog(LL_ERROR, "Texture of material %u is out of bounds (got %u, expected less than %u)", mati, (unsigned)(uintptr_t)mat->texture, texct);
                 goto retfalse;

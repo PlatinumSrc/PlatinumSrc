@@ -28,10 +28,11 @@ struct engine engine = {
     .pb = {
         .compopt = PB_COMPILER_OPT_DEFAULTS,
         .compopt.errprefix = "    ",
-        .compopt.macros = (struct pb_preproc_macro[]) {
-            PSRC_COMMON_PBMACROS,
-            {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module", .namecrc = 0x0B163EB6, .u8 = 0}
-        }
+        .compopt.preprocvars = (struct pb_compiler_opt_preprocvar[]) {
+            PSRC_COMMON_PBPREPROCVARS,
+            {.type = PB_PREPROC_TYPE_U8, .name = "psrc:module", .namecrc = 0xD2985DF4, .u8 = 0}
+        },
+        .compopt.preprocvarct = PSRC_COMMON_PBPREPROCVARCT + 1
     }
 };
 

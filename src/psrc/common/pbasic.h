@@ -306,12 +306,17 @@ struct pb_obj {
 PACKEDENUM pb_stackelem_type {
     PB_STACKELEM_TYPE_DUP,
     PB_STACKELEM_TYPE_OBJ,
+    PB_STACKELEM_TYPE_OBJCAT,
     PB_STACKELEM_TYPE_FRAME
 };
 struct pb_stackelem {
     enum pb_stackelem_type type;
     union {
         uint32_t obj;
+        struct {
+            uint32_t lobj;
+            uint32_t robj;
+        } objcat;
     };
 };
 
@@ -401,12 +406,48 @@ PACKEDENUM pb_preproc_type {
     PB_PREPROC_TYPE_F32,
     PB_PREPROC_TYPE_F64
 };
-struct pb_preproc_macro {
+struct pb_preproc_var {
     enum pb_preproc_type type;
+    size_t name;
+    uint32_t namecrc;
+    unsigned refs;
     union {
-        const char* name;
-        size_t namei;
+        struct {
+            const char* data;
+            uint32_t len;
+        } str;
+        bool b;
+        int8_t i8;
+        int16_t i16;
+        int32_t i32;
+        int64_t i64;
+        uint8_t u8;
+        uint16_t u16;
+        uint32_t u32;
+        uint64_t u64;
+        float f32;
+        double f64;
     };
+};
+
+PACKEDENUM pb_compiler_opt_olvl {
+    PB_COMPILER_OPT_OLVL_0,
+    PB_COMPILER_OPT_OLVL_1,
+    PB_COMPILER_OPT_OLVL_DEFAULT = 1,
+    PB_COMPILER_OPT_OLVL_MIN = 0,
+    PB_COMPILER_OPT_OLVL_MAX = 1
+};
+PACKEDENUM pb_compiler_opt_dbglvl {
+    PB_COMPILER_OPT_DBGLVL_OFF,
+    PB_COMPILER_OPT_DBGLVL_BASIC,
+    PB_COMPILER_OPT_DBGLVL_FULL,
+    PB_COMPILER_OPT_DBGLVL_DEFAULT = 1,
+    PB_COMPILER_OPT_DBGLVL_MIN = 0,
+    PB_COMPILER_OPT_DBGLVL_MAX = 2
+};
+struct pb_compiler_opt_preprocvar {
+    enum pb_preproc_type type;
+    const char* name;
     uint32_t namecrc;
     union {
         bool b;
@@ -426,27 +467,11 @@ struct pb_preproc_macro {
         } str;
     };
 };
-
-PACKEDENUM pb_compiler_opt_olvl {
-    PB_COMPILER_OPT_OLVL_0,
-    PB_COMPILER_OPT_OLVL_1,
-    PB_COMPILER_OPT_OLVL_DEFAULT = 1,
-    PB_COMPILER_OPT_OLVL_MIN = 0,
-    PB_COMPILER_OPT_OLVL_MAX = 1
-};
-PACKEDENUM pb_compiler_opt_dbglvl {
-    PB_COMPILER_OPT_DBGLVL_OFF,
-    PB_COMPILER_OPT_DBGLVL_BASIC,
-    PB_COMPILER_OPT_DBGLVL_FULL,
-    PB_COMPILER_OPT_DBGLVL_DEFAULT = 1,
-    PB_COMPILER_OPT_DBGLVL_MIN = 0,
-    PB_COMPILER_OPT_DBGLVL_MAX = 2
-};
 struct pb_compiler_opt {
     enum pb_compiler_opt_olvl olvl;
     enum pb_compiler_opt_dbglvl dbglvl;
-    const struct pb_preproc_macro* macros;
-    uint32_t macroct;
+    const struct pb_compiler_opt_preprocvar* preprocvars;
+    uint32_t preprocvarct;
     const struct pb_compiler_addon* addons;
     uint32_t addonct;
     const char* errprefix;
@@ -458,7 +483,7 @@ struct pb_compiler_srcloc {
     uint32_t col;
 };
 PACKEDENUM pb_compiler_tok_type {
-    PB_COMPILER_TOK_TYPE_NAME,
+    PB_COMPILER_TOK_TYPE_ID,
     PB_COMPILER_TOK_TYPE_SYM,
     PB_COMPILER_TOK_TYPE_DATA
 };
@@ -484,6 +509,7 @@ PACKEDENUM pb_compiler_tok_subtype {
     PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ,
     PB_COMPILER_TOK_SUBTYPE_SYM_DOT,
     PB_COMPILER_TOK_SUBTYPE_SYM_SLASH,
+    PB_COMPILER_TOK_SUBTYPE_SYM_COLON,
     PB_COMPILER_TOK_SUBTYPE_SYM_LT,
     PB_COMPILER_TOK_SUBTYPE_SYM_LTLT,
     PB_COMPILER_TOK_SUBTYPE_SYM_LTEQ,
@@ -511,7 +537,9 @@ PACKEDENUM pb_compiler_tok_subtype {
     PB_COMPILER_TOK_SUBTYPE_SYM_CLOSECURB,
     PB_COMPILER_TOK_SUBTYPE_SYM_TILDE,
     PB_COMPILER_TOK_SUBTYPE_SYM_TILDEEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM__COUNT,
     PB_COMPILER_TOK_SUBTYPE_DATA_STR = 0,
+    PB_COMPILER_TOK_SUBTYPE_DATA_BOOL,
     PB_COMPILER_TOK_SUBTYPE_DATA_I8,
     PB_COMPILER_TOK_SUBTYPE_DATA_I16,
     PB_COMPILER_TOK_SUBTYPE_DATA_I32,
@@ -521,18 +549,43 @@ PACKEDENUM pb_compiler_tok_subtype {
     PB_COMPILER_TOK_SUBTYPE_DATA_U32,
     PB_COMPILER_TOK_SUBTYPE_DATA_U64,
     PB_COMPILER_TOK_SUBTYPE_DATA_F32,
-    PB_COMPILER_TOK_SUBTYPE_DATA_F64
+    PB_COMPILER_TOK_SUBTYPE_DATA_F64,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I16_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I32_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_I64_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U8_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U16_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U32_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_U64_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW,
+    PB_COMPILER_TOK_SUBTYPE_DATA__COUNT
 };
 struct pb_compiler_tok {
     enum pb_compiler_tok_type type;
     enum pb_compiler_tok_subtype subtype;
     struct pb_compiler_srcloc loc;
     union {
-        size_t name;
-        struct {
-            size_t data;
-            uint32_t data_strlen;
-        };
+        size_t id;
+        union {
+            struct {
+                size_t off;
+                uint32_t len;
+            } str;
+            bool b;
+            int8_t i8;
+            int16_t i16;
+            int32_t i32;
+            int64_t i64;
+            uint8_t u8;
+            uint16_t u16;
+            uint32_t u32;
+            uint64_t u64;
+            float f32;
+            double f64;
+        } data;
+        size_t data_raw;
     };
 };
 struct pb_compiler_tokcoll {
@@ -542,11 +595,13 @@ struct pb_compiler_tokcoll {
     struct charbuf strings;
     struct VLB(uint32_t) brackets;
     char preprocinsstage;
-    size_t preprocinspos;
+    struct pb_compiler_srcloc preprocinsloc;
+    struct pb_compiler_srcloc preprocinsidloc;
+    size_t preprocinsidpos;
 };
 struct pb_compiler_source {
     size_t name;
-    char* type;
+    const char* type;
     struct pb_compiler_srcloc from;
 };
 struct pb_compiler_stream {
@@ -596,11 +651,11 @@ struct pb_compiler {
     struct VLB(char*) usingnames;
     struct charbuf curns;
     struct {
-        struct pb_preproc_macro* data;
+        struct pb_preproc_var* data;
         size_t len;
         size_t size;
         struct charbuf names;
-    } macros;
+    } preprocvars;
     struct pb_compiler_tokcoll comptok;
     struct pb_compiler_tokcoll preproctok;
     struct pb_compiler_progir progir;
@@ -659,11 +714,12 @@ struct pb_create_opt {
 enum pb_error pb_create(struct pbasic*, const struct pb_create_opt*);
 void pb_destroy(struct pbasic*);
 
-enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const struct pb_compiler_opt*, uint32_t* progidout, struct charbuf* err);
+enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const char* type, const struct pb_compiler_opt*, uint32_t* progidout, struct charbuf* err);
 void pb_prog_destroy(struct pbasic*, uint32_t progid);
 
 void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, const struct pb_compiler_srcloc*);
 int pb_compitf_getc(struct pb_compiler*);
+bool pb_compitf_pushsource(struct pb_compiler*, struct datastream*, const char* type, const struct pb_compiler_srcloc*);
 
 enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
 void pb_proc_destroy(struct pbasic*, uint32_t procid);

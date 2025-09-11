@@ -60,7 +60,7 @@
 
     <context id="preprocessor" style-ref="preprocessor" end-at-line-end="true">
       <!--start extended="true">^\s*\#\s*(IF|ELIF|ELSE|END|DIM|LET|DEL)\b</start-->
-      <start extended="true">^\s*\#.*\b</start>
+      <start extended="true">^\s*\#\s*+(?!\()</start>
       <include>
         <context ref="def:line-continue"/>
         <context ref="line-comment"/>
@@ -96,6 +96,7 @@
       <keyword>GOSUBID</keyword>
       <keyword>GOTO</keyword>
       <keyword>IF</keyword>
+      <keyword>LABEL</keyword>
       <keyword>LEN</keyword>
       <keyword>LET</keyword>
       <keyword>LOOP</keyword>

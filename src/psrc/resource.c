@@ -1066,7 +1066,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             struct datastream ds;
             if (!dsFromRcAcc(&acc, strdup(id), true, &ds)) goto fail;
             uint32_t progid;
-            enum pb_error e = pb_prog_compile(o->pb, &ds, o->compopt, &progid, err);
+            enum pb_error e = pb_prog_compile(o->pb, &ds, "resource", o->compopt, &progid, err);
             ds_close(&ds);
             if (e != PB_ERROR_NONE) goto fail;
             rc = newRc(RC_SCRIPT);

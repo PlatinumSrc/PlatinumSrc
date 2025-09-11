@@ -54,9 +54,10 @@ extern char* dirdesc[DIR__COUNT];
 
 extern struct cfg config;
 
-#define PSRC_COMMON_PBMACROS \
-    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_engine", .namecrc = 0xC983DB14, .u8 = 0},\
-    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_server", .namecrc = 0x7B46146F, .u8 = 1},\
-    {.type = PB_PREPROC_TYPE_U8, .name = "psrc_module_editor", .namecrc = 0xEDDA3023, .u8 = 2}
+#define PSRC_COMMON_PBPREPROCVARS \
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc:module:engine", .namecrc = 0x18735912, .u8 = 0},\
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc:module:server", .namecrc = 0xAAB69669, .u8 = 1},\
+    {.type = PB_PREPROC_TYPE_U8, .name = "psrc:module:editor", .namecrc = 0x3C2AB225, .u8 = 2}
+#define PSRC_COMMON_PBPREPROCVARCT (3)
 
 #endif

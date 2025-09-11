@@ -1,14 +1,21 @@
 #include "../rcmgralloc.h"
 #include "pbasic.h"
+#include "../crc.h"
 #include "../debug.h"
+#include "../util.h"
 
+#include <string.h>
 #if DEBUG(1)
     #include <stdio.h>
 #endif
 
+#include "../glue.h"
+
 static int pb_compitf_getc_local(struct pb_compiler* pbc) {
     return pb_compitf_getc_inline(pbc);
 }
+
+static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
 
 int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
     struct pb_compiler_srcloc el;
@@ -56,56 +63,48 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
             if (preproc) goto getcandcont;
             break;
         } else {
+            if (tc->preprocinsstage) {
+                if (!pb__tok_inspreprocvar(pbc, tc, preproc, &c, e)) goto reterr;
+                goto skipgetc;
+            }
             struct pb_compiler_tok* t;
             VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
             pb_compitf_mksrcloc(pbc, 0, &t->loc);
-            if (tc->preprocinsstage == '#') {
-                if (c == '(') {
-                    tc->preprocinsstage = '(';
-                    tc->preprocinspos = tc->len;
-                    t->type = PB_COMPILER_TOK_TYPE_SYM;
-                    goto isopenparen;
-                } else {
-                    --tc->len;
-                    pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected '(' after '#'", &t->loc);
-                    goto reterr;
-                }
-            }
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == ':') {
-                t->type = PB_COMPILER_TOK_TYPE_NAME;
-                t->name = tc->strings.len;
-                if (!cb_add(&tc->strings, c)) {
-                    --tc->len;
-                    goto emem;
-                }
+                t->type = PB_COMPILER_TOK_TYPE_ID;
+                t->id = tc->strings.len;
+                if (!cb_add(&tc->strings, c)) goto emem;
                 while (1) {
                     c = pb_compitf_getc_local(pbc);
                     if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '_') {
+                        if (c == ':') {
+                            pb_compitf_mksrcloc(pbc, 0, &el);
+                        } else if (c < '0' || c > '9') {
+                            if (tc->strings.data[tc->strings.len - 1] == ':') {
+                                --tc->strings.len;
+                                if (tc->strings.len - t->id) {
+                                    VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
+                                    t->loc = el;
+                                }
+                                t->type = PB_COMPILER_TOK_TYPE_SYM;
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_COLON;
+                            }
+                            break;
+                        }
                         if (tc->strings.data[tc->strings.len - 1] == ':') {
-                            --tc->len;
                             pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid identifier", &t->loc);
                             goto reterr;
                         }
-                        if (c != ':' && (c < '0' || c > '9')) break;
                     }
-                    if (!cb_add(&tc->strings, c)) {
-                        --tc->len;
-                        goto emem;
-                    }
+                    if (!cb_add(&tc->strings, c)) goto emem;
                 }
-                if (!cb_add(&tc->strings, 0)) {
-                    --tc->len;
-                    goto emem;
-                }
+                if (!cb_add(&tc->strings, 0)) goto emem;
                 goto skipgetc;
             } else if (c >= '0' && c <= '9') {
                 t->type = PB_COMPILER_TOK_TYPE_DATA;
-                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32;
-                t->data = tc->strings.len;
-                if (!cb_add(&tc->strings, c)) {
-                    --tc->len;
-                    goto emem;
-                }
+                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32_RAW;
+                t->data_raw = tc->strings.len;
+                if (!cb_add(&tc->strings, c)) goto emem;
                 c = pb_compitf_getc_local(pbc);
                 if (c == 'x' || c == 'X') {
                     int_skipfloat = true;
@@ -113,10 +112,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     while (1) {
                         c = pb_compitf_getc_local(pbc);
                         if ((c < '0' || c > '9') && (c < 'A' || c > 'F') && (c < 'a' || c > 'f')) goto ichksuf;
-                        if (!cb_add(&tc->strings, c)) {
-                            --tc->len;
-                            goto emem;
-                        }
+                        if (!cb_add(&tc->strings, c)) goto emem;
                     }
                 } else if (c == 'b' || c == 'B') {
                     int_skipfloat = true;
@@ -124,10 +120,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     while (1) {
                         c = pb_compitf_getc_local(pbc);
                         if (c != '0' && c != '1') goto ichksuf;
-                        if (!cb_add(&tc->strings, c)) {
-                            --tc->len;
-                            goto emem;
-                        }
+                        if (!cb_add(&tc->strings, c)) goto emem;
                     }
                 } else {
                     while (1) {
@@ -135,16 +128,16 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             ichksuf:;
                             el = t->loc;
                             if (c == 'i' || c == 'I') {
-                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8;
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW;
                                 ievalsuf:;
                                 char suf[2];
                                 c = pb_compitf_getc_local(pbc);
-                                if (c < '0' || c > '9') goto iebadsuf;
+                                if (c < '0' || c > '9') goto ebadisuf;
                                 suf[0] = c;
                                 c = pb_compitf_getc_local(pbc);
                                 suf[1] = (c >= '0' && c <= '9') ? c : 0;
                                 c = pb_compitf_getc_local(pbc);
-                                if (c >= '0' && c <= '9') goto iebadsuf;
+                                if (c >= '0' && c <= '9') goto ebadisuf;
                                 if (suf[0] == '1' && suf[1] == '6') {
                                     t->subtype += 1;
                                 } else if (suf[0] == '3' && suf[1] == '2') {
@@ -152,96 +145,73 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 } else if (suf[0] == '6' && suf[1] == '4') {
                                     t->subtype += 3;
                                 } else if (suf[0] != '8' || suf[1]) {
-                                    goto iebadsuf;
+                                    goto ebadisuf;
                                 }
                                 goto ichkaftersuf;
                             } else if (c == 'u' || c == 'U') {
-                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8;
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8_RAW;
                                 goto ievalsuf;
                             }
                             if (!int_skipfloat) {
                                 if (c == '.') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
                                     goto isfloat;
                                 }
                                 if (c == 'e' || c == 'E') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
                                     goto isfloat_e;
                                 }
                                 if (c == 'f' || c == 'F') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
                                     goto isfloat_f;
                                 }
                             } else {
                                 if (c == '.') {
-                                    --tc->len;
                                     pb_compitf_mksrcloc(pbc, 0, &el);
                                     goto ebadchar;
                                 }
                             }
                             ichkaftersuf:;
                             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                                iebadsuf:;
-                                --tc->len;
                                 goto ebadisuf;
                             } else if (c == '_' || c == ':') {
-                                --tc->len;
                                 pb_compitf_mksrcloc(pbc, 0, &el);
                                 goto ebadchar;
                             }
                             break;
                         }
-                        if (!cb_add(&tc->strings, c)) {
-                            --tc->len;
-                            goto emem;
-                        }
+                        if (!cb_add(&tc->strings, c)) goto emem;
                         c = pb_compitf_getc_local(pbc);
                     }
                 }
-                if (!cb_add(&tc->strings, 0)) {
-                    --tc->len;
-                    goto emem;
-                }
+                if (!cb_add(&tc->strings, 0)) goto emem;
                 goto skipgetc;
             } else if (c == '.') {
                 c = pb_compitf_getc_local(pbc);
                 if (c >= '0' && c <= '9') {
                     t->type = PB_COMPILER_TOK_TYPE_DATA;
-                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
-                    t->data = tc->strings.len;
-                    if (!cb_add(&tc->strings, c)) {
-                        --tc->len;
-                        goto emem;
-                    }
+                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
+                    t->data_raw = tc->strings.len;
+                    if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
                         c = pb_compitf_getc_local(pbc);
                         if (c < '0' || c > '9') {
                             el = t->loc;
                             if (c == 'e' || c == 'E') {
                                 isfloat_e:;
-                                if (!cb_add(&tc->strings, 'e')) {
-                                    --tc->len;
-                                    goto emem;
-                                }
+                                if (!cb_add(&tc->strings, 'e')) goto emem;
                                 c = pb_compitf_getc_local(pbc);
                                 if (c == '+' || c == '-') {
-                                    if (!cb_add(&tc->strings, c)) {
-                                        --tc->len;
-                                        goto emem;
-                                    }
+                                    if (!cb_add(&tc->strings, c)) goto emem;
                                     c = pb_compitf_getc_local(pbc);
                                 }
                                 if (c >= '0' && c <= '9') {
                                     do {
-                                        if (!cb_add(&tc->strings, c)) {
-                                            --tc->len;
-                                            goto emem;
-                                        }
+                                        if (!cb_add(&tc->strings, c)) goto emem;
                                         c = pb_compitf_getc_local(pbc);
                                     } while (c >= '0' && c <= '9');
                                     if (c == 'f' || c == 'F') goto isfloat_f;
                                 } else {
-                                    --tc->len;
                                     pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "No exponent after 'e' in floating-point number", &t->loc);
                                     goto reterr;
                                 }
@@ -249,43 +219,33 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 isfloat_f:;
                                 char suf[2];
                                 c = pb_compitf_getc_local(pbc);
-                                if (c < '0' || c > '9') goto febadsuf;
+                                if (c < '0' || c > '9') goto ebadfsuf;
                                 suf[0] = c;
                                 c = pb_compitf_getc_local(pbc);
-                                if (c < '0' || c > '9') goto febadsuf;
+                                if (c < '0' || c > '9') goto ebadfsuf;
                                 suf[1] = c;
                                 c = pb_compitf_getc_local(pbc);
-                                if (c >= '0' && c <= '9') goto febadsuf;
+                                if (c >= '0' && c <= '9') goto ebadfsuf;
                                 if (suf[0] == '6' && suf[1] == '4') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64;
+                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW;
                                 } else if (suf[0] != '3' || suf[1] != '2') {
-                                    goto febadsuf;
+                                    goto ebadfsuf;
                                 }
                             } else if (c == '.') {
-                                --tc->len;
                                 goto ebaddot;
                             }
                             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                                febadsuf:;
-                                --tc->len;
                                 goto ebadfsuf;
                             } else if (c == '_' || c == ':') {
-                                --tc->len;
                                 pb_compitf_mksrcloc(pbc, 0, &el);
                                 goto ebadchar;
                             }
                             break;
                         }
                         isfloat:;
-                        if (!cb_add(&tc->strings, c)) {
-                            --tc->len;
-                            goto emem;
-                        }
+                        if (!cb_add(&tc->strings, c)) goto emem;
                     }
-                    if (!cb_add(&tc->strings, 0)) {
-                        --tc->len;
-                        goto emem;
-                    }
+                    if (!cb_add(&tc->strings, 0)) goto emem;
                 } else {
                     t->type = PB_COMPILER_TOK_TYPE_SYM;
                     t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOT;
@@ -302,13 +262,13 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 }
                 t->type = PB_COMPILER_TOK_TYPE_DATA;
                 t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
-                t->data = tc->strings.len;
+                t->data.str.off = tc->strings.len;
                 sskipsetup:;
                 while (1) {
                     c = pb_compitf_getc_local(pbc);
                     sskipgetc:;
                     if (c == '"') {
-                        t->data_strlen = tc->strings.len - t->data;
+                        t->data.str.len = tc->strings.len - t->data.str.off;
                         break;
                     } else if (c == '\\') {
                         pb_compitf_mksrcloc(pbc, 0, &el);
@@ -336,10 +296,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 } else if (c >= 'a' && c <= 'f') {
                                     tmpc = c - ('a' - 10);
                                 } else {
-                                    if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'x')) {
-                                        --tc->len;
-                                        goto emem;
-                                    }
+                                    if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'x')) goto emem;
                                     pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Unfinished '\\x' escape sequence", &el);
                                     break;
                                 }
@@ -357,10 +314,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 }
                                 c = pb_compitf_getc_local(pbc);
                                 sxskipgetc:;
-                                if (!cb_add(&tc->strings, tmpc)) {
-                                    --tc->len;
-                                    goto emem;
-                                }
+                                if (!cb_add(&tc->strings, tmpc)) goto emem;
                             } goto sskipgetc;
                             case 'u': {
                                 uint32_t tmpc;
@@ -372,10 +326,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 } else if (c >= 'a' && c <= 'f') {
                                     tmpc = c - ('a' - 10);
                                 } else {
-                                    if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'u')) {
-                                        --tc->len;
-                                        goto emem;
-                                    }
+                                    if (!cb_add(&tc->strings, '\\') || !cb_add(&tc->strings, 'u')) goto emem;
                                     pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Unfinished '\\u' escape sequence", &el);
                                     break;
                                 }
@@ -416,43 +367,30 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                     chars[2] = 0x80U | ((tmpc >> 6) & 0x3FU);
                                     chars[3] = 0x80U | (tmpc & 0x3FU);
                                 } else {
-                                    --tc->len;
                                     pb_compitf_puterrln(pbc, (*e = PB_ERROR_VALUE), "Unencodable '\\u' escape sequence", &el);
                                     goto reterr;
                                 }
                                 for (uint_fast8_t i = 0; i < charct; ++i) {
-                                    if (!cb_add(&tc->strings, chars[i])) {
-                                        --tc->len;
-                                        goto emem;
-                                    }
+                                    if (!cb_add(&tc->strings, chars[i])) goto emem;
                                 }
                             } goto sskipgetc;
                             case '\n': {
-                                --tc->len;
                                 pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Line continuation is invalid in strings", &el);
                             } goto reterr;
                             default: {
-                                if (!cb_add(&tc->strings, '\\')) {
-                                    --tc->len;
-                                    goto emem;
-                                }
+                                if (!cb_add(&tc->strings, '\\')) goto emem;
                                 pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Invalid escape sequence", &el);
                             } break;
                         }
                     } else if (c == '\n' || c == -1) {
                         seunterm:;
-                        --tc->len;
                         pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Unterminated string", &t->loc);
                         goto reterr;
                     } else if (!c) {
-                        --tc->len;
                         pb_compitf_mksrcloc(pbc, 0, &el);
                         goto ebadchar;
                     }
-                    if (!cb_add(&tc->strings, c)) {
-                        --tc->len;
-                        goto emem;
-                    }
+                    if (!cb_add(&tc->strings, c)) goto emem;
                 }
             } else {
                 t->type = PB_COMPILER_TOK_TYPE_SYM;
@@ -467,6 +405,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '#': {
+                        tc->preprocinsloc = t->loc;
                         tc->preprocinsstage = '#';
                         --tc->len;
                     } break;
@@ -492,45 +431,17 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '(': {
-                        isopenparen:;
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_OPENPAREN;
                         size_t tmp = tc->len - 1;
-                        VLB_ADD(tc->brackets, tmp, 3, 2, --tc->len; goto emem;);
+                        VLB_ADD(tc->brackets, tmp, 3, 2, goto emem;);
                     } break;
                     case ')': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENPAREN) {
                             el = t->loc;
-                            --tc->len;
                             goto eparen;
                         }
+                        t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSEPAREN;
                         --tc->brackets.len;
-                        if (!tc->preprocinsstage) {
-                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSEPAREN;
-                        } else {
-                            size_t l = tc->len - tc->preprocinspos - 1;
-                            t = &tc->data[tc->preprocinspos];
-                            if (l == 1) {
-                                if (t->type != PB_COMPILER_TOK_TYPE_NAME) goto pbadtok;
-                                const char* name = tc->strings.data + t->name;
-                                #if DEBUG(1)
-                                printf("PREPROCINS: {%s}\n", name);
-                                #endif
-                            } else if (l == 2) {
-                                if (t->type != PB_COMPILER_TOK_TYPE_NAME) goto pbadtok;
-                                const char* name = tc->strings.data + t->name;
-                                ++t;
-                                if (t->type != PB_COMPILER_TOK_TYPE_SYM || t->subtype != PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR) goto pbadtok;
-                                #if DEBUG(1)
-                                printf("PREPROCINS $: {%s}\n", name);
-                                #endif
-                            } else {
-                                pbadtok:;
-                                pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected identifier or identifier and '$'", &t->loc);
-                                goto reterr;
-                            }
-                            tc->len = tc->preprocinspos - 1;
-                            tc->preprocinsstage = 0;
-                        }
                     } break;
                     case '*': {
                         c = pb_compitf_getc_local(pbc);
@@ -630,12 +541,11 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     case '[': {
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB;
                         size_t tmp = tc->len - 1;
-                        VLB_ADD(tc->brackets, tmp, 3, 2, --tc->len; goto emem;);
+                        VLB_ADD(tc->brackets, tmp, 3, 2, goto emem;);
                     } break;
                     case ']': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB) {
                             el = t->loc;
-                            --tc->len;
                             goto esqb;
                         }
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSESQB;
@@ -653,7 +563,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     case '{': {
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_OPENCURB;
                         size_t tmp = tc->len - 1;
-                        VLB_ADD(tc->brackets, tmp, 3, 2, --tc->len; goto emem;);
+                        VLB_ADD(tc->brackets, tmp, 3, 2, goto emem;);
                     } break;
                     case '|': {
                         c = pb_compitf_getc_local(pbc);
@@ -669,7 +579,6 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     case '}': {
                         if (!tc->brackets.len || tc->data[tc->brackets.data[tc->brackets.len - 1]].subtype != PB_COMPILER_TOK_SUBTYPE_SYM_OPENCURB) {
                             el = t->loc;
-                            --tc->len;
                             goto ecurb;
                         }
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CLOSECURB;
@@ -686,7 +595,6 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     } break;
                     default: {
                         el = t->loc;
-                        --tc->len;
                     } goto ebadchar;
                 }
             }
@@ -770,4 +678,153 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
 
     reterr:;
     return -1;
+}
+
+static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
+    int c = *cptr;
+    struct pb_compiler_srcloc el;
+
+    if (tc->preprocinsstage == '#') {
+        while (c == ' ' || c == '\t') {
+            c = pb_compitf_getc_local(pbc);
+        }
+        if (c == '(') {
+            tc->preprocinsstage = '(';
+            c = pb_compitf_getc_local(pbc);
+            goto foundopenparen;
+        }
+        if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
+        if (c == '\\') goto ret;
+        pb_compitf_mksrcloc(pbc, 0, &el);
+        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected '('", &el);
+        goto retfalse;
+    } else if (tc->preprocinsstage == '(') {
+        foundopenparen:;
+        while (c == ' ' || c == '\t') {
+            c = pb_compitf_getc_local(pbc);
+        }
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == ':') {
+            pb_compitf_mksrcloc(pbc, 0, &tc->preprocinsidloc);
+            tc->preprocinsidpos = tc->strings.len;
+            if (!cb_add(&tc->strings, c)) goto emem;
+            while (1) {
+                c = pb_compitf_getc_local(pbc);
+                if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '_') {
+                    if (tc->strings.data[tc->strings.len - 1] == ':') {
+                        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid identifier", &el);
+                        goto retfalse;
+                    }
+                    if (c != ':' && (c < '0' || c > '9')) break;
+                }
+                if (!cb_add(&tc->strings, c)) goto emem;
+            }
+            if (!cb_add(&tc->strings, 0)) goto emem;
+            tc->preprocinsstage = 'I';
+            goto foundid;
+        }
+        if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
+        if (c == '\\') goto ret;
+        pb_compitf_mksrcloc(pbc, 0, &el);
+        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected indentifier", &tc->preprocinsidloc);
+        goto retfalse;
+    } else if (tc->preprocinsstage == 'I') {
+        foundid:;
+        while (c == ' ' || c == '\t') {
+            c = pb_compitf_getc_local(pbc);
+        }
+        if (c == ')') {
+            tc->preprocinsstage = 0;
+            c = pb_compitf_getc_local(pbc);
+        } else {
+            if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
+            if (c == '\\') goto ret;
+            pb_compitf_mksrcloc(pbc, 0, &el);
+            pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected ')'", &el);
+            goto retfalse;
+        }
+    }
+
+    const char* name = tc->strings.data + tc->preprocinsidpos;
+    uint32_t namecrc = strcrc32(name);
+    tc->strings.len = tc->preprocinsidpos;
+    //printf("PREPROCINS: {%s}\n", name);
+    struct pb_compiler_tok* t;
+    VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
+    enum pb_preproc_type vt;
+    const void* vd;
+    for (size_t i = 0; i < pbc->preprocvars.len; ++i) {
+        struct pb_preproc_var* v = &pbc->preprocvars.data[i];
+        if (v->type == PB_PREPROC_TYPE_VOID) goto enotfound1;
+        if (v->namecrc == namecrc && !strcasecmp(pbc->preprocvars.names.data + v->name, name)) {
+            if (v->type == PB_PREPROC_TYPE_STR) {
+                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
+                t->data.str.off = tc->strings.len;
+                t->data.str.len = v->str.len;
+                if (!cb_addpartstr(&tc->strings, v->str.data, v->str.len)) goto emem;
+                goto aftervar1;
+            }
+            vt = v->type;
+            vd = &v->b;
+            goto foundvar1;
+        }
+    }
+    for (uint32_t i = 0; i < pbc->opt->preprocvarct; ++i) {
+        const struct pb_compiler_opt_preprocvar* v = &pbc->opt->preprocvars[i];
+        if (v->namecrc == namecrc && !strcasecmp(v->name, name)) {
+            if (v->type == PB_PREPROC_TYPE_STR) {
+                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
+                t->data.str.off = tc->strings.len;
+                t->data.str.len = v->str.len;
+                if (!cb_addpartstr(&tc->strings, v->str.data, v->str.len)) goto emem;
+                goto aftervar1;
+            }
+            vt = v->type;
+            vd = &v->b;
+            goto foundvar1;
+        }
+    }
+    enotfound1:;
+    pb_compitf_puterr(pbc, (*e = PB_ERROR_VALUE), "Preprocessor variable '", &tc->preprocinsidloc);
+    cb_addstr(pbc->err, name);
+    cb_addstr(pbc->err, "' not found\n");
+    goto retfalse;
+    foundvar1:;
+    switch (vt) {
+        DEFAULTCASE(PB_PREPROC_TYPE_BOOL): {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_BOOL; t->data.b = *(const bool*)vd;} goto aftervar1;
+        case PB_PREPROC_TYPE_I8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8;} goto found8;
+        case PB_PREPROC_TYPE_I16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I16;} goto found16;
+        case PB_PREPROC_TYPE_I32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32;} goto found32;
+        case PB_PREPROC_TYPE_I64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I64;} goto found64;
+        case PB_PREPROC_TYPE_U8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8;} goto found8;
+        case PB_PREPROC_TYPE_U16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U16;} goto found16;
+        case PB_PREPROC_TYPE_U32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U32;} goto found32;
+        case PB_PREPROC_TYPE_U64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U64;} goto found64;
+        case PB_PREPROC_TYPE_F32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;} goto found32;
+        case PB_PREPROC_TYPE_F64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64;} goto found64;
+    }
+    found8:;
+    t->data.u8 = *(const uint8_t*)vd;
+    goto aftervar1;
+    found16:;
+    t->data.u16 = *(const uint16_t*)vd;
+    goto aftervar1;
+    found32:;
+    t->data.u32 = *(const uint32_t*)vd;
+    goto aftervar1;
+    found64:;
+    t->data.u64 = *(const uint64_t*)vd;
+    aftervar1:;
+    t->type = PB_COMPILER_TOK_TYPE_DATA;
+
+    ret:;
+    *cptr = c;
+    return true;
+
+    einc:;
+    pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Incomplete preprocessor variable insertion", &tc->preprocinsloc);
+    goto retfalse;
+    emem:;
+    pb_compitf_puterrln(pbc, (*e = PB_ERROR_MEMORY), NULL, NULL);
+    retfalse:;
+    return false;
 }
