@@ -986,6 +986,6 @@ int parseargs(int argc, char** argv) {
 
 #else
 
-extern int empty;
+typedef int empty;
 
 #endif

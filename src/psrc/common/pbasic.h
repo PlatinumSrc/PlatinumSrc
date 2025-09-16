@@ -19,8 +19,9 @@ enum pb_error {
     PB_ERROR_NONE,
     PB_ERROR_SYNTAX,
     PB_ERROR_TYPE,
-    PB_ERROR_VALUE,
+    PB_ERROR_DEF,
     PB_ERROR_INDEX,
+    PB_ERROR_VALUE,
     PB_ERROR_ARG,
     PB_ERROR_MEMORY,
     PB_ERROR_INTERNAL,
@@ -45,7 +46,7 @@ PACKEDENUM pb_op {
     PB_OP_POP,          // Remove items from the stack (reads: count; pops: elem)
     PB_OP_REF,          // Creates a reference (@) (pops: obj; pushes: ref)
     PB_OP_DEREF,        // Dereferences a reference ($) (pops: obj; pushes: obj)
-    PB_OP_DEREFVA,      // Dereferences a reference or expands a vararg collection ($) (pops: obj; pushes: obj)
+    PB_OP_DEREFCOLL,    // Dereferences a reference or expands a collection ($) (pops: obj; pushes: obj)
     PB_OP_INDEX,        // Creates an index obj from the index or adds the index to an existing index obj (reads: index; pops: obj; pushes: obj)
     PB_OP_MEMB,         // Gets a member of a COMPLEX (reads: membid; pops: obj; pushes: obj)
     PB_OP_DUP,          // Pushes a dup (pushes: dup)
@@ -61,7 +62,7 @@ PACKEDENUM pb_op {
     PB_OP_RET,          // Return from a sub without a return value
     PB_OP_RETV,         // Return from a sub with a return value (pops: retval)
     PB_OP_CCALL,        // Call a C routine (reads: id, datawordct, [data]...; pops: [...]...; pushes: [...]...)
-    PB_OP_LEN,          // Get the length of an array or the number of args in a VA object (LEN(...)) (pops: obj; pushes: length)
+    PB_OP_LEN,          // Get the length of an array or the number of objects in a collection object (LEN(...)) (pops: obj; pushes: length)
     PB_OP_ADD,          // Add (+) (pops: right, left; pushes: result)
     PB_OP_SUB,          // Subtract (-) (pops: right, left; pushes: result)
     PB_OP_MUL,          // Multiply (*) (pops: right, left; pushes: result)
@@ -92,15 +93,15 @@ PACKEDENUM pb_op {
     PB_OP_CAST,         // Cast to another type (reads: typeid; pops: value; pushes: result)
     PB_OP_TYPEEQ,       // Type of top value is equal to type ID (TYPE(IS ...)) (reads: typeid; pushes: result)
     PB_OP_TYPEAPEQ,     // Type of top value is approximately equal to type ID (TYPE(SIMILAR ...)) (reads: typeid; pushes: result)
-    PB_OP_VANEXT,       // Gets the next vararg (VA(NEXT)) (pops: vaobj; pushes: argobj)
-    PB_OP_VASKIP,       // Go forwards by the specified amount (VA(SKIP ...)) (pops: amount, vaobj)
-    PB_OP_VABACK,       // Go back by the specified amount (VA(BACK ...)) (pops: amount, vaobj)
-    PB_OP_VATELL,       // Gets the index of the current arg (VA(TELL)) (pops: vaobj; pushes: index)
-    PB_OP_VASEEK,       // Go to the specified arg (VA(SEEK)) (pops: index, vaobj)
-    PB_OP_VAINS,        // Inserts an object at the end (VA(INS ...)) (pops: obj, vaobj)
-    PB_OP_VAINSI,       // Inserts an object at the specified index (VA(INS ..., ...)) (pops: obj, index, vaobj)
-    PB_OP_VADEL,        // Removes the specified arg (VA(DEL ...)) (pops: index, vaobj)
-    PB_OP_VAREPL,       // Replaces the specified arg (VA(REPL ...)) (pops: obj, index, vaobj)
+    PB_OP_COLLNEXT,       // Gets the next object in a collection (COLL(NEXT)) (pops: obj; pushes: argobj)
+    PB_OP_COLLSKIP,       // Go forwards by the specified amount (COLL(SKIP ...)) (pops: amount, obj)
+    PB_OP_COLLBACK,       // Go back by the specified amount (COLL(BACK ...)) (pops: amount, obj)
+    PB_OP_COLLTELL,       // Gets the index of the current arg (COLL(TELL)) (pops: obj; pushes: index)
+    PB_OP_COLLSEEK,       // Go to the specified arg (COLL(SEEK)) (pops: index, obj)
+    PB_OP_COLLINS,        // Inserts an object at the end (COLL(INS ...)) (pops: obj, obj)
+    PB_OP_COLLINSI,       // Inserts an object at the specified index (COLL(INS ..., ...)) (pops: obj, index, obj)
+    PB_OP_COLLDEL,        // Removes the specified arg (COLL(DEL ...)) (pops: index, obj)
+    PB_OP_COLLREPL,       // Replaces the specified arg (COLL(REPL ...)) (pops: obj, index, obj)
     PB_OP_EVLSNSYNC,    // Adds an event listener for a SYNC event (EVENT(LISTEN SYNC ..., SUB ...)) (pops: sub, event; pushes: id)
     PB_OP_EVLSNSYNCI,   // Adds an event listener from the stack for a SYNC event (EVENT(LISTEN SYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
     PB_OP_EVLSNASYNC,   // Adds an event listener for an ASYNC event (EVENT(LISTEN ASYNC ..., SUB ...)) (pops: sub, event; pushes: id)
@@ -131,7 +132,7 @@ PACKEDENUM pb_type {
     PB_TYPE_U64,
     PB_TYPE_F32,
     PB_TYPE_F64,
-    PB_TYPE_VARARG,
+    PB_TYPE_COLL,
     PB_TYPE_SUB,
     PB_TYPE__COUNT
 };
@@ -167,9 +168,9 @@ struct pb_rodata_str {
     const char* data;
     uint32_t len;
 };
-struct pb_rodata_vararg {
-    struct pb_rodata* args;
-    uint32_t argct;
+struct pb_rodata_coll {
+    struct pb_rodata* data;
+    uint32_t len;
 };
 struct pb_rodata_complex {
     struct pb_rodata* membs;
@@ -195,7 +196,7 @@ struct pb_rodata {
         uint64_t u64;
         float f32;
         double f64;
-        struct pb_rodata_vararg vararg;
+        struct pb_rodata_coll coll;
         uint32_t sub;
         struct pb_rodata_complex complex;
         union {
@@ -211,7 +212,7 @@ struct pb_rodata {
             uint64_t* u64;
             float* f32;
             double* f64;
-            struct pb_rodata_vararg* vararg;
+            struct pb_rodata_coll* coll;
             uint32_t* sub;
             struct pb_rodata_complex* complex;
         } array;
@@ -227,9 +228,10 @@ PACKEDENUM pb_obj_type {
     PB_OBJ_TYPE_SUB,
     PB_OBJ_TYPE_EXTERNAL
 };
-struct pb_obj_data_vararg {
-    uint32_t* args;
-    uint32_t argct;
+struct pb_obj_data_coll {
+    uint32_t* objs;
+    uint32_t len;
+    uint32_t pos;
 };
 struct pb_obj_data_complex {
     uint32_t* membs;
@@ -255,7 +257,7 @@ struct pb_obj_data {
         uint64_t u64;
         float f32;
         double f64;
-        struct pb_obj_data_vararg vararg;
+        struct pb_obj_data_coll coll;
         uint32_t sub;
         struct pb_obj_data_complex complex;
         union {
@@ -271,7 +273,7 @@ struct pb_obj_data {
             uint64_t* u64;
             float* f32;
             double* f64;
-            struct pb_obj_data_vararg* vararg;
+            struct pb_obj_data_coll* coll;
             uint32_t* sub;
             struct pb_obj_data_complex* complex;
         } array;
@@ -406,11 +408,8 @@ PACKEDENUM pb_preproc_type {
     PB_PREPROC_TYPE_F32,
     PB_PREPROC_TYPE_F64
 };
-struct pb_preproc_var {
+struct pb_preproc_data {
     enum pb_preproc_type type;
-    size_t name;
-    uint32_t namecrc;
-    unsigned refs;
     union {
         struct {
             const char* data;
@@ -428,6 +427,11 @@ struct pb_preproc_var {
         float f32;
         double f64;
     };
+};
+struct pb_preproc_var {
+    size_t name;
+    uint32_t namecrc;
+    struct pb_preproc_data data;
 };
 
 PACKEDENUM pb_compiler_opt_olvl {
@@ -446,26 +450,9 @@ PACKEDENUM pb_compiler_opt_dbglvl {
     PB_COMPILER_OPT_DBGLVL_MAX = 2
 };
 struct pb_compiler_opt_preprocvar {
-    enum pb_preproc_type type;
     const char* name;
     uint32_t namecrc;
-    union {
-        bool b;
-        int8_t i8;
-        int16_t i16;
-        int32_t i32;
-        int64_t i64;
-        uint8_t u8;
-        uint16_t u16;
-        uint32_t u32;
-        uint64_t u64;
-        float f32;
-        double f64;
-        struct {
-            const char* data;
-            uint32_t len;
-        } str;
-    };
+    struct pb_preproc_data data;
 };
 struct pb_compiler_opt {
     enum pb_compiler_opt_olvl olvl;
@@ -501,13 +488,12 @@ PACKEDENUM pb_compiler_tok_subtype {
     PB_COMPILER_TOK_SUBTYPE_SYM_AST,
     PB_COMPILER_TOK_SUBTYPE_SYM_ASTEQ,
     PB_COMPILER_TOK_SUBTYPE_SYM_PLUS,
-    PB_COMPILER_TOK_SUBTYPE_SYM_PLUSPLUS,
     PB_COMPILER_TOK_SUBTYPE_SYM_PLUSEQ,
     PB_COMPILER_TOK_SUBTYPE_SYM_COMMA,
     PB_COMPILER_TOK_SUBTYPE_SYM_DASH,
-    PB_COMPILER_TOK_SUBTYPE_SYM_DASHDASH,
     PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ,
     PB_COMPILER_TOK_SUBTYPE_SYM_DOT,
+    PB_COMPILER_TOK_SUBTYPE_SYM_DOTDOTDOT,
     PB_COMPILER_TOK_SUBTYPE_SYM_SLASH,
     PB_COMPILER_TOK_SUBTYPE_SYM_COLON,
     PB_COMPILER_TOK_SUBTYPE_SYM_LT,
@@ -525,6 +511,7 @@ PACKEDENUM pb_compiler_tok_subtype {
     PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGT,
     PB_COMPILER_TOK_SUBTYPE_SYM_GTGTEQ,
     PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGTEQ,
+    PB_COMPILER_TOK_SUBTYPE_SYM_QUESTION,
     PB_COMPILER_TOK_SUBTYPE_SYM_AT,
     PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB,
     PB_COMPILER_TOK_SUBTYPE_SYM_CLOSESQB,
@@ -648,8 +635,8 @@ struct pb_compiler {
         size_t size;
         struct charbuf names;
     } sources;
-    struct VLB(char*) usingnames;
     struct charbuf curns;
+    struct VLB(char*) usingnames;
     struct {
         struct pb_preproc_var* data;
         size_t len;
@@ -663,6 +650,15 @@ struct pb_compiler {
     struct VLB(uint32_t) initsubs;
     struct charbuf* err;
 };
+
+enum pb_compitf_evalexprret {
+    PB_COMPITF_EVALEXPRRET_RUNTIME = -1,
+    PB_COMPITF_EVALEXPRRET_COMPILETIME = -2,
+};
+#define PB_COMPITF_EVALEXPRFLAG_FORCERUNTIME     (1U << 0)
+#define PB_COMPITF_EVALEXPRFLAG_FORCECOMPILETIME (1U << 1)
+#define PB_COMPITF_EVALEXPRFLAG_ALLOWCOLLDEFER   (1U << 2)
+#define PB_COMPITF_EVALEXPRFLAG_NOOUTPUT         (1U << 3)
 
 struct pbasic {
     struct {
@@ -718,8 +714,9 @@ enum pb_error pb_prog_compile(struct pbasic*, struct datastream*, const char* ty
 void pb_prog_destroy(struct pbasic*, uint32_t progid);
 
 void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, const struct pb_compiler_srcloc*);
-int pb_compitf_getc(struct pb_compiler*);
 bool pb_compitf_pushsource(struct pb_compiler*, struct datastream*, const char* type, const struct pb_compiler_srcloc*);
+int pb_compitf_evalexpr(struct pb_compiler*, struct pb_compiler_tokcoll* tc, unsigned flags, struct pb_rodata*);
+size_t pb_compitf_evalpreprocexpr(struct pb_compiler*, struct pb_compiler_tokcoll* tc, struct pb_preproc_data*);
 
 enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
 void pb_proc_destroy(struct pbasic*, uint32_t procid);
@@ -765,24 +762,6 @@ static ALWAYSINLINE void pb_compitf_puterrln(struct pb_compiler* pbc, enum pb_er
     pb_compitf_puterr(pbc, e, msg, el);
     cb_add(pbc->err, '\n');
 }
-static ALWAYSINLINE int pb_compitf_getc_inline(struct pb_compiler* pbc) {
-    again:;
-    int c = ds_text_getc_fullinline(pbc->stream.ds);
-    if (c != DS_END && c) {
-        if (c != '\n') {
-            ++pbc->stream.col;
-        } else {
-            ++pbc->stream.line;
-            pbc->stream.oldcol = pbc->stream.col;
-            pbc->stream.col = 1;
-        }
-        return c;
-    }
-    if (!pbc->prevstreams.len) return -1;
-    ds_close(pbc->stream.ds);
-    pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
-    goto again;
-}
 
 extern const char* pb__error_str[PB_ERROR__COUNT];
 static ALWAYSINLINE const char* pb_strerror(enum pb_error e) {
@@ -807,5 +786,26 @@ static inline bool pb_util_checkdims(uint32_t dims, const uint32_t* sizes) {
 void pb_util_compiler_opt_createclone(const struct pb_compiler_opt*, struct pb_compiler_opt*);
 void pb_util_compiler_opt_destroyclone(struct pb_compiler_opt*);
 bool pb_util_compiler_opt_cmp(const struct pb_compiler_opt*, const struct pb_compiler_opt*);
+
+static ALWAYSINLINE int pb__compiler_getc_inline(struct pb_compiler* pbc) {
+    again:;
+    int c = ds_text_getc_fullinline(pbc->stream.ds);
+    if (c != DS_END && c) {
+        if (c != '\n') {
+            ++pbc->stream.col;
+        } else {
+            ++pbc->stream.line;
+            pbc->stream.oldcol = pbc->stream.col;
+            pbc->stream.col = 1;
+        }
+        return c;
+    }
+    if (!pbc->prevstreams.len) return -1;
+    ds_close(pbc->stream.ds);
+    pbc->stream = pbc->prevstreams.data[--pbc->prevstreams.len];
+    goto again;
+}
+int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
+enum pb_error pb__evalpreproccmd(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc);
 
 #endif

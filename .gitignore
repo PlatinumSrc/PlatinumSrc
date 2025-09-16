@@ -15,5 +15,6 @@
 !/TODO.md
 .**
 !/.github/
+!/.github/**
 !/.gitattributes
 !/.gitignore

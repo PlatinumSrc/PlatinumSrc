@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#if PLATFORM != PLAT_MACOS
+#if PLATFORM != PLAT_MACOS || 1 // TODO: detect macos version
     #include <time.h>
 #else
     #include <mach/mach_time.h>
@@ -29,7 +29,7 @@ uint64_t altutime(void) {
         LARGE_INTEGER time;
         QueryPerformanceCounter(&time);
         return time.QuadPart * perfctmul / perfctfreq.QuadPart;
-    #elif PLATFORM == PLAT_MACOS
+    #elif PLATFORM == PLAT_MACOS && 0 // TODO: detect macos version
         uint64_t time = mach_absolute_time();
         Nanoseconds nsec = AbsoluteToNanoseconds(*(AbsoluteTime*)&time);
         return (*(uint64_t*)&nsec) / 1000;
@@ -54,7 +54,7 @@ void microwait(uint64_t d) {
         LARGE_INTEGER _d = {.QuadPart = d * -10};
         SetWaitableTimer(timer, &_d, 0, NULL, NULL, false);
         WaitForSingleObject(timer, INFINITE);
-    #elif PLATFORM == PLAT_MACOS
+    #elif PLATFORM == PLAT_MACOS && 0 // TODO: detect macos version
         d *= 1000;
         AbsoluteTime time = NanosecondsToAbsolute(*(Nanoseconds*)&d);
         mach_wait_until(*(uint64_t*)&time);

@@ -76,6 +76,7 @@
       <keyword>BREAK</keyword>
       <keyword>CASE</keyword>
       <keyword>CEIL</keyword>
+      <keyword>COLL</keyword>
       <keyword>COMPLEX</keyword>
       <keyword>COS</keyword>
       <keyword>DECLSUB</keyword>
@@ -96,7 +97,6 @@
       <keyword>GOSUBID</keyword>
       <keyword>GOTO</keyword>
       <keyword>IF</keyword>
-      <keyword>LABEL</keyword>
       <keyword>LEN</keyword>
       <keyword>LET</keyword>
       <keyword>LOOP</keyword>
@@ -116,7 +116,6 @@
       <keyword>TYPEDEF</keyword>
       <keyword>UNUSING</keyword>
       <keyword>USING</keyword>
-      <keyword>VA</keyword>
       <keyword>WHILE</keyword>
     </context>
 
@@ -142,7 +141,6 @@
       <keyword>F64</keyword>
       <keyword>REF</keyword>
       <keyword>CONST</keyword>
-      <keyword>NULLABLE</keyword>
       <keyword>SUB</keyword>
     </context>
 

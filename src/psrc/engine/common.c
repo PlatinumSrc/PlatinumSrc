@@ -30,7 +30,7 @@ struct engine engine = {
         .compopt.errprefix = "    ",
         .compopt.preprocvars = (struct pb_compiler_opt_preprocvar[]) {
             PSRC_COMMON_PBPREPROCVARS,
-            {.type = PB_PREPROC_TYPE_U8, .name = "psrc:module", .namecrc = 0xD2985DF4, .u8 = 0}
+            {.name = "psrc:module", .namecrc = 0xD2985DF4, .data.type = PB_PREPROC_TYPE_U8, .data.u8 = 0}
         },
         .compopt.preprocvarct = PSRC_COMMON_PBPREPROCVARCT + 1
     }

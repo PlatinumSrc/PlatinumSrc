@@ -11,8 +11,8 @@
 
 #include "../glue.h"
 
-static int pb_compitf_getc_local(struct pb_compiler* pbc) {
-    return pb_compitf_getc_inline(pbc);
+static int pb__compiler_getc(struct pb_compiler* pbc) {
+    return pb__compiler_getc_inline(pbc);
 }
 
 static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
@@ -24,7 +24,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
         bool int_skipfloat = false;
         if (c == '\'') {
             while (1) {
-                c = pb_compitf_getc_local(pbc);
+                c = pb__compiler_getc(pbc);
                 if (c == '\n' || c == -1) goto endstmt;
                 if (!c) {
                     pb_compitf_mksrcloc(pbc, 0, &el);
@@ -34,7 +34,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
         } else if (c == '`') {
             pb_compitf_mksrcloc(pbc, 0, &el);
             while (1) {
-                int c = pb_compitf_getc_local(pbc);
+                int c = pb__compiler_getc(pbc);
                 if (c == '`') break;
                 if (c == -1) {
                     pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Unterminated comment", &el);
@@ -46,12 +46,12 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 }
             }
         } else if (c == '\\') {
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
             if (c == ' ' || c == '\t') {
                 pb_compitf_mksrcloc(pbc, 0, &el);
                 pb_compitf_puterrln(pbc, PB_ERROR_NONE, "Whitespace after line continuation", &el);
                 do {
-                    c = pb_compitf_getc_local(pbc);
+                    c = pb__compiler_getc(pbc);
                 } while (c == ' ' || c == '\t');
             }
             if (c == -1) goto endstmt;
@@ -75,7 +75,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 t->id = tc->strings.len;
                 if (!cb_add(&tc->strings, c)) goto emem;
                 while (1) {
-                    c = pb_compitf_getc_local(pbc);
+                    c = pb__compiler_getc(pbc);
                     if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '_') {
                         if (c == ':') {
                             pb_compitf_mksrcloc(pbc, 0, &el);
@@ -105,12 +105,12 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32_RAW;
                 t->data_raw = tc->strings.len;
                 if (!cb_add(&tc->strings, c)) goto emem;
-                c = pb_compitf_getc_local(pbc);
+                c = pb__compiler_getc(pbc);
                 if (c == 'x' || c == 'X') {
                     int_skipfloat = true;
                     tc->strings.data[tc->strings.len - 1] = 'x';
                     while (1) {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if ((c < '0' || c > '9') && (c < 'A' || c > 'F') && (c < 'a' || c > 'f')) goto ichksuf;
                         if (!cb_add(&tc->strings, c)) goto emem;
                     }
@@ -118,7 +118,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     int_skipfloat = true;
                     tc->strings.data[tc->strings.len - 1] = 'b';
                     while (1) {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c != '0' && c != '1') goto ichksuf;
                         if (!cb_add(&tc->strings, c)) goto emem;
                     }
@@ -131,12 +131,12 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW;
                                 ievalsuf:;
                                 char suf[2];
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c < '0' || c > '9') goto ebadisuf;
                                 suf[0] = c;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 suf[1] = (c >= '0' && c <= '9') ? c : 0;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') goto ebadisuf;
                                 if (suf[0] == '1' && suf[1] == '6') {
                                     t->subtype += 1;
@@ -181,34 +181,34 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             break;
                         }
                         if (!cb_add(&tc->strings, c)) goto emem;
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                     }
                 }
                 if (!cb_add(&tc->strings, 0)) goto emem;
                 goto skipgetc;
             } else if (c == '.') {
-                c = pb_compitf_getc_local(pbc);
+                c = pb__compiler_getc(pbc);
                 if (c >= '0' && c <= '9') {
                     t->type = PB_COMPILER_TOK_TYPE_DATA;
                     t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
                     t->data_raw = tc->strings.len;
                     if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c < '0' || c > '9') {
                             el = t->loc;
                             if (c == 'e' || c == 'E') {
                                 isfloat_e:;
                                 if (!cb_add(&tc->strings, 'e')) goto emem;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c == '+' || c == '-') {
                                     if (!cb_add(&tc->strings, c)) goto emem;
-                                    c = pb_compitf_getc_local(pbc);
+                                    c = pb__compiler_getc(pbc);
                                 }
                                 if (c >= '0' && c <= '9') {
                                     do {
                                         if (!cb_add(&tc->strings, c)) goto emem;
-                                        c = pb_compitf_getc_local(pbc);
+                                        c = pb__compiler_getc(pbc);
                                     } while (c >= '0' && c <= '9');
                                     if (c == 'f' || c == 'F') goto isfloat_f;
                                 } else {
@@ -218,13 +218,13 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             } else if (c == 'f' || c == 'F') {
                                 isfloat_f:;
                                 char suf[2];
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c < '0' || c > '9') goto ebadfsuf;
                                 suf[0] = c;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c < '0' || c > '9') goto ebadfsuf;
                                 suf[1] = c;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') goto ebadfsuf;
                                 if (suf[0] == '6' && suf[1] == '4') {
                                     t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW;
@@ -248,6 +248,19 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     if (!cb_add(&tc->strings, 0)) goto emem;
                 } else {
                     t->type = PB_COMPILER_TOK_TYPE_SYM;
+                    pb_compitf_mksrcloc(pbc, 0, &el);
+                    if (c == '.') {
+                        c = pb__compiler_getc(pbc);
+                        if (c == '.') {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOTDOTDOT;
+                            goto getcandcont;
+                        } else {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOT;
+                            VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
+                            t->type = PB_COMPILER_TOK_TYPE_SYM;
+                            t->loc = el;
+                        }
+                    }
                     t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOT;
                 }
                 goto skipgetc;
@@ -265,14 +278,14 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 t->data.str.off = tc->strings.len;
                 sskipsetup:;
                 while (1) {
-                    c = pb_compitf_getc_local(pbc);
+                    c = pb__compiler_getc(pbc);
                     sskipgetc:;
                     if (c == '"') {
                         t->data.str.len = tc->strings.len - t->data.str.off;
                         break;
                     } else if (c == '\\') {
                         pb_compitf_mksrcloc(pbc, 0, &el);
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == -1) goto seunterm;
                         switch ((char)c) {
                             case '0': c = 0; break;
@@ -288,7 +301,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             case 'v': c = '\v'; break;
                             case 'x': {
                                 unsigned char tmpc;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') {
                                     tmpc = c - '0';
                                 } else if (c >= 'A' && c <= 'F') {
@@ -301,7 +314,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                     break;
                                 }
                                 tmpc <<= 4;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') {
                                     tmpc |= c - '0';
                                 } else if (c >= 'A' && c <= 'F') {
@@ -312,13 +325,13 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                     tmpc >>= 4;
                                     goto sxskipgetc;
                                 }
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 sxskipgetc:;
                                 if (!cb_add(&tc->strings, tmpc)) goto emem;
                             } goto sskipgetc;
                             case 'u': {
                                 uint32_t tmpc;
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') {
                                     tmpc = c - '0';
                                 } else if (c >= 'A' && c <= 'F') {
@@ -332,7 +345,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 }
                                 for (uint_fast8_t i = 0; i < 7; ++i) {
                                     tmpc <<= 4;
-                                    c = pb_compitf_getc_local(pbc);
+                                    c = pb__compiler_getc(pbc);
                                     if (c >= '0' && c <= '9') {
                                         tmpc |= c - '0';
                                     } else if (c >= 'A' && c <= 'F') {
@@ -344,7 +357,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                         goto suskipgetc;
                                     }
                                 }
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 suskipgetc:;
                                 unsigned char chars[4];
                                 uint_fast8_t charct;
@@ -396,7 +409,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 t->type = PB_COMPILER_TOK_TYPE_SYM;
                 switch ((char)c) {
                     case '!': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_EXCLEQ;
                         } else {
@@ -411,7 +424,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     } break;
                     case '$': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR; break;
                     case '%': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_PERCEQ;
                         } else {
@@ -420,7 +433,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '&': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '&') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_AMPAMP;
                         } else if (c == '=') {
@@ -444,7 +457,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         --tc->brackets.len;
                     } break;
                     case '*': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_ASTEQ;
                         } else {
@@ -453,10 +466,8 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '+': {
-                        c = pb_compitf_getc_local(pbc);
-                        if (c == '+') {
-                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_PLUSPLUS;
-                        } else if (c == '=') {
+                        c = pb__compiler_getc(pbc);
+                        if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_PLUSEQ;
                         } else {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_PLUS;
@@ -465,10 +476,8 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     } break;
                     case ',': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_COMMA; break;
                     case '-': {
-                        c = pb_compitf_getc_local(pbc);
-                        if (c == '-') {
-                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DASHDASH;
-                        } else if (c == '=') {
+                        c = pb__compiler_getc(pbc);
+                        if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ;
                         } else {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_DASH;
@@ -477,11 +486,11 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     } break;
                     case '/': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_SLASH; break;
                     case '<': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '<') {
-                            c = pb_compitf_getc_local(pbc);
+                            c = pb__compiler_getc(pbc);
                             if (c == '<') {
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c == '=') {
                                     t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_LTLTLTEQ;
                                 } else {
@@ -504,7 +513,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '=': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_EQEQ;
                         } else {
@@ -513,11 +522,11 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         }
                     } break;
                     case '>': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '>') {
-                            c = pb_compitf_getc_local(pbc);
+                            c = pb__compiler_getc(pbc);
                             if (c == '>') {
-                                c = pb_compitf_getc_local(pbc);
+                                c = pb__compiler_getc(pbc);
                                 if (c == '=') {
                                     t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGTEQ;
                                 } else {
@@ -537,6 +546,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             goto skipgetc;
                         }
                     } break;
+                    case '?': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_QUESTION; break;
                     case '@': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_AT; break;
                     case '[': {
                         t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_OPENSQB;
@@ -552,7 +562,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         --tc->brackets.len;
                     } break;
                     case '^': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_CARETEQ;
                         } else {
@@ -566,7 +576,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         VLB_ADD(tc->brackets, tmp, 3, 2, goto emem;);
                     } break;
                     case '|': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '|') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_BARBAR;
                         } else if (c == '=') {
@@ -585,7 +595,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         --tc->brackets.len;
                     } break;
                     case '~': {
-                        c = pb_compitf_getc_local(pbc);
+                        c = pb__compiler_getc(pbc);
                         if (c == '=') {
                             t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_TILDEEQ;
                         } else {
@@ -600,10 +610,10 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
             }
         }
         getcandcont:;
-        c = pb_compitf_getc_local(pbc);
+        c = pb__compiler_getc(pbc);
         skipgetc:;
         while (c == ' ' || c == '\t') {
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
         }
         if (c == '\n' || (!preproc && c == ';') || c == -1) {
             endstmt:;
@@ -686,11 +696,11 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
 
     if (tc->preprocinsstage == '#') {
         while (c == ' ' || c == '\t') {
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
         }
         if (c == '(') {
             tc->preprocinsstage = '(';
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
             goto foundopenparen;
         }
         if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
@@ -701,14 +711,14 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
     } else if (tc->preprocinsstage == '(') {
         foundopenparen:;
         while (c == ' ' || c == '\t') {
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
         }
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == ':') {
             pb_compitf_mksrcloc(pbc, 0, &tc->preprocinsidloc);
             tc->preprocinsidpos = tc->strings.len;
             if (!cb_add(&tc->strings, c)) goto emem;
             while (1) {
-                c = pb_compitf_getc_local(pbc);
+                c = pb__compiler_getc(pbc);
                 if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '_') {
                     if (tc->strings.data[tc->strings.len - 1] == ':') {
                         pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid identifier", &el);
@@ -730,11 +740,11 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
     } else if (tc->preprocinsstage == 'I') {
         foundid:;
         while (c == ' ' || c == '\t') {
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
         }
         if (c == ')') {
             tc->preprocinsstage = 0;
-            c = pb_compitf_getc_local(pbc);
+            c = pb__compiler_getc(pbc);
         } else {
             if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
             if (c == '\\') goto ret;
@@ -745,75 +755,51 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
     }
 
     const char* name = tc->strings.data + tc->preprocinsidpos;
-    uint32_t namecrc = strcrc32(name);
+    uint32_t namecrc = strcasecrc32(name);
     tc->strings.len = tc->preprocinsidpos;
     //printf("PREPROCINS: {%s}\n", name);
     struct pb_compiler_tok* t;
     VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
-    enum pb_preproc_type vt;
-    const void* vd;
+    const struct pb_preproc_data* vd;
     for (size_t i = 0; i < pbc->preprocvars.len; ++i) {
         struct pb_preproc_var* v = &pbc->preprocvars.data[i];
-        if (v->type == PB_PREPROC_TYPE_VOID) goto enotfound1;
+        if (v->data.type == PB_PREPROC_TYPE_VOID) break;
         if (v->namecrc == namecrc && !strcasecmp(pbc->preprocvars.names.data + v->name, name)) {
-            if (v->type == PB_PREPROC_TYPE_STR) {
-                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
-                t->data.str.off = tc->strings.len;
-                t->data.str.len = v->str.len;
-                if (!cb_addpartstr(&tc->strings, v->str.data, v->str.len)) goto emem;
-                goto aftervar1;
-            }
-            vt = v->type;
-            vd = &v->b;
-            goto foundvar1;
+            vd = &v->data;
+            goto foundvar;
         }
     }
     for (uint32_t i = 0; i < pbc->opt->preprocvarct; ++i) {
         const struct pb_compiler_opt_preprocvar* v = &pbc->opt->preprocvars[i];
         if (v->namecrc == namecrc && !strcasecmp(v->name, name)) {
-            if (v->type == PB_PREPROC_TYPE_STR) {
-                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
-                t->data.str.off = tc->strings.len;
-                t->data.str.len = v->str.len;
-                if (!cb_addpartstr(&tc->strings, v->str.data, v->str.len)) goto emem;
-                goto aftervar1;
-            }
-            vt = v->type;
-            vd = &v->b;
-            goto foundvar1;
+            vd = &v->data;
+            goto foundvar;
         }
     }
-    enotfound1:;
-    pb_compitf_puterr(pbc, (*e = PB_ERROR_VALUE), "Preprocessor variable '", &tc->preprocinsidloc);
+    pb_compitf_puterr(pbc, (*e = PB_ERROR_DEF), "Preprocessor variable '", &tc->preprocinsidloc);
     cb_addstr(pbc->err, name);
     cb_addstr(pbc->err, "' not found\n");
     goto retfalse;
-    foundvar1:;
-    switch (vt) {
-        DEFAULTCASE(PB_PREPROC_TYPE_BOOL): {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_BOOL; t->data.b = *(const bool*)vd;} goto aftervar1;
-        case PB_PREPROC_TYPE_I8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8;} goto found8;
-        case PB_PREPROC_TYPE_I16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I16;} goto found16;
-        case PB_PREPROC_TYPE_I32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32;} goto found32;
-        case PB_PREPROC_TYPE_I64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I64;} goto found64;
-        case PB_PREPROC_TYPE_U8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8;} goto found8;
-        case PB_PREPROC_TYPE_U16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U16;} goto found16;
-        case PB_PREPROC_TYPE_U32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U32;} goto found32;
-        case PB_PREPROC_TYPE_U64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U64;} goto found64;
-        case PB_PREPROC_TYPE_F32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;} goto found32;
-        case PB_PREPROC_TYPE_F64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64;} goto found64;
+    foundvar:;
+    switch (vd->type) {
+        DEFAULTCASE(PB_PREPROC_TYPE_STR): {
+            t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_STR;
+            t->data.str.off = tc->strings.len;
+            t->data.str.len = vd->str.len;
+            if (!cb_addpartstr(&tc->strings, vd->str.data, vd->str.len)) goto emem;
+        } break;
+        case PB_PREPROC_TYPE_BOOL: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_BOOL; t->data.b = vd->b;} break;
+        case PB_PREPROC_TYPE_I8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8; t->data.i8 = vd->i8;} break;
+        case PB_PREPROC_TYPE_I16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I16; t->data.i16 = vd->i16;} break;
+        case PB_PREPROC_TYPE_I32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32; t->data.i32 = vd->i32;} break;
+        case PB_PREPROC_TYPE_I64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I64; t->data.i64 = vd->i64;} break;
+        case PB_PREPROC_TYPE_U8: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8; t->data.u8 = vd->u8;} break;
+        case PB_PREPROC_TYPE_U16: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U16; t->data.u16 = vd->u16;} break;
+        case PB_PREPROC_TYPE_U32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U32; t->data.u32 = vd->u32;} break;
+        case PB_PREPROC_TYPE_U64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U64; t->data.u64 = vd->u64;} break;
+        case PB_PREPROC_TYPE_F32: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32; t->data.f32 = vd->f32;} break;
+        case PB_PREPROC_TYPE_F64: {t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64; t->data.f64 = vd->f64;} break;
     }
-    found8:;
-    t->data.u8 = *(const uint8_t*)vd;
-    goto aftervar1;
-    found16:;
-    t->data.u16 = *(const uint16_t*)vd;
-    goto aftervar1;
-    found32:;
-    t->data.u32 = *(const uint32_t*)vd;
-    goto aftervar1;
-    found64:;
-    t->data.u64 = *(const uint64_t*)vd;
-    aftervar1:;
     t->type = PB_COMPILER_TOK_TYPE_DATA;
 
     ret:;

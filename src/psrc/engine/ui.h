@@ -1,6 +1,8 @@
 #ifndef PSRC_ENGINE_UI_H
 #define PSRC_ENGINE_UI_H
 
+// TODO: size_t -> int
+
 #include "../resource.h"
 #include "../threading.h"
 #include "../attribs.h"
@@ -153,7 +155,7 @@ enum uielemprop {
     UIELEMPROP_MEDIA_IMAGE, // struct rc_image*
     UIELEMPROP_MEDIA_VIDEO, // struct ui_video*
     UIELEMPROP_MEDIA_SOUND, // struct ui_sound*
-    UIELEMPROP_MEDIA_POSMODE, // enum uielem_media_posmode
+    UIELEMPROP_MEDIA_RENDMODE, // enum uielem_media_rendmode
     UIELEMPROP_MEDIA_FILTMODE, // enum uielem_media_filtmode
     UIELEMPROP_MEDIA_PAUSE, // unsigned
     UIELEMPROP_MEDIA_SEEK, // double seconds
@@ -207,9 +209,9 @@ struct ui_textfrmt {
     uint8_t chpt : 1;
 };
 
-PACKEDENUM ui_imageposmode {
-    UI_IMAGEPOSMODE_STRETCH,
-    UI_IMAGEPOSMODE_TILE
+PACKEDENUM ui_imagerendmode {
+    UI_IMAGERENDMODE_STRETCH,
+    UI_IMAGERENDMODE_TILE
 };
 PACKEDENUM ui_imagefiltmode {
     UI_IMAGEFILTMODE_NEAREST,
@@ -217,7 +219,7 @@ PACKEDENUM ui_imagefiltmode {
 };
 struct ui_image {
     struct rc_image* image;
-    enum ui_imageposmode posmode;
+    enum ui_imagerendmode rendmode;
     enum ui_imagefiltmode filtmode;
 };
 
@@ -241,12 +243,12 @@ enum uielem_list_selmode {
     UIELEM_LIST_SELMODE_COL
 };
 
-enum uielem_media_posmode {
-    UIELEM_MEDIA_POSMODE_STRETCH,
-    UIELEM_MEDIA_POSMODE_FILL,
-    UIELEM_MEDIA_POSMODE_FIT,
-    UIELEM_MEDIA_POSMODE_CENTER,
-    UIELEM_MEDIA_POSMODE_TILE
+enum uielem_media_rendmode {
+    UIELEM_MEDIA_RENDMODE_STRETCH,
+    UIELEM_MEDIA_RENDMODE_FILL,
+    UIELEM_MEDIA_RENDMODE_FIT,
+    UIELEM_MEDIA_RENDMODE_CENTER,
+    UIELEM_MEDIA_RENDMODE_TILE
 };
 enum uielem_media_filtmode {
     UIELEM_MEDIA_FILTMODE_NEAREST,
@@ -370,7 +372,7 @@ struct uistate {
     float scale;
     struct VLB(struct uicontainergroup_statusbits) containerstatus;
     struct VLB(struct uicontainer) containers;
-    struct VLB(size_t) containersorder;
+    struct VLB(size_t) containerorder;
 };
 
 extern struct uistate uistate;

@@ -32,6 +32,7 @@ ifeq ($(CROSS),)
     KERNEL := $(shell uname -s)
     ifeq ($(KERNEL),Darwin)
         USEGLAD := y
+        NOGCSECTIONS := y
     endif
     ifneq ($(USEGLAD),y)
         USEWEAKGL := y
@@ -313,7 +314,14 @@ ifneq ($(CROSS),nxdk)
         _CFLAGS += -ffast-math
     endif
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
-    ifeq ($(CROSS),win32)
+    ifeq ($(CROSS),)
+        _CFLAGS += -I/usr/local/include
+        _LDFLAGS += -L/usr/local/lib
+        ifeq ($(KERNEL),Darwin)
+            _CFLAGS += -I/opt/homebrew/include
+            _LDFLAGS += -L/opt/homebrew/lib
+        endif
+    else ifeq ($(CROSS),win32)
         _LDFLAGS += -static -static-libgcc
     else ifeq ($(CROSS),android)
         _CFLAGS += -fPIC -fcf-protection=none

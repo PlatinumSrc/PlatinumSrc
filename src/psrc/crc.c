@@ -105,19 +105,17 @@ static const uint64_t crc64_table[] = {
 };
 
 uint32_t crc32(const void* d, size_t l) {
-    const uint8_t* d2 = d;
     uint32_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc32_table[(crc ^ *d2++) & 0xFF] ^ (crc >> 8);
+        crc = crc32_table[(crc ^ ((unsigned char*)d)[i]) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
 
 uint64_t crc64(const void* d, size_t l) {
-    const uint8_t* d2 = d;
     uint64_t crc = 0;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc64_table[(crc ^ *d2++) & 0xFF] ^ (crc >> 8);
+        crc = crc64_table[(crc ^ ((unsigned char*)d)[i]) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
@@ -162,18 +160,36 @@ uint64_t strcasecrc64(const char* s) {
     return crc;
 }
 
+uint32_t strncasecrc32(const char* s, size_t n) {
+    uint32_t crc = 0;
+    char c;
+    for (size_t i = 0; i < n; ++i) {
+        c = tolower(s[i]);
+        crc = crc32_table[(crc ^ c) & 0xFF] ^ (crc >> 8);
+    }
+    return crc;
+}
+
+uint64_t strncasecrc64(const char* s, size_t n) {
+    uint64_t crc = 0;
+    char c;
+    for (size_t i = 0; i < n; ++i) {
+        c = tolower(s[i]);
+        crc = crc64_table[(crc ^ c) & 0xFF] ^ (crc >> 8);
+    }
+    return crc;
+}
+
 uint32_t ccrc32(uint32_t crc, const void* d, size_t l) {
-    const uint8_t* d2 = d;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc32_table[(crc ^ *d2++) & 0xFF] ^ (crc >> 8);
+        crc = crc32_table[(crc ^ ((unsigned char*)d)[i]) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
 
 uint64_t ccrc64(uint64_t crc, const void* d, size_t l) {
-    const uint8_t* d2 = d;
     for (size_t i = 0; i < l; ++i) {
-        crc = crc64_table[(crc ^ *d2++) & 0xFF] ^ (crc >> 8);
+        crc = crc64_table[(crc ^ ((unsigned char*)d)[i]) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
@@ -210,6 +226,24 @@ uint64_t cstrcasecrc64(uint64_t crc, const char* s) {
     while ((c = tolower(*s))) {
         crc = crc64_table[(crc ^ c) & 0xFF] ^ (crc >> 8);
         ++s;
+    }
+    return crc;
+}
+
+uint32_t cstrncasecrc32(uint32_t crc, const char* s, size_t n) {
+    char c;
+    for (size_t i = 0; i < n; ++i) {
+        c = tolower(s[i]);
+        crc = crc32_table[(crc ^ c) & 0xFF] ^ (crc >> 8);
+    }
+    return crc;
+}
+
+uint64_t cstrncasecrc64(uint64_t crc, const char* s, size_t n) {
+    char c;
+    for (size_t i = 0; i < n; ++i) {
+        c = tolower(s[i]);
+        crc = crc64_table[(crc ^ c) & 0xFF] ^ (crc >> 8);
     }
     return crc;
 }
