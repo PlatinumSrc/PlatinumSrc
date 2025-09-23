@@ -40,16 +40,16 @@ enum audioopt {
 #define AUDIOPRIO_NORMAL (0)
 #define AUDIOPRIO_MAX (127)
 
-#define AUDIOFXMASK_TOFF (1 << 0)
-#define AUDIOFXMASK_SPEED (1 << 1)
-#define AUDIOFXMASK_VOL_L (1 << 2)
-#define AUDIOFXMASK_VOL_R (1 << 3)
+#define AUDIOFXMASK_TOFF (1U << 0)
+#define AUDIOFXMASK_SPEED (1U << 1)
+#define AUDIOFXMASK_VOL_L (1U << 2)
+#define AUDIOFXMASK_VOL_R (1U << 3)
 #define AUDIOFXMASK_VOL (AUDIOFXMASK_VOL_L | AUDIOFXMASK_VOL_R)
-#define AUDIOFXMASK_LPFILT_L (1 << 4)
-#define AUDIOFXMASK_LPFILT_R (1 << 5)
+#define AUDIOFXMASK_LPFILT_L (1U << 4)
+#define AUDIOFXMASK_LPFILT_R (1U << 5)
 #define AUDIOFXMASK_LPFILT (AUDIOFXMASK_LPFILT_L | AUDIOFXMASK_LPFILT_R)
-#define AUDIOFXMASK_HPFILT_L (1 << 6)
-#define AUDIOFXMASK_HPFILT_R (1 << 7)
+#define AUDIOFXMASK_HPFILT_L (1U << 6)
+#define AUDIOFXMASK_HPFILT_R (1U << 7)
 #define AUDIOFXMASK_HPFILT (AUDIOFXMASK_HPFILT_L | AUDIOFXMASK_HPFILT_R)
 #define AUDIOFXMASK_ALL (-1U)
 struct audiofx {
@@ -60,14 +60,14 @@ struct audiofx {
     float hpfilt[2];
 };
 
-#define AUDIO3DFXMASK_POS (1 << 0)
-#define AUDIO3DFXMASK_RANGE (1 << 1)
-#define AUDIO3DFXMASK_RADIUS (1 << 2)
-#define AUDIO3DFXMASK_VOLDAMP (1 << 3)
-#define AUDIO3DFXMASK_FREQDAMP (1 << 4)
-#define AUDIO3DFXMASK_NODOPPLER (1 << 5)
-#define AUDIO3DFXMASK_RELPOS (1 << 6)
-#define AUDIO3DFXMASK_RELROT (1 << 7)
+#define AUDIO3DFXMASK_POS (1U << 0)
+#define AUDIO3DFXMASK_RANGE (1U << 1)
+#define AUDIO3DFXMASK_RADIUS (1U << 2)
+#define AUDIO3DFXMASK_VOLDAMP (1U << 3)
+#define AUDIO3DFXMASK_FREQDAMP (1U << 4)
+#define AUDIO3DFXMASK_NODOPPLER (1U << 5)
+#define AUDIO3DFXMASK_RELPOS (1U << 6)
+#define AUDIO3DFXMASK_RELROT (1U << 7)
 #define AUDIO3DFXMASK_ALL (-1U)
 struct audio3dfx {
     struct worldcoord pos;
@@ -88,8 +88,8 @@ struct audiocalcfx {
     unsigned hpfiltmul[2]; // from 0 to output freq
 };
 
-#define AUDIOEMITTER3DFLAG_PAUSED (1 << 0)
-#define AUDIOEMITTER3DFLAG_NOENV (1 << 1)
+#define AUDIOEMITTER3DFLAG_PAUSED (1U << 0)
+#define AUDIOEMITTER3DFLAG_NOENV (1U << 1)
 struct audioemitter3d {
     unsigned player;
     struct audiofx fx;
@@ -109,8 +109,8 @@ struct audioemitter3d {
     float dist;
 };
 
-#define AUDIOEMITTER2DFLAG_PAUSED (1 << 0)
-#define AUDIOEMITTER2DFLAG_APPLYENV (1 << 1)
+#define AUDIOEMITTER2DFLAG_PAUSED (1U << 0)
+#define AUDIOEMITTER2DFLAG_APPLYENV (1U << 1)
 struct audioemitter2d {
     unsigned player;
     struct audiofx fx;
@@ -122,10 +122,10 @@ struct audioemitter2d {
     uint8_t fxchimm;
 };
 
-#define SOUNDFLAG_LOOP (1 << 0)
-#define SOUNDFLAG_WRAP (1 << 1)
-#define SOUNDIFLAG_USESCB (1 << 0)
-#define SOUNDIFLAG_NEEDSINIT (1 << 1)
+#define SOUNDFLAG_LOOP (1U << 0)
+#define SOUNDFLAG_WRAP (1U << 1)
+#define SOUNDIFLAG_USESCB (1U << 0)
+#define SOUNDIFLAG_NEEDSINIT (1U << 1)
 struct audiosound {
     int emitter;
     long loop;
@@ -178,15 +178,15 @@ struct audiosound {
     };
 };
 
-#define AUDIOENVMASK_PANNING (1 << 0)
-#define AUDIOENVMASK_LPFILT (1 << 1)
-#define AUDIOENVMASK_HPFILT (1 << 2)
-#define AUDIOENVMASK_REVERB_DELAY (1 << 3)
-#define AUDIOENVMASK_REVERB_MIX (1 << 4)
-#define AUDIOENVMASK_REVERB_FEEDBACK (1 << 5)
-#define AUDIOENVMASK_REVERB_MERGE (1 << 6)
-#define AUDIOENVMASK_REVERB_LPFILT (1 << 7)
-#define AUDIOENVMASK_REVERB_HPFILT (1 << 8)
+#define AUDIOENVMASK_PANNING (1U << 0)
+#define AUDIOENVMASK_LPFILT (1U << 1)
+#define AUDIOENVMASK_HPFILT (1U << 2)
+#define AUDIOENVMASK_REVERB_DELAY (1U << 3)
+#define AUDIOENVMASK_REVERB_MIX (1U << 4)
+#define AUDIOENVMASK_REVERB_FEEDBACK (1U << 5)
+#define AUDIOENVMASK_REVERB_MERGE (1U << 6)
+#define AUDIOENVMASK_REVERB_LPFILT (1U << 7)
+#define AUDIOENVMASK_REVERB_HPFILT (1U << 8)
 #define AUDIOENVMASK_REVERB (AUDIOENVMASK_REVERB_DELAY | AUDIOENVMASK_REVERB_FEEDBACK | AUDIOENVMASK_REVERB_MIX | \
                             AUDIOENVMASK_REVERB_MERGE | AUDIOENVMASK_REVERB_LPFILT | AUDIOENVMASK_REVERB_HPFILT)
 #define AUDIOENVMASK_ALL (-1U)

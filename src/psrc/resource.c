@@ -390,7 +390,7 @@ static bool lsRc_norslv(enum rcprefix p, const char* r, struct rcls* l) {
             {
                 size_t oldlen = dirbmp.len;
                 size_t amount = (mods.len + 8) / 8;
-                VLB_EXPAND(dirbmp, amount, 2, 1, VLB_OOM_NOP /* TODO */);
+                VLB_EXPANDBY(dirbmp, amount, 2, 1, VLB_OOM_NOP /* TODO */);
                 memset(dirbmp.data + oldlen, 0, amount);
             }
             ((uint8_t*)dirbmp.data)[(uintptr_t)f->dirbits + dirind / 8] |= 1 << (dirind % 8);
@@ -471,7 +471,7 @@ static inline void lscMoveToFront(int di, bool exists) {
         lscache.head = di;
     }
     #if 0
-    printf(" -> [%d,%d]\n", lscache.head, lscache.tail); 
+    printf(" -> [%d,%d]\n", lscache.head, lscache.tail);
     puts("STATE AFTER");
     for (int i = 0; i < lscache.size; ++i) {
         printf("[%d]: [%d,%d]\n", i, lscache.data[i].prev, lscache.data[i].next);

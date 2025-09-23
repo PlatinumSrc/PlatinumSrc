@@ -4,7 +4,6 @@
 #include "../util.h"
 
 #include <stdio.h>
-#include <inttypes.h>
 
 static const struct pb_compiler_opt defaultcompopt = PB_COMPILER_OPT_DEFAULTS;
 
@@ -14,13 +13,13 @@ void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg
     else cb_addstr(pbc->err, pb__error_str[e]);
     if (el) {
         struct pb_compiler_source* s = &pbc->sources.data[el->src];
-        uint32_t incline = s->from.line, inccol = s->from.col;
-        char tmp[12];
+        unsigned long incline = s->from.line, inccol = s->from.col;
+        char tmp[21];
         cb_addstr(pbc->err, " at line ");
-        snprintf(tmp, 12, "%"PRIu32, el->line);
+        snprintf(tmp, 21, "%lu", el->line);
         cb_addstr(pbc->err, tmp);
         cb_addstr(pbc->err, " column ");
-        snprintf(tmp, 12, "%"PRIu32, el->col);
+        snprintf(tmp, 21, "%lu", el->col);
         cb_addstr(pbc->err, tmp);
         cb_addstr(pbc->err, " of ");
         cb_addstr(pbc->err, s->type);
@@ -31,10 +30,10 @@ void pb_compitf_puterr(struct pb_compiler* pbc, enum pb_error e, const char* msg
         while (incline) {
             s = &pbc->sources.data[s->from.src];
             cb_addstr(pbc->err, " from line ");
-            snprintf(tmp, 12, "%"PRIu32, incline);
+            snprintf(tmp, 21, "%lu", incline);
             cb_addstr(pbc->err, tmp);
             cb_addstr(pbc->err, " column ");
-            snprintf(tmp, 12, "%"PRIu32, inccol);
+            snprintf(tmp, 21, "%lu", inccol);
             cb_addstr(pbc->err, tmp);
             cb_addstr(pbc->err, " of ");
             cb_addstr(pbc->err, s->type);
@@ -81,82 +80,7 @@ bool pb_compitf_pushsource(struct pb_compiler* pbc, struct datastream* ds, const
     return true;
 }
 
-static enum pb_error pb__evalcmd(struct pb_compiler* pbc, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr) {
-    again:;
-    if (tcdata[0].type != PB_COMPILER_TOK_TYPE_ID) {
-        pb_compitf_puterrln(pbc, PB_ERROR_SYNTAX, "Expected identifier", &tcdata[0].loc);
-        return PB_ERROR_SYNTAX;
-    }
-    if (tclen > 1) {
-        if (tcdata[1].type == PB_COMPILER_TOK_TYPE_SYM && tcdata[1].subtype == PB_COMPILER_TOK_SUBTYPE_SYM_COLON) {
-            // TODO: create label
-            tclen -= 2;
-            if (!tclen) return PB_ERROR_NONE;
-            tcdata += 2;
-            goto again;
-        }
-        size_t i = 1;
-        while (1) {
-            struct pb_compiler_tok* t = &tcdata[i];
-            if (t->type == PB_COMPILER_TOK_TYPE_SYM) {
-                if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR) goto exprdetectcont;
-                if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DOT) {
-                    if (i == tclen - 1) break;
-                    ++i;
-                    ++t;
-                    if (t->type == PB_COMPILER_TOK_TYPE_ID) goto exprdetectcont;
-                }
-                if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_PERCEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_AMPEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_ASTEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_PLUSEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_LTLTEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_LTLTLTEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_EQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_GTGTEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGTEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_CARETEQ ||
-                    t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_BAREQ) goto isexpr;
-            }
-            break;
-            exprdetectcont:;
-            ++i;
-            if (i == tclen) break;
-        }
-    }
-    char* id = tcstr->data + tcdata[0].id;
-    // TODO: detect '.'
-    if (id[0] != ':') {
-        char* ns;
-        char* name = NULL;
-        for (char* tmp = id + 1; *tmp; ++tmp) {
-            if (*tmp == ':') name = tmp;
-        }
-        if (!name) {
-            ns = NULL;
-            name = id;
-            // TODO: search builtins
-        } else {
-            ns = id;
-            *name++ = 0;
-        }
-        // TODO: search in curns for cmd then sub
-        // TODO: search in using for cmd then sub
-        // TODO: search in parent namespaces for cmd then sub
-        if (ns) *--name = ':';
-    } else {
-        ++id;
-        // TODO: search from root for cmd then sub
-    }
-    pb_compitf_puterr(pbc, PB_ERROR_DEF, "Command or subroutine '", &tcdata[0].loc); // TODO: detect '.' and generate correct error
-    cb_addstr(pbc->err, id);
-    cb_addstr(pbc->err, "' not found\n");
-    return PB_ERROR_DEF;
-
-    isexpr:;
-    return PB_ERROR_NONE;
-}
+static enum pb_error pb__evalcmd(struct pb_compiler* pbc, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr, unsigned flags, bool func, unsigned depth, struct pb_rodata* d);
 
 #if DEBUG(1)
 static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
@@ -206,15 +130,15 @@ static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
         struct pb_compiler_tok* t = &tc->data[i];
         switch (t->type) {
             case PB_COMPILER_TOK_TYPE_ID:
-                printf("ID(%u:%u){%s}", t->loc.line, t->loc.col, tc->strings.data + t->id);
+                printf("ID(%lu:%lu){%s}", t->loc.line, t->loc.col, tc->strings.data + t->id);
                 break;
             case PB_COMPILER_TOK_TYPE_SYM:
-                printf("SYM(%u:%u){%s}", t->loc.line, t->loc.col, symstr[t->subtype]);
+                printf("SYM(%lu:%lu){%s}", t->loc.line, t->loc.col, symstr[t->subtype]);
                 break;
             case PB_COMPILER_TOK_TYPE_DATA:
                 if (t->subtype == PB_COMPILER_TOK_SUBTYPE_DATA_STR) {
                     char* s = tc->strings.data + t->data.str.off;
-                    printf("DATA(%u:%u):%s{", t->loc.line, t->loc.col, datastr[t->subtype]);
+                    printf("DATA(%lu:%lu):%s{", t->loc.line, t->loc.col, datastr[t->subtype]);
                     for (size_t i = 0; i < t->data.str.len; ++i) {
                         char c = s[i];
                         if (!c) {
@@ -238,9 +162,9 @@ static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
                     }
                     putchar('}');
                 } else if (t->subtype >= PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW && t->subtype <= PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW) {
-                    printf("DATA(%u:%u):%s{%s}", t->loc.line, t->loc.col, datastr[t->subtype], tc->strings.data + t->data_raw);
+                    printf("DATA(%lu:%lu):%s{%s}", t->loc.line, t->loc.col, datastr[t->subtype], tc->strings.data + t->data_raw);
                 } else {
-                    printf("DATA(%u:%u):%s{", t->loc.line, t->loc.col, datastr[t->subtype]);
+                    printf("DATA(%lu:%lu):%s{", t->loc.line, t->loc.col, datastr[t->subtype]);
                     switch (t->subtype) {
                         DEFAULTCASE(PB_COMPILER_TOK_SUBTYPE_DATA_BOOL): fputs(t->data.b ? "TRUE" : "FALSE", stdout); break;
                         case PB_COMPILER_TOK_SUBTYPE_DATA_I8: printf("%d", (int)t->data.i8); break;
@@ -285,9 +209,14 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const ch
     if (!cb_init(&pbc.preproctok.strings, 256)) goto emem;
     VLB_INIT(pbc.preproctok.brackets, 8, goto emem;);
 
+    VLB_INIT(pbc.scopes, 1, goto emem;);
+    if (!cb_init(&pbc.scopes.strings, 256)) goto emem;
+
     if (!cb_addstr(&pbc.sources.names, ds->name) || !cb_add(&pbc.sources.names, 0)) goto emem;
     VLB_ADD(pbc.sources, (struct pb_compiler_source){.type = (type) ? type : "file"}, 3, 2, goto emem;);
     pbc.stream = (struct pb_compiler_stream){.ds = ds, .line = 1, .col = 1};
+
+    VLB_ADD(pbc.scopes, (struct pb_compiler_scope){.type = PB_COMPILER_SCOPE_TYPE_BLOCK}, 3, 2, goto emem;);
 
     while (1) {
         int c;
@@ -318,7 +247,7 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const ch
             dbg_printtok(&pbc.preproctok);
             #endif
             if (pbc.preproctok.len) {
-                e = pb__evalpreproccmd(&pbc, &pbc.preproctok);
+                e = pb__evalpreproccmd(&pbc, NULL, pbc.preproctok.data, pbc.preproctok.len, &pbc.preproctok.strings, false, 0, NULL);
                 if (e) goto reterr;
                 pbc.preproctok.len = 0;
                 pbc.preproctok.strings.len = 0;
@@ -335,7 +264,7 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const ch
             dbg_printtok(&pbc.comptok);
             #endif
             if (pbc.comptok.len) {
-                e = pb__evalcmd(&pbc, pbc.comptok.data, pbc.comptok.len, &pbc.comptok.strings);
+                e = pb__evalcmd(&pbc, pbc.comptok.data, pbc.comptok.len, &pbc.comptok.strings, 0, false, 0, NULL);
                 if (e) goto reterr;
                 pbc.comptok.len = 0;
                 pbc.comptok.strings.len = 0;
@@ -356,6 +285,9 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const ch
 
     ret:;
 
+    VLB_FREE(pbc.scopes);
+    cb_dump(&pbc.scopes.strings);
+
     VLB_FREE(pbc.preproctok.brackets);
     cb_dump(&pbc.preproctok.strings);
     VLB_FREE(pbc.preproctok);
@@ -374,4 +306,95 @@ enum pb_error pb_prog_compile(struct pbasic* pb, struct datastream* ds, const ch
 
 void pb_prog_destroy(struct pbasic* pb, uint32_t progid) {
 
+}
+
+static enum pb_error pb__evalcmd(struct pb_compiler* pbc, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr, unsigned flags, bool func, unsigned depth, struct pb_rodata* d) {
+    bool subincmplx = false;
+    if (!func) {
+        again:;
+        if (tcdata[0].type != PB_COMPILER_TOK_TYPE_ID) {
+            pb_compitf_puterrln(pbc, PB_ERROR_SYNTAX, "Expected identifier", &tcdata[0].loc);
+            return PB_ERROR_SYNTAX;
+        }
+        if (tclen > 1) {
+            if (tcdata[1].type == PB_COMPILER_TOK_TYPE_SYM && tcdata[1].subtype == PB_COMPILER_TOK_SUBTYPE_SYM_COLON) {
+                // TODO: create label
+                tclen -= 2;
+                if (!tclen) return PB_ERROR_NONE;
+                tcdata += 2;
+                goto again;
+            }
+            size_t i = 1;
+            while (1) {
+                struct pb_compiler_tok* t = &tcdata[i];
+                if (t->type == PB_COMPILER_TOK_TYPE_SYM) {
+                    if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DOLLAR) goto exprdetectcont;
+                    if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DOT) {
+                        if (i == tclen - 1) break;
+                        ++i;
+                        ++t;
+                        if (t->type == PB_COMPILER_TOK_TYPE_ID) goto exprdetectcont;
+                        subincmplx = true;
+                    }
+                    if (t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_PERCEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_AMPEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_ASTEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_PLUSEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_DASHEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_LTLTEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_LTLTLTEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_EQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_GTGTEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_GTGTGTEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_CARETEQ ||
+                        t->subtype == PB_COMPILER_TOK_SUBTYPE_SYM_BAREQ) goto isexpr;
+                }
+                break;
+                exprdetectcont:;
+                ++i;
+                if (i == tclen) break;
+            }
+            if (subincmplx) {
+                #if DEBUG(1)
+                puts("SUBINCMPLX");
+                #endif
+            }
+        }
+    }
+    char* id = tcstr->data + tcdata[0].id;
+    --tclen;
+    ++tcdata;
+
+    if (id[0] != ':') {
+        char* ns;
+        char* name = NULL;
+        for (char* tmp = id + 1; *tmp; ++tmp) {
+            if (*tmp == ':') name = tmp;
+        }
+        if (!name) {
+            ns = NULL;
+            name = id;
+            // TODO: search builtins
+        } else {
+            ns = id;
+            *name++ = 0;
+        }
+        // TODO: search in curns for cmd then sub
+        // TODO: search in using for cmd then sub
+        // TODO: search in parent namespaces for cmd then sub
+        if (ns) *--name = ':';
+    } else {
+        ++id;
+        // TODO: search from root for cmd then sub
+    }
+    pb_compitf_puterr(pbc, PB_ERROR_DEF, "Command or subroutine '", &tcdata[0].loc); // TODO: detect '.' and generate correct error
+    cb_addstr(pbc->err, id);
+    cb_addstr(pbc->err, "' not found\n");
+    return PB_ERROR_DEF;
+
+    isexpr:;
+    #if DEBUG(1)
+    puts("ISEXPR");
+    #endif
+    return PB_ERROR_NONE;
 }

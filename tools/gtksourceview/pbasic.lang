@@ -90,7 +90,6 @@
       <keyword>END</keyword>
       <keyword>EVENT</keyword>
       <keyword>EXIT</keyword>
-      <keyword>FALL</keyword>
       <keyword>FLOOR</keyword>
       <keyword>FOR</keyword>
       <keyword>GOSUB</keyword>
@@ -113,8 +112,9 @@
       <keyword>SUB</keyword>
       <keyword>SWITCH</keyword>
       <keyword>TAN</keyword>
+      <keyword>TO</keyword>
       <keyword>TYPEDEF</keyword>
-      <keyword>UNUSING</keyword>
+      <keyword>UNTIL</keyword>
       <keyword>USING</keyword>
       <keyword>WHILE</keyword>
     </context>
@@ -142,10 +142,6 @@
       <keyword>REF</keyword>
       <keyword>CONST</keyword>
       <keyword>SUB</keyword>
-    </context>
-
-    <context id="symbolic-types" style-ref="type">
-      <match>(?&lt;![\w\.:])\.\.\.(?![\w\.:])</match>
     </context>
 
     <context id="string" style-ref="string" end-at-line-end="true" class="string" class-disabled="no-spell-check">
@@ -204,7 +200,6 @@
         <context ref="keywords"/>
         <context ref="symbolic-keywords"/>
         <context ref="types"/>
-        <context ref="symbolic-types"/>
         <context ref="string"/>
         <context ref="decimal"/>
         <context ref="float"/>

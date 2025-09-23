@@ -117,7 +117,7 @@ struct p3m_texture {
             char* rcpath;
         } external;
     };
-    enum p3m_textype type; 
+    enum p3m_textype type;
 };
 
 struct p3m_bone {
@@ -167,13 +167,13 @@ struct p3m_actionbone {
     uint8_t scalecount;
 };
 
-#define P3M_LOADFLAG_IGNOREGEOM    (1 << 0) // ignore verts, norms, inds, weights, mats, and textures
-#define P3M_LOADFLAG_IGNORENORMS   (1 << 1) // ignore norms
-#define P3M_LOADFLAG_IGNOREEMBTEXS (1 << 2) // ignore embedded textures
-#define P3M_LOADFLAG_IGNORESKEL    (1 << 3) // ignore weights and bones
-#define P3M_LOADFLAG_IGNOREANIMS   (1 << 4) // ignore anims and acts
+#define P3M_LOADFLAG_IGNOREGEOM    (1U << 0) // ignore verts, norms, inds, weights, mats, and textures
+#define P3M_LOADFLAG_IGNORENORMS   (1U << 1) // ignore norms
+#define P3M_LOADFLAG_IGNOREEMBTEXS (1U << 2) // ignore embedded textures
+#define P3M_LOADFLAG_IGNORESKEL    (1U << 3) // ignore weights and bones
+#define P3M_LOADFLAG_IGNOREANIMS   (1U << 4) // ignore anims and acts
 
-#define P3M_FILEFLAG_PART_HASNORMS (1 << 0) 
+#define P3M_FILEFLAG_PART_HASNORMS (1U << 0)
 
 bool p3m_load(struct datastream*, uint8_t flags, struct p3m*);
 void p3m_free(struct p3m*);

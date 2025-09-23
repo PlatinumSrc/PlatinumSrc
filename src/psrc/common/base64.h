@@ -18,7 +18,7 @@ struct base64decstate {
 };
 
 #define BASE64ENCPART_FLAG_FIRST (1U << 0)
-#define BASE64ENCPART_FLAG_LAST (1U << 1)
+#define BASE64ENCPART_FLAG_LAST  (1U << 1)
 #define BASE64DECPART_FLAG_FIRST (1U << 0)
 
 size_t base64enc(const void*, size_t, char* out);

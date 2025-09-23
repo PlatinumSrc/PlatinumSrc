@@ -13,13 +13,13 @@ Option:
   MediaFootPadding        : false
   EnableCrypt             : false
   EnableCompress          : true
-  
+
 AccessControlInfo:
   CoreVersion                   : 2
   DescVersion                   : 2
-  
+
   ReleaseKernelMajor            : "02"
-  ReleaseKernelMinor            : "33" 
+  ReleaseKernelMinor            : "33"
 
   UseExtSaveData                : false
 
@@ -54,10 +54,10 @@ AccessControlInfo:
 
   IORegisterMapping:
    - 1ff00000-1ff7ffff
-  MemoryMapping: 
+  MemoryMapping:
    - 1f000000-1f5fffff:r
 
-  SystemCallAccess: 
+  SystemCallAccess:
     ControlMemory: 1
     QueryMemory: 2
     ExitProcess: 3
@@ -199,7 +199,7 @@ SystemControlInfo:
   RemasterVersion: 0
   StackSize: 0x40000
 
-  Dependency: 
+  Dependency:
     ac: 0x0004013000002402
     am: 0x0004013000001502
     boss: 0x0004013000003402

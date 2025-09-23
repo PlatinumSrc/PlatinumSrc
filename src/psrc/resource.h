@@ -218,7 +218,7 @@ void* rcmgr_realloc(void*, size_t);
 void clRcCache(void);
 void quitRcMgr(bool quick);
 
-#define LOADRC_FLAG_ALLOWNATIVE (1 << 0)
+#define LOADRC_FLAG_ALLOWNATIVE (1U << 0)
 
 void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, struct charbuf* err);
 void rlsRc(void*, bool force);

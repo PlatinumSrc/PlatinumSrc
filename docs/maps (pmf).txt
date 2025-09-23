@@ -10,6 +10,7 @@ Format:
     <Header> <Data>
 
     Header:
+
         <char[3]: {'P', 'M', 'F'}>
         <u8: Major version>
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
@@ -18,7 +19,9 @@ Format:
         <<char[1...]: {..., 0}>: Authors>
         <<char[1...]: {..., 0}>: Compiler info>
         <<u8: 0..32>: Gamemode count> [<char[2..16]: {..., 0}>: Gamemode name]...
+
     Data:
+
         <u32: String table size> <char[]: String table>
         <u32: Size of embedded resource archive> [Embedded resource PAF archive (See 'archives (paf).txt')]
         <u16: Extension count> [u32: Size of extension]... [Extension]...

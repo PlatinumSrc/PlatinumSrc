@@ -7,10 +7,10 @@
 
 #include "../attribs.h"
 
-#define FA_BOLD (1 << 0)
-#define FA_ITALIC (1 << 1)
-#define FA_UNDERLINE (1 << 2)
-#define FA_STRIKETHROUGH (1 << 3)
+#define FA_BOLD          (1U << 0)
+#define FA_ITALIC        (1U << 1)
+#define FA_UNDERLINE     (1U << 2)
+#define FA_STRIKETHROUGH (1U << 3)
 
 #define FONTCOLOR(r, g, b, a) ((((r) & 255) << 24) | (((g) & 255) << 16) | (((b) & 255) << 8) | ((a) & 255))
 

@@ -41,7 +41,7 @@ const char* platid[PLAT__COUNT] = {
 };
 const char* const* platdir[PLAT__COUNT] = {
     (const char* const[]){NULL},
-    (const char* const[]){"unix", NULL}, 
+    (const char* const[]){"unix", NULL},
     (const char* const[]){"linux", "unix", NULL},
     (const char* const[]){"windows", "win32", NULL},
     (const char* const[]){"macos", "unix", NULL},

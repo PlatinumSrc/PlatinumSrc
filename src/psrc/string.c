@@ -38,6 +38,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, size_t* l) {
                 size *= 2;
                 char** tmpptr = realloc(data, size * sizeof(*data));
                 if (!tmpptr) {
+                    cb_dump(&tmpcb);
                     free(data);
                     return NULL;
                 }
@@ -58,6 +59,7 @@ char** splitstrlist(const char* s, char delim, bool nullterm, size_t* l) {
         if (len != size) {
             char** tmpptr = realloc(data, len * sizeof(*data));
             if (!tmpptr) {
+                cb_dump(&tmpcb);
                 free(data);
                 return NULL;
             }
@@ -101,6 +103,7 @@ char** splitstr(const char* s, const char* delims, bool nullterm, size_t* l) {
                 size *= 2;
                 char** tmpptr = realloc(data, size * sizeof(*data));
                 if (!tmpptr) {
+                    cb_dump(&tmpcb);
                     free(data);
                     return NULL;
                 }
@@ -122,6 +125,7 @@ char** splitstr(const char* s, const char* delims, bool nullterm, size_t* l) {
         if (len != size) {
             char** tmpptr = realloc(data, len * sizeof(*data));
             if (!tmpptr) {
+                cb_dump(&tmpcb);
                 free(data);
                 return NULL;
             }

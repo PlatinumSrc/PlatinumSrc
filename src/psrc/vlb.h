@@ -18,7 +18,7 @@
     } else {\
         register size_t VLB__tmp = (VLB__b).size;\
         VLB__tmp = VLB__tmp * (VLB__en) / (VLB__ed);\
-        if (VLB__tmp == (VLB__b).size) ++VLB__tmp;\
+        if (VLB__tmp <= (VLB__b).size) VLB__tmp = (VLB__b).size + 1;\
         void* VLB__ptr = realloc((VLB__b).data, VLB__tmp * sizeof(*(VLB__b).data));\
         if (VLB__ptr) {(VLB__b).data = VLB__ptr; VLB__do; (VLB__b).size = VLB__tmp;}\
         else {__VA_ARGS__}\
@@ -30,7 +30,7 @@
         do {\
             register size_t VLB__old = VLB__tmp;\
             VLB__tmp = VLB__tmp * (VLB__en) / (VLB__ed);\
-            if (VLB__tmp == VLB__old) ++VLB__tmp;\
+            if (VLB__tmp <= VLB__old) VLB__tmp = VLB__old + 1;\
         } while (VLB__tmp < (VLB__l));\
         void* VLB__ptr = realloc((VLB__b).data, VLB__tmp * sizeof(*(VLB__b).data));\
         if (VLB__ptr) {(VLB__b).data = VLB__ptr; (VLB__b).len = (VLB__l); (VLB__b).size = VLB__tmp;}\
@@ -55,7 +55,7 @@
     VLB__EXP((VLB__b), (VLB__en), (VLB__ed), (VLB__o) = &(VLB__b).data[(VLB__b).len++], __VA_ARGS__);\
 } while (0)
 
-#define VLB_EXPAND(VLB__b, VLB__a, VLB__en, VLB__ed, ...) do {\
+#define VLB_EXPANDBY(VLB__b, VLB__a, VLB__en, VLB__ed, ...) do {\
     register size_t VLB__l = (VLB__b).len + (VLB__a);\
     VLB__EXP_MULTI((VLB__b), (VLB__l), (VLB__en), (VLB__ed), __VA_ARGS__);\
 } while (0)

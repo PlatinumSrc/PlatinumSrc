@@ -42,8 +42,8 @@ uint64_t altutime(void) {
 
 void microwait(uint64_t d) {
     #if PLATFORM == PLAT_NXDK
-        LARGE_INTEGER _d = {.QuadPart = d * -10};
-        KeDelayExecutionThread(UserMode, true, &_d);
+        LARGE_INTEGER tmpd = {.QuadPart = d * -10};
+        KeDelayExecutionThread(UserMode, true, &tmpd);
     #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         #ifndef PSRC_NOMT
         static THREADLOCAL HANDLE timer = NULL;
@@ -51,8 +51,8 @@ void microwait(uint64_t d) {
         static HANDLE timer = NULL;
         #endif
         if (!timer) timer = CreateWaitableTimer(NULL, true, NULL);
-        LARGE_INTEGER _d = {.QuadPart = d * -10};
-        SetWaitableTimer(timer, &_d, 0, NULL, NULL, false);
+        LARGE_INTEGER tmpd = {.QuadPart = d * -10};
+        SetWaitableTimer(timer, &tmpd, 0, NULL, NULL, false);
         WaitForSingleObject(timer, INFINITE);
     #elif PLATFORM == PLAT_MACOS && 0 // TODO: detect macos version
         d *= 1000;

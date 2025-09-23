@@ -12,8 +12,9 @@
 #include <ctype.h>
 
 struct pbasic;
-struct pb_compiler;
 struct pb_rodata;
+struct pb_compiler;
+struct pb_compiler_tok;
 
 enum pb_error {
     PB_ERROR_NONE,
@@ -33,6 +34,7 @@ PACKEDENUM pb_op {
     PB_OP_HALT,         // Exit program with no return value
     PB_OP_EXIT,         // Exit with a return value (pops: retval)
     PB_OP_ENTERSCOPE,   // Enter a new scope (reads: localvarct)
+    PB_OP_RESIZESCOPE,  // Resizes the current scope (reads: localvarct)
     PB_OP_EXITSCOPE,    // Exit the current scope
     PB_OP_DIMGLOBAL,    // Set up a global var (reads: id, typeid, dims; pops: [size]...)
     PB_OP_REDIMGLOBAL,  // Resize or redefine a global var (reads: id, typeid, dims; pops: [size]...)
@@ -93,15 +95,15 @@ PACKEDENUM pb_op {
     PB_OP_CAST,         // Cast to another type (reads: typeid; pops: value; pushes: result)
     PB_OP_TYPEEQ,       // Type of top value is equal to type ID (TYPE(IS ...)) (reads: typeid; pushes: result)
     PB_OP_TYPEAPEQ,     // Type of top value is approximately equal to type ID (TYPE(SIMILAR ...)) (reads: typeid; pushes: result)
-    PB_OP_COLLNEXT,       // Gets the next object in a collection (COLL(NEXT)) (pops: obj; pushes: argobj)
-    PB_OP_COLLSKIP,       // Go forwards by the specified amount (COLL(SKIP ...)) (pops: amount, obj)
-    PB_OP_COLLBACK,       // Go back by the specified amount (COLL(BACK ...)) (pops: amount, obj)
-    PB_OP_COLLTELL,       // Gets the index of the current arg (COLL(TELL)) (pops: obj; pushes: index)
-    PB_OP_COLLSEEK,       // Go to the specified arg (COLL(SEEK)) (pops: index, obj)
-    PB_OP_COLLINS,        // Inserts an object at the end (COLL(INS ...)) (pops: obj, obj)
-    PB_OP_COLLINSI,       // Inserts an object at the specified index (COLL(INS ..., ...)) (pops: obj, index, obj)
-    PB_OP_COLLDEL,        // Removes the specified arg (COLL(DEL ...)) (pops: index, obj)
-    PB_OP_COLLREPL,       // Replaces the specified arg (COLL(REPL ...)) (pops: obj, index, obj)
+    PB_OP_COLLNEXT,     // Gets the next object in a collection (COLL(NEXT)) (pops: obj; pushes: argobj)
+    PB_OP_COLLSKIP,     // Go forwards by the specified amount (COLL(SKIP ...)) (pops: amount, obj)
+    PB_OP_COLLBACK,     // Go back by the specified amount (COLL(BACK ...)) (pops: amount, obj)
+    PB_OP_COLLTELL,     // Gets the index of the current arg (COLL(TELL)) (pops: obj; pushes: index)
+    PB_OP_COLLSEEK,     // Go to the specified arg (COLL(SEEK)) (pops: index, obj)
+    PB_OP_COLLINS,      // Inserts an object at the end (COLL(INS ...)) (pops: obj, obj)
+    PB_OP_COLLINSI,     // Inserts an object at the specified index (COLL(INS ..., ...)) (pops: obj, index, obj)
+    PB_OP_COLLDEL,      // Removes the specified arg (COLL(DEL ...)) (pops: index, obj)
+    PB_OP_COLLREPL,     // Replaces the specified arg (COLL(REPL ...)) (pops: obj, index, obj)
     PB_OP_EVLSNSYNC,    // Adds an event listener for a SYNC event (EVENT(LISTEN SYNC ..., SUB ...)) (pops: sub, event; pushes: id)
     PB_OP_EVLSNSYNCI,   // Adds an event listener from the stack for a SYNC event (EVENT(LISTEN SYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
     PB_OP_EVLSNASYNC,   // Adds an event listener for an ASYNC event (EVENT(LISTEN ASYNC ..., SUB ...)) (pops: sub, event; pushes: id)
@@ -118,8 +120,8 @@ PACKEDENUM pb_op {
 };
 
 PACKEDENUM pb_type {
-    PB_TYPE_VOID,
-    PB_TYPE_ANY,
+    PB_TYPE_VOID, // ANY
+    PB_TYPE_NULL,
     PB_TYPE_STR,
     PB_TYPE_BOOL,
     PB_TYPE_I8,
@@ -383,16 +385,6 @@ typedef enum pb_error (*pb_proc_ccallcb)(struct pbasic*, uint32_t procid, const 
 typedef enum pb_error (*pb_event_synchandler)(struct pbasic*, uint32_t procid, const char* name, uint32_t namelen, void* userdata);
 typedef enum pb_error (*pb_event_asynchandler)(struct pbasic*, uint32_t procid, const char* name, uint32_t namelen, void* userdata);
 
-typedef enum pb_error (*pb_compiler_addon_readnamedcb)(struct pb_compiler*, const char* ns, uint32_t nslen, uint32_t nscrc, const char* name, uint32_t namelen, uint32_t namecrc);
-struct pb_compiler_addon {
-    pb_compiler_addon_readnamedcb preproccmd;
-    pb_compiler_addon_readnamedcb preprocfunc;
-    pb_compiler_addon_readnamedcb preprocvar;
-    pb_compiler_addon_readnamedcb cmd;
-    pb_compiler_addon_readnamedcb func;
-    pb_compiler_addon_readnamedcb var;
-};
-
 PACKEDENUM pb_preproc_type {
     PB_PREPROC_TYPE_VOID,
     PB_PREPROC_TYPE_STR,
@@ -413,7 +405,7 @@ struct pb_preproc_data {
     union {
         struct {
             const char* data;
-            uint32_t len;
+            size_t len;
         } str;
         bool b;
         int8_t i8;
@@ -454,24 +446,50 @@ struct pb_compiler_opt_preprocvar {
     uint32_t namecrc;
     struct pb_preproc_data data;
 };
+
+typedef enum pb_error (*pb_compiler_addon_cb_evalcmd)( // also rets enum pb_compitf_evalexprret
+    struct pb_compiler*, const char* ns, uint32_t nscrc, const char* name, uint32_t namecrc,
+    struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr,
+    bool func, unsigned depth, unsigned evalflags, struct pb_rodata* d
+);
+typedef enum pb_error (*pb_compiler_addon_cb_evalpreproccmd)(
+    struct pb_compiler*, const char* ns, uint32_t nscrc, const char* name, uint32_t namecrc,
+    struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr,
+    bool func, unsigned depth, struct pb_preproc_data* d
+);
+typedef enum pb_error (*pb_compiler_addon_cb_evalvar)( // also rets enum pb_compitf_evalexprret
+    struct pb_compiler*, const char* ns, uint32_t nscrc, const char* name, uint32_t namecrc,
+    unsigned evalflags, struct pb_rodata* d
+);
+typedef enum pb_error (*pb_compiler_addon_cb_evalpreprocvar)(
+    struct pb_compiler*, const char* ns, uint32_t nscrc, const char* name, uint32_t namecrc,
+    struct pb_preproc_data* d
+);
+struct pb_compiler_addon {
+    pb_compiler_addon_cb_evalpreproccmd preproccmd;
+    pb_compiler_addon_cb_evalpreprocvar preprocvar;
+    pb_compiler_addon_cb_evalcmd cmd;
+    pb_compiler_addon_cb_evalvar var;
+};
+
 struct pb_compiler_opt {
     enum pb_compiler_opt_olvl olvl;
     enum pb_compiler_opt_dbglvl dbglvl;
     const struct pb_compiler_opt_preprocvar* preprocvars;
-    uint32_t preprocvarct;
+    size_t preprocvarct;
     const struct pb_compiler_addon* addons;
-    uint32_t addonct;
+    size_t addonct;
     const char* errprefix;
 };
 #define PB_COMPILER_OPT_DEFAULTS {.olvl = PB_COMPILER_OPT_OLVL_DEFAULT, .dbglvl = PB_COMPILER_OPT_DBGLVL_DEFAULT}
 struct pb_compiler_srcloc {
-    uint32_t src;
-    uint32_t line;
-    uint32_t col;
+    size_t src;
+    unsigned long line;
+    unsigned long col;
 };
 PACKEDENUM pb_compiler_tok_type {
-    PB_COMPILER_TOK_TYPE_ID,
     PB_COMPILER_TOK_TYPE_SYM,
+    PB_COMPILER_TOK_TYPE_ID,
     PB_COMPILER_TOK_TYPE_DATA
 };
 PACKEDENUM pb_compiler_tok_subtype {
@@ -558,7 +576,7 @@ struct pb_compiler_tok {
         union {
             struct {
                 size_t off;
-                uint32_t len;
+                size_t len;
             } str;
             bool b;
             int8_t i8;
@@ -580,7 +598,7 @@ struct pb_compiler_tokcoll {
     size_t len;
     size_t size;
     struct charbuf strings;
-    struct VLB(uint32_t) brackets;
+    struct VLB(size_t) brackets;
     char preprocinsstage;
     struct pb_compiler_srcloc preprocinsloc;
     struct pb_compiler_srcloc preprocinsidloc;
@@ -593,10 +611,10 @@ struct pb_compiler_source {
 };
 struct pb_compiler_stream {
     struct datastream* ds;
-    uint32_t line;
-    uint32_t col;
-    uint32_t oldcol;
-    uint32_t src;
+    unsigned long line;
+    unsigned long col;
+    unsigned long oldcol;
+    size_t src;
 };
 struct pb_compiler_label {
     char* name;
@@ -608,10 +626,68 @@ struct pb_compiler_irelem {
     uint32_t pos;
 };
 struct pb_compiler_progir {
-    struct VLB(uint32_t) irdata;
-    struct VLB(struct pb_compiler_irelem) irelems;
-    struct VLB(struct pb_compiler_label) labels;
+    struct VLB(uint32_t) data;
+    struct VLB(struct pb_compiler_irelem) elems;
+    struct VLB(struct pb_compiler_irlabel) labels;
     struct VLB(struct pb_rodata) consts;
+};
+PACKEDENUM pb_compiler_scopeid_type {
+    PB_COMPILER_SCOPEID_TYPE_EXPR,
+    PB_COMPILER_SCOPEID_TYPE_LABEL,
+    PB_COMPILER_SCOPEID_TYPE_TYPEID
+};
+PACKEDENUM pb_compiler_scopeid_subtype {
+    PB_COMPILER_SCOPEID_SUBTYPE_EXPR_VAR,
+    PB_COMPILER_SCOPEID_SUBTYPE_EXPR_CONST,
+    PB_COMPILER_SCOPEID_SUBTYPE_EXPR_ARG,
+    PB_COMPILER_SCOPEID_SUBTYPE_EXPR_SUB
+};
+struct pb_compiler_scopeid {
+    enum pb_compiler_scopeid_type type;
+    enum pb_compiler_scopeid_subtype subtype;
+    size_t fullnameoff;
+    size_t nameoff;
+    size_t ns;
+    union {
+        union {
+            uint32_t var;
+            uint32_t constant;
+            uint32_t sub;
+            uint32_t arg;
+        } expr;
+        uint32_t label;
+        uint32_t typeid;
+    };
+};
+PACKEDENUM pb_compiler_scope_type {
+    PB_COMPILER_SCOPE_TYPE_BLOCK,
+    PB_COMPILER_SCOPE_TYPE_NS,
+    PB_COMPILER_SCOPE_TYPE_SUB,
+    PB_COMPILER_SCOPE_TYPE_IF,
+    PB_COMPILER_SCOPE_TYPE_ELIF,
+    PB_COMPILER_SCOPE_TYPE_ELSE,
+    PB_COMPILER_SCOPE_TYPE_WHILE,
+    PB_COMPILER_SCOPE_TYPE_DO,
+    PB_COMPILER_SCOPE_TYPE_SWITCH,
+    PB_COMPILER_SCOPE_TYPE_CASE,
+};
+struct pb_compiler_scope {
+    enum pb_compiler_scope_type type;
+    struct VLB(size_t) using;
+    union {
+        struct {
+            struct VLB(struct pb_compiler_scopeid) ids;
+            size_t varct;
+            size_t stroff;
+        };
+        size_t ns;
+    };
+};
+struct pb_compiler_ns {
+    size_t fullnameoff;
+    size_t nameoff;
+    uint32_t fullnamecrc;
+    uint32_t namecrc;
 };
 struct pb_compiler_sub {
     struct pb_compiler_progir progir;
@@ -635,8 +711,6 @@ struct pb_compiler {
         size_t size;
         struct charbuf names;
     } sources;
-    struct charbuf curns;
-    struct VLB(char*) usingnames;
     struct {
         struct pb_preproc_var* data;
         size_t len;
@@ -645,9 +719,22 @@ struct pb_compiler {
     } preprocvars;
     struct pb_compiler_tokcoll comptok;
     struct pb_compiler_tokcoll preproctok;
+    struct {
+        struct pb_compiler_scope* data;
+        size_t len;
+        size_t size;
+        struct charbuf strings;
+    } scopes;
+    struct {
+        struct pb_compiler_ns* data;
+        size_t len;
+        size_t size;
+        struct charbuf strings;
+    } namespaces;
+    size_t curns;
     struct pb_compiler_progir progir;
     struct VLB(struct pb_compiler_sub) subs;
-    struct VLB(uint32_t) initsubs;
+    size_t cursub;
     struct charbuf* err;
 };
 
@@ -715,8 +802,8 @@ void pb_prog_destroy(struct pbasic*, uint32_t progid);
 
 void pb_compitf_puterr(struct pb_compiler*, enum pb_error e, const char* msg, const struct pb_compiler_srcloc*);
 bool pb_compitf_pushsource(struct pb_compiler*, struct datastream*, const char* type, const struct pb_compiler_srcloc*);
-int pb_compitf_evalexpr(struct pb_compiler*, struct pb_compiler_tokcoll* tc, unsigned flags, struct pb_rodata*);
-size_t pb_compitf_evalpreprocexpr(struct pb_compiler*, struct pb_compiler_tokcoll* tc, struct pb_preproc_data*);
+enum pb_error pb_compitf_evalexpr(struct pb_compiler*, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr, unsigned flags, unsigned depth, size_t* ctout, struct pb_rodata*);
+enum pb_error pb_compitf_evalpreprocexpr(struct pb_compiler*, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr, unsigned depth, size_t* ctout, struct pb_preproc_data*);
 
 enum pb_error pb_proc_create(struct pbasic*, uint32_t parent, uint32_t progid, uint32_t argc, struct pb_rodata* argv, uint32_t* procidout);
 void pb_proc_destroy(struct pbasic*, uint32_t procid);
@@ -806,6 +893,6 @@ static ALWAYSINLINE int pb__compiler_getc_inline(struct pb_compiler* pbc) {
     goto again;
 }
 int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
-enum pb_error pb__evalpreproccmd(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc);
+enum pb_error pb__evalpreproccmd(struct pb_compiler* pbc, char* id, struct pb_compiler_tok* tcdata, size_t tclen, struct charbuf* tcstr, bool func, unsigned depth, struct pb_preproc_data* d);
 
 #endif

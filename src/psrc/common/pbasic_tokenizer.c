@@ -769,7 +769,7 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
             goto foundvar;
         }
     }
-    for (uint32_t i = 0; i < pbc->opt->preprocvarct; ++i) {
+    for (size_t i = 0; i < pbc->opt->preprocvarct; ++i) {
         const struct pb_compiler_opt_preprocvar* v = &pbc->opt->preprocvars[i];
         if (v->namecrc == namecrc && !strcasecmp(v->name, name)) {
             vd = &v->data;

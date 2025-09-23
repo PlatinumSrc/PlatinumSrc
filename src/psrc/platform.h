@@ -34,8 +34,9 @@
 #define BO_LE 1234
 #define BO_BE 4321
 
-#define PLATFLAG_UNIXLIKE (1 << 0)
-#define PLATFLAG_WINDOWSLIKE (1 << 1)
+#define PLATFLAG_UNIXLIKE    (1U << 0)
+#define PLATFLAG_WINDOWSLIKE (1U << 1)
+#define PLATFLAG_64BIT       (1U << 2)
 
 #if defined(__ANDROID__)
     #define PLATFORM PLAT_ANDROID
