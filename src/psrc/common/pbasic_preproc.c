@@ -65,6 +65,7 @@ enum pb_error pb_compitf_evalpreprocexpr(struct pb_compiler* pbc, struct pb_comp
     enum pb_compiler_tok_type lasttype = PB_COMPILER_TOK_TYPE_SYM;
 
     PACKEDENUM opr {
+        OPR_LPAREN = -2, OPR_RPAREN,
         OPR_UNARYPOS, OPR_UNARYNEG, OPR_LOGNOT, OPR_BITNOT, OPR_CAST,
         OPR_MUL, OPR_DIV, OPR_REM,
         OPR_ADD, OPR_SUB,
@@ -110,31 +111,32 @@ enum pb_error pb_compitf_evalpreprocexpr(struct pb_compiler* pbc, struct pb_comp
         {0, 1}, {0, 1}, {0, 1}, {0, 1}, {0, 1},
         {0, 1}, {0, 1}, {0, 1},
     };
+    struct oprstackelem {
+        enum opr opr;
+        struct {
+            enum pb_preproc_type cast;
+            size_t markerid;
+        };
+    };
     PACKEDENUM outtype {
-        OUTTYPE_DATA,
         OUTTYPE_OPR,
+        OUTTYPE_DATA,
         OUTTYPE_FUNC,
+        OUTTYPE_VAR,
         OUTTYPE_LOGANDMARKER,
         OUTTYPE_LOGORMARKER
     };
-    struct out {
+    struct outqueueelem {
         enum outtype type;
         union {
-            struct pb_preproc_data data;
-            struct {
-                enum opr opr;
-                union {
-                    enum pb_preproc_type cast;
-                    size_t markerid;
-                } oprdata;
-            };
-            size_t func;
+            struct oprstackelem opr;
+            size_t tok;
             size_t markerid;
         };
     };
 
-    struct VLB(enum opr) oprstack;
-    struct VLB(struct out) outqueue;
+    struct VLB(struct oprstackelem) oprstack;
+    struct VLB(struct outqueueelem) outqueue;
     struct VLB(struct pb_preproc_data) datastack;
 
     VLB_INIT(oprstack, 4, oprstack.data = NULL; outqueue.data = NULL; datastack.data = NULL; goto emem;);
@@ -144,25 +146,26 @@ enum pb_error pb_compitf_evalpreprocexpr(struct pb_compiler* pbc, struct pb_comp
     int_fast8_t unarypn = -1;
     int_fast8_t lognot = -1;
     int_fast8_t bitnot = -1;
-    size_t logmarkerid = 0;
-    while (1) {
+    size_t markerid = 1;
+    for (size_t i = 0; i < tclen; ++i) {
         if (!tclen) break;
-        if (tcdata[0].type == PB_COMPILER_TOK_TYPE_ID) {
+        if (tcdata[i].type == PB_COMPILER_TOK_TYPE_ID) {
             
-        } else if (tcdata[0].type == PB_COMPILER_TOK_TYPE_DATA) {
+        } else if (tcdata[i].type == PB_COMPILER_TOK_TYPE_DATA) {
             
         } else {
             enum opr opr;
-            switch (tcdata[0].subtype) {
-                case PB_COMPILER_TOK_SUBTYPE_SYM_COMMA: goto retnoerr;
+            switch (tcdata[i].subtype) {
+                case PB_COMPILER_TOK_SUBTYPE_SYM_COMMA: {
+                    // TODO: bracket check
+                } goto finish;
                 default: {
-                    pb_compitf_puterrln(pbc, (e = PB_ERROR_SYNTAX), "Symbol not understood by preprocessor", &tcdata[0].loc);
+                    pb_compitf_puterrln(pbc, (e = PB_ERROR_SYNTAX), "Symbol not understood by preprocessor", &tcdata[i].loc);
                 } goto reterr;
             }
         }
-        --tclen;
-        ++tcdata;
     }
+    finish:;
     goto retnoerr;
 
     retnoerr:;

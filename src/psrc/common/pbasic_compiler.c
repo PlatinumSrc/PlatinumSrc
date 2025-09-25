@@ -120,10 +120,7 @@ static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
         "BOOL",
         "I8", "I16", "I32", "I64",
         "U8", "U16", "U32", "U64",
-        "F32", "F64",
-        "I8:RAW", "I16:RAW", "I32:RAW", "I64:RAW",
-        "U8:RAW", "U16:RAW", "U32:RAW", "U64:RAW",
-        "F32:RAW", "F64:RAW"
+        "F32", "F64"
     };
     size_t i = 0;
     while (1) {
@@ -161,8 +158,6 @@ static void dbg_printtok(struct pb_compiler_tokcoll* tc) {
                         }
                     }
                     putchar('}');
-                } else if (t->subtype >= PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW && t->subtype <= PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW) {
-                    printf("DATA(%lu:%lu):%s{%s}", t->loc.line, t->loc.col, datastr[t->subtype], tc->strings.data + t->data_raw);
                 } else {
                     printf("DATA(%lu:%lu):%s{", t->loc.line, t->loc.col, datastr[t->subtype]);
                     switch (t->subtype) {

@@ -5,6 +5,7 @@
 #include "../util.h"
 
 #include <string.h>
+#include <stdlib.h>
 #if DEBUG(1)
     #include <stdio.h>
 #endif
@@ -17,11 +18,48 @@ static int pb__compiler_getc(struct pb_compiler* pbc) {
 
 static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
 
+#define PB__TOKENIZE_PARSEU(PB__TOKENIZE_PARSEU_t) do {\
+    register PB__TOKENIZE_PARSEU_t n;\
+    register size_t i;\
+    if (s[0] == 'x') goto x;\
+    if (s[0] == 'b') goto b;\
+    n = s[0] - '0';\
+    i = 1;\
+    while (1) {\
+        if (i == l) break;\
+        n *= 10;\
+        n += s[i] - '0';\
+    }\
+    return n;\
+    x:;\
+    n = (s[1] >= '0' && s[1] <= '9') ? s[1] - '0' : ((s[1] >= 'A' && s[1] <= 'F') ? s[1] - ('A' + 10) : s[1] - ('a' + 10));\
+    i = 2;\
+    while (1) {\
+        if (i == l) break;\
+        n <<= 4;\
+        n |= (s[i] >= '0' && s[i] <= '9') ? s[i] - '0' : ((s[i] >= 'A' && s[i] <= 'F') ? s[i] - ('A' + 10) : s[i] - ('a' + 10));\
+    }\
+    return n;\
+    b:;\
+    n = s[1] - '0';\
+    i = 2;\
+    while (1) {\
+        if (i == l) break;\
+        n <<= 1;\
+        n |= s[i] - '0';\
+    }\
+    return n;\
+} while (0)
+static uint32_t pb__tokenize_parseu32(char* s, size_t l) { // l cannot be 0
+    PB__TOKENIZE_PARSEU(uint32_t);
+}
+static uint64_t pb__tokenize_parseu64(char* s, size_t l) {
+    PB__TOKENIZE_PARSEU(uint64_t);
+}
 int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
     struct pb_compiler_srcloc el;
     int c = *cptr;
     while (1) {
-        bool int_skipfloat = false;
         if (c == '\'') {
             while (1) {
                 c = pb__compiler_getc(pbc);
@@ -67,6 +105,8 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 if (!pb__tok_inspreprocvar(pbc, tc, preproc, &c, e)) goto reterr;
                 goto skipgetc;
             }
+            size_t numstrpos;
+            bool int_skipfloat = false;
             struct pb_compiler_tok* t;
             VLB_NEXTPTR(*tc, t, 3, 2, goto emem;);
             pb_compitf_mksrcloc(pbc, 0, &t->loc);
@@ -100,98 +140,128 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                 }
                 if (!cb_add(&tc->strings, 0)) goto emem;
                 goto skipgetc;
-            } else if (c >= '0' && c <= '9') {
-                t->type = PB_COMPILER_TOK_TYPE_DATA;
-                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32_RAW;
-                t->data_raw = tc->strings.len;
+            } else if (c == '0') {
+                numstrpos = tc->strings.len;
                 if (!cb_add(&tc->strings, c)) goto emem;
                 c = pb__compiler_getc(pbc);
+                int_skipfloat = true;
                 if (c == 'x' || c == 'X') {
-                    int_skipfloat = true;
-                    tc->strings.data[tc->strings.len - 1] = 'x';
+                    tc->strings.data[numstrpos] = 'x';
+                    c = pb__compiler_getc(pbc);
+                    if ((c < '0' || c > '9') && (c < 'A' || c > 'F') && (c < 'a' || c > 'f')) {
+                        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid hexadecimal number", &t->loc);
+                        goto reterr;
+                    }
+                    if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
                         c = pb__compiler_getc(pbc);
                         if ((c < '0' || c > '9') && (c < 'A' || c > 'F') && (c < 'a' || c > 'f')) goto ichksuf;
                         if (!cb_add(&tc->strings, c)) goto emem;
                     }
                 } else if (c == 'b' || c == 'B') {
-                    int_skipfloat = true;
-                    tc->strings.data[tc->strings.len - 1] = 'b';
+                    tc->strings.data[numstrpos] = 'b';
+                    c = pb__compiler_getc(pbc);
+                    if (c != '0' && c != '1') {
+                        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid binary number", &t->loc);
+                        goto reterr;
+                    }
+                    if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
                         c = pb__compiler_getc(pbc);
                         if (c != '0' && c != '1') goto ichksuf;
                         if (!cb_add(&tc->strings, c)) goto emem;
                     }
-                } else {
-                    while (1) {
-                        if (c < '0' || c > '9') {
-                            ichksuf:;
-                            el = t->loc;
-                            if (c == 'i' || c == 'I') {
-                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8_RAW;
-                                ievalsuf:;
-                                char suf[2];
-                                c = pb__compiler_getc(pbc);
-                                if (c < '0' || c > '9') goto ebadisuf;
-                                suf[0] = c;
-                                c = pb__compiler_getc(pbc);
-                                suf[1] = (c >= '0' && c <= '9') ? c : 0;
+                }
+                goto isint_10;
+            } else if (c >= '1' && c <= '9') {
+                numstrpos = tc->strings.len;
+                if (!cb_add(&tc->strings, c)) goto emem;
+                c = pb__compiler_getc(pbc);
+                isint_10:;
+                t->type = PB_COMPILER_TOK_TYPE_DATA;
+                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I32;
+                int_skipfloat = false;
+                while (1) {
+                    if (c < '0' || c > '9') {
+                        ichksuf:;
+                        el = t->loc;
+                        if (c == 'i' || c == 'I') {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_I8;
+                            ievalsuf:;
+                            char suf[2];
+                            c = pb__compiler_getc(pbc);
+                            if (c < '0' || c > '9') goto ebadisuf;
+                            suf[0] = c;
+                            c = pb__compiler_getc(pbc);
+                            if (c >= '0' && c <= '9') {
+                                suf[1] = c;
                                 c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') goto ebadisuf;
-                                if (suf[0] == '1' && suf[1] == '6') {
-                                    t->subtype += 1;
-                                } else if (suf[0] == '3' && suf[1] == '2') {
-                                    t->subtype += 2;
-                                } else if (suf[0] == '6' && suf[1] == '4') {
-                                    t->subtype += 3;
-                                } else if (suf[0] != '8' || suf[1]) {
-                                    goto ebadisuf;
-                                }
-                                goto ichkaftersuf;
-                            } else if (c == 'u' || c == 'U') {
-                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8_RAW;
-                                goto ievalsuf;
-                            }
-                            if (!int_skipfloat) {
-                                if (c == '.') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
-                                    goto isfloat;
-                                }
-                                if (c == 'e' || c == 'E') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
-                                    goto isfloat_e;
-                                }
-                                if (c == 'f' || c == 'F') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
-                                    goto isfloat_f;
-                                }
                             } else {
-                                if (c == '.') {
-                                    pb_compitf_mksrcloc(pbc, 0, &el);
-                                    goto ebadchar;
-                                }
+                                suf[1] = 0;
                             }
-                            ichkaftersuf:;
-                            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                            if (suf[0] == '8' && !suf[1]) {
+                                t->data.u8 = pb__tokenize_parseu32(tc->strings.data + numstrpos, tc->strings.len - numstrpos);
+                            } else if (suf[0] == '1' && suf[1] == '6') {
+                                t->subtype += 1;
+                                t->data.u16 = pb__tokenize_parseu32(tc->strings.data + numstrpos, tc->strings.len - numstrpos);
+                            } else if (suf[0] == '3' && suf[1] == '2') {
+                                t->subtype += 2;
+                                t->data.u32 = pb__tokenize_parseu32(tc->strings.data + numstrpos, tc->strings.len - numstrpos);
+                            } else if (suf[0] == '6' && suf[1] == '4') {
+                                t->subtype += 3;
+                                t->data.u64 = pb__tokenize_parseu64(tc->strings.data + numstrpos, tc->strings.len - numstrpos);
+                            } else {
                                 goto ebadisuf;
-                            } else if (c == '_' || c == ':') {
+                            }
+                            if (c == '.') {
                                 pb_compitf_mksrcloc(pbc, 0, &el);
                                 goto ebadchar;
                             }
-                            break;
+                            goto ichkaftersuf;
+                        } else if (c == 'u' || c == 'U') {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_U8;
+                            goto ievalsuf;
                         }
-                        if (!cb_add(&tc->strings, c)) goto emem;
-                        c = pb__compiler_getc(pbc);
+                        if (!int_skipfloat) {
+                            if (c == '.') {
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                goto isfloat;
+                            }
+                            if (c == 'e' || c == 'E') {
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                goto isfloat_e;
+                            }
+                            if (c == 'f' || c == 'F') {
+                                t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                                goto isfloat_f;
+                            }
+                        } else {
+                            if (c == '.') {
+                                pb_compitf_mksrcloc(pbc, 0, &el);
+                                goto ebadchar;
+                            }
+                        }
+                        t->data.u32 = pb__tokenize_parseu32(tc->strings.data + numstrpos, tc->strings.len - numstrpos);
+                        ichkaftersuf:;
+                        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                            goto ebadisuf;
+                        } else if (c == '_' || c == ':') {
+                            pb_compitf_mksrcloc(pbc, 0, &el);
+                            goto ebadchar;
+                        }
+                        break;
                     }
+                    if (!cb_add(&tc->strings, c)) goto emem;
+                    c = pb__compiler_getc(pbc);
                 }
-                if (!cb_add(&tc->strings, 0)) goto emem;
                 goto skipgetc;
             } else if (c == '.') {
                 c = pb__compiler_getc(pbc);
                 if (c >= '0' && c <= '9') {
                     t->type = PB_COMPILER_TOK_TYPE_DATA;
-                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32_RAW;
-                    t->data_raw = tc->strings.len;
+                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
+                    numstrpos = tc->strings.len;
                     if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
                         c = pb__compiler_getc(pbc);
@@ -226,14 +296,26 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 suf[1] = c;
                                 c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') goto ebadfsuf;
-                                if (suf[0] == '6' && suf[1] == '4') {
-                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64_RAW;
-                                } else if (suf[0] != '3' || suf[1] != '2') {
+                                if (suf[0] == '3' && suf[1] == '2') {
+                                    cb_nullterm(&tc->strings);
+                                    t->data.f32 = atof(tc->strings.data + numstrpos);
+                                } else if (suf[0] == '6' && suf[1] == '4') {
+                                    t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64;
+                                    cb_nullterm(&tc->strings);
+                                    t->data.f64 = atof(tc->strings.data + numstrpos);
+                                } else {
                                     goto ebadfsuf;
                                 }
+                                if (c == '.') {
+                                    pb_compitf_mksrcloc(pbc, 0, &el);
+                                    goto ebadchar;
+                                }
+                                goto fchkaftersuf;
                             } else if (c == '.') {
-                                goto ebaddot;
+                                goto e2manydot;
                             }
+                            t->data.f32 = atof(tc->strings.data + numstrpos);
+                            fchkaftersuf:;
                             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
                                 goto ebadfsuf;
                             } else if (c == '_' || c == ':') {
@@ -245,7 +327,6 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                         isfloat:;
                         if (!cb_add(&tc->strings, c)) goto emem;
                     }
-                    if (!cb_add(&tc->strings, 0)) goto emem;
                 } else {
                     t->type = PB_COMPILER_TOK_TYPE_SYM;
                     pb_compitf_mksrcloc(pbc, 0, &el);
@@ -655,7 +736,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
     ebadfsuf:;
     pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid suffix on floating-point number", &el);
     goto reterr;
-    ebaddot:;
+    e2manydot:;
     pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Too many decimal points in floating-point number", &el);
     goto reterr;
 
