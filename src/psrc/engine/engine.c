@@ -693,7 +693,7 @@ void loop(void) {
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_AUDIO);
     #endif
-    updateAudio(framemult);
+    updateAudio_unlocked(framemult);
     #if DEBUG(1)
     prof_begin(&dbgprof, DBGPROF_RENDERER);
     #endif

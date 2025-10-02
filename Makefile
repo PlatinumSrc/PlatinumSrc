@@ -312,6 +312,7 @@ ifneq ($(CROSS),nxdk)
     _CFLAGS += -Wundef -fvisibility=hidden
     ifneq ($(NOFASTMATH),y)
         _CFLAGS += -ffast-math
+        _LDFLAGS += -ffast-math
     endif
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
     ifeq ($(CROSS),)

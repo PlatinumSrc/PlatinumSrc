@@ -88,12 +88,13 @@
       <keyword>ELIF</keyword>
       <keyword>ELSE</keyword>
       <keyword>END</keyword>
+      <keyword>ENUM</keyword>
       <keyword>EVENT</keyword>
       <keyword>EXIT</keyword>
       <keyword>FLOOR</keyword>
       <keyword>FOR</keyword>
       <keyword>GOSUB</keyword>
-      <keyword>GOSUBID</keyword>
+      <keyword>GOSUBH</keyword>
       <keyword>GOTO</keyword>
       <keyword>IF</keyword>
       <keyword>LEN</keyword>

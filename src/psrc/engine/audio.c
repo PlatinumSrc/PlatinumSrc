@@ -145,18 +145,18 @@ static void delete2DSound(size_t si, struct audiosound* s) {
     }
 }
 
-int new3DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d) {
+uint32_t new3DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    int ei;
+    uint32_t ei;
     if (!audiostate.valid) {ei = -1; goto ret;}
     struct audioemitter3d* e;
     {
-        size_t i = 0;
+        uint32_t i = 0;
         while (1) {
             if (i == audiostate.emitters3d.len) {
-                if (audiostate.emitters3d.len > (size_t)INT_MAX) {ei = -1; goto ret;}
+                if (audiostate.emitters3d.len == UINT32_MAX) {ei = -1; goto ret;}
                 ei = audiostate.emitters3d.len;
                 VLB_NEXTPTR(audiostate.emitters3d, e, 3, 2, ei = -1; goto ret;);
                 break;
@@ -225,18 +225,18 @@ int new3DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsnd, unsigned f, uns
     #endif
     return ei;
 }
-int new2DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx) {
+uint32_t new2DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    int ei;
+    uint32_t ei;
     if (!audiostate.valid) {ei = -1; goto ret;}
     struct audioemitter2d* e;
     {
-        size_t i = 0;
+        uint32_t i = 0;
         while (1) {
             if (i == audiostate.emitters2d.len) {
-                if (audiostate.emitters2d.len > (size_t)INT_MAX) {ei = -1; goto ret;}
+                if (audiostate.emitters2d.len == UINT32_MAX) {ei = -1; goto ret;}
                 ei = audiostate.emitters2d.len;
                 VLB_NEXTPTR(audiostate.emitters2d, e, 3, 2, ei = -1; goto ret;);
                 break;
@@ -280,12 +280,12 @@ int new2DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsnd, unsigned f, uns
     return ei;
 }
 
-void edit3DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d, unsigned imm) {
+void edit3DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d, unsigned imm) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (!audiostate.valid || (size_t)ei >= audiostate.emitters3d.len) goto ret;
-    struct audioemitter3d* e = &audiostate.emitters3d.data[(size_t)ei];
+    if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto ret;
+    struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
     e->flags |= fen;
     e->flags &= ~fdis;
     e->fxch |= fxmask;
@@ -319,12 +319,12 @@ void edit3DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, co
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
-void edit2DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned imm) {
+void edit2DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned imm) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (!audiostate.valid || (size_t)ei >= audiostate.emitters2d.len) goto ret;
-    struct audioemitter2d* e = &audiostate.emitters2d.data[(size_t)ei];
+    if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto ret;
+    struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
     e->flags |= fen;
     e->flags &= ~fdis;
     e->fxch |= fxmask;
@@ -345,8 +345,8 @@ void edit2DAudioEmitter(int ei, unsigned fen, unsigned fdis, unsigned fxmask, co
     #endif
 }
 
-static void stop3DAudioEmitter_internal(int ei, struct audioemitter3d* e) {
-    for (size_t i = 0; i < audiostate.sounds3d.len; ++i) {
+static void stop3DAudioEmitter_internal(uint32_t ei, struct audioemitter3d* e) {
+    for (uint32_t i = 0; i < audiostate.sounds3d.len; ++i) {
         struct audiosound* s = &audiostate.sounds3d.data[i];
         if (s->prio != AUDIOPRIO_INVALID && s->emitter == ei) {
             delete3DSound(i, s);
@@ -354,8 +354,8 @@ static void stop3DAudioEmitter_internal(int ei, struct audioemitter3d* e) {
         }
     }
 }
-static void stop2DAudioEmitter_internal(int ei, struct audioemitter2d* e) {
-    for (size_t i = 0; i < audiostate.sounds2d.len; ++i) {
+static void stop2DAudioEmitter_internal(uint32_t ei, struct audioemitter2d* e) {
+    for (uint32_t i = 0; i < audiostate.sounds2d.len; ++i) {
         struct audiosound* s = &audiostate.sounds2d.data[i];
         if (s->prio != AUDIOPRIO_INVALID && s->emitter == ei) {
             delete2DSound(i, s);
@@ -364,31 +364,31 @@ static void stop2DAudioEmitter_internal(int ei, struct audioemitter2d* e) {
     }
 }
 
-void stop3DAudioEmitter(int ei) {
+void stop3DAudioEmitter(uint32_t ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (audiostate.valid && (size_t)ei < audiostate.emitters3d.len) stop3DAudioEmitter_internal(ei, &audiostate.emitters3d.data[(size_t)ei]);
+    if (audiostate.valid && ei < audiostate.emitters3d.len) stop3DAudioEmitter_internal(ei, &audiostate.emitters3d.data[ei]);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
-void stop2DAudioEmitter(int ei) {
+void stop2DAudioEmitter(uint32_t ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (audiostate.valid && (size_t)ei < audiostate.emitters2d.len) stop2DAudioEmitter_internal(ei, &audiostate.emitters2d.data[(size_t)ei]);
+    if (audiostate.valid && ei < audiostate.emitters2d.len) stop2DAudioEmitter_internal(ei, &audiostate.emitters2d.data[ei]);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 
-void delete3DAudioEmitter(int ei) {
+void delete3DAudioEmitter(uint32_t ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (audiostate.valid && (size_t)ei < audiostate.emitters3d.len) {
-        struct audioemitter3d* e = &audiostate.emitters3d.data[(size_t)ei];
+    if (audiostate.valid && ei < audiostate.emitters3d.len) {
+        struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
         if (e->prio != AUDIOPRIO_INVALID) {
             stop3DAudioEmitter_internal(ei, e);
             e->prio = AUDIOPRIO_INVALID;
@@ -398,12 +398,12 @@ void delete3DAudioEmitter(int ei) {
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
-void delete2DAudioEmitter(int ei) {
+void delete2DAudioEmitter(uint32_t ei) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (audiostate.valid && (size_t)ei < audiostate.emitters2d.len) {
-        struct audioemitter2d* e = &audiostate.emitters2d.data[(size_t)ei];
+    if (audiostate.valid && ei < audiostate.emitters2d.len) {
+        struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
         if (e->prio != AUDIOPRIO_INVALID) {
             stop2DAudioEmitter_internal(ei, e);
             e->prio = AUDIOPRIO_INVALID;
@@ -469,11 +469,11 @@ static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask
         #endif
     }
 }
-bool play3DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
+bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (!audiostate.valid) goto retfalse;
+    if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto retfalse;
     struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
     struct audiosound* s;
@@ -510,11 +510,11 @@ bool play3DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
     #endif
     return false;
 }
-bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
+bool play2DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
-    if (!audiostate.valid) goto retfalse;
+    if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto retfalse;
     struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
     struct audiosound* s;
@@ -552,7 +552,7 @@ bool play2DSound(int ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsign
     return false;
 }
 
-void setAudioEnv(unsigned pl, unsigned mask, struct audioenv* in, unsigned imm) {
+void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv* in, unsigned imm) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
     #endif
@@ -1165,7 +1165,7 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
     }
 }
 
-static inline void applyAudioEnv(unsigned pl, int** inp, int** outp) {
+static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
     struct audioenvstate* env = &audiostate.playerdata.data[pl].env;
     if (env->envch & AUDIOENVMASK_REVERB_DELAY) {
         unsigned oldlen = env->reverb.state.len;
@@ -1732,7 +1732,7 @@ static void mixsounds(unsigned buf) {
     memset(audiostate.mixbuf[0], 0, audiostate.buflen * sizeof(**audiostate.mixbuf));
     memset(audiostate.mixbuf[1], 0, audiostate.buflen * sizeof(**audiostate.mixbuf));
 
-    for (unsigned pli = 0; pli < audiostate.playerdata.len; ++pli) {
+    for (uint32_t pli = 0; pli < audiostate.playerdata.len; ++pli) {
         if (!audiostate.playerdata.data[pli].valid) continue;
         memset(audiostate.envbuf[0], 0, audiostate.buflen * sizeof(**audiostate.envbuf));
         memset(audiostate.envbuf[1], 0, audiostate.buflen * sizeof(**audiostate.envbuf));
@@ -1921,7 +1921,7 @@ static inline void updateAudioPlayerData(void) {
     }
 }
 
-void updateAudio(float framemult) {
+void updateAudio_unlocked(float framemult) {
     (void)framemult;
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);

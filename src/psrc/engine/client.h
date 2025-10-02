@@ -75,7 +75,7 @@ struct player {
             uint8_t dim : 1;
             uint8_t uicontainer : 1;
         } changed;
-        unsigned display;
+        uint32_t display;
         float x, y, w, h;
         char** uicontainer;
     } screen;
@@ -86,8 +86,8 @@ struct playerdata {
     struct accesslock lock;
     #endif
     struct player* data;
-    unsigned len;
-    unsigned size;
+    uint32_t len;
+    size_t size;
 };
 
 extern struct playerdata playerdata;
@@ -101,11 +101,11 @@ bool initClient(void);
 void updateClient(float framemult); // assumes playerdata has already been locked by the caller
 void quitClient(void);
 
-bool setPlayer(unsigned, const char* username);
-struct player* getPlayerForReading(unsigned);
-struct player* getPlayerForWriting(unsigned);
+bool setPlayer(uint32_t, const char* username);
+struct player* getPlayerForReading(uint32_t);
+struct player* getPlayerForWriting(uint32_t);
 void rlsPlayerFromReading(struct player*);
 void rlsPlayerFromWriting(struct player*);
-void delPlayer(unsigned);
+void delPlayer(uint32_t);
 
 #endif

@@ -1,6 +1,10 @@
 #ifndef PSRC_ENGINE_AUDIO_H
 #define PSRC_ENGINE_AUDIO_H
 
+// TODO: replace long with ptr-sized types
+// TODO: implement play{2D|3D}SoundCB
+// TODO: implement panning
+
 #include "../attribs.h"
 #include "../resource.h"
 #include "../threading.h"
@@ -91,7 +95,7 @@ struct audiocalcfx {
 #define AUDIOEMITTER3DFLAG_PAUSED (1U << 0)
 #define AUDIOEMITTER3DFLAG_NOENV (1U << 1)
 struct audioemitter3d {
-    unsigned player;
+    uint32_t player;
     struct audiofx fx;
     struct audio3dfx fx3d;
     struct {
@@ -112,7 +116,7 @@ struct audioemitter3d {
 #define AUDIOEMITTER2DFLAG_PAUSED (1U << 0)
 #define AUDIOEMITTER2DFLAG_APPLYENV (1U << 1)
 struct audioemitter2d {
-    unsigned player;
+    uint32_t player;
     struct audiofx fx;
     unsigned cursounds;
     unsigned maxsounds;
@@ -127,7 +131,7 @@ struct audioemitter2d {
 #define SOUNDIFLAG_USESCB (1U << 0)
 #define SOUNDIFLAG_NEEDSINIT (1U << 1)
 struct audiosound {
-    int emitter;
+    uint32_t emitter;
     long loop;
     long pos;
     long frac;
@@ -284,44 +288,52 @@ extern struct audiostate {
     unsigned mixoutbufi;
     unsigned max3dsounds;
     unsigned voices3d;
-    struct VLB(struct audioemitter3d) emitters3d;
+    struct {
+        struct audioemitter3d* data;
+        uint32_t len;
+        size_t size;
+    } emitters3d;
     struct VLB(struct audiosound) sounds3d;
     struct VLB(size_t) sounds3dorder;
     unsigned max2dsounds;
     unsigned voices2d;
-    struct VLB(struct audioemitter2d) emitters2d;
+    struct {
+        struct audioemitter2d* data;
+        uint32_t len;
+        size_t size;
+    } emitters2d;
     struct VLB(struct audiosound) sounds2d;
     struct VLB(size_t) sounds2dorder;
     struct {
         struct audioplayerdata* data;
-        unsigned len;
-        unsigned size;
+        uint32_t len;
+        size_t size;
     } playerdata;
 } audiostate;
 
 bool initAudio(void);
 bool startAudio(void);
 void updateAudioConfig(enum audioopt, ...);
-void updateAudio(float framemult); // assumes playerdata has already been locked by the caller
+void updateAudio_unlocked(float framemult); // assumes playerdata has already been locked by the caller
 void stopAudio(void);
 bool restartAudio(void);
 void quitAudio(bool quick);
 
-int new3DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*);
-void edit3DAudioEmitter(int, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*, unsigned immfxmask);
-void stop3DAudioEmitter(int);
-void delete3DAudioEmitter(int);
-bool play3DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
+uint32_t new3DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*);
+void edit3DAudioEmitter(uint32_t, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned fx3dmask, const struct audio3dfx*, unsigned immfxmask);
+void stop3DAudioEmitter(uint32_t);
+void delete3DAudioEmitter(uint32_t);
+bool play3DSound(uint32_t e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play3DSoundCB(...);
 
-int new2DAudioEmitter(unsigned pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*);
-void edit2DAudioEmitter(int, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned immfxmask);
-void stop2DAudioEmitter(int);
-void delete2DAudioEmitter(int);
-bool play2DSound(int e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
+uint32_t new2DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*);
+void edit2DAudioEmitter(uint32_t, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned immfxmask);
+void stop2DAudioEmitter(uint32_t);
+void delete2DAudioEmitter(uint32_t);
+bool play2DSound(uint32_t e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
 //bool play2DSoundCB(...);
 
-void setAudioEnv(unsigned pl, unsigned mask, struct audioenv*, unsigned immmask);
+void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv*, unsigned immmask);
 
 void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
 void setMusicStyle(const char*);

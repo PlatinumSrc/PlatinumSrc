@@ -60,7 +60,7 @@ PACKEDENUM pb_op {
     PB_OP_B,            // Branch (reads: trueoff, falseoff; pops: cond)
     PB_OP_JMPI,         // Indexed jump (reads: minval, maxval, offset...; pops: index)
     PB_OP_JSR,          // Jump to a sub (GOSUB(...)) (reads: id; pops: args..., framemrkr; pushes: retval)
-    PB_OP_JSRI,         // Jump to a sub on the stack (GOSUBID(...)) (pops: args..., framemrkr, sub; pushes: retval)
+    PB_OP_JSRI,         // Jump to a sub on the stack (GOSUBH(...)) (pops: args..., framemrkr, sub; pushes: retval)
     PB_OP_RET,          // Return from a sub without a return value
     PB_OP_RETV,         // Return from a sub with a return value (pops: retval)
     PB_OP_CCALL,        // Call a C routine (reads: id, datawordct, [data]...; pops: [...]...; pushes: [...]...)
@@ -104,10 +104,10 @@ PACKEDENUM pb_op {
     PB_OP_COLLINSI,     // Inserts an object at the specified index (COLL(INS ..., ...)) (pops: obj, index, obj)
     PB_OP_COLLDEL,      // Removes the specified arg (COLL(DEL ...)) (pops: index, obj)
     PB_OP_COLLREPL,     // Replaces the specified arg (COLL(REPL ...)) (pops: obj, index, obj)
-    PB_OP_EVLSNSYNC,    // Adds an event listener for a SYNC event (EVENT(LISTEN SYNC ..., SUB ...)) (pops: sub, event; pushes: id)
-    PB_OP_EVLSNSYNCI,   // Adds an event listener from the stack for a SYNC event (EVENT(LISTEN SYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
-    PB_OP_EVLSNASYNC,   // Adds an event listener for an ASYNC event (EVENT(LISTEN ASYNC ..., SUB ...)) (pops: sub, event; pushes: id)
-    PB_OP_EVLSNASYNCI,  // Adds an event listener from the stack for an ASYNC event (EVENT(LISTENID ASYNC ..., SUBID ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNSYNC,    // Adds an event listener for a SYNC event (EVENT(LISTEN SYNC "..." SUB ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNSYNCI,   // Adds an event listener from the stack for a SYNC event (EVENT(LISTEN SYNC "..." SUBH ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNASYNC,   // Adds an event listener for an ASYNC event (EVENT(LISTEN ASYNC "..." SUB ...)) (pops: sub, event; pushes: id)
+    PB_OP_EVLSNASYNCI,  // Adds an event listener from the stack for an ASYNC event (EVENT(LISTEN ASYNC "..." SUBH ...)) (pops: sub, event; pushes: id)
     PB_OP_EVIGNSYNC,    // Removes an event listener from a SYNC event (EVENT IGNORE SYNC ...) (pops: id, event)
     PB_OP_EVIGNASYNC,   // Removes an event listener from an ASYNC event (EVENT IGNORE ASYNC ...) (pops: id, event)
     PB_OP_EVFIRESYNC,   // Fires a SYNC event (EVENT(FIRE SYNC ...)) (pops: args..., framemrkr, event; pushes: retval)
@@ -119,8 +119,9 @@ PACKEDENUM pb_op {
     PB_OP_SETNAME       // Set the current file/arena name for debugging and error info (reads: index)
 };
 
-PACKEDENUM pb_type {
-    PB_TYPE_VOID, // ANY
+enum pb_type {
+    PB_TYPE_ANY = -1,
+    PB_TYPE_VOID,
     PB_TYPE_NULL,
     PB_TYPE_STR,
     PB_TYPE_BOOL,

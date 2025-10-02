@@ -18,8 +18,7 @@ static int pb__compiler_getc(struct pb_compiler* pbc) {
 
 static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e);
 
-#define PB__TOKENIZE_PARSEU(PB__TOKENIZE_PARSEU_t) do {\
-    register PB__TOKENIZE_PARSEU_t n;\
+#define PB__TOKENIZE_PARSEU() do {\
     register size_t i;\
     if (s[0] == 'x') goto x;\
     if (s[0] == 'b') goto b;\
@@ -51,10 +50,12 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
     return n;\
 } while (0)
 static uint32_t pb__tokenize_parseu32(char* s, size_t l) { // l cannot be 0
-    PB__TOKENIZE_PARSEU(uint32_t);
+    register uint32_t n;
+    PB__TOKENIZE_PARSEU();
 }
 static uint64_t pb__tokenize_parseu64(char* s, size_t l) {
-    PB__TOKENIZE_PARSEU(uint64_t);
+    register uint64_t n;
+    PB__TOKENIZE_PARSEU();
 }
 int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool preproc, int* cptr, enum pb_error* e) {
     struct pb_compiler_srcloc el;
@@ -72,7 +73,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
         } else if (c == '`') {
             pb_compitf_mksrcloc(pbc, 0, &el);
             while (1) {
-                int c = pb__compiler_getc(pbc);
+                c = pb__compiler_getc(pbc);
                 if (c == '`') break;
                 if (c == -1) {
                     pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Unterminated comment", &el);

@@ -8,7 +8,7 @@ struct playerdata playerdata;
 
 void updateClient(float framemult) {
     (void)framemult;
-    for (unsigned pli = 0; pli < playerdata.len; ++pli) {
+    for (uint32_t pli = 0; pli < playerdata.len; ++pli) {
         struct player* pl = &playerdata.data[pli];
         pl->common.cameracalc.pos = pl->camera.pos;
     }
@@ -21,7 +21,7 @@ static inline void initPlayer(struct player* pl) {
 static inline void freePlayer(struct player* pl) {
     (void)pl;
 }
-bool setPlayer(unsigned pli, const char* username) {
+bool setPlayer(uint32_t pli, const char* username) {
     if (username) {
         ++pli;
         VLB_EXPANDTO(playerdata, pli, 3, 2, return false;);
@@ -49,7 +49,7 @@ bool initClient(void) {
     return true;
 }
 void quitClient(void) {
-    for (unsigned pli = 0; pli < playerdata.len; ++pli) {
+    for (uint32_t pli = 0; pli < playerdata.len; ++pli) {
         if (!playerdata.data[pli].priv.username) continue;
         freePlayer(&playerdata.data[pli]);
         free(playerdata.data[pli].priv.username);
