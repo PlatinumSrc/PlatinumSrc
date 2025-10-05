@@ -1036,8 +1036,8 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
             long loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
-            pos += toff / (long)audiostate.freq;
-            frac += (toff % (long)audiostate.freq) * 256;
+            pos += toff / (int64_t)audiostate.freq;
+            frac += (toff % (int64_t)audiostate.freq) * 256;
             long div = audiostate.freq * 256;
             pos += frac / div;
             frac %= div;
@@ -1153,8 +1153,8 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
             long loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
-            pos += toff / (long)audiostate.freq;
-            frac += (toff % (long)audiostate.freq) * 256;
+            pos += toff / (int64_t)audiostate.freq;
+            frac += (toff % (int64_t)audiostate.freq) * 256;
             long div = audiostate.freq * 256;
             pos += frac / div;
             frac %= div;

@@ -37,7 +37,7 @@
 struct rc_script* mainscript;
 
 static float lookspeed[2];
-static uint64_t toff;
+static uint64_t tmptoff;
 static uint64_t framestamp;
 #if DEBUG(1)
     static bool printfps;
@@ -369,7 +369,7 @@ int bootstrap(void) {
         if (tmpsnd) {
             int64_t toff = -5000000;
             play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
-            toff -= 1000000 * tmpsnd->len / tmpsnd->freq;
+            toff -= 1000000LL * tmpsnd->len / tmpsnd->freq;
             rlsRc(tmpsnd, false);
             tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
@@ -378,7 +378,7 @@ int bootstrap(void) {
             }
             tmpsnd = getRc(RC_SOUND, "sounds/env/air4start", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
-                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000 * tmpsnd->len / tmpsnd->freq});
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000LL * tmpsnd->len / tmpsnd->freq});
                 rlsRc(tmpsnd, false);
                 tmpsnd = getRc(RC_SOUND, "sounds/env/air4", &audiostate.soundrcopt, 0, NULL);
                 if (tmpsnd) {
@@ -540,7 +540,7 @@ int bootstrap(void) {
 
     stbi_write_png_compression_level = 9;
 
-    toff = SDL_GetTicks();
+    tmptoff = SDL_GetTicks();
     framestamp = altutime();
 
     plog(LL_MS, "All systems go!");
@@ -628,7 +628,7 @@ void loop(void) {
 
     // TODO: run scripts here
 
-    long lt = SDL_GetTicks() - toff;
+    long lt = SDL_GetTicks() - tmptoff;
     double dt = (double)(lt % 1000) / 1000.0;
     double t = (double)(lt / 1000) + dt;
     #if DEBUG(1)
