@@ -2,7 +2,6 @@
 #define PSRC_ENGINE_AUDIO_H
 
 // TODO: replace long with ptr-sized types
-// TODO: implement play{2D|3D}SoundCB
 // TODO: implement panning
 
 #include "../attribs.h"
@@ -130,6 +129,13 @@ struct audioemitter2d {
 #define SOUNDFLAG_WRAP (1U << 1)
 #define SOUNDIFLAG_USESCB (1U << 0)
 #define SOUNDIFLAG_NEEDSINIT (1U << 1)
+struct audiosoundcb {
+    audiocb cb;
+    void* ctx;
+    long len;
+    unsigned freq;
+    unsigned ch;
+};
 struct audiosound {
     uint32_t emitter;
     long loop;
@@ -172,13 +178,7 @@ struct audiosound {
                 } wav;
             };
         };
-        struct {
-            audiocb cb;
-            void* ctx;
-            long len;
-            unsigned freq;
-            unsigned ch;
-        } cb;
+        struct audiosoundcb cb;
     };
 };
 
@@ -324,14 +324,14 @@ void edit3DAudioEmitter(uint32_t, unsigned fenable, unsigned fdisable, unsigned 
 void stop3DAudioEmitter(uint32_t);
 void delete3DAudioEmitter(uint32_t);
 bool play3DSound(uint32_t e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
-//bool play3DSoundCB(...);
+bool play3DSoundCB(uint32_t e, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx);
 
 uint32_t new2DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsounds, unsigned flags, unsigned fxmask, const struct audiofx*);
 void edit2DAudioEmitter(uint32_t, unsigned fenable, unsigned fdisable, unsigned fxmask, const struct audiofx*, unsigned immfxmask);
 void stop2DAudioEmitter(uint32_t);
 void delete2DAudioEmitter(uint32_t);
 bool play2DSound(uint32_t e, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx*);
-//bool play2DSoundCB(...);
+bool play2DSoundCB(uint32_t e, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx);
 
 void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv*, unsigned immmask);
 

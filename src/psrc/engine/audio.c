@@ -414,8 +414,7 @@ void delete2DAudioEmitter(uint32_t ei) {
     #endif
 }
 
-// TODO: handle alloc failure
-static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask, const struct audiofx* fx) {
+static void initSound(struct audiosound* s, unsigned fxmask, const struct audiofx* fx) {
     s->loop = 0;
     s->pos = 0;
     s->frac = 0;
@@ -444,30 +443,62 @@ static void initSound(struct audiosound* s, struct rc_sound* rc, unsigned fxmask
     s->hplastout[1] = 0;
     s->hplastin[0] = 0;
     s->hplastin[1] = 0;
-    lockRc(rc);
-    s->rc = rc;
-    switch (s->rc->format) {
+}
+static inline bool initSoundRc(struct audiosound* s, struct rc_sound* rc) {
+    switch (rc->format) {
         DEFAULTCASE(RC_SOUND_FRMT_WAV):
-            if (s->rc->is8bit) s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * s->rc->channels * sizeof(*s->wav.cvtbuf));
+            if (rc->is8bit && !(s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->wav.cvtbuf)))) return false;
             break;
         #ifdef PSRC_USESTBVORBIS
         case RC_SOUND_FRMT_VORBIS:
-            s->vorbis.state = stb_vorbis_open_memory(s->rc->data, s->rc->size, NULL, NULL);
-            s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->vorbis.decbuf));
+            if (!(s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->vorbis.decbuf)))) return false;
+            if (!(s->vorbis.state = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL))) {
+                free(s->vorbis.decbuf);
+                return false;
+            }
             s->vorbis.decbufhead = 0;
             s->vorbis.decbuflen = 0;
             break;
         #endif
         #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3:
-            s->mp3.state = rcmgr_malloc(sizeof(*s->mp3.state));
-            mp3dec_ex_open_buf(s->mp3.state, s->rc->data, s->rc->size, MP3D_SEEK_TO_SAMPLE);
-            s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->mp3.decbuf));
+            if (!(s->mp3.state = rcmgr_malloc(sizeof(*s->mp3.state)))) return false;
+            if (!(s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->mp3.decbuf)))) {
+                free(s->mp3.state);
+                return false;
+            }
+            if (mp3dec_ex_open_buf(s->mp3.state, rc->data, rc->size, MP3D_SEEK_TO_SAMPLE)) {
+                free(s->mp3.decbuf);
+                free(s->mp3.state);
+                return false;
+            }
             s->mp3.decbufhead = 0;
             s->mp3.decbuflen = 0;
             break;
         #endif
     }
+    lockRc(rc);
+    s->rc = rc;
+    return true;
+}
+static inline struct audiosound* new3DSound(void) {
+    struct audiosound* s;
+    size_t i = 0;
+    while (1) {
+        if (i == audiostate.sounds3d.len) {
+            if (audiostate.sounds3d.len == (size_t)audiostate.max3dsounds) return NULL;
+            VLB_NEXTPTR(audiostate.sounds3d, s, 2, 1, return NULL;);
+            break;
+        }
+        struct audiosound* tmps = &audiostate.sounds3d.data[i];
+        if (tmps->prio == AUDIOPRIO_INVALID) {
+            s = tmps;
+            break;
+        }
+        ++i;
+    }
+    VLB_ADD(audiostate.sounds3dorder, i, 2, 1, return NULL;);
+    return s;
 }
 bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
@@ -476,30 +507,19 @@ bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, u
     if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto retfalse;
     struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
-    struct audiosound* s;
-    {
-        size_t i = 0;
-        while (1) {
-            if (i == audiostate.sounds3d.len) {
-                if (audiostate.sounds3d.len == (size_t)audiostate.max3dsounds) goto retfalse;
-                VLB_NEXTPTR(audiostate.sounds3d, s, 2, 1, goto retfalse;);
-                break;
-            }
-            struct audiosound* tmps = &audiostate.sounds3d.data[i];
-            if (tmps->prio == AUDIOPRIO_INVALID) {
-                s = tmps;
-                break;
-            }
-            ++i;
-        }
-        VLB_ADD(audiostate.sounds3dorder, i, 2, 1, goto retfalse;);
+    struct audiosound* s = new3DSound();
+    if (!s) goto retfalse;
+    if (!initSoundRc(s, rc)) {
+        --audiostate.sounds3dorder.len;
+        s->prio = AUDIOPRIO_INVALID;
+        goto retfalse;
     }
     ++e->cursounds;
     if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters3d.data[ei].prio;
     s->emitter = ei;
     s->prio = prio;
     s->flags = flags;
-    initSound(s, rc, fxmask, fx);
+    initSound(s, fxmask, fx);
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -510,6 +530,52 @@ bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, u
     #endif
     return false;
 }
+bool play3DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto retfalse;
+    struct audioemitter3d* e = &audiostate.emitters3d.data[ei];
+    if (e->cursounds == e->maxsounds) goto retfalse;
+    struct audiosound* s = new3DSound();
+    if (!s) goto retfalse;
+    ++e->cursounds;
+    if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters3d.data[ei].prio;
+    s->emitter = ei;
+    s->prio = prio;
+    s->flags = flags;
+    s->cb = *cb;
+    initSound(s, fxmask, fx);
+    s->iflags |= SOUNDIFLAG_USESCB;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+    return true;
+    retfalse:;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+    return false;
+}
+static inline struct audiosound* new2DSound(void) {
+    struct audiosound* s;
+    size_t i = 0;
+    while (1) {
+        if (i == audiostate.sounds2d.len) {
+            if (audiostate.sounds2d.len == (size_t)audiostate.max2dsounds) return NULL;
+            VLB_NEXTPTR(audiostate.sounds2d, s, 2, 1, return NULL;);
+            break;
+        }
+        struct audiosound* tmps = &audiostate.sounds2d.data[i];
+        if (tmps->prio == AUDIOPRIO_INVALID) {
+            s = tmps;
+            break;
+        }
+        ++i;
+    }
+    VLB_ADD(audiostate.sounds2dorder, i, 2, 1, return NULL;);
+    return s;
+}
 bool play2DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
     #ifndef PSRC_NOMT
     acquireWriteAccess(&audiostate.lock);
@@ -517,30 +583,46 @@ bool play2DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, u
     if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto retfalse;
     struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
     if (e->cursounds == e->maxsounds) goto retfalse;
-    struct audiosound* s;
-    {
-        size_t i = 0;
-        while (1) {
-            if (i == audiostate.sounds2d.len) {
-                if (audiostate.sounds2d.len == (size_t)audiostate.max2dsounds) goto retfalse;
-                VLB_NEXTPTR(audiostate.sounds2d, s, 2, 1, goto retfalse;);
-                break;
-            }
-            struct audiosound* tmps = &audiostate.sounds2d.data[i];
-            if (tmps->prio == AUDIOPRIO_INVALID) {
-                s = tmps;
-                break;
-            }
-            ++i;
-        }
-        VLB_ADD(audiostate.sounds2dorder, i, 2, 1, goto retfalse;);
+    struct audiosound* s = new2DSound();
+    if (!s) goto retfalse;
+    if (!initSoundRc(s, rc)) {
+        --audiostate.sounds2dorder.len;
+        s->prio = AUDIOPRIO_INVALID;
+        goto retfalse;
     }
     ++e->cursounds;
     if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters2d.data[ei].prio;
     s->emitter = ei;
     s->prio = prio;
     s->flags = flags;
-    initSound(s, rc, fxmask, fx);
+    initSound(s, fxmask, fx);
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+    return true;
+    retfalse:;
+    #ifndef PSRC_NOMT
+    releaseWriteAccess(&audiostate.lock);
+    #endif
+    return false;
+}
+bool play2DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
+    #ifndef PSRC_NOMT
+    acquireWriteAccess(&audiostate.lock);
+    #endif
+    if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto retfalse;
+    struct audioemitter2d* e = &audiostate.emitters2d.data[ei];
+    if (e->cursounds == e->maxsounds) goto retfalse;
+    struct audiosound* s = new2DSound();
+    if (!s) goto retfalse;
+    ++e->cursounds;
+    if (prio == AUDIOPRIO_DEFAULT) prio = audiostate.emitters2d.data[ei].prio;
+    s->emitter = ei;
+    s->prio = prio;
+    s->flags = flags;
+    s->cb = *cb;
+    initSound(s, fxmask, fx);
+    s->iflags |= SOUNDIFLAG_USESCB;
     #ifndef PSRC_NOMT
     releaseWriteAccess(&audiostate.lock);
     #endif
@@ -1407,15 +1489,8 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
             sample_r /= 256;\
             skipinterp_##l:;\
         }\
-        if (mixmono) {\
-            sample_l =+ sample_r;\
-            sample_l /= 2;\
-            audiostate.fxbuf[0][i] = sample_l;\
-            audiostate.fxbuf[1][i] = sample_l;\
-        } else {\
-            audiostate.fxbuf[0][i] = sample_l;\
-            audiostate.fxbuf[1][i] = sample_r;\
-        }\
+        audiostate.fxbuf[0][i] = sample_l;\
+        audiostate.fxbuf[1][i] = sample_r;\
     } else {\
         audiostate.fxbuf[0][i] = 0;\
         audiostate.fxbuf[1][i] = 0;\
@@ -1456,7 +1531,7 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
         }\
     }\
 } while (0)
-static bool mixsound(struct audiosound* s, bool mixmono, int** outp) {
+static bool mixsound(struct audiosound* s, int** outp) {
     audiocb cb;
     void* ctx;
     long len;
@@ -1742,7 +1817,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds3d.data[si];
             struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
-                if (!mixsound(s, true, audiostate.envbuf)) delete3DSound(si, s);
+                if (!mixsound(s, audiostate.envbuf)) delete3DSound(si, s);
             }
         }
         tmp = (audiostate.sounds2dorder.len <= audiostate.voices2d) ? audiostate.sounds2dorder.len : audiostate.voices2d;
@@ -1751,7 +1826,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds2d.data[si];
             struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && (e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
-                if (!mixsound(s, false, audiostate.envbuf)) delete2DSound(si, s);
+                if (!mixsound(s, audiostate.envbuf)) delete2DSound(si, s);
             }
         }
         applyAudioEnv(pli, audiostate.envbuf, audiostate.mixbuf);
@@ -1763,7 +1838,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds3d.data[si];
             struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED)) {
-                if (!mixsound(s, true, NULL)) delete3DSound(si, s);
+                if (!mixsound(s, NULL)) delete3DSound(si, s);
             }
         }
         if (tmp > audiostate.voices3d) tmp = audiostate.voices3d;
@@ -1772,7 +1847,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds3d.data[si];
             struct audioemitter3d* e = &audiostate.emitters3d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER3DFLAG_PAUSED) && (e->flags & AUDIOEMITTER3DFLAG_NOENV)) {
-                if (!mixsound(s, true, audiostate.mixbuf)) delete3DSound(si, s);
+                if (!mixsound(s, audiostate.mixbuf)) delete3DSound(si, s);
             }
         }
         tmp = audiostate.sounds2dorder.len;
@@ -1781,7 +1856,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds2d.data[si];
             struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED)) {
-                if (!mixsound(s, false, NULL)) delete2DSound(si, s);
+                if (!mixsound(s, NULL)) delete2DSound(si, s);
             }
         }
         if (tmp > audiostate.voices2d) tmp = audiostate.voices2d;
@@ -1790,7 +1865,7 @@ static void mixsounds(unsigned buf) {
             struct audiosound* s = &audiostate.sounds2d.data[si];
             struct audioemitter2d* e = &audiostate.emitters2d.data[s->emitter];
             if (!(e->flags & AUDIOEMITTER2DFLAG_PAUSED) && !(e->flags & AUDIOEMITTER2DFLAG_APPLYENV)) {
-                if (!mixsound(s, false, audiostate.mixbuf)) delete2DSound(si, s);
+                if (!mixsound(s, audiostate.mixbuf)) delete2DSound(si, s);
             }
         }
     }
@@ -1978,7 +2053,7 @@ static void callback(void* data, uint16_t* stream, int len) {
         audiostate.outbufi = (audiostate.outbufi + 1) % 4;
     } else {
         #if DEBUG(2)
-        plog(LL_INFO | LF_DEBUG, "Mixer is beind!");
+        plog(LL_INFO | LF_DEBUG, "Mixer is behind!");
         #endif
         memset(stream, 0, len);
     }

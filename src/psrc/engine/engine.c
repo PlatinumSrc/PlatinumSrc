@@ -300,12 +300,13 @@ int bootstrap(void) {
     }
 
     setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.07, 0.75, 0.99, 0.2, 0.6, 0.15}}, 0);
+    //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.1552, 0.65, 1.0, 0.05, 0.6, 0.1}}, 0);
     //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.35, 0.8, 0.9, 0.2, 0.2, 0.2}}, 0);
     //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.01, 0.5, 1.0, 0.0, 0.25, 0.1}}, 0);
     //setAudioEnv(0, AUDIOENVMASK_REVERB, &(struct audioenv){.reverb = {0.065, 0.5, 1.0, 0.0, 0.3, 0.0}}, 0);
     e2d[0] = new2DAudioEmitter(
         0, AUDIOPRIO_MAX, -1, 0,
-        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.5f, 0.5f}}
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.75f, 0.75f}}
     );
     e3d[0] = new3DAudioEmitter(
         0, AUDIOPRIO_DEFAULT, -1, AUDIOEMITTER3DFLAG_NOENV,
@@ -314,8 +315,13 @@ int bootstrap(void) {
     );
     e3d[1] = new3DAudioEmitter(
         0, AUDIOPRIO_DEFAULT, -1, 0,
+        #if 0
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {3.0f, 3.0f}},
-        AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, 0.0f, 2.0f)}
+        #else
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.65f, 0.65f}},
+        #endif
+        AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE | AUDIO3DFXMASK_RADIUS,
+        &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, 0.0f, 2.0f), .range = 40.0f, .radius = {0.5f, 0.5f, 0.5f}}
     );
     e3d[2] = new3DAudioEmitter(
         0, AUDIOPRIO_DEFAULT, -1, 0,
@@ -348,7 +354,6 @@ int bootstrap(void) {
         AUDIO3DFXMASK_POS, &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 5.0f, 1.0f, -20.0f)}
     );
     {
-        #if 1
         struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/ambient/wind1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play2DSound(e2d[0], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
@@ -356,25 +361,46 @@ int bootstrap(void) {
         }
         tmpsnd = getRc(RC_SOUND, "sounds/spawn", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, 0, 0, NULL);
+            //play3DSound(e3d[0], tmpsnd, AUDIOPRIO_DEFAULT, 0, 0, NULL);
             rlsRc(tmpsnd, false);
         }
-        tmpsnd = getRc(RC_SOUND, "sounds/env/ac1", &audiostate.soundrcopt, 0, NULL);
+        #if 1
+        tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2start", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
+            int64_t toff = -5000000;
+            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
+            toff -= 1000000 * tmpsnd->len / tmpsnd->freq;
             rlsRc(tmpsnd, false);
+            tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2", &audiostate.soundrcopt, 0, NULL);
+            if (tmpsnd) {
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
+                rlsRc(tmpsnd, false);
+            }
+            tmpsnd = getRc(RC_SOUND, "sounds/env/air4start", &audiostate.soundrcopt, 0, NULL);
+            if (tmpsnd) {
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000 * tmpsnd->len / tmpsnd->freq});
+                rlsRc(tmpsnd, false);
+                tmpsnd = getRc(RC_SOUND, "sounds/env/air4", &audiostate.soundrcopt, 0, NULL);
+                if (tmpsnd) {
+                    play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
+                    rlsRc(tmpsnd, false);
+                }
+            }
         }
+        #endif
         tmpsnd = getRc(RC_SOUND, "sounds/env/drip2", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play3DSound(e3d[2], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
+        #if 1
         tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -3000000});
-            play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
+            //play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
             rlsRc(tmpsnd, false);
         }
+        #endif
         tmpsnd = getRc(RC_SOUND, "sounds/env/drip1", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             play3DSound(e3d[5], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
@@ -395,13 +421,6 @@ int bootstrap(void) {
             play3DSound(e3d[7], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
             rlsRc(tmpsnd, false);
         }
-        #else
-        struct rc_sound* tmpsnd = getRc(RC_SOUND, "sounds/env/ac1", &audiostate.soundrcopt, 0, NULL);
-        if (tmpsnd) {
-            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP | SOUNDFLAG_LOOP, 0, NULL);
-            rlsRc(tmpsnd, false);
-        }
-        #endif
     }
 
     // TODO: cleanup
