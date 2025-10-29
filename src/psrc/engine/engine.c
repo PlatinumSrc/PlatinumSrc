@@ -318,7 +318,7 @@ int bootstrap(void) {
         #if 0
         AUDIOFXMASK_VOL, &(struct audiofx){.vol = {3.0f, 3.0f}},
         #else
-        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.65f, 0.65f}},
+        AUDIOFXMASK_VOL, &(struct audiofx){.vol = {0.75f, 0.75f}},
         #endif
         AUDIO3DFXMASK_POS | AUDIO3DFXMASK_RANGE | AUDIO3DFXMASK_RADIUS,
         &(struct audio3dfx){.pos = WORLDCOORD(0, 0, 0, 0.0f, 0.0f, 2.0f), .range = 40.0f, .radius = {0.5f, 0.5f, 0.5f}}
@@ -368,17 +368,17 @@ int bootstrap(void) {
         tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2start", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
             int64_t toff = -5000000;
-            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
-            toff -= 1000000LL * tmpsnd->len / tmpsnd->freq;
+            play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF | AUDIOFXMASK_VOL, &(struct audiofx){.toff = toff, .vol = {0.8f, 0.8f}});
+            toff -= 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq;
             rlsRc(tmpsnd, false);
             tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
-                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff});
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_LOOP, AUDIOFXMASK_TOFF | AUDIOFXMASK_VOL, &(struct audiofx){.toff = toff, .vol = {0.8f, 0.8f}});
                 rlsRc(tmpsnd, false);
             }
             tmpsnd = getRc(RC_SOUND, "sounds/env/air4start", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
-                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000LL * tmpsnd->len / tmpsnd->freq});
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq});
                 rlsRc(tmpsnd, false);
                 tmpsnd = getRc(RC_SOUND, "sounds/env/air4", &audiostate.soundrcopt, 0, NULL);
                 if (tmpsnd) {

@@ -1,8 +1,15 @@
 This is an extension of 'maps (pmf).txt'
 
+Embedded resources:
+
+    - Extension name is 'embedrc'
+    - Provides a PAF archive of map-specific resources to be mounted at 'map:/'
+
+    <Embedded resource PAF archive (See 'archives (paf).txt')>
+
 Baked light info:
 
-    - Extention name is "bakedlights"
+    - Extension name is 'bakedlights'
     - Provides information about the lights that were used to bake the lightmaps.
 
 

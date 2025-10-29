@@ -13,87 +13,80 @@ Format:
 
         <char[3]: {'P', 'M', 'F'}>
         <u8: Major version>
+        <<char[1..256]: {..., 0}>: Name>
+        <<char[1..65536]: {..., 0}>: Description>
+        <<char[1..65536]: {..., 0}>: Authors>
+        <<char[1..256]: {..., 0}>: Compiler info>
+        <<char[2..32]: {..., 0}>: Gamemode>
+        <<u8: 0..31>: Extra gamemode count> [<char[2..32]: {..., 0}>: Gamemode name]...
         <u64: Creation time (the time at which the map finished compiling in UTC Unix seconds)>
-        <<char[1...]: {..., 0}>: Name>
-        <<char[1...]: {..., 0}>: Description>
-        <<char[1...]: {..., 0}>: Authors>
-        <<char[1...]: {..., 0}>: Compiler info>
-        <<u8: 0..32>: Gamemode count> [<char[2..16]: {..., 0}>: Gamemode name]...
 
     Data:
 
-        <u32: String table size> <char[]: String table>
-        <u32: Size of embedded resource archive> [Embedded resource PAF archive (See 'archives (paf).txt')]
-        <u16: Extension count> [u32: Size of extension]... [Extension]...
-        <u8: Level count> [u32: Level data size]... [Level data]...
-        <Entities (see 'map entities.txt')>
+        <u32: Offset of <Extension table>>
+        <u32: Size of <Map>> <Map>
+        <Extension table>
 
-        Level data:
+        Extension table:
+            <u32: Extension count> [u32: Offset of <Extension>]...
+            [Extension]...
+        Extension:
+            (See 'map extensions.txt')
             <u8:
-                <5 bits: 0>
-                <1 bit: Keep player velocity>
-                <1 bit: Keep player chunk offset>
-                <1 bit: Keep player in-chunk offset>
+                <6 bits: 0>
+                <1 bit: Use in CRC>
+                <1 bit: Support required>
             >
-            <u32: Size of compressed <Common level data>>
-            <u32: Size of compressed <Client level data>>
-            <u32: Size of compressed <Server level data>>
-            <u32: Size of decompressed <Common level data>>
-            <u32: Size of decompressed <Client level data>>
-            <u32: Size of decompressed <Server level data>>
-            <Compressed <Common level data>>
-            <Compressed <Client level data>>
-            <Compressed <Server level data>>
-            <u32:
-                <8 bits: Chunk Y count minus 1>
-                <12 bits: Chunk X count minus 1>
-                <12 bits: Chunk Z count minus 1>
-            >
-            <u8: Chunk size (2^n)>
-            <<Chunk index>: Center chunk>
-            <
-                <u32: Size of compressed <Common chunk data>>
-                <u32: Size of compressed <Client chunk data>>
-                <u32: Size of compressed <Server chunk data>>
-                <u32: Size of decompressed <Common chunk data>>
-                <u32: Size of decompressed <Client chunk data>>
-                <u32: Size of decompressed <Server chunk data>>
-                (ordered by [Y][X][Z])
-            >...
-            <
-                <Compressed <Common chunk data>>
-                <Compressed <Client chunk data>>
-                <Compressed <Server chunk data>>
-                (ordered by [Y][X][Z])
-            >...
+            <<char[2..32]: {..., 0}>: Name>
+            <u32: Data size>
+            <u8[]: Data>
 
-        Chunk index:
-            <u32:
-                <8 bits: Chunk Y>
-                <12 bits: Chunk X>
-                <12 bits: Chunk Z>
-            >
+        Map:
+            <u32: Offset of <String table>>
+            <u32: Offset of <Entity table>>
+            <u32: Offset of <Level table>>
+            <String table>
+            <Entity table>
+            <Level table>
 
-        Common level data:
-            <u32: String table size> <char[]: String table>
-            <u16: Material count> [Material]...
-            <u16: Physics material count> [Physics material]...
-            <u16: Sound material count> [Sound material]...
-            <<String>: Air physics material>
-            <u8: Weather environment count> [Weather environment]...
-            <u8: Gravity environment count> [Gravity environment]...
-            <<String>: Default weather environment>
-            <<String>: Default gravity environment>
+        Level table:
+            <u32: Level count (must be at least 1)> <u32: Offset of <Level>>...
+            <Level>...
+        Level:
+            <u32: Offset of <String table>>
+            <u32: Offset of <Client level data>>
+            <u32: Offset of <Server level data>>
+            <u32: Offset of <Chunk table>>
+            <u16: Material count> <u32: Offset of first <Material>>
+            <u16: Physics material count> <u32: Offset of first <Physics material>> <u16: Air physics material>
+            <u16: Sound material count> <u32: Offset of first <Sound material>>
+            <u8: Weather environment count> <u32: Offset of first <Weather environment>> <u8: Default weather environment>
+            <u8: Gravity environment count> <u32: Offset of first <Gravity environment>> <u8: Default gravity environment>
+            <String table>
+            [Material]...
+            [Physics material]...
+            [Sound material]...
+            [Weather environment]...
+            [Gravity environment]...
+            <Client level data>
+            <Server level data>
+            <Chunk table>
+            <Client level data>
+            <Server level data>
         Client level data:
-            <u32: String table size> <char[]: String table>
-            <u8: Sound environment count> [Sound environment]...
-            <u8: Sky environment count> [Sky environment]...
-            <<String>: Default sound environment>
-            <<String>: Default sky environment>
+            <u32: Offset of <String table>>
+            <u32: Offset of first <Client-side material>>
+            <u8: Sound environment count> <u32: Offset of first <Sound environment>> <u8: Default sound environment>
+            <u8: Sky environment count> <u32: Offset of first <Sky environment>> <u8: Default sky environment>
+            <String table>
             [Client-side material]...
+            [Sound environment]...
+            [Sky environment]...
         Server level data:
-            <u32: String table size> <char[]: String table>
-            <Entities (see 'map entities.txt')>
+            <u32: Offset of <String table>>
+            <u32: Offset of <Entity table>>
+            <String table>
+            <Entity table>
 
         Sound environment:
             <<String>: Name>
@@ -115,54 +108,90 @@ Format:
             <float: Wind velocity noise speed>
         Sky environment:
             <<String>: Name>
-            <u8:
-                <7 bits: 0>
-                <1 bit: 3D skybox>
-            >
             <<String>: +X skybox material>
             <<String>: +Y skybox material>
             <<String>: +Z skybox material>
             <<String>: -X skybox material>
             <<String>: -Y skybox material>
             <<String>: -Z skybox material>
-            <<String>: Top cloud layer material>
-            <<String>: Bottom cloud layer material>
-            <<Chunk index>: 3D skybox chunk>
+            <<String>: Top cloud layer material (empty for none)>
+            <<String>: Bottom cloud layer material (empty for none)>
+            <u32: Offset of 3D skybox <Chunk table> (0 for none)>
         Gravity environment:
             <<String>: Name>
             <float[3]: XYZ gravity>
 
-        Common chunk data:
-            <u32: String table size> <char[]: String table>
-            <u8: Used material count> [<String>: Material name]...
-            <u8: Used physics material count> [<String>: Physics material name]...
-            <u8: Used sound material count> [<String>: Sound material name]...
-            <u8: Weather environment region count> [<Environment region>: Weather environment region]...
-            <u8: Gravity environment region count> [<Environment region>: Gravity environment region]...
-            <u8: Dynamic light count> [Dynamic light]...
-            <u8: Fast light count> [Fast light]...
-            <u32: Cube count (must be at least 1)> <Cube>...
+        Chunk table:
+            <u8: Chunk size (2^n)>
+            <u32:
+                <8 bits: Chunk Y count minus 1>
+                <12 bits: Chunk X count minus 1>
+                <12 bits: Chunk Z count minus 1>
+            >
+            <<World coordinate>: Center>
+            <u32: Offset of <Chunk> (ordered by [Y][X][Z])>...
+            <Chunk>...
+        Chunk:
+            <u32: Offset of <String table>>
+            <u32: Offset of <Client chunk data>>
+            <u32: Offset of <Server chunk data>>
+            <u8: Region count> <u32: Offset of first <Region>>
+            <u8: Used material count> <u32: Offset of first <Material> index>
+            <u8: Used physics material count> <u32: Offset of first <Physics material> index>
+            <u8: Used sound material count> <u32: Offset of first <Sound material> index>
+            <u8: Weather environment area count> <u32: Offset of first weather <Environment area>>
+            <u8: Gravity environment area count> <u32: Offset of first gravity <Environment area>>
+            <u8: Dynamic light count> <u32: Offset of first <Dynamic light>>
+            <u8: Fast light count> <u32: Offset of first <Fast light>>
+            <u32: Cube count (must be at least 1)> <u32: Offset of <Compressed <Cube>...>>
+            [Region]...
+            [u16: Material index]...
+            [u16: Physics material index]...
+            [u16: Sound material index]...
+            [<Environment area>: Weather environment area]...
+            [<Environment area>: Gravity environment area]...
+            [Dynamic light]...
+            [Fast light]...
+            <Compressed <Cube>...>
+            <Client chunk data>
+            <Server chunk data>
         Client chunk data:
-            <u8: Sound environment region count> [<Environment region>: Sound environment region]...
-            <u8: Sky environment region count> [<Environment region>: Sky environment region]...
-            <u8: Lightmap count> [Lightmap]...
-            <u32: Vertex count> [Vertex]...
-            <u32: Normal count> [Normal]...
+            <u8: Sound environment area count> <u32: Offset of first sound <Environment area>>
+            <u8: Sky environment area count> <u32: Offset of first sky <Environment area>>
+            <u8: Lightmap count> <u32: Offset of first <Lightmap>>
+            <u32: Vertex count> <u32: Offset of first <Vertex>>
+            <u32: Normal count> <u32: Offset of first <Normal>>
+            <u32: Offset of first <Client-side dynamic light>>
+            <u32: Offset of first <Client-side fast light>>
+            [<Environment area>: Sound environment area]...
+            [<Environment area>: Sky environment area]...
+            [Lightmap]...
+            [Vertex]...
+            [Normal]...
             [Client-side dynamic light]...
             [Client-side fast light]...
-            [Client-side cube]...
         Server chunk data:
-            <u32: String table size> <char[]: String table>
-            <u8: Region count> [Region]...
-            [Server-side cube]...
-            <Entities (see 'map entities.txt')>
+            <u32: Offset of <String table>>
+            <u32: Offset of <Entity table>>
+            <String table>
+            <Entity table>
+
+        World coordinate:
+            <<Chunk index>: Chunk>
+            <float[3]: In-chunk position>
+        Chunk index:
+            <u32:
+                <8 bits: Chunk Y>
+                <12 bits: Chunk X>
+                <12 bits: Chunk Z>
+            >
 
         Region:
             <float[3]: (+X, +Y, +Z) corner>
             <float[3]: (-X, -Y, -Z) corner>
             <u32: Other active chunk count> [Chunk index]...
 
-        Environment region:
+        Environment area:
             <float[3]: (+X, +Y, +Z) corner offset>
             <float[3]: (-X, +Y, +Z) corner offset>
             <float[3]: (+X, +Y, -Z) corner offset>
@@ -190,9 +219,9 @@ Format:
             <u8: Alpha (ignored if 'transparent' bit is not set)>
             <u8[3]: RGB emission>
             <u8: Shading>
-            <<String>: Texture (untextured if empty)>
+            <<String>: Texture (none if empty)>
             <<String>: Matcap texture (none if empty)>
-            <u8: Extra texture count> [<String>: Extra texture]...
+            <u8: Extra texture count> <<String table offset>: Offset of first extra texture <String>>
             <u32: Texture advance time in microseconds>
             <float[2]: Texture UV scroll per second>
             <float[2]: Matcap texture UV scroll per second>
@@ -221,8 +250,9 @@ Format:
             <float: Frequency dampening>
 
         Lightmap:
-            <u8: 2^(n) size>
-            <u8[3]: RGB luxel>...
+            <u8: <4 bits: Height (2^n)> <4 bits: Width (2^n)>>
+            <u32: Compressed size>
+            <u8: Compressed <u8[3]: RGB luxel>...>
 
         Vertex:
             <float[3]: XYZ>
@@ -241,10 +271,11 @@ Format:
         Client-side dynamic light:
             <u8[3]: RGB color>
             <u8: Affected lightmap count>
-            <
-                <u8: Lightmap>
-                <u8[3]: RGB luxel>...
-            >...
+            <Client-side dynamic light lightmap>...
+        Client-side dynamic light lightmap
+            <u8: Lightmap>
+            <u32: Compressed size>
+            <u8: Compressed <u8[3]: RGB luxel>...>
 
         Fast light:
             <u8:
@@ -267,70 +298,71 @@ Format:
                 <4 bits:
                     { 0
                     | <Geometry cube bits>
-                    | <Collider cube bits> }
+                    | <Extended geometry cube bits>
+                    | <Visibility info cube bits>
+                    | <Pathfinding info cube bits> }
                 >
                 <4 bits:
                     { PMF_CUBE_EMPTY
                     | PMF_CUBE_PARENT
-                    | PMF_CUBE_GEOMETRY
+                    | PMF_CUBE_GEOM
+                    | PMF_CUBE_EXTGEOM
                     | PMF_CUBE_VISINFO
                     | PMF_CUBE_LIGHTINFO
                     | PMF_CUBE_PATHINFO
-                    | PMF_CUBE_COLLIDER }
+                    | PMF_CUBE_COLL }
                 >
             >
             [
                 { <Parent cube data>
                 | <Geometry cube data>
+                | <Extended geometry cube data>
                 | <Visibility info cube data>
+                | <Lighting info cube data>
+                | <Pathfinding info cube data>
                 | <Collider cube data> }
             ]
         Client-side cube:
             [
-                { <Client-side geometry cube data>
-                | <Lighting info cube data> }
+                { <Parent cube data>
+                | <Geometry cube data>
+                | <Extended geometry cube data>
+                | <Visibility info cube data>
+                | <Lighting info cube data>
+                | <Pathfinding info cube data>
+                | <Collider cube data> }
             ]
         Server-side cube:
             [
-                <Pathfinding info cube data>
+                { <Parent cube data>
+                | <Geometry cube data>
+                | <Extended geometry cube data>
+                | <Visibility info cube data>
+                | <Lighting info cube data>
+                | <Pathfinding info cube data>
+                | <Collider cube data> }
             ]
+            
 
         Parent cube data:
-            <u8:
-                <1 bit: Has (-X, -Y, -Z) child> <1 bit: Has (+X, -Y, -Z) child>
-                <1 bit: Has (-X, -Y, +Z) child> <1 bit: Has (+X, -Y, +Z) child>
-                <1 bit: Has (-X, +Y, -Z) child> <1 bit: Has (+X, +Y, -Z) child>
-                <1 bit: Has (-X, +Y, +Z) child> <1 bit: Has (+X, +Y, +Z) child>
-            >
-            [u32: (+X, +Y, +Z) child index] [u32: (-X, +Y, +Z) child index]
-            [u32: (+X, +Y, -Z) child index] [u32: (-X, +Y, -Z) child index]
-            [u32: (+X, -Y, +Z) child index] [u32: (-X, -Y, +Z) child index]
-            [u32: (+X, -Y, -Z) child index] [u32: (-X, -Y, -Z) child index]
+            <u32: (+X, +Y, +Z) child index> <u32: (-X, +Y, +Z) child index>
+            <u32: (+X, +Y, -Z) child index> <u32: (-X, +Y, -Z) child index>
+            <u32: (+X, -Y, +Z) child index> <u32: (-X, -Y, +Z) child index>
+            <u32: (+X, -Y, -Z) child index> <u32: (-X, -Y, -Z) child index>
 
         Geometry cube data:
-            { <Basic geometry cube data>
-            | <Extended geometry cube data> }
-        Client-side geometry cube data:
-            { <Client-side basic geometry cube data>
-            | <Client-side extended geometry cube data> }
-        Geometry cube bits:
-            <1 bits: 0>
-            <1 bit: Draw backfaces>
-            <1 bit: Client-side data is extended>
-            <1 bit: Common data is extended>
-
-        Basic geometry cube data:
             <u8: Material>
             <u8: Physics material>
             <u8: Sound material>
-        Basic client-side geometry cube data:
             <u8: Lightmap>
-            <u32: Index of first quad's first vertex>
             <u8:
                 <2 bits: 0>
                 <1 bit: -Z has face> <1 bit: -Y has face> <1 bit: -X has face>
                 <1 bit: +Z has face> <1 bit: +Y has face> <1 bit: +X has face>
             >
+        Geometry cube bits:
+            <3 bits: 0>
+            <1 bit: Draw backfaces>
 
         Extended geometry cube data:
             <u8: +X material> <u8: +Y material> <u8: +Z material>
@@ -338,74 +370,61 @@ Format:
             <u8: +X physics material> <u8: +Y physics material> <u8: +Z physics material>
             <u8: -X physics material> <u8: -Y physics material> <u8: -Z physics material>
             <u8: Sound material>
-            <u8:
-                <1 bit: (-X, -Y, -Z) point is moved> <1 bit: (+X, -Y, -Z) point is moved>
-                <1 bit: (-X, -Y, +Z) point is moved> <1 bit: (+X, -Y, +Z) point is moved>
-                <1 bit: (-X, +Y, -Z) point is moved> <1 bit: (+X, +Y, -Z) point is moved>
-                <1 bit: (-X, +Y, +Z) point is moved> <1 bit: (+X, +Y, +Z) point is moved>
-            >
-            [float[3]: (+X, +Y, +Z) XYZ] [float[3]: (-X, +Y, +Z) XYZ]
-            [float[3]: (+X, +Y, -Z) XYZ] [float[3]: (-X, +Y, -Z) XYZ]
-            [float[3]: (+X, -Y, +Z) XYZ] [float[3]: (-X, -Y, +Z) XYZ]
-            [float[3]: (+X, -Y, -Z) XYZ] [float[3]: (-X, -Y, -Z) XYZ]
-        Client-side extended geometry cube data:
             <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
             <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
             <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
             <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
             <u32: Index of first triangle's first vertex>
             <u32: Index of first triangle's first vertex's normal>
+        Extended geometry cube bits:
+            <3 bits: 0>
+            <1 bit: Draw backfaces>
 
         Visibility info cube data:
-            <u32: Child>
-            <u32: Other visible cube count>
-            [u32: Visible cube index]...
-            <u32: Other visible chunk count>
-            [Visibility info cube chunk]...
-        Visibility info cube chunk:
+            <u32: Child or additional visibility info index>
             <Chunk index>
-            <u32: Visible cube count (0 means all)> [u32: Cube index]...
+            <u32[16]: Cube indices>
+            <i8[16]: Cube depths>
+        Visibility info cube bits:
+            <4 bits: Cube count minus 1>
 
         Lighting info cube data:
-            <u32: Child>
+            <u32: Child or additional lighting info index>
             <u8[3]: Base light>
-            <u8: Dynamic light count> [Lighting info cube light reference]...
-            <u8: Fast light count> [Lighting info cube light reference]...
+            <u8:
+                <4 bits: Dynamic light count>
+                <4 bits: Fast light count>
+            >
+            <<Lighting info cube light reference>[15]: Dynamic lights>
+            <<Lighting info cube light reference>[15]: Fast lights>
         Lighting info cube light reference:
             <u8: Index>
             <u8: Multiplier>
 
         Pathfinding info cube data:
-            <u32: Child>
-            <u8: Attribute count> [Pathfinding info cube attribute]...
+            <u32: Child or additional pathfinding info index>
+            <<Pathfinding info cube attribute>[16]>
         Pathfinding info cube attribute:
             <<String>: Name>
             <<String>: Data>
+        Pathfinding info cube bits:
+            <4 bits: Attribute count minus 1>
 
         Collider cube data:
-            <u32: Child>
-            <Collider cube box>...
-        Collider cube box:
+            <u32: Child or additional collider index>
             <float[3]: (+X, +Y, +Z) XYZ> <float[3]: (-X, +Y, +Z) XYZ>
             <float[3]: (+X, +Y, -Z) XYZ> <float[3]: (-X, +Y, -Z) XYZ>
             <float[3]: (+X, -Y, +Z) XYZ> <float[3]: (-X, -Y, +Z) XYZ>
             <float[3]: (+X, -Y, -Z) XYZ> <float[3]: (-X, -Y, -Z) XYZ>
-        Collider cube bits:
-            <4 bits: Box count minus 1>
 
+        String table:
+            <u32: Uncompressed size> <u32: Compressed size> <u8[]: Compressed data>
         String table offset:
-            <u32: Offset in respective string table>
+            <u32: Offset in decompressed respective string table>
         String:
-            <<String table offset>: Offset to null-terminated string>
+            <<String table offset>: Offset of null-terminated string>
 
-        Extension:
-            (See 'map extensions.txt')
-            <u8:
-                <6 bits: 0>
-                <1 bit: Support required>
-                <1 bit: Use in CRC>
-            >
-            <<char[2...]: {..., 0}>: Name>
-            <u8[]: Data>
+        Entity table:
+            <u32: Entity count> <u32: Compressed size> <u8[]: Compressed [Entity]...>
 
 

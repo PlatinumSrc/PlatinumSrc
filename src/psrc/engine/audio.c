@@ -118,10 +118,10 @@ static inline void deleteSound(struct audiosound* s) {
         ctx = s->cb.ctx;
     }
     cb(ctx, 0, 0, NULL, NULL, NULL);
-    s->prio = AUDIOPRIO_INVALID;
 }
 static void delete3DSound(size_t si, struct audiosound* s) {
     deleteSound(s);
+    s->prio = AUDIOPRIO_INVALID;
     --audiostate.sounds3dorder.len;
     if (audiostate.sounds3dorder.data[audiostate.sounds3dorder.len] != si) {
         for (size_t i = 0; i < audiostate.sounds3dorder.len; ++i) {
@@ -134,6 +134,7 @@ static void delete3DSound(size_t si, struct audiosound* s) {
 }
 static void delete2DSound(size_t si, struct audiosound* s) {
     deleteSound(s);
+    s->prio = AUDIOPRIO_INVALID;
     --audiostate.sounds2dorder.len;
     if (audiostate.sounds2dorder.data[audiostate.sounds2dorder.len] != si) {
         for (size_t i = 0; i < audiostate.sounds2dorder.len; ++i) {
@@ -1354,8 +1355,12 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
             env->reverb.state.hpfilt[newparami] = env->reverb.state.hpfilt[curparami];
         }
         if (env->reverb.state.len) {
-            doReverb_interp(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
-        }
+            if (env->envch & ~env->envchimm) {
+			    doReverb_interp(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
+            } else {
+                doReverb(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
+		    }
+	    }
         env->reverb.state.parami = newparami;
     } else if (env->reverb.state.len) {
         doReverb(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
@@ -1901,8 +1906,8 @@ static void mixsounds(unsigned buf) {
 
 static inline void initAudioPlayerData(struct audioplayerdata* pldata) {
     pldata->valid = true;
-    pldata->env.envch = (uint8_t)AUDIOENVMASK_ALL;
-    pldata->env.envchimm = (uint8_t)AUDIOENVMASK_ALL;
+    pldata->env.envch = (uint16_t)AUDIOENVMASK_ALL;
+    pldata->env.envchimm = (uint16_t)AUDIOENVMASK_ALL;
     pldata->env.panning = 0.0f;
     pldata->env.lpfilt.amount = 0.0f;
     pldata->env.lpfilt.muli = 0;
@@ -2300,6 +2305,36 @@ void stopAudio(void) {
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid) goto ret;
+    for (size_t i = 0; i < audiostate.sounds3d.len; ++i) {
+        deleteSound(&audiostate.sounds3d.data[i]);
+    }
+    for (size_t i = 0; i < audiostate.sounds2d.len; ++i) {
+        deleteSound(&audiostate.sounds2d.data[i]);
+    }
+    for (uint32_t i = 0; i < audiostate.playerdata.len; ++i) {
+        struct audioplayerdata* pl = &audiostate.playerdata.data[i];
+        if (pl->valid) freeAudioPlayerData(pl);
+    }
+    audiostate.emitters3d.len = 0;
+    VLB_FREE(audiostate.emitters3d);
+    audiostate.sounds3d.len = 0;
+    VLB_FREE(audiostate.sounds3d);
+    audiostate.sounds3dorder.len = 0;
+    VLB_FREE(audiostate.sounds3dorder);
+    audiostate.emitters2d.len = 0;
+    VLB_FREE(audiostate.emitters2d);
+    audiostate.sounds2d.len = 0;
+    VLB_FREE(audiostate.sounds2d);
+    audiostate.sounds2dorder.len = 0;
+    VLB_FREE(audiostate.sounds2dorder);
+    free(audiostate.fxbuf[0]);
+    free(audiostate.fxbuf[1]);
+    free(audiostate.envbuf[0]);
+    free(audiostate.envbuf[1]);
+    free(audiostate.mixbuf[0]);
+    free(audiostate.mixbuf[1]);
+    free(audiostate.outbuf[0]);
+    if (audiostate.usecallback) free(audiostate.outbuf[1]);
     audiostate.valid = false;
     ret:;
     #ifndef PSRC_NOMT

@@ -28,16 +28,16 @@ void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* wo, unsigned* ho, unsigned* cho) 
     }
     void* data = malloc(sz);
     if (!data) return NULL;
-    LZ4_readCB_t* rcb;
-    if (LZ4F_isError(LZ4CB_readOpen(&rcb, (LZ4CB_readcb)ds_read, ds))) {
+    LZ4_readCB_t rcb = {.cb = (LZ4CB_readcb)ds_read, .ctx = ds};
+    if (LZ4F_isError(LZ4CB_readOpen(&rcb))) {
         free(data);
         return NULL;
     }
-    if (LZ4F_isError(LZ4CB_read(rcb, data, sz))) {
-        LZ4CB_readClose(rcb);
+    if (LZ4F_isError(LZ4CB_read(&rcb, data, sz))) {
+        LZ4CB_readClose(&rcb);
         free(data);
         return NULL;
     }
-    LZ4CB_readClose(rcb);
+    LZ4CB_readClose(&rcb);
     return data;
 }

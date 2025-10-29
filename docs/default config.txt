@@ -12,6 +12,8 @@ mods =
   fov = 90
   quality.textures = 2 # 0 = low, 1 = medium, 2 = high
   quality.lighting = 2
+  fontcache.size = 16
+  fontcache.overflow = true
   gl.near = 0.1
   gl.far = 1000.0
   gl.fastclear = true

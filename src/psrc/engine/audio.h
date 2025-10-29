@@ -182,6 +182,21 @@ struct audiosound {
     };
 };
 
+#define MUSICPARAMMASK_FADEOUT (1U << 0)
+#define MUSICPARAMMASK_FADEIN (1U << 1)
+#define MUSICPARAMMASK_FADEDELAY (1U << 2)
+#define MUSICPARAMMASK_STYLE (1U << 3)
+#define MUSICPARAMMASK_FX (1U << 4)
+#define MUSICPARAMMASK_ALL (-1U)
+struct musicparam {
+    float fadeout;
+    float fadein;
+    float fadedelay;
+    const char* style;
+    unsigned fxmask;
+    const struct audiofx* fx;
+};
+
 #define AUDIOENVMASK_PANNING (1U << 0)
 #define AUDIOENVMASK_LPFILT (1U << 1)
 #define AUDIOENVMASK_HPFILT (1U << 2)
@@ -335,7 +350,8 @@ bool play2DSoundCB(uint32_t e, struct audiosoundcb* cb, int8_t prio, uint8_t fla
 
 void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv*, unsigned immmask);
 
-void setMusic(struct rc_sound* rc); // TODO: make rc_music once PTM is added
-void setMusicStyle(const char*);
+void playMusic(struct rc_sound* rc, unsigned fxmask, const struct audiofx* fx);
+void editMusic(unsigned pmask, const struct musicparam* p);
+void stopMusic(void);
 
 #endif

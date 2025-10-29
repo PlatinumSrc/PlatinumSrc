@@ -282,6 +282,11 @@ else
         PLATFORMDIR := debug/$(PLATFORM)
     endif
 endif
+ifndef DEBUG
+    ifneq ($(NOLTO),y)
+        PLATFORMDIR := $(PLATFORMDIR)_LTO
+    endif
+endif
 PLATFORMDIR := $(PLATFORMDIR)/$(PLATFORMDIRNAME)
 _OBJDIR := $(OBJDIR)/$(PLATFORMDIR)
 
