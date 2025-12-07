@@ -106,6 +106,7 @@ static struct {
             uint_fast8_t has_ARB_multitexture : 1;
             uint_fast8_t has_ARB_texture_border_clamp : 1;
             int maxlights;
+            int maxtexunits;
         } gl11;
         #endif
         #ifdef PSRC_ENGINE_RENDERER_GL_USEGL33
@@ -870,6 +871,10 @@ bool r_gl_afterCreateWindow(void) {
     if (rendstate.api == RENDAPI_GL11) {
         glGetIntegerv(GL_MAX_LIGHTS, &r_gl_data.gl11.maxlights);
         plog(LL_INFO, "  Max lights: %d", r_gl_data.gl11.maxlights);
+        if (r_gl_data.gl11.has_ARB_multitexture) {
+            glGetIntegerv(GL_MAX_TEXTURE_UNITS_ARB, &r_gl_data.gl11.maxtexunits);
+            plog(LL_INFO, "  Max texture units: %d", r_gl_data.gl11.maxtexunits);
+        }
     }
     #endif
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &tmpint[0]);

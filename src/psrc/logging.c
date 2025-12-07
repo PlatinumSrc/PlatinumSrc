@@ -32,7 +32,7 @@
 
 #include "glue.h"
 
-#ifndef PSRC_NOMT
+#if PSRC_MTLVL >= 2
 mutex_t loglock;
 #endif
 
@@ -78,7 +78,7 @@ static void logring_step(void) {
 }
 
 bool initLogging(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     if (!createMutex(&loglock)) return false;
     #endif
     #if PLATFORM == PLAT_WIN32
@@ -392,14 +392,14 @@ static void plog_internal(enum loglevel lvl, const char* func, const char* file,
 
 #undef plog
 void plog(enum loglevel lvl, const char* func, const char* file, unsigned line, const char* s, ...) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&loglock);
     #endif
     va_list v;
     va_start(v, s);
     plog_internal(lvl, func, file, line, s, v);
     va_end(v);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&loglock);
     #endif
 }
@@ -418,7 +418,7 @@ bool plog_setfile(const char* f) {
     #if DEBUG(1)
     return true;
     #endif
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&loglock);
     #endif
     if (f) {
@@ -455,7 +455,7 @@ bool plog_setfile(const char* f) {
             #if DEBUG(1)
             plog_nolock(LL_WARN | LF_DEBUG | LF_FUNC, LE_CANTOPEN(f, errno));
             #endif
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             unlockMutex(&loglock);
             #endif
             return false;
@@ -464,7 +464,7 @@ bool plog_setfile(const char* f) {
         if (logfile) fclose(logfile);
         logfile = NULL;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&loglock);
     #endif
     return true;

@@ -82,7 +82,7 @@ struct player {
 };
 
 struct playerdata {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     struct accesslock lock;
     #endif
     struct player* data;

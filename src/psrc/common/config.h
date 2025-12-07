@@ -29,7 +29,7 @@ struct cfg {
     bool changed;
     int sectcount;
     struct cfg_sect* sectdata;
-    #if !defined(PSRC_REUSABLE) && !defined(PSRC_NOMT)
+    #if !defined(PSRC_REUSABLE) && PSRC_MTLVL >= 2
     mutex_t lock;
     #endif
 };

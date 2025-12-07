@@ -71,10 +71,16 @@ struct rcsrc {
     };
 };
 
+typedef void (*getrc_async_cb)(void* ctx, void* rc);
 struct getrc_opt {
     unsigned nocache : 1;
     unsigned havecrc : 1;
+    unsigned async : 1;
+    unsigned async_usemainthrd : 1;
+    unsigned async_nocbifcached : 1;
     uint64_t crc;
+    getrc_async_cb async_cb;
+    void* async_cb_ctx;
 };
 
 struct rcls_ent {

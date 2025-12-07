@@ -89,7 +89,7 @@ else ifeq ($(CROSS),emscr)
     EMULATOR := emrun
     EMUPATHFLAG := --
     NOSTRIP := y
-    NOMT := y
+    MT := 0
     USEGL11 := y
 else ifeq ($(CROSS),nxdk)
     ifndef NXDK_DIR
@@ -118,7 +118,7 @@ else ifeq ($(CROSS),nxdk)
     XISO := $(OUTDIR)/$(XBE_TITLE).xiso.iso
     XISODIR := $(OUTDIR)/xiso
     NOLTO := y
-    NOMT := y
+    MT := 1
     NOSIMD := y
     USESTDTHREAD := y
     USEXGU := y
@@ -150,7 +150,7 @@ else ifeq ($(CROSS),ps2)
     _STRIP := $(TOOLCHAIN)$(STRIP)
     EMULATOR := pcsx2
     EMUPATHFLAG := --
-    NOMT := y
+    MT := 1
     USEGSKIT := y
 else ifeq ($(CROSS),dc)
     ifndef KOS_BASE
@@ -175,7 +175,7 @@ else ifeq ($(CROSS),dc)
     IP_MRIMAGE := icons/engine.mr
     CDI := $(OUTDIR)/$(IP_TITLE).cdi
     CDIDIR := $(OUTDIR)/cdi
-    NOMT := y
+    MT := 1
     USESTDTHREAD := y
     USEPVR := y
     USESDL1 := y
@@ -210,7 +210,7 @@ else ifeq ($(CROSS),3ds)
     RSF_CPUSPEED := 804MHz
     SMDH := $(OUTDIR)/$(SMDH_TITLE).smdh
     3DSX := $(OUTDIR)/$(SMDH_TITLE).3dsx
-    NOMT := y
+    MT := 1
     USEC3D := y
 else ifeq ($(CROSS),wii)
     ifndef DEVKITPRO
@@ -230,7 +230,7 @@ else ifeq ($(CROSS),wii)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
     ELF2DOL := elf2dol
-    NOMT := y
+    MT := 1
     USEGX := y
 else ifeq ($(CROSS),gc)
     ifndef DEVKITPRO
@@ -250,7 +250,7 @@ else ifeq ($(CROSS),gc)
     EMULATOR := dolphin-emu
     EMUPATHFLAG := --
     ELF2DOL := elf2dol
-    NOMT := y
+    MT := 1
     USEGX := y
 else
     $(error Invalid cross-compilation target: $(CROSS))
@@ -307,9 +307,12 @@ else ifeq ($(USEGL33),y)
 else ifeq ($(USEGLES30),y)
     USEGL := y
 endif
+ifeq ($(MTLVL),)
+    MTLVL := 2
+endif
 
 _CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -fno-exceptions -Wall -Wextra -Wuninitialized
-_CPPFLAGS := $(CPPFLAGS)
+_CPPFLAGS := $(CPPFLAGS) -DPSRC_MTLVL=$(MTLVL)
 _LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
@@ -368,7 +371,7 @@ ifneq ($(CROSS),nxdk)
             _LDLIBS += -lGL
         endif
     endif
-    ifneq ($(NOMT),y)
+    ifneq ($(MT),0)
         ifneq ($(USESTDTHREAD),y)
             ifneq ($(CROSS),win32)
                 ifneq ($(CROSS),dc)
@@ -409,9 +412,6 @@ ifneq ($(DEFAULTGAME),)
 endif
 ifeq ($(NOSIMD),y)
     _CPPFLAGS += -DPSRC_NOSIMD
-endif
-ifeq ($(NOMT),y)
-    _CPPFLAGS += -DPSRC_NOMT
 endif
 ifeq ($(USESTDIODS),y)
     _CPPFLAGS += -DPSRC_DATASTREAM_USESTDIO
@@ -533,7 +533,7 @@ CPPFLAGS.dir.stb := -DSTBI_ONLY_PNG -DSTBI_ONLY_JPEG -DSTBI_ONLY_TGA -DSTBI_ONLY
 ifeq ($(NOSIMD),y)
     CPPFLAGS.dir.stb += -DSTBI_NO_SIMD
 endif
-ifeq ($(NOMT),y)
+ifeq ($(MT),0)
     CPPFLAGS.dir.stb += -DSTBI_NO_THREAD_LOCALS
 endif
 

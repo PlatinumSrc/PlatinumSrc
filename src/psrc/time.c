@@ -45,7 +45,7 @@ void microwait(uint64_t d) {
         LARGE_INTEGER tmpd = {.QuadPart = d * -10};
         KeDelayExecutionThread(UserMode, true, &tmpd);
     #elif (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         static THREADLOCAL HANDLE timer = NULL;
         #else
         static HANDLE timer = NULL;

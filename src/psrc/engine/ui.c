@@ -3,14 +3,14 @@
 struct uistate uistate;
 
 bool initUI(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     if (!createAccessLock(&uistate.lock)) return false;
     #endif
     return true;
 }
 
 void quitUI(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     destroyAccessLock(&uistate.lock);
     #endif
 }

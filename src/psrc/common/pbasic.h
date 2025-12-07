@@ -742,7 +742,7 @@ struct pbasic {
         struct pb_typedef* data;
         size_t len;
         size_t size;
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         struct accesslock lock;
         #endif
     } typedefs;
@@ -750,7 +750,7 @@ struct pbasic {
         struct pb_memb* data;
         size_t len;
         size_t size;
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         struct accesslock lock;
         #endif
     } membs;
@@ -758,7 +758,7 @@ struct pbasic {
         struct pb_prog* data;
         size_t len;
         size_t size;
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         struct accesslock lock;
         #endif
     } progs;
@@ -766,14 +766,14 @@ struct pbasic {
         struct pb_proc* data;
         size_t len;
         size_t size;
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         struct accesslock lock;
         #endif
     } procs;
     struct {
         struct VLB(struct pb_event_sync) sync;
         struct VLB(struct pb_event_async) async;
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         struct accesslock lock;
         #endif
     } events;
@@ -811,11 +811,11 @@ bool pb_event_delasynchandler(struct pbasic*, const char* name, uint32_t namelen
 void pb_rodata_destroy(struct pbasic*, struct pb_rodata*);
 
 static ALWAYSINLINE void pb_proc_getstatus(struct pbasic* pb, uint32_t procid, struct pb_proc_status* status) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireReadAccess(&pb->procs.lock);
     #endif
     *status = pb->procs.data[procid].status;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseReadAccess(&pb->procs.lock);
     #endif
 }

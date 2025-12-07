@@ -1,4 +1,4 @@
-#ifndef PSRC_NOMT
+#if PSRC_MTLVL >= 1
 
 #include "threading.h"
 #include "logging.h"
@@ -23,8 +23,8 @@ static int threadwrapper(void* t) {
 }
 #else
 static void* threadwrapper(void* t) {
-    #ifndef PSRC_THREADING_NONAMES
-        #ifndef PSRC_THREADING_USESTDTHREAD
+    #if !defined(PSRC_THREADING_NONAMES) && !defined(PSRC_THREADING_USESTDTHREAD)
+        if (((thread_t*)t)->name) {
             #if defined(__GLIBC__)
                 pthread_setname_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #elif PLATFORM == PLAT_NETBSD
@@ -32,7 +32,7 @@ static void* threadwrapper(void* t) {
             #elif PLATFORM == PLAT_FREEBSD || PLATFORM == PLAT_OPENBSD
                 pthread_set_name_np(((thread_t*)t)->thread, ((thread_t*)t)->name);
             #endif
-        #endif
+        }
     #endif
     ((thread_t*)t)->ret = ((thread_t*)t)->func(&((thread_t*)t)->data);
     pthread_exit(((thread_t*)t)->ret);

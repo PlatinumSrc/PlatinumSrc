@@ -1,7 +1,7 @@
 #ifndef PSRC_THREADING_H
 #define PSRC_THREADING_H
 
-#ifndef PSRC_NOMT
+#if PSRC_MTLVL >= 1
 
 #include "platform.h"
 

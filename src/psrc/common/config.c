@@ -3,7 +3,7 @@
 #ifndef PSRC_REUSABLE
     #include "../rcmgralloc.h"
 #else
-    #define PSRC_NOMT
+    #define PSRC_MTLVL 0
 #endif
 
 #include "config.h"
@@ -22,7 +22,7 @@
 #include "../glue.h"
 
 char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
@@ -46,7 +46,7 @@ char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
         }
     }
     if (!sectptr) {
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         unlockMutex(&cfg->lock);
         #endif
         return NULL;
@@ -56,20 +56,20 @@ char* cfg_getvar(struct cfg* cfg, const char* sect, const char* var) {
         struct cfg_var* ptr = &sectptr->vardata[i];
         if (ptr->name && ptr->namecrc == crc && !strcasecmp(ptr->name, var)) {
             char* tmp = strdup(ptr->data);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             unlockMutex(&cfg->lock);
             #endif
             return tmp;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
     return NULL;
 }
 
 bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data, size_t size) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
@@ -93,7 +93,7 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
         }
     }
     if (!sectptr) {
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         unlockMutex(&cfg->lock);
         #endif
         return false;
@@ -111,20 +111,20 @@ bool cfg_getvarto(struct cfg* cfg, const char* sect, const char* var, char* data
                 ++from;
             }
             *data = 0;
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             unlockMutex(&cfg->lock);
             #endif
             return true;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
     return false;
 }
 
 void cfg_setvar(struct cfg* cfg, const char* sect, const char* var, const char* data, bool overwrite) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
@@ -214,13 +214,13 @@ void cfg_setvar(struct cfg* cfg, const char* sect, const char* var, const char* 
         varptr->namecrc = crc;
         varptr->data = strdup(data);
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
 }
 
 void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
@@ -244,7 +244,7 @@ void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
         }
     }
     if (!sectptr) {
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         unlockMutex(&cfg->lock);
         #endif
         return;
@@ -259,13 +259,13 @@ void cfg_delvar(struct cfg* cfg, const char* sect, const char* var) {
             break;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
 }
 
 void cfg_delsect(struct cfg* cfg, const char* sect) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     struct cfg_sect* sectptr = NULL;
@@ -288,7 +288,7 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
         }
     }
     if (!sectptr) {
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         unlockMutex(&cfg->lock);
         #endif
         return;
@@ -302,13 +302,13 @@ void cfg_delsect(struct cfg* cfg, const char* sect) {
     free(sectptr->name);
     sectptr->name = NULL;
     free(sectptr->vardata);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
 }
 
 void cfg_delall(struct cfg* cfg) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     lockMutex(&cfg->lock);
     #endif
     for (int i = 0; i < cfg->sectcount; ++i) {
@@ -324,7 +324,7 @@ void cfg_delall(struct cfg* cfg) {
         sectptr->name = NULL;
         free(sectptr->vardata);
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     unlockMutex(&cfg->lock);
     #endif
 }
@@ -671,7 +671,7 @@ void cfg_read(struct cfg* cfg, PSRC_DATASTREAM_T ds, bool overwrite) {
 
 void cfg_open(PSRC_DATASTREAM_T ds, struct cfg* cfg) {
     memset(cfg, 0, sizeof(*cfg));
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     createMutex(&cfg->lock);
     #endif
     if (ds) {
@@ -725,7 +725,7 @@ void cfg_close(struct cfg* cfg) {
         }
     }
     free(cfg->sectdata);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     destroyMutex(&cfg->lock);
     #endif
 }

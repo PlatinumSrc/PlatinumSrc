@@ -42,7 +42,7 @@ bool setPlayer(uint32_t pli, const char* username) {
 }
 
 bool initClient(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     if (!createAccessLock(&playerdata.lock)) return false;
     #endif
     VLB_INIT(playerdata, 1, VLB_OOM_NOP);
@@ -55,7 +55,7 @@ void quitClient(void) {
         free(playerdata.data[pli].priv.username);
     }
     VLB_FREE(playerdata);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     destroyAccessLock(&playerdata.lock);
     #endif
 }

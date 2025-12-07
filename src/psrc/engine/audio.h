@@ -24,9 +24,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// writes a pointer to a buffer of interleaved samples to *bufptr
-// when done, the callback will be called with bufptr being NULL
-typedef void (*audiocb)(void* ctx, long loop, long pos, long* start, long* end, int16_t** bufptr);
+// returns a pointer to a buffer of interleaved samples
+// when done, the callback will be called with start and end being NULL
+typedef int16_t* (*audiocb)(void* ctx, long loop, long pos, long* start, long* end);
 
 enum audioopt {
     AUDIOOPT_END,
@@ -76,6 +76,7 @@ struct audio3dfx {
     struct worldcoord pos;
     float range;
     float radius[3];
+    //float rangedamp;
     float voldamp;
     float freqdamp;
     uint8_t nodoppler : 1;
@@ -278,7 +279,7 @@ struct audioplayerdata {
 };
 
 extern struct audiostate {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     struct accesslock lock;
     #endif
     volatile bool valid;

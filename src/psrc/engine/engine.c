@@ -367,9 +367,9 @@ int bootstrap(void) {
         #if 1
         tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2start", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            int64_t toff = -5000000;
+            int64_t toff = 5000000;
             play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF | AUDIOFXMASK_VOL, &(struct audiofx){.toff = toff, .vol = {0.8f, 0.8f}});
-            toff -= 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq;
+            toff += 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq;
             rlsRc(tmpsnd, false);
             tmpsnd = getRc(RC_SOUND, "sounds/env/bigmotor2", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
@@ -378,7 +378,7 @@ int bootstrap(void) {
             }
             tmpsnd = getRc(RC_SOUND, "sounds/env/air4start", &audiostate.soundrcopt, 0, NULL);
             if (tmpsnd) {
-                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff + 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq});
+                play3DSound(e3d[1], tmpsnd, AUDIOPRIO_DEFAULT, 0, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = toff - 1000000LL * (tmpsnd->len + 1) / tmpsnd->freq});
                 rlsRc(tmpsnd, false);
                 tmpsnd = getRc(RC_SOUND, "sounds/env/air4", &audiostate.soundrcopt, 0, NULL);
                 if (tmpsnd) {
@@ -396,8 +396,8 @@ int bootstrap(void) {
         #if 1
         tmpsnd = getRc(RC_SOUND, "sounds/siren", &audiostate.soundrcopt, 0, NULL);
         if (tmpsnd) {
-            play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -3000000});
-            //play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = -4000000});
+            play3DSound(e3d[3], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = 3000000});
+            //play3DSound(e3d[4], tmpsnd, AUDIOPRIO_DEFAULT, SOUNDFLAG_WRAP, AUDIOFXMASK_TOFF, &(struct audiofx){.toff = 4000000});
             rlsRc(tmpsnd, false);
         }
         #endif
@@ -551,17 +551,17 @@ int bootstrap(void) {
 void unstrap(void) {
     plog(LL_MS, "Stopping engine...");
 
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    #if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
     armWatchdog(5);
     #endif
     plog(LL_INFO, "Stopping audio manager...");
     stopAudio();
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    #if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
     rearmWatchdog(5);
     #endif
     plog(LL_INFO, "Stopping renderer...");
     stopRenderer();
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    #if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
     cancelWatchdog();
     #endif
 
@@ -588,11 +588,11 @@ void unstrap(void) {
         cfg_close(&config);
     }
 
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    #if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
     armWatchdog(5);
     #endif
     SDL_Quit();
-    #if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+    #if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
     cancelWatchdog();
     #endif
 
@@ -680,7 +680,7 @@ void loop(void) {
     float speed = (walk) ? walkspeed : runspeed;
     float jumpspeed = (walk) ? 1.0f : 2.5f;
 
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&playerdata.lock);
     #endif
 
@@ -718,7 +718,7 @@ void loop(void) {
     #endif
     render();
 
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&playerdata.lock);
     #endif
 
@@ -858,8 +858,10 @@ int parseargs(int argc, char** argv) {
             #ifdef PSRC_NOSIMD
                 puts("No SIMD");
             #endif
-            #ifdef PSRC_NOMT
+            #if PSRC_MTLVL == 0
                 puts("No multithreading");
+            #elif PSRC_MTLVL == 1
+                puts("Limited multithreading");
             #endif
             ret = 0;
         } else if (!strcmp(opt.data, "game")) {

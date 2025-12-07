@@ -58,7 +58,7 @@
 
 #include "glue.h"
 
-#if PLATFORM == PLAT_NXDK && !defined(PSRC_NOMT)
+#if PLATFORM == PLAT_NXDK && PSRC_MTLVL >= 2
 static thread_t watchdogthread;
 static volatile bool killwatchdog;
 static void* watchdog(struct thread_data* td) {

@@ -179,8 +179,9 @@ static void img2ptf(char* p) {
         free(np);
         return;
     }
-    if (LZ4F_isError(LZ4F_write(wf, data, nw * nh * c))) {
-        fputs(" failed (LZ4 failed to compress)\n", stdout);
+    LZ4F_errorCode_t e = LZ4F_write(wf, data, nw * nh * c);
+    if (LZ4F_isError(e)) {
+        printf(" failed (LZ4 error %ld: %s)\n", (long)e, LZ4F_getErrorName(e));
         LZ4F_writeClose(wf);
         free(data);
         fclose(fout);

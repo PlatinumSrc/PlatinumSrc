@@ -42,11 +42,9 @@ Format:
             <u8[]: Data>
 
         Map:
-            <u32: Offset of <String table>>
             <u32: Offset of <Entity table>>
             <u32: Offset of <Level table>>
-            <String table>
-            <Entity table>
+            <Entity table (see 'map entities.txt')>
             <Level table>
 
         Level table:
@@ -83,10 +81,8 @@ Format:
             [Sound environment]...
             [Sky environment]...
         Server level data:
-            <u32: Offset of <String table>>
             <u32: Offset of <Entity table>>
-            <String table>
-            <Entity table>
+            <Entity table (see 'map entities.txt')>
 
         Sound environment:
             <<String>: Name>
@@ -135,6 +131,7 @@ Format:
             <u32: Offset of <String table>>
             <u32: Offset of <Client chunk data>>
             <u32: Offset of <Server chunk data>>
+            <u32: Offset of <Static entity table>>
             <u8: Region count> <u32: Offset of first <Region>>
             <u8: Used material count> <u32: Offset of first <Material> index>
             <u8: Used physics material count> <u32: Offset of first <Physics material> index>
@@ -143,7 +140,7 @@ Format:
             <u8: Gravity environment area count> <u32: Offset of first gravity <Environment area>>
             <u8: Dynamic light count> <u32: Offset of first <Dynamic light>>
             <u8: Fast light count> <u32: Offset of first <Fast light>>
-            <u32: Cube count (must be at least 1)> <u32: Offset of <Compressed <Cube>...>>
+            <u32: Cube count (must be at least 1)> <u32: Size of <Compressed <Cube>...>> <u32: Offset of <Compressed <Cube>...>>
             [Region]...
             [u16: Material index]...
             [u16: Physics material index]...
@@ -153,28 +150,30 @@ Format:
             [Dynamic light]...
             [Fast light]...
             <Compressed <Cube>...>
+            <String table>
             <Client chunk data>
             <Server chunk data>
+            <Static entity table (see 'map entities.txt')>
         Client chunk data:
             <u8: Sound environment area count> <u32: Offset of first sound <Environment area>>
             <u8: Sky environment area count> <u32: Offset of first sky <Environment area>>
-            <u8: Lightmap count> <u32: Offset of first <Lightmap>>
+            <u32: Index count> <u32: Offset of first <u32: Index>>
             <u32: Vertex count> <u32: Offset of first <Vertex>>
-            <u32: Normal count> <u32: Offset of first <Normal>>
+            <u8: Lightmap count> <u32: Offset of first <Lightmap>>
             <u32: Offset of first <Client-side dynamic light>>
             <u32: Offset of first <Client-side fast light>>
+            <u32: Size of <Compressed <Client-side cube>...>> <u32: Offset of <Compressed <Client-side cube>...>>
             [<Environment area>: Sound environment area]...
             [<Environment area>: Sky environment area]...
-            [Lightmap]...
+            [u32: Index]...
             [Vertex]...
-            [Normal]...
+            [Lightmap]...
             [Client-side dynamic light]...
             [Client-side fast light]...
+            <Compressed <Client-side cube>...>
         Server chunk data:
-            <u32: Offset of <String table>>
             <u32: Offset of <Entity table>>
-            <String table>
-            <Entity table>
+            <Entity table (see 'map entities.txt')>
 
         World coordinate:
             <<Chunk index>: Chunk>
@@ -204,33 +203,35 @@ Format:
 
         Material:
             <<String>: Name>
-            <<String>: Type>
+            <u8: User-defined type>
             <u8:
                 <6 bits: 0>
                 <1 bit: Liquid>
                 <1 bit: Transparent>
             >
+        Client-side material:
             <u8: 
                 { ENTMAT_RENDMODE_NORMAL
                 | ENTMAT_RENDMODE_ADD }
             >
-        Client-side material:
             <u8[3]: RGB color>
             <u8: Alpha (ignored if 'transparent' bit is not set)>
             <u8[3]: RGB emission>
             <u8: Shading>
             <<String>: Texture (none if empty)>
+            <<String>: Detail texture (none if empty)>
             <<String>: Matcap texture (none if empty)>
             <u8: Extra texture count> <<String table offset>: Offset of first extra texture <String>>
             <u32: Texture advance time in microseconds>
             <float[2]: Texture UV scroll per second>
+            <float[2]: Detail texture UV scroll per second>
             <float[2]: Matcap texture UV scroll per second>
-            <Wave info (ignored if 'liquid' bit is not set)
-                <float[3]: Velocity>
-                <float: Wind influence>
-                <float: Offset>
-                <float: Scale>
-            >
+            [Client-side material wave info (only present if 'liquid' bit is set)]
+        Client-side material wave info:
+            <float[2]: Velocity>
+            <float: Height>
+            <float: Scale>
+            <float: Wind influence>
 
         Physics material:
             <<String>: Name>
@@ -246,20 +247,20 @@ Format:
             <float: Extra damage per meter per second>
 
         Sound material:
+            <float: Range dampening>
             <float: Volume dampening>
             <float: Frequency dampening>
+
+        Vertex:
+            <float[3]: XYZ>
+            <float[3]: Normal XYZ>
+            <float[2]: Texture UV>
+            <float[2]: Lightmap UV>
 
         Lightmap:
             <u8: <4 bits: Height (2^n)> <4 bits: Width (2^n)>>
             <u32: Compressed size>
             <u8: Compressed <u8[3]: RGB luxel>...>
-
-        Vertex:
-            <float[3]: XYZ>
-            <float[2]: Texture UV>
-            <float[2]: Lightmap UV>
-        Normal:
-            <float[3]: XYZ>
 
         Dynamic light:
             <u8:
@@ -293,6 +294,10 @@ Format:
                 <u32: Multiplier count> <u8: Multiplier>...
             >...
 
+        Cube table:
+            <u32: Cube count (must be at least 1)>
+            <u32: Size of <Compressed <Cube>...>>
+            <Compressed <Cube>...>
         Cube:
             <u8:
                 <4 bits:
@@ -318,31 +323,19 @@ Format:
                 | <Geometry cube data>
                 | <Extended geometry cube data>
                 | <Visibility info cube data>
-                | <Lighting info cube data>
                 | <Pathfinding info cube data>
                 | <Collider cube data> }
             ]
+
+        Client-side cube table:
+            <u32: Size of <Compressed <Client-side cube>...>>
+            <Compressed <Client-side cube>...>
         Client-side cube:
             [
-                { <Parent cube data>
-                | <Geometry cube data>
-                | <Extended geometry cube data>
-                | <Visibility info cube data>
-                | <Lighting info cube data>
-                | <Pathfinding info cube data>
-                | <Collider cube data> }
+                { <Client-side Geometry cube data>
+                | <Client-side Extended geometry cube data>
+                | <Lighting info cube data> }
             ]
-        Server-side cube:
-            [
-                { <Parent cube data>
-                | <Geometry cube data>
-                | <Extended geometry cube data>
-                | <Visibility info cube data>
-                | <Lighting info cube data>
-                | <Pathfinding info cube data>
-                | <Collider cube data> }
-            ]
-            
 
         Parent cube data:
             <u32: (+X, +Y, +Z) child index> <u32: (-X, +Y, +Z) child index>
@@ -354,14 +347,17 @@ Format:
             <u8: Material>
             <u8: Physics material>
             <u8: Sound material>
-            <u8: Lightmap>
-            <u8:
-                <2 bits: 0>
-                <1 bit: -Z has face> <1 bit: -Y has face> <1 bit: -X has face>
-                <1 bit: +Z has face> <1 bit: +Y has face> <1 bit: +X has face>
+        Client-side geometry cube data:
+            <u32:
+                <4 bits: -Z # of triangles> <4 bits: -Y # of triangles>
+                <4 bits: -X # of triangles> <4 bits: +Z # of triangles>
+                <4 bits: +Y # of triangles> <4 bits: +X # of triangles>
+                <u8: Lightmap>
             >
+            <u32: Index of first index>
         Geometry cube bits:
-            <3 bits: 0>
+            <2 bits: 0>
+            <1 bit: No collision>
             <1 bit: Draw backfaces>
 
         Extended geometry cube data:
@@ -370,14 +366,14 @@ Format:
             <u8: +X physics material> <u8: +Y physics material> <u8: +Z physics material>
             <u8: -X physics material> <u8: -Y physics material> <u8: -Z physics material>
             <u8: Sound material>
-            <u8: +X lightmap> <u8: +Y lightmap> <u8: +Z lightmap>
-            <u8: -X lightmap> <u8: -Y lightmap> <u8: -Z lightmap>
+        Client-side extended geometry cube data:
+            <u8: Lightmap>
             <u8: +X # of triangles> <u8: +Y # of triangles> <u8: +Z # of triangles>
             <u8: -X # of triangles> <u8: -Y # of triangles> <u8: -Z # of triangles>
-            <u32: Index of first triangle's first vertex>
-            <u32: Index of first triangle's first vertex's normal>
+            <u32: Index of first index>
         Extended geometry cube bits:
-            <3 bits: 0>
+            <2 bits: 0>
+            <1 bit: No collision>
             <1 bit: Draw backfaces>
 
         Visibility info cube data:
@@ -418,13 +414,12 @@ Format:
             <float[3]: (+X, -Y, -Z) XYZ> <float[3]: (-X, -Y, -Z) XYZ>
 
         String table:
-            <u32: Uncompressed size> <u32: Compressed size> <u8[]: Compressed data>
+            <u32: Uncompressed size>
+            <u32: Compressed size>
+            <u8[]: Compressed data>
         String table offset:
             <u32: Offset in decompressed respective string table>
         String:
             <<String table offset>: Offset of null-terminated string>
-
-        Entity table:
-            <u32: Entity count> <u32: Compressed size> <u8[]: Compressed [Entity]...>
 
 

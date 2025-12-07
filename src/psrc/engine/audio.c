@@ -16,46 +16,44 @@
 
 struct audiostate audiostate;
 
-static void mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+static int16_t* mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end) {
     (void)loop;
-    if (!buf) {
+    if (!end) {
         if (s->rc->is8bit) free(s->wav.cvtbuf);
         unlockRc(s->rc);
-        return;
+        return NULL;
     }
     if (!s->rc->is8bit) {
         *start = 0;
         *end = s->rc->len - 1;
-        *buf = (int16_t*)s->rc->data;
-    } else {
-        int16_t* dataout = s->wav.cvtbuf;
-        *buf = dataout;
-        long tmpend = pos + audiostate.decbuflen;
-        if (tmpend > s->rc->len) tmpend = s->rc->len;
-        *start = pos;
-        *end = tmpend - 1;
-        tmpend -= pos;
-        tmpend *= (long)s->rc->channels;
-        uint8_t* datain = s->rc->data;
-        for (register long i = 0, i2 = pos * (long)s->rc->channels; i < tmpend; ++i, ++i2) {
-            register int tmp = datain[i2];
-            //printf("[%lu, %lu] %lu %lu %lu\n", *start, *end, pos, i, i2);
-            dataout[i] = (tmp - 128) * 256 + tmp;
-        }
+        return (int16_t*)s->rc->data;
     }
+    int16_t* dataout = s->wav.cvtbuf;
+    long tmpend = pos + audiostate.decbuflen;
+    if (tmpend > s->rc->len) tmpend = s->rc->len;
+    *start = pos;
+    *end = tmpend - 1;
+    tmpend -= pos;
+    tmpend *= (long)s->rc->channels;
+    uint8_t* datain = s->rc->data;
+    for (register long i = 0, i2 = pos * (long)s->rc->channels; i < tmpend; ++i, ++i2) {
+        register int tmp = datain[i2];
+        //printf("[%lu, %lu] %lu %lu %lu\n", *start, *end, pos, i, i2);
+        dataout[i] = (tmp - 128) * 256 + tmp;
+    }
+    return dataout;
 }
 #ifdef PSRC_USESTBVORBIS
-static void mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+static int16_t* mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* start, long* end) {
     (void)loop;
-    if (!buf) {
+    if (!end) {
         stb_vorbis_close(s->vorbis.state);
         free(s->vorbis.decbuf);
         unlockRc(s->rc);
-        return;
+        return NULL;
     }
-    *buf = s->vorbis.decbuf;
     if (pos < s->vorbis.decbufhead) {
-        pos -= audiostate.decbuflen;
+        pos -= audiostate.decbuflen - 1;
         if (pos < 0) pos = 0;
         stb_vorbis_seek(s->vorbis.state, pos);
     } else if (pos != s->vorbis.decbufhead + s->vorbis.decbuflen) {
@@ -69,20 +67,20 @@ static void mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* 
     tmpend -= pos;
     s->vorbis.decbuflen = tmpend;
     stb_vorbis_get_samples_short_interleaved(s->vorbis.state, s->rc->channels, s->vorbis.decbuf, tmpend);
+    return s->vorbis.decbuf;
 }
 #endif
 #ifdef PSRC_USEMINIMP3
-static void mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* start, long* end, int16_t** buf) {
+static int16_t* mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* start, long* end) {
     (void)loop;
-    if (!buf) {
+    if (!end) {
         mp3dec_ex_close(s->mp3.state);
         free(s->mp3.decbuf);
         unlockRc(s->rc);
-        return;
+        return NULL;
     }
-    *buf = s->mp3.decbuf;
     if (pos < s->mp3.decbufhead) {
-        pos -= audiostate.decbuflen;
+        pos -= audiostate.decbuflen - 1;
         if (pos < 0) pos = 0;
         mp3dec_ex_seek(s->mp3.state, pos * s->rc->channels);
     } else if (pos != s->mp3.decbufhead + s->mp3.decbuflen) {
@@ -96,6 +94,7 @@ static void mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* sta
     tmpend -= pos;
     s->mp3.decbuflen = tmpend;
     mp3dec_ex_read(s->mp3.state, s->mp3.decbuf, tmpend * s->rc->channels);
+    return s->mp3.decbuf;
 }
 #endif
 
@@ -117,7 +116,7 @@ static inline void deleteSound(struct audiosound* s) {
         cb = s->cb.cb;
         ctx = s->cb.ctx;
     }
-    cb(ctx, 0, 0, NULL, NULL, NULL);
+    cb(ctx, 0, 0, NULL, NULL);
 }
 static void delete3DSound(size_t si, struct audiosound* s) {
     deleteSound(s);
@@ -147,7 +146,7 @@ static void delete2DSound(size_t si, struct audiosound* s) {
 }
 
 uint32_t new3DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     uint32_t ei;
@@ -221,13 +220,13 @@ uint32_t new3DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f
         };
     }
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return ei;
 }
 uint32_t new2DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f, unsigned fxmask, const struct audiofx* fx) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     uint32_t ei;
@@ -275,14 +274,14 @@ uint32_t new2DAudioEmitter(uint32_t pl, int8_t prio, unsigned maxsnd, unsigned f
         };
     }
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return ei;
 }
 
 void edit3DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned fx3dmask, const struct audio3dfx* fx3d, unsigned imm) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto ret;
@@ -316,12 +315,12 @@ void edit3DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmas
         if (fx3dmask & AUDIO3DFXMASK_RELROT) e->fx3d.relrot = fx3d->relrot;
     }
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 void edit2DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmask, const struct audiofx* fx, unsigned imm) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto ret;
@@ -341,7 +340,7 @@ void edit2DAudioEmitter(uint32_t ei, unsigned fen, unsigned fdis, unsigned fxmas
         if (fxmask & AUDIOFXMASK_HPFILT_R) e->fx.hpfilt[1] = fx->hpfilt[1];
     }
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
@@ -366,26 +365,26 @@ static void stop2DAudioEmitter_internal(uint32_t ei, struct audioemitter2d* e) {
 }
 
 void stop3DAudioEmitter(uint32_t ei) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (audiostate.valid && ei < audiostate.emitters3d.len) stop3DAudioEmitter_internal(ei, &audiostate.emitters3d.data[ei]);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 void stop2DAudioEmitter(uint32_t ei) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (audiostate.valid && ei < audiostate.emitters2d.len) stop2DAudioEmitter_internal(ei, &audiostate.emitters2d.data[ei]);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 
 void delete3DAudioEmitter(uint32_t ei) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (audiostate.valid && ei < audiostate.emitters3d.len) {
@@ -395,12 +394,12 @@ void delete3DAudioEmitter(uint32_t ei) {
             e->prio = AUDIOPRIO_INVALID;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
 void delete2DAudioEmitter(uint32_t ei) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (audiostate.valid && ei < audiostate.emitters2d.len) {
@@ -410,7 +409,7 @@ void delete2DAudioEmitter(uint32_t ei) {
             e->prio = AUDIOPRIO_INVALID;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
@@ -449,22 +448,24 @@ static inline bool initSoundRc(struct audiosound* s, struct rc_sound* rc) {
     switch (rc->format) {
         DEFAULTCASE(RC_SOUND_FRMT_WAV):
             if (rc->is8bit && !(s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->wav.cvtbuf)))) return false;
+            //s->wav.cvtbufhead = rc->len;
+            //s->wav.cvtbuflen = 0;
             break;
         #ifdef PSRC_USESTBVORBIS
         case RC_SOUND_FRMT_VORBIS:
-            if (!(s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->vorbis.decbuf)))) return false;
+            if (!(s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->vorbis.decbuf)))) return false;
             if (!(s->vorbis.state = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL))) {
                 free(s->vorbis.decbuf);
                 return false;
             }
-            s->vorbis.decbufhead = 0;
+            s->vorbis.decbufhead = rc->len;
             s->vorbis.decbuflen = 0;
             break;
         #endif
         #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3:
             if (!(s->mp3.state = rcmgr_malloc(sizeof(*s->mp3.state)))) return false;
-            if (!(s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * sizeof(*s->mp3.decbuf)))) {
+            if (!(s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->mp3.decbuf)))) {
                 free(s->mp3.state);
                 return false;
             }
@@ -473,7 +474,7 @@ static inline bool initSoundRc(struct audiosound* s, struct rc_sound* rc) {
                 free(s->mp3.state);
                 return false;
             }
-            s->mp3.decbufhead = 0;
+            s->mp3.decbufhead = rc->len;
             s->mp3.decbuflen = 0;
             break;
         #endif
@@ -502,7 +503,7 @@ static inline struct audiosound* new3DSound(void) {
     return s;
 }
 bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto retfalse;
@@ -521,18 +522,18 @@ bool play3DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, u
     s->prio = prio;
     s->flags = flags;
     initSound(s, fxmask, fx);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return true;
     retfalse:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return false;
 }
 bool play3DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters3d.len) goto retfalse;
@@ -548,12 +549,12 @@ bool play3DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t fl
     s->cb = *cb;
     initSound(s, fxmask, fx);
     s->iflags |= SOUNDIFLAG_USESCB;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return true;
     retfalse:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return false;
@@ -578,7 +579,7 @@ static inline struct audiosound* new2DSound(void) {
     return s;
 }
 bool play2DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto retfalse;
@@ -597,18 +598,18 @@ bool play2DSound(uint32_t ei, struct rc_sound* rc, int8_t prio, uint8_t flags, u
     s->prio = prio;
     s->flags = flags;
     initSound(s, fxmask, fx);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return true;
     retfalse:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return false;
 }
 bool play2DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t flags, unsigned fxmask, const struct audiofx* fx) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || ei >= audiostate.emitters2d.len) goto retfalse;
@@ -624,19 +625,19 @@ bool play2DSoundCB(uint32_t ei, struct audiosoundcb* cb, int8_t prio, uint8_t fl
     s->cb = *cb;
     initSound(s, fxmask, fx);
     s->iflags |= SOUNDIFLAG_USESCB;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return true;
     retfalse:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return false;
 }
 
 void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv* in, unsigned imm) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid || pl >= audiostate.playerdata.len || !audiostate.playerdata.data[pl].valid) goto ret;
@@ -653,7 +654,7 @@ void setAudioEnv(uint32_t pl, unsigned mask, struct audioenv* in, unsigned imm) 
     if (mask & AUDIOENVMASK_REVERB_LPFILT) env->reverb.lpfilt = in->reverb.lpfilt;
     if (mask & AUDIOENVMASK_REVERB_HPFILT) env->reverb.hpfilt = in->reverb.hpfilt;
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
@@ -1028,7 +1029,7 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
-        int64_t toff = (e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000 + e->fx3dout.posoff;
+        int64_t toff = -(e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000 + e->fx3dout.posoff;
         if (imm & AUDIOFXMASK_TOFF) {
             long oldposoff = s->calcfx[curfxi].posoff;
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
@@ -1145,7 +1146,7 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
     uint8_t curfxi = s->fxi;
     uint8_t newfxi = (curfxi + 1) % 2;
     if (fxch & AUDIOFXMASK_TOFF) {
-        int64_t toff = (e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000;
+        int64_t toff = -(e->fx.toff + s->fx.toff) * (int64_t)audiostate.freq / 1000000;
         if (imm & AUDIOFXMASK_TOFF) {
             long oldposoff = s->calcfx[curfxi].posoff;
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
@@ -1288,6 +1289,8 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
                     newbuf[0][i] = 0;
                     newbuf[1][i] = 0;
                 }
+                free(env->reverb.state.buf[0]);
+                free(env->reverb.state.buf[1]);
                 env->reverb.state.buf[0] = newbuf[0];
                 env->reverb.state.buf[1] = newbuf[1];
                 env->reverb.state.size = newsize;
@@ -1349,7 +1352,7 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
             else tmpu = audiostate.freq - tmpu;
             env->reverb.state.hpfilt[newparami] = tmpu;
             if (env->envch & AUDIOENVMASK_REVERB_HPFILT) {
-                env->reverb.state.lpfilt[curparami] = tmpu;
+                env->reverb.state.hpfilt[curparami] = tmpu;
             }
         } else {
             env->reverb.state.hpfilt[newparami] = env->reverb.state.hpfilt[curparami];
@@ -1368,6 +1371,7 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
     if (env->envch & AUDIOENVMASK_HPFILT) {
         uint_fast8_t curmuli = env->hpfilt.muli;
         uint_fast8_t newmuli = (curmuli + 1) % 2;
+        env->hpfilt.muli = newmuli;
         float tmpf = env->hpfilt.amount;
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
         if (adjfilters) ADJHPFILTMUL(tmpf, tmpu, adjfilters);
@@ -1407,6 +1411,7 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
     if (env->envch & AUDIOENVMASK_LPFILT) {
         uint_fast8_t curmuli = env->lpfilt.muli;
         uint_fast8_t newmuli = (curmuli + 1) % 2;
+        env->lpfilt.muli = newmuli;
         float tmpf = 1.0f - env->lpfilt.amount;
         unsigned tmpu = roundf(tmpf * tmpf * audiostate.freq);
         if (adjfilters) ADJLPFILTMUL(tmpf, tmpu, adjfilters);
@@ -1464,9 +1469,14 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
     if (!oob) {\
         register int sample_l, sample_r;\
         if (pos > bufend || pos < bufstart) {\
-            cb(ctx, loop, pos, &bufstart, &bufend, &buf);\
+            /*fputs("NORM ", stdout);*/\
+            if (!(buf = cb(ctx, loop, pos, &bufstart, &bufend))) {\
+                oob = true;\
+                goto cbfail_##l;\
+            }\
         }\
         register long bufpos = (pos - bufstart) * (long)ch;\
+        /*printf("%ld %ld %ld %ld %ld %ld\n", bufstart, bufend, pos, pos - bufstart, (long)ch, bufpos);*/\
         sample_l = buf[bufpos];\
         sample_r = buf[bufpos + (ch != 1)];\
         if (frac) {\
@@ -1481,7 +1491,8 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
                         ++loop2;\
                     }\
                 }\
-                cb(ctx, loop2, pos2, &bufstart, &bufend, &buf);\
+                /*fputs("FRAC ", stdout);*/\
+                if (!(buf = cb(ctx, loop2, pos2, &bufstart, &bufend))) goto skipinterp_##l;\
             }\
             int mix = frac / outfreq;\
             int imix = 256 - mix;\
@@ -1497,6 +1508,7 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
         audiostate.fxbuf[0][i] = sample_l;\
         audiostate.fxbuf[1][i] = sample_r;\
     } else {\
+        cbfail_##l:;\
         audiostate.fxbuf[0][i] = 0;\
         audiostate.fxbuf[1][i] = 0;\
     }\
@@ -2003,7 +2015,7 @@ static inline void updateAudioPlayerData(void) {
 
 void updateAudio_unlocked(float framemult) {
     (void)framemult;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid) goto ret;
@@ -2034,7 +2046,7 @@ void updateAudio_unlocked(float framemult) {
         #endif
     }
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
@@ -2065,7 +2077,7 @@ static void callback(void* data, uint16_t* stream, int len) {
 }
 
 bool startAudio(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     char* tmp = cfg_getvar(&config, "Audio", "disable");
@@ -2074,7 +2086,7 @@ bool startAudio(void) {
         free(tmp);
         if (disable) {
             audiostate.valid = false;
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             releaseWriteAccess(&audiostate.lock);
             #endif
             plog(LL_INFO, "Audio disabled");
@@ -2086,7 +2098,7 @@ bool startAudio(void) {
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
     #if SDL_VERSION_ATLEAST(2, 0, 4)
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     tmp = cfg_getvar(&config, "Audio", "callback");
     if (tmp) {
         audiostate.usecallback = strbool(tmp, false);
@@ -2159,7 +2171,7 @@ bool startAudio(void) {
     if (!success) {
         audiostate.valid = false;
         plog(LL_ERROR, "Failed to get audio info for default output device; audio disabled: %s", SDL_GetError());
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         releaseWriteAccess(&audiostate.lock);
         #endif
         return true;
@@ -2175,10 +2187,10 @@ bool startAudio(void) {
     plog(LL_INFO, "  Samples: %d", (int)outspec.samples);
     tmp = cfg_getvar(&config, "Audio", "volume");
     if (tmp) {
-        audiostate.vol = roundf(atof(tmp) * 32678.0);
+        audiostate.vol = roundf(atof(tmp) * 32768.0);
         free(tmp);
     } else {
-        audiostate.vol = 32678;
+        audiostate.vol = 32768;
     }
     audiostate.freq = outspec.freq;
     audiostate.channels = outspec.channels;
@@ -2287,29 +2299,29 @@ bool startAudio(void) {
     #else
     SDL_PauseAudio(0);
     #endif
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&playerdata.lock);
     #endif
     updateAudioPlayerData();
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&playerdata.lock);
     #endif
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
     return true;
 }
 
 void stopAudio(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid) goto ret;
     for (size_t i = 0; i < audiostate.sounds3d.len; ++i) {
-        deleteSound(&audiostate.sounds3d.data[i]);
+        if (audiostate.sounds3d.data[i].prio != AUDIOPRIO_INVALID) deleteSound(&audiostate.sounds3d.data[i]);
     }
     for (size_t i = 0; i < audiostate.sounds2d.len; ++i) {
-        deleteSound(&audiostate.sounds2d.data[i]);
+        if (audiostate.sounds2d.data[i].prio != AUDIOPRIO_INVALID) deleteSound(&audiostate.sounds2d.data[i]);
     }
     for (uint32_t i = 0; i < audiostate.playerdata.len; ++i) {
         struct audioplayerdata* pl = &audiostate.playerdata.data[i];
@@ -2337,7 +2349,7 @@ void stopAudio(void) {
     if (audiostate.usecallback) free(audiostate.outbuf[1]);
     audiostate.valid = false;
     ret:;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&audiostate.lock);
     #endif
 }
@@ -2348,7 +2360,7 @@ bool restartAudio(void) {
 }
 
 bool initAudio(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     if (!createAccessLock(&audiostate.lock)) return false;
     #endif
     if (SDL_Init(SDL_INIT_AUDIO)) {
@@ -2360,7 +2372,7 @@ bool initAudio(void) {
 
 void quitAudio(bool quick) {
     (void)quick;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     destroyAccessLock(&audiostate.lock);
     #endif
 }

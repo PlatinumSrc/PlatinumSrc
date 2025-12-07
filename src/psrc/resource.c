@@ -37,7 +37,7 @@
 
 #include "glue.h"
 
-#ifndef PSRC_NOMT
+#if PSRC_MTLVL >= 2
 static struct accesslock rclock;
 #endif
 
@@ -193,7 +193,7 @@ static struct {
     struct modinfo* data;
     size_t len;
     size_t size;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     struct accesslock lock;
     #endif
 } mods;
@@ -211,7 +211,7 @@ static struct {
     int size;
     int head;
     int tail;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     struct accesslock lock;
     #endif
 } lscache;
@@ -500,7 +500,7 @@ static int lscAdd(void) {
     return i;
 }
 static void lscDelAll(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&lscache.lock);
     #endif
     if (lscache.data) {
@@ -510,7 +510,7 @@ static void lscDelAll(void) {
         free(lscache.data);
         lscache.data = NULL;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&lscache.lock);
     #endif
 }
@@ -521,11 +521,11 @@ static struct rcls* lscGet_len(enum rcprefix p, const char* path, uint32_t crc, 
     while (1) {
         struct lscache_dir* d = &lscache.data[di];
         if (d->prefix == p && d->pathcrc == crc && !strncmp(d->path, path, len)) {
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             readToWriteAccess(&lscache.lock);
             #endif
             lscMoveToFront(di, true);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             writeToReadAccess(&lscache.lock);
             #endif
             return &d->l;
@@ -542,11 +542,11 @@ static struct rcls* lscGet(enum rcprefix p, const char* path, uint32_t crc) {
     while (1) {
         struct lscache_dir* d = &lscache.data[di];
         if (d->prefix == p && d->pathcrc == crc && !strcmp(d->path, path)) {
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             readToWriteAccess(&lscache.lock);
             #endif
             lscMoveToFront(di, true);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             writeToReadAccess(&lscache.lock);
             #endif
             return &d->l;
@@ -577,7 +577,7 @@ static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) 
         memcpy(tmp, path, spos);
         tmp[spos] = 0;
         if (lsRc_norslv(p, tmp, &tl)) {
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             readToWriteAccess(&lscache.lock);
             #endif
             int i = lscAdd();
@@ -585,7 +585,7 @@ static const uint8_t* lscFind(enum rctype t, enum rcprefix p, const char* path) 
             lscache.data[i].path = tmp;
             lscache.data[i].pathcrc = strcrc32(tmp);
             lscache.data[i].l = tl;
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             writeToReadAccess(&lscache.lock);
             #endif
             l = &lscache.data[i].l;
@@ -645,11 +645,11 @@ bool lsRc(const char* id, bool allownative, struct rcls* l) {
     enum rcprefix p;
     char* r = rcIdToPath(id, allownative, &p);
     if (!r) return false;
-    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if PSRC_MTLVL >= 2 && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     acquireReadAccess(&lscache.lock);
     #endif
     bool ret = lsRc_norslv(p, r, l);
-    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if PSRC_MTLVL >= 2 && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     releaseReadAccess(&lscache.lock);
     #endif
     free(r);
@@ -660,32 +660,32 @@ bool lsCacheRc(const char* id, bool allownative, struct rcls* l) {
     char* r = rcIdToPath(id, allownative, &p);
     if (!r) return false;
     uint32_t rcrc = strcrc32(r);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireReadAccess(&lscache.lock);
     #endif
     {
         struct rcls* tl = lscGet(p, r, rcrc);
         if (tl) {
             lsRc_dup(tl, l);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             releaseReadAccess(&lscache.lock);
             #endif
             free(r);
             return true;
         }
     }
-    #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    #if PSRC_MTLVL >= 2 && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     releaseReadAccess(&lscache.lock);
     #endif
     bool ret = lsRc_norslv(p, r, l);
     if (!ret) {
-        #if !defined(PSRC_NOMT) && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        #if PSRC_MTLVL >= 2 && (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         releaseReadAccess(&lscache.lock);
         #endif
         free(r);
         return false;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     acquireWriteAccess(&lscache.lock);
     #else
@@ -696,7 +696,7 @@ bool lsCacheRc(const char* id, bool allownative, struct rcls* l) {
     lscache.data[i].prefix = p;
     lscache.data[i].path = r;
     lscache.data[i].pathcrc = rcrc;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&lscache.lock);
     #endif
     lsRc_dup(l, &lscache.data[i].l);
@@ -779,7 +779,7 @@ static int getRcAcc_findInFS(struct charbuf* cb, enum rctype type, const char** 
         return true;\
     }\
 } while (0)
-#if defined(PSRC_NOMT) || !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+#if PSRC_MTLVL == 0 || !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     #define GRA_TRYFS_UNLOCKLSCRD GRA_TRYFS
 #else
     #define GRA_TRYFS_UNLOCKLSCRD(...) do {\
@@ -796,12 +796,12 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
     switch (prefix) {
         DEFAULTCASE(RCPREFIX_INTERNAL): {
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             acquireReadAccess(&lscache.lock);
             #endif
             const uint8_t* dirbits = lscFind(type, prefix, path);
             if (!dirbits) {
-                #ifndef PSRC_NOMT
+                #if PSRC_MTLVL >= 2
                 releaseReadAccess(&lscache.lock);
                 #endif
                 return false;
@@ -818,7 +818,7 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             }
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
             bool tmp = !((dirbits[mods.len / 8] >> (mods.len % 8)) & 1);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             releaseReadAccess(&lscache.lock);
             #endif
             if (tmp) break;
@@ -828,12 +828,12 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
         } break;
         case RCPREFIX_GAME: {
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             acquireReadAccess(&lscache.lock);
             #endif
             const uint8_t* dirbits = lscFind(type, prefix, path);
             if (!dirbits) {
-                #ifndef PSRC_NOMT
+                #if PSRC_MTLVL >= 2
                 releaseReadAccess(&lscache.lock);
                 #endif
                 return false;
@@ -850,7 +850,7 @@ static bool getRcAcc(enum rctype type, enum rcprefix prefix, const char* path, u
             }
             #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
             bool tmp = !((dirbits[mods.len / 8] >> (mods.len % 8)) & 1);
-            #ifndef PSRC_NOMT
+            #if PSRC_MTLVL >= 2
             releaseReadAccess(&lscache.lock);
             #endif
             if (tmp) break;
@@ -937,7 +937,7 @@ static inline void delDataPtr(struct rcaccdataptr* dptr) {
 }
 
 static struct resource* newRc(enum rctype type) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&rclock);
     #endif
     for (size_t p = 0; p < rcgroups[type].pagect; ++p) {
@@ -952,7 +952,7 @@ static struct resource* newRc(enum rctype type) {
                 rc->header.refs = 1;
                 rc->header.index = p * 16 + i;
                 rc->header.forcefree = 0;
-                #ifndef PSRC_NOMT
+                #if PSRC_MTLVL >= 2
                 releaseWriteAccess(&rclock);
                 #endif
                 return rc;
@@ -974,7 +974,7 @@ static struct resource* newRc(enum rctype type) {
     rc->header.refs = 1;
     rc->header.index = p * 16;
     rc->header.forcefree = 0;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&rclock);
     #endif
     return rc;
@@ -992,7 +992,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         return NULL;
     }
     uint32_t pathcrc = strcrc32(path);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireReadAccess(&rclock);
     #endif
     #if DEBUG(2)
@@ -1004,7 +1004,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
         plog(LL_INFO | LF_DEBUG, "Found already loaded %s with resource identifier '%s'", rctypenames[type], id);
         #endif
         free(path);
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         readToWriteAccess(&rclock);
         #endif
         if (!rc->header.refs++) {
@@ -1012,12 +1012,12 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
             rcgroups[rc->header.type].pages[i / 16].zref &= ~(1 << (i % 16));
             --rcgroups[rc->header.type].zrefct;
         }
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         releaseWriteAccess(&rclock);
         #endif
         return &rc->data;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseReadAccess(&rclock);
     #endif
     #if DEBUG(1)
@@ -1100,6 +1100,8 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.is8bit = false;
                     rc->sound.stereo = (info.channels > 1);
                     stb_vorbis_get_samples_short_interleaved(v, ch, (int16_t*)rc->sound.data, len * ch);
+                    stb_vorbis_close(v);
+                    delDataPtr(&dptr);
                 } else {
                     rc->sound.format = RC_SOUND_FRMT_VORBIS;
                     rc->sound.size = dptr.sz;
@@ -1109,9 +1111,8 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.freq = info.sample_rate;
                     rc->sound.channels = info.channels;
                     rc->sound.stereo = (info.channels > 1);
+                    stb_vorbis_close(v);
                 }
-                stb_vorbis_close(v);
-                delDataPtr(&dptr);
                 rc->sound_opt = *o;
                 #else
                 goto fail;
@@ -1143,6 +1144,9 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.is8bit = false;
                     rc->sound.stereo = (m->info.channels > 1);
                     mp3dec_ex_read(m, (mp3d_sample_t*)rc->sound.data, m->samples);
+                    mp3dec_ex_close(m);
+                    free(m);
+                    delDataPtr(&dptr);
                 } else {
                     rc->sound.format = RC_SOUND_FRMT_MP3;
                     rc->sound.size = dptr.sz;
@@ -1151,10 +1155,9 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                     rc->sound.freq = m->info.hz;
                     rc->sound.channels = m->info.channels;
                     rc->sound.stereo = (m->info.channels > 1);
+                    mp3dec_ex_close(m);
+                    free(m);
                 }
-                mp3dec_ex_close(m);
-                free(m);
-                delDataPtr(&dptr);
                 rc->sound_opt = *o;
                 #else
                 goto fail;
@@ -1307,7 +1310,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
 }
 
 void lockRc(void* rp) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&rclock);
     #endif
     struct resource* rc = (void*)((char*)rp - offsetof(struct resource, data));
@@ -1315,7 +1318,7 @@ void lockRc(void* rp) {
         rcgroups[rc->header.type].pages[rc->header.index / 16].zref &= ~(1 << (rc->header.index % 16));
         --rcgroups[rc->header.type].zrefct;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&rclock);
     #endif
 }
@@ -1360,7 +1363,7 @@ static inline void freeRc(enum rctype type, struct resource* rc) {
 
 void rlsRc(void* rp, bool force) {
     struct resource* rc = (void*)((char*)rp - offsetof(struct resource, data));
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&rclock);
     #endif
     if (force) rc->header.forcefree = 1;
@@ -1377,7 +1380,7 @@ void rlsRc(void* rp, bool force) {
             ++rcgroups[type].zrefct;
         }
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&rclock);
     #endif
 }
@@ -1441,7 +1444,7 @@ static inline size_t loadMods_add(struct charbuf* cb) {
     return mods.len++;
 }
 void loadMods(const char* const* l, size_t ct) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&mods.lock);
     #endif
     for (size_t i = 0; i < mods.len; ++i) {
@@ -1515,7 +1518,7 @@ void loadMods(const char* const* l, size_t ct) {
     }
     #endif
     cb_dump(&cb);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&mods.lock);
     #endif
 }
@@ -1525,11 +1528,11 @@ void freeModList(struct modinfo* m) {
     free(m);
 }
 struct modinfo* queryMods(size_t* len) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireReadAccess(&mods.lock);
     #endif
     if (!mods.len) {
-        #ifndef PSRC_NOMT
+        #if PSRC_MTLVL >= 2
         releaseReadAccess(&mods.lock);
         #endif
         *len = 0;
@@ -1558,7 +1561,7 @@ struct modinfo* queryMods(size_t* len) {
         if (data[i].author) data[i].author += (uintptr_t)cb.data;
         if (data[i].desc) data[i].desc += (uintptr_t)cb.data;
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseReadAccess(&mods.lock);
     #endif
     return data;
@@ -1598,11 +1601,11 @@ static void gcRcs_internal(bool ag) {
     }
 }
 static void gcRcs(bool ag) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&rclock);
     #endif
     gcRcs_internal(ag);
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&rclock);
     #endif
 }
@@ -1665,7 +1668,7 @@ void runRcMgr(uint64_t t) {
     }
     static unsigned counter = 0;
     ++counter;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     acquireWriteAccess(&rclock);
     #endif
     if (counter == allocchecktick) {
@@ -1683,13 +1686,13 @@ void runRcMgr(uint64_t t) {
         gcRcs_internal(false);
     }
     ++rctick;
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     releaseWriteAccess(&rclock);
     #endif
 }
 
 bool initRcMgr(void) {
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     if (!createAccessLock(&rclock)) return false;
     if (!createAccessLock(&mods.lock)) return false;
     if (!createAccessLock(&lscache.lock)) return false;
@@ -1755,7 +1758,7 @@ void quitRcMgr(bool quick) {
         }
         lscDelAll();
     }
-    #ifndef PSRC_NOMT
+    #if PSRC_MTLVL >= 2
     destroyAccessLock(&rclock);
     destroyAccessLock(&mods.lock);
     destroyAccessLock(&lscache.lock);

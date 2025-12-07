@@ -6,20 +6,42 @@ This is an extension of 'maps (pmf).txt'
 - For global or level entities with positions, the position is relative to the center of the center chunk. For chunk
   entities, the position is relative to the center of that chunk.
 
-Entities:
-    <u32: i16/u16 count> [u16: i16/u16 data]...
-    <u32: i32/u32/float count> [u32: i32/u32/float data]...
-    <u32: i64/u64/double count> [u64: i64/u64/double data]...
-    <u32: Entity data container count> [Entity data container]...
-    <u32: Entity count> [Entity]...
+Entity table:
+    <u32: Offset of <String table>>
+    <u32: Entry count>
+    <u32: Compressed size>
+    <u8[]: Compressed [Entity table entry]...>
+    <String table>
+Static entity table:
+    <u32: Entry count>
+    <u32: Compressed size>
+    <u8[]: Compressed [Static entity table entry]...>
+
+Entity table entry:
+    <u32:
+        <8 bits: <Entity type> (must be higher than the previous entry's)>
+        <24 bits: Entity count minus 1>
+    >
+    <Entity>...
+Static entity table entry:
+    <u32:
+        <8 bits: <Static entity type> (must be higher than the previous entry's)>
+        <24 bits: Static entity count minus 1>
+    >
+    <Static entity>...
 
 Entity:
     <u32: Gamemodes bitmask>
+    <u32: Size of following data>
     <<String>: Name>
     <u32: Custom property count>
-    { <u32: 0> | <u32: Data container index> | <u32: Index in i32/u32/float table to <u32: Data container index>...> }
-    <u8: <Entity type>>
     <Entity data>
+    [Entity custom property]...
+Static entity:
+    <u32: Gamemodes bitmask>
+    <u32: Size of following data>
+    <u32: Custom property count>
+    <Static entity data>
 
 Entity type:
     { ENT_DUMMY
@@ -49,6 +71,13 @@ Entity type:
     | ENT_AUDIOEMITTER
     | ENT_DYNLIGHTCTL
     | ENT_FASTLIGHTCTL }
+Static entity type:
+    { ENT_STATIC_PROP
+    | ENT_STATIC_CUBE
+    | ENT_STATIC_DOOR
+    | ENT_STATIC_GLOW
+    | ENT_STATIC_BILLBOARD
+    | ENT_STATIC_DECAL }
 
 Entity data:
     [
@@ -79,14 +108,20 @@ Entity data:
         | <Dynamic light controller entity data>
         | <Fast light controller entity data> }
     ]
+Static entity data:
+    { <Static prop entity data>
+    | <Static cube entity data>
+    | <Static door entity data>
+    | <Static glow entity data>
+    | <Static billboard entity data>
+    | <Static decal entity data> }
 
 Headless entity data:
     <<String>: Script resource path>
 
 Generic entity data:
     <u8:
-        <1 bits: 0>
-        <1 bit: High quality shadow>
+        <2 bits: 0>
         <1 bit: No collision>
         <1 bit: Do not inherit scale>
         <1 bit: Do not inherit rotation>
@@ -117,9 +152,7 @@ Generic entity data:
     <<String>: Signal to toggle collision>
 
 Prop entity data:
-    <u16:
-        <7 bits: 0>
-        <1 bit: High quality shadow>
+    <u8:
         <1 bit: Do not loop animation>
         <1 bit: Better physics (ignored if 'physics' bit is not set)>
         <1 bit: Physics>
@@ -151,6 +184,18 @@ Prop entity data:
     <<String>: Signal to pause animation>
     <<String>: Signal to resume animation>
     <<String>: Signal to stop animation>
+Static prop entity data:
+    <u8:
+        <6 bits: 0>
+        <1 bit: Do not loop animation>
+        <1 bit: No collision>
+    >
+    <float[3]: XYZ position>
+    <float[3]: XYZ rotation>
+    <float[3]: (+X, +Y, +Z) bounding box offset>
+    <float[3]: (-X, -Y, -Z) bounding box offset>
+    <<String>: Model resource path>
+    <<String>: Animation>
 
 Cube entity data:
     <u16:
@@ -207,8 +252,8 @@ Intersectable entity data:
     <float[3]: XYZ rotation>
     <<String>: Entity to follow>
     <<String>: Bone to follow>
-    { <u32: Index in i32/u32/float table to <float[3]: Radius>
-    | <u32: Index in i32/u32/float table to <<Entity box corner offsets>: Box bounds> }
+    { <<String table offset>: 4-byte aligned offset to <float[3]: Radius>
+    | <<String table offset>: 4-byte aligned offset to <<Entity box corner offsets>: Box bounds> }
 
 Door entity data:
     <u16:
@@ -273,14 +318,14 @@ Trigger box entity data:
 
 Light entity data:
     <u8:
+        <2 bits: 0>
+        <1 bit: Follow tail of bone>
+        <1 bit: Inactive>
         <4 bits:
             { ENT_LIGHT_POINT
             | ENT_LIGHT_SPOT
             | ENT_LIGHT_AREA }
         >
-        <2 bits: 0>
-        <1 bit: Follow tail of bone>
-        <1 bit: Inactive>
     >
     <float[3]: XYZ position>
     <<String>: Entity to follow>
@@ -289,9 +334,10 @@ Light entity data:
     <float: Intensity>
     <float[3]: Size>
     <float: Range>
-    { <u32: 0>
-    | <float: Cone radius>
-    | <u32: Index in i32/u32/float table to <Light entity area angles>> }
+    [
+        { <float: Cone radius>
+        | <<String table offset>: 4-byte aligned offset to <Light entity area angles>> }
+    ]
     <<String>: Signal to activate>
     <<String>: Signal to deactivate>
     <<String>: Signal to toggle activation>
@@ -301,12 +347,13 @@ Light entity area angles:
     <float: Start Z angle> <float: End Z angle>
 
 Beam entity data:
-    <u8:
-        <4 bits: 0>
+    <u16:
+        <7 bits: 0>
         <1 bit: Texture wrap is not relative to size>
         <1 bit: Tail follows tail of bone>
         <1 bit: Head follows tail of bone>
         <1 bit: Inactive>
+        <5 bits: Pattern length minus 1>
     >
     <float[3]: Head XYZ position>
     <float[3]: Head XYZ direction>
@@ -409,9 +456,10 @@ Gib emitter entity data:
     <float: Gravity influence>
     <float: Wind influence>
     <u8: Collision sound count>
-    { <u32: 0>
-    | <<String>: Collision sound resource path>
-    | <u32: Index in i32/u32/float table to <<String>: Collision sound resource path>...> }
+    [
+        { <<String>: Collision sound resource path>
+        | <<String table offset>: 4-byte aligned offset to <<String>: Collision sound resource path>...> }
+    ]
     <u32: Delay before fade in microseconds>
     <u32: Fade time in microseconds>
     <<String>: Signal to activate (activated immediately if empty)>
@@ -587,7 +635,7 @@ Setter entity data:
     <<String>: Target entity (if empty, use initiator of signal)>
     <u8: Expected <Entity type>>
     <u8: Attribute to set (ENTATTR_...)>
-    <u32: Attribute data container index>
+    <Entity property data>
     <<String>: Signal to activate>
 
 Audio emitter entity data:
@@ -614,8 +662,9 @@ Audio emitter entity data:
 
 Dynamic light controller entity data:
     <u8:
-        <7 bits: 0>
+        <2 bits: 0>
         <1 bit: Advance pattern while off>
+        <5 bits: Pattern length minus 1>
     >
     <u32: Light global ID>
     <u32: Pattern>
@@ -626,9 +675,10 @@ Dynamic light controller entity data:
 
 Fast light controller entity data:
     <u8:
-        <6 bits: 0>
+        <1 bits: 0>
         <1 bit: Do not interpolate pattern>
         <1 bit: Advance pattern while off>
+        <5 bits: Pattern length minus 1>
     >
     <u32: Light global ID>
     <u8[32]: Pattern>
@@ -647,7 +697,11 @@ Entity box corner offsets:
     <float[3]: (+X, -Y, -Z) corner XYZ offset>
     <float[3]: (-X, -Y, -Z) corner XYZ offset>
 
-Entity property:
+Entity custom property:
+    <<String>: Name>
+    <Entity property data>
+
+Entity property data:
     <u8:
         { ENTPROP_TYPE_NONE
         | ENTPROP_TYPE_BOOL
@@ -664,33 +718,31 @@ Entity property:
         | ENTPROP_TYPE_STR }
     >
     <u32: Dimensions>
-    { <u32: 0>
-    | <u32: Length>
-    | <u32: Index in i32/u32/float table to <u32: Length>...> }
-    { <u32: 0>
-    | <u8: Inline value> <u8[3]: Padding>
-    | <i8: Inline value> <u8[3]: Padding>
-    | <i16: Inline value> <u8[2]: Padding>
-    | <i32: Inline value>
-    | <u32: Index in i64/u64/double table to <i64>>
-    | <u8: Inline value> <u8[3]: Padding>
-    | <u16: Inline value> <u8[2]: Padding>
-    | <u32: Inline value>
-    | <u32: Index in i64/u64/double table to <u64>>
-    | <float: Inline value>
-    | <u32: Index in i64/u64/double table to <double>>
-    | <String>
-    | <u32: 0>
-    | <<String table offset>: Offset to <u8: Bitmap>...>
-    | <<String table offset>: Offset to <i8>...>
-    | <u32: Index in i16/u16 table to <i16>...>
-    | <u32: Index in i32/u32/float table to <i32>...>
-    | <u32: Index in i64/u64/double table to <i64>...>
-    | <<String table offset>: Offset to <u8>...>
-    | <u32: Index in i16/u16 table to <u16>...>
-    | <u32: Index in i32/u32/float table to <u32>...>
-    | <u32: Index in i64/u64/double table to <u64>...>
-    | <u32: Index in i32/u32/float table to <float>...>
-    | <u32: Index in i64/u64/double table to <double>...>
-    | <u32: Index in i32/u32/float table to <String>...> }
+    [u32: Length]...
+    [
+        { <u8: Bool>
+        | <i8>
+        | <i16>
+        | <i32>
+        | <i64>
+        | <u8>
+        | <u16>
+        | <u32>
+        | <u64>
+        | <float>
+        | <double>
+        | <String>
+        | <u8: Bool bitmap>...
+        | <<String table offset>: Offset to <i8>...>
+        | <<String table offset>: 2-byte aligned offset to <i16>...>
+        | <<String table offset>: 4-byte aligned offset to <i32>...>
+        | <<String table offset>: 8-byte aligned offset to <i64>...>
+        | <<String table offset>: Offset to <u8>...>
+        | <<String table offset>: 2-byte aligned offset to <u16>...>
+        | <<String table offset>: 4-byte aligned offset to <u32>...>
+        | <<String table offset>: 8-byte aligned offset to <u64>...>
+        | <<String table offset>: 4-byte aligned offset to <float>...>
+        | <<String table offset>: 8-byte aligned offset to <double>...>
+        | <<String table offset>: 4-byte aligned offset to <String>...>
+    ]
 

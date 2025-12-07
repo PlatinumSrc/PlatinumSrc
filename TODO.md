@@ -18,6 +18,11 @@
             - XGU or PBKit \(NXDK\)
             - GSKIT \(PS2\)
             - PVR \(Dreamcast\)
+                - Convert textures to 16-bit
+                - Do twiddling
+                    - [Ref 1](https://en.wikipedia.org/wiki/Z-order_curve)
+                    - [Ref 2](https://www.redringrico.com/weblog/rendering-things-that-cant-be-rendered-on-a-dreamcast/)
+                    - [Ref 3](https://dreamcast.wiki/Twiddling)
             - Citro3D \(3DS\)
             - GX \(GameCube and Wii\)
             - Software

@@ -34,7 +34,7 @@ PACKEDENUM loglevel {
 #define LW_SPECIALFILE(p) "%s is a special file", (p)
 
 extern char* logpath;
-#ifndef PSRC_NOMT
+#if PSRC_MTLVL >= 2
 extern mutex_t loglock;
 #endif
 

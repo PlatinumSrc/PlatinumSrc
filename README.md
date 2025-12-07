@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 <details open><summary><b>Supported</b></summary>
 
 - Linux
+- OpenBSD
 - Windows 2000+
 - Windows 98
 - MacOS
@@ -28,7 +29,6 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
 
 - FreeBSD
 - NetBSD
-- OpenBSD
 - Windows 95
 </details>
 <details><summary><b>In progress</b></summary>
@@ -121,7 +121,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Download [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip), and extract it to `external/Windows_i686`
 - If building for Windows 98
     - Download [SDL 1.2.x modified to be compatible with Windows 98](https://github.com/PQCraft/PQCraft/raw/master/SDL_1_2_Win98.zip), and extract it to `external/Windows_i686`
-    - Pass `USESDL1=y NOMT=y` to the Makefile
+    - Pass `USESDL1=y MTLVL=1` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
 <details><summary><b>Building for web browsers using Emscripten</b></summary>
@@ -212,7 +212,10 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
         - `NOGCSECTIONS` - Set to `y` to disable `-Wl,--gc-sections` \(ignored if `DEBUG` is set\)
         - `NOFASTMATH` - Set to `y` to disable `-ffast-math`
         - `NOSIMD` - Set to `y` to not use SIMD
-        - `NOMT` - Set to `y` to disable multithreading
+        - `MT` - Set the amount of multithreading to use
+            - `0` - Disabled
+            - `1` - Limited
+            - `2` - Full
     - Features and backends
         - `USESTDIODS` - Set to `y` to use `fopen()`, `fread()`, and `fclose()` in place of `open()`, `read()`, and `close()` in the datastream code
         - `USESDLDS` - Set to `y` to use SDL_RWops functions in place of `open()`, `read()`, and `close()` in the datastream code
