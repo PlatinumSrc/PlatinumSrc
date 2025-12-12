@@ -7,11 +7,11 @@ SOURCES ?= $(wildcard $(SRCDIR)/*.c)
 OBJECTS ?= $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 
 BIN ?= out
-ifeq ($(OS),Windows_NT)
-    BIN := $(BIN).exe
-endif
 
 TARGET := $(OUTDIR)/$(BIN)
+ifeq ($(OS),Windows_NT)
+    TARGET := $(TARGET).exe
+endif
 
 CC ?= gcc
 LD := $(CC)
@@ -20,20 +20,22 @@ _CC := $(TOOLCHAIN)$(CC)
 _LD := $(TOOLCHAIN)$(LD)
 _STRIP := $(TOOLCHAIN)$(STRIP)
 
-CFLAGS += -Wall -Wextra -Wuninitialized -Wundef -I$(PSRCDIR)
+_CFLAGS := $(CFLAGS) -Wall -Wextra -Wuninitialized -Wundef
+_CPPFLAGS += -DPSRC_REUSABLE -I$(PSRCDIR)
+_LDFLAGS := $(LDFLAGS)
+_LDLIBS := $(LDLIBS)
 ifneq ($(DEBUG),y)
-    CPPFLAGS += -DNDEBUG
+    _CPPFLAGS += -DNDEBUG
     O ?= 2
 else
-    CFLAGS += -g -Wdouble-promotion -fno-omit-frame-pointer -std=c99 -pedantic
+    _CFLAGS += -g -Wdouble-promotion -fno-omit-frame-pointer -std=c11 -pedantic
     O ?= g
 endif
-CFLAGS += -O$(O)
+_CFLAGS += -O$(O)
 ifeq ($(ASAN),y)
-    CFLAGS += -fsanitize=address
-    LDFLAGS += -fsanitize=address
+    _CFLAGS += -fsanitize=address
+    _LDFLAGS += -fsanitize=address
 endif
-CPPFLAGS += -DPSRC_REUSABLE
 
 .SECONDEXPANSION:
 
@@ -50,7 +52,7 @@ endef
 deps.filter := %.c %.h
 deps.option := -MM
 define deps
-$$(filter $$(deps.filter),,$$(shell $(_CC) $(CFLAGS) $(CPPFLAGS) -E $(deps.option) $(1)))
+$$(filter $$(deps.filter),,$$(shell $(_CC) $(_CFLAGS) $(_CPPFLAGS) -E $(deps.option) $(1)))
 endef
 
 default: build
@@ -63,12 +65,12 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(call deps,$(SRCDIR)/%.c) | $(OBJDIR) $(OUTDIR)
 	@echo Compiling $<...
-	@$(_CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+	@$(_CC) $(_CFLAGS) $(_CPPFLAGS) $< -c -o $@
 	@echo Compiled $<
 
 $(TARGET): $(OBJECTS) | $(OUTDIR)
 	@echo Linking $@...
-	@$(_LD) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	@$(_LD) $(_LDFLAGS) $^ $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
 	@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || exit 0
 endif

@@ -16,6 +16,44 @@
 
 struct audiostate audiostate;
 
+#define MIXSOUND_CB_COMMON(b, h, l) do {\
+    tmpend = (h) + (l);\
+    /*printf("PREDEC [%ld:%ld] [%ld] [%ld, %ld] [%ld, %ld]\n", loop, pos, s->rc->len, (h), tmpend - 1, *start, *end);*/\
+    if (pos > (h)) {\
+        if (pos < tmpend) {\
+            /*puts("GT CACHE");*/\
+            *start = (h);\
+            *end = tmpend - 1;\
+            return (b);\
+        }\
+        /*puts("GT DEC");*/\
+        *start = pos;\
+        *end = pos + (l) - 1;\
+    } else if (pos < (h)) {\
+        if (tmpend > s->rc->len) {\
+            tmpend %= s->rc->len;\
+            long tmpstart = tmpend - (l);\
+            if (pos >= tmpstart && pos < tmpend) {\
+                /*puts("LT CACHE");*/\
+                *start = tmpstart;\
+                *end = tmpend - 1;\
+                return (b);\
+            }\
+        }\
+        /*puts("LT DEC");*/\
+        pos -= (l) / 2;\
+        *start = pos;\
+        *end = pos + (l) - 1;\
+        if (pos < 0) pos += s->rc->len;\
+    } else {\
+        /*puts("EQ CACHE");*/\
+        *start = (h);\
+        *end = tmpend - 1;\
+        return (b);\
+    }\
+    /*printf("DEC [%ld] [%ld, %ld]\n", pos, *start, *end);*/\
+} while (0)
+
 static int16_t* mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end) {
     (void)loop;
     if (!end) {
@@ -28,18 +66,21 @@ static int16_t* mixsound_cb_wav(struct audiosound* s, long loop, long pos, long*
         *end = s->rc->len - 1;
         return (int16_t*)s->rc->data;
     }
-    int16_t* dataout = s->wav.cvtbuf;
-    long tmpend = pos + audiostate.decbuflen;
-    if (tmpend > s->rc->len) tmpend = s->rc->len;
-    *start = pos;
-    *end = tmpend - 1;
-    tmpend -= pos;
-    tmpend *= (long)s->rc->channels;
+    long tmpend;
+    MIXSOUND_CB_COMMON(s->wav.cvtbuf, s->wav.cvtbufhead, s->wav.cvtbuflen);
+    s->wav.cvtbufhead = pos;
+    tmpend = s->wav.cvtbuflen * s->rc->channels;
     uint8_t* datain = s->rc->data;
-    for (register long i = 0, i2 = pos * (long)s->rc->channels; i < tmpend; ++i, ++i2) {
+    int16_t* dataout = s->wav.cvtbuf;
+    long i = 0;
+    long i2 = pos * (long)s->rc->channels;
+    long m = s->rc->len * (long)s->rc->channels;
+    while (1) {
         register int tmp = datain[i2];
-        //printf("[%lu, %lu] %lu %lu %lu\n", *start, *end, pos, i, i2);
-        dataout[i] = (tmp - 128) * 256 + tmp;
+        dataout[i++] = (tmp - 128) * 256 + tmp;
+        if (i == tmpend) break;
+        ++i2;
+        i2 %= m;
     }
     return dataout;
 }
@@ -52,21 +93,15 @@ static int16_t* mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, lo
         unlockRc(s->rc);
         return NULL;
     }
-    if (pos < s->vorbis.decbufhead) {
-        pos -= audiostate.decbuflen - 1;
-        if (pos < 0) pos = 0;
-        stb_vorbis_seek(s->vorbis.state, pos);
-    } else if (pos != s->vorbis.decbufhead + s->vorbis.decbuflen) {
-        stb_vorbis_seek(s->vorbis.state, pos);
-    }
-    long tmpend = pos + audiostate.decbuflen;
-    if (tmpend > s->rc->len) tmpend = s->rc->len;
-    *start = pos;
+    long tmpend;
+    MIXSOUND_CB_COMMON(s->vorbis.decbuf, s->vorbis.decbufhead, s->vorbis.decbuflen);
     s->vorbis.decbufhead = pos;
-    *end = tmpend - 1;
-    tmpend -= pos;
-    s->vorbis.decbuflen = tmpend;
-    stb_vorbis_get_samples_short_interleaved(s->vorbis.state, s->rc->channels, s->vorbis.decbuf, tmpend);
+    if (pos != tmpend) stb_vorbis_seek(s->vorbis.state, pos);
+    long tmp = stb_vorbis_get_samples_short_interleaved(s->vorbis.state, s->rc->channels, s->vorbis.decbuf, s->vorbis.decbuflen * s->rc->channels);
+    if (tmp < s->vorbis.decbuflen) {
+        stb_vorbis_seek(s->vorbis.state, 0);
+        stb_vorbis_get_samples_short_interleaved(s->vorbis.state, s->rc->channels, s->vorbis.decbuf + tmp * s->rc->channels, (s->vorbis.decbuflen - tmp) * s->rc->channels);
+    }
     return s->vorbis.decbuf;
 }
 #endif
@@ -75,25 +110,20 @@ static int16_t* mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long*
     (void)loop;
     if (!end) {
         mp3dec_ex_close(s->mp3.state);
+        free(s->mp3.state);
         free(s->mp3.decbuf);
         unlockRc(s->rc);
         return NULL;
     }
-    if (pos < s->mp3.decbufhead) {
-        pos -= audiostate.decbuflen - 1;
-        if (pos < 0) pos = 0;
-        mp3dec_ex_seek(s->mp3.state, pos * s->rc->channels);
-    } else if (pos != s->mp3.decbufhead + s->mp3.decbuflen) {
-        mp3dec_ex_seek(s->mp3.state, pos * s->rc->channels);
-    }
-    long tmpend = pos + audiostate.decbuflen;
-    if (tmpend > s->rc->len) tmpend = s->rc->len;
-    *start = pos;
+    long tmpend;
+    MIXSOUND_CB_COMMON(s->mp3.decbuf, s->mp3.decbufhead, s->mp3.decbuflen);
     s->mp3.decbufhead = pos;
-    *end = tmpend - 1;
-    tmpend -= pos;
-    s->mp3.decbuflen = tmpend;
-    mp3dec_ex_read(s->mp3.state, s->mp3.decbuf, tmpend * s->rc->channels);
+    if (pos != tmpend) mp3dec_ex_seek(s->mp3.state, pos * s->rc->channels);
+    long tmp = mp3dec_ex_read(s->mp3.state, s->mp3.decbuf, s->mp3.decbuflen * s->rc->channels) / s->rc->channels;
+    if (tmp < s->mp3.decbuflen) {
+        mp3dec_ex_seek(s->mp3.state, 0);
+        mp3dec_ex_read(s->mp3.state, s->mp3.decbuf + tmp * s->rc->channels, (s->mp3.decbuflen - tmp) * s->rc->channels);
+    }
     return s->mp3.decbuf;
 }
 #endif
@@ -445,27 +475,30 @@ static void initSound(struct audiosound* s, unsigned fxmask, const struct audiof
     s->hplastin[1] = 0;
 }
 static inline bool initSoundRc(struct audiosound* s, struct rc_sound* rc) {
+    if (rc->len * rc->channels < 2 * rc->channels) return false;
+    long buflen = (audiostate.decbuflen <= rc->len) ? audiostate.decbuflen : rc->len;
+    //printf("!!! [%ld]\n", buflen);
     switch (rc->format) {
         DEFAULTCASE(RC_SOUND_FRMT_WAV):
-            if (rc->is8bit && !(s->wav.cvtbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->wav.cvtbuf)))) return false;
-            //s->wav.cvtbufhead = rc->len;
-            //s->wav.cvtbuflen = 0;
+            if (rc->is8bit && !(s->wav.cvtbuf = rcmgr_malloc(buflen * rc->channels * sizeof(*s->wav.cvtbuf)))) return false;
+            s->wav.cvtbufhead = -buflen;
+            s->wav.cvtbuflen = buflen;
             break;
         #ifdef PSRC_USESTBVORBIS
         case RC_SOUND_FRMT_VORBIS:
-            if (!(s->vorbis.decbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->vorbis.decbuf)))) return false;
+            if (!(s->vorbis.decbuf = rcmgr_malloc(buflen * rc->channels * sizeof(*s->vorbis.decbuf)))) return false;
             if (!(s->vorbis.state = stb_vorbis_open_memory(rc->data, rc->size, NULL, NULL))) {
                 free(s->vorbis.decbuf);
                 return false;
             }
-            s->vorbis.decbufhead = rc->len;
-            s->vorbis.decbuflen = 0;
+            s->vorbis.decbufhead = -buflen;
+            s->vorbis.decbuflen = buflen;
             break;
         #endif
         #ifdef PSRC_USEMINIMP3
         case RC_SOUND_FRMT_MP3:
             if (!(s->mp3.state = rcmgr_malloc(sizeof(*s->mp3.state)))) return false;
-            if (!(s->mp3.decbuf = rcmgr_malloc(audiostate.decbuflen * rc->channels * sizeof(*s->mp3.decbuf)))) {
+            if (!(s->mp3.decbuf = rcmgr_malloc(buflen * rc->channels * sizeof(*s->mp3.decbuf)))) {
                 free(s->mp3.state);
                 return false;
             }
@@ -474,8 +507,8 @@ static inline bool initSoundRc(struct audiosound* s, struct rc_sound* rc) {
                 free(s->mp3.state);
                 return false;
             }
-            s->mp3.decbufhead = rc->len;
-            s->mp3.decbuflen = 0;
+            s->vorbis.decbufhead = -buflen;
+            s->mp3.decbuflen = buflen;
             break;
         #endif
     }
@@ -1468,12 +1501,14 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
 #define MIXSOUND__DOMIXING(l) do {\
     if (!oob) {\
         register int sample_l, sample_r;\
-        if (pos > bufend || pos < bufstart) {\
-            /*fputs("NORM ", stdout);*/\
+        if (pos > bufend || pos < bufstart || !buf) {\
+            /*puts("NORM");*/\
             if (!(buf = cb(ctx, loop, pos, &bufstart, &bufend))) {\
+                /*puts("NORM OOB");*/\
                 oob = true;\
                 goto cbfail_##l;\
             }\
+            /*puts("NORM NOT OOB");*/\
         }\
         register long bufpos = (pos - bufstart) * (long)ch;\
         /*printf("%ld %ld %ld %ld %ld %ld\n", bufstart, bufend, pos, pos - bufstart, (long)ch, bufpos);*/\
@@ -1491,8 +1526,12 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
                         ++loop2;\
                     }\
                 }\
-                /*fputs("FRAC ", stdout);*/\
-                if (!(buf = cb(ctx, loop2, pos2, &bufstart, &bufend))) goto skipinterp_##l;\
+                /*puts("FRAC");*/\
+                if (!(buf = cb(ctx, loop2, pos2, &bufstart, &bufend))) {\
+                    /*puts("FRAC OOB");*/\
+                    goto skipinterp_##l;\
+                }\
+                /*puts("FRAC NOT OOB");*/\
             }\
             int mix = frac / outfreq;\
             int imix = 256 - mix;\

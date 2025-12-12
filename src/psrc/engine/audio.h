@@ -174,8 +174,8 @@ struct audiosound {
                 #endif
                 struct {
                     int16_t* cvtbuf; // interleaved
-                    //long cvtbufhead;
-                    //long cvtbuflen;
+                    long cvtbufhead;
+                    long cvtbuflen;
                 } wav;
             };
         };

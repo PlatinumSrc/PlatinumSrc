@@ -20,22 +20,6 @@
 
     1. Copy or link the .lang files into 'gtksourceview-4/language-specs/' in `/usr/share/` or '~/.local/share/'.
 
-'platinum':
-
-    A music tracker to compose .ptm files.
-
-    1. Enter the 'platinum' folder.
-    2. Run 'make'.
-    3. Run the 'platinum' executable.
-
-'ptftool':
-
-    A utility to convert images into the PTF format.
-
-    1. Enter the 'ptftool' folder.
-    2. Run 'make'.
-    3. Run the 'ptftool' executable (pass --help for instructions).
-
 'paftool':
 
     A utility to create and modify PAF archives.
@@ -44,8 +28,24 @@
     2. Run 'make'.
     3. Run the 'paftool' executable (pass --help for instructions).
 
+'platinum':
+
+    A music tracker to compose .ptm files.
+
+    1. Enter the 'platinum' folder.
+    2. Run 'make'.
+    3. Run the 'platinum' executable.
+
 'projects':
 
     Project files and templates for platforms that can't just use a regular Makefile.
+
+'ptftool':
+
+    A utility to convert images into the PTF format.
+
+    1. Enter the 'ptftool' folder.
+    2. Run 'make'.
+    3. Run the 'ptftool' executable (pass --help for instructions).
 
 

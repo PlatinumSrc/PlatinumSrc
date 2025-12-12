@@ -376,14 +376,14 @@ ifneq ($(CROSS),nxdk)
             ifneq ($(CROSS),win32)
                 ifneq ($(CROSS),dc)
                     _CFLAGS += -pthread
+                    _LDFLAGS += -pthread
                 endif
                 _LDLIBS += -lpthread
-            else
-                ifeq ($(USEWINPTHREAD),y)
-                    _CFLAGS += -pthread
-                    _CPPFLAGS += -DPSRC_THREADING_USEWINPTHREAD
-                    _LDLIBS += -l:libwinpthread.a
-                endif
+            else ifeq ($(USEWINPTHREAD),y)
+                _CFLAGS += -pthread
+                _LDFLAGS += -pthread
+                _CPPFLAGS += -DPSRC_THREADING_USEWINPTHREAD
+                _LDLIBS += -l:libwinpthread.a
             endif
         endif
     endif

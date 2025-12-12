@@ -12,6 +12,9 @@
                     - `GL_ARB_multitexture`
                     - `GL_ARB_texture_border_clamp`
                         - Fall back to `GL_CLAMP`
+                    - `GL_ARB_vertex_program`
+                    - `GL_ARB_fragment_program`
+            - GL 2.0/GLES 2.0/WebGL 1.0
             - GL 3.3/GLES 3.0/WebGL 2.0
             - D3D 7 or 8 \(Windows and XDK\)
             - D3D 11 \(Windows and GDK\)
