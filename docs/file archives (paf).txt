@@ -10,11 +10,14 @@ Format:
     <Header> <Data>
 
     Header:
+
         <char[3]: {'P', 'A', 'F'}>
         <u8: Major version>
         <u32: Position of root <Directory>>
         <u32: Position of <Free space tracker> (0 if none yet)>
+
     Data:
+
         { <Free space>
         | <Free space tracker>
         | <Free space tracker continuation> 

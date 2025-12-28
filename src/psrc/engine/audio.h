@@ -26,7 +26,7 @@
 
 // returns a pointer to a buffer of interleaved samples
 // when done, the callback will be called with start and end being NULL
-typedef int16_t* (*audiocb)(void* ctx, long loop, long pos, long* start, long* end);
+typedef int16_t* (*audiocb)(void* ctx, int64_t loop, long pos, long* start, long* end);
 
 enum audioopt {
     AUDIOOPT_END,
@@ -139,7 +139,7 @@ struct audiosoundcb {
 };
 struct audiosound {
     uint32_t emitter;
-    long loop;
+    int64_t loop;
     long pos;
     long frac;
     int8_t prio;

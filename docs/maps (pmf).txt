@@ -223,6 +223,7 @@ Format:
             <<String>: Matcap texture (none if empty)>
             <u8: Extra texture count> <<String table offset>: Offset of first extra texture <String>>
             <u32: Texture advance time in microseconds>
+            <float[2]: Detail texture UV multiplier>
             <float[2]: Texture UV scroll per second>
             <float[2]: Detail texture UV scroll per second>
             <float[2]: Matcap texture UV scroll per second>

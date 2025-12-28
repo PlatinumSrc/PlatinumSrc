@@ -9,9 +9,12 @@ Format:
     <Header> <Data>
 
     Header:
+
         <char[3]: {'P', 'K', 'D'}>
         <u8: Major version>
+
     Data:
+
         <u32: Position of root <Key>>
         <Free space tracker>
         { <Free space>

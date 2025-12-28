@@ -94,23 +94,20 @@ static void img2ptf(char* p) {
         }
     }
     int w, h, c, nw, nh, pw, ph;
-    void* data = stbi_load_from_file(fin, &w, &h, &c, (opt.alpha == -1) ? 0 : (3 + opt.alpha));
+    if (!stbi_info_from_file(fin, &w, &h, &c) || c > 4) {
+        fputs(" failed (stb_image failed to parse info)\n", stdout);
+        fclose(fin);
+        free(np);
+        return;
+    }
+    if (opt.alpha == 0 && (c == 2 || c == 4)) --c;
+    else if (opt.alpha == 1 && (c == 1 || c == 3)) ++c;
+    void* data = stbi_load_from_file(fin, &w, &h, NULL, c);
     if (!data) {
         fputs(" failed (stb_image failed to decode input)\n", stdout);
         fclose(fin);
         free(np);
         return;
-    }
-    if (opt.alpha == -1) {
-        if (c < 3) {
-            printf(" failed (invalid channel count: %d)\n", c);
-            free(data);
-            fclose(fin);
-            free(np);
-            return;
-        }
-    } else {
-        c = (3 + opt.alpha);
     }
     nw = w - 1;
     nh = h - 1;
@@ -166,7 +163,7 @@ static void img2ptf(char* p) {
     fputc('T', fout);
     fputc('F', fout);
     fputc(PTF_REV, fout);
-    fputc(c - 3, fout);
+    fputc(c - 1, fout);
     fputc((ph << 4) | pw, fout);
     LZ4_writeFile_t* wf;
     LZ4F_preferences_t lzp = LZ4F_INIT_PREFERENCES;

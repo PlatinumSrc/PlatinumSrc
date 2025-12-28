@@ -67,6 +67,8 @@
     - PTM music tracker
     - PAF tool
     - PKD tool
+    - PTF thumbnailer
+        - [Example for KDE](https://invent.kde.org/graphics/kdegraphics-thumbnailers)
 
 ---
 ### Done

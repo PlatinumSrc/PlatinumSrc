@@ -95,6 +95,7 @@ static void ptf2img(char* p) {
         DIR* d = opendir(p);
         if (d) {
             fputs(" failed (input is a directory)\n", stdout);
+            closedir(d);
             free(np);
             return;
         }

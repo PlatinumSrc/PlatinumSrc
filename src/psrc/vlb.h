@@ -42,9 +42,17 @@
 
 #define VLB_INIT(VLB__b, VLB__sz, ...) do {\
     (VLB__b).data = malloc((VLB__sz) * sizeof(*(VLB__b).data));\
+    if ((VLB__b).data || !(VLB__sz)) {\
+        (VLB__b).len = 0;\
+        (VLB__b).size = (VLB__sz);\
+    } else {\
+        __VA_ARGS__\
+    }\
+} while (0)
+#define VLB_ZINIT(VLB__b) do {\
+    (VLB__b).data = NULL;\
     (VLB__b).len = 0;\
-    if ((VLB__sz) != 0 && (VLB__b).data) (VLB__b).size = (VLB__sz);\
-    else {(VLB__b).size = 0; {__VA_ARGS__}}\
+    (VLB__b).size = 0;\
 } while (0)
 #define VLB_FREE(b) free((b).data)
 

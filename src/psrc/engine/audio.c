@@ -18,7 +18,7 @@ struct audiostate audiostate;
 
 #define MIXSOUND_CB_COMMON(b, h, l) do {\
     tmpend = (h) + (l);\
-    /*printf("PREDEC [%ld:%ld] [%ld] [%ld, %ld] [%ld, %ld]\n", loop, pos, s->rc->len, (h), tmpend - 1, *start, *end);*/\
+    /*printf("PREDEC [%lld:%ld] [%ld] [%ld, %ld] [%ld, %ld]\n", (long long)loop, pos, s->rc->len, (h), tmpend - 1, *start, *end);*/\
     if (pos > (h)) {\
         if (pos < tmpend) {\
             /*puts("GT CACHE");*/\
@@ -54,7 +54,7 @@ struct audiostate audiostate;
     /*printf("DEC [%ld] [%ld, %ld]\n", pos, *start, *end);*/\
 } while (0)
 
-static int16_t* mixsound_cb_wav(struct audiosound* s, long loop, long pos, long* start, long* end) {
+static int16_t* mixsound_cb_wav(struct audiosound* s, int64_t loop, long pos, long* start, long* end) {
     (void)loop;
     if (!end) {
         if (s->rc->is8bit) free(s->wav.cvtbuf);
@@ -85,7 +85,7 @@ static int16_t* mixsound_cb_wav(struct audiosound* s, long loop, long pos, long*
     return dataout;
 }
 #ifdef PSRC_USESTBVORBIS
-static int16_t* mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, long* start, long* end) {
+static int16_t* mixsound_cb_vorbis(struct audiosound* s, int64_t loop, long pos, long* start, long* end) {
     (void)loop;
     if (!end) {
         stb_vorbis_close(s->vorbis.state);
@@ -106,7 +106,7 @@ static int16_t* mixsound_cb_vorbis(struct audiosound* s, long loop, long pos, lo
 }
 #endif
 #ifdef PSRC_USEMINIMP3
-static int16_t* mixsound_cb_mp3(struct audiosound* s, long loop, long pos, long* start, long* end) {
+static int16_t* mixsound_cb_mp3(struct audiosound* s, int64_t loop, long pos, long* start, long* end) {
     (void)loop;
     if (!end) {
         mp3dec_ex_close(s->mp3.state);
@@ -1068,7 +1068,7 @@ static inline void calc3DSoundFx(struct audiosound* s, struct audioemitter3d* e)
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
             toff -= oldposoff;
             toff *= ((!(s->iflags & SOUNDIFLAG_USESCB)) ? s->rc->freq : s->cb.freq);
-            long loop = s->loop;
+            int64_t loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
             pos += toff / (int64_t)audiostate.freq;
@@ -1185,7 +1185,7 @@ static inline void calc2DSoundFx(struct audiosound* s, struct audioemitter2d* e)
             s->calcfx[curfxi].posoff = s->calcfx[newfxi].posoff = toff;
             toff -= oldposoff;
             toff *= ((!(s->iflags & SOUNDIFLAG_USESCB)) ? s->rc->freq : s->cb.freq);
-            long loop = s->loop;
+            int64_t loop = s->loop;
             long pos = s->pos;
             long frac = s->frac;
             pos += toff / (int64_t)audiostate.freq;
@@ -1616,8 +1616,8 @@ static bool mixsound(struct audiosound* s, int** outp) {
     }
 
     uint8_t flags = s->flags;
-    long loop = s->loop;
-    long oldloop = loop;
+    int64_t loop = s->loop;
+    int64_t oldloop = loop;
     register long pos = s->pos;
     register long frac = s->frac;
     long outfreq = audiostate.freq;

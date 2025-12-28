@@ -307,12 +307,12 @@ else ifeq ($(USEGL33),y)
 else ifeq ($(USEGLES30),y)
     USEGL := y
 endif
-ifeq ($(MTLVL),)
-    MTLVL := 2
+ifeq ($(MT),)
+    MT := 2
 endif
 
 _CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -fno-exceptions -Wall -Wextra -Wuninitialized
-_CPPFLAGS := $(CPPFLAGS) -DPSRC_MTLVL=$(MTLVL)
+_CPPFLAGS := $(CPPFLAGS) -DPSRC_MTLVL=$(MT)
 _LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)

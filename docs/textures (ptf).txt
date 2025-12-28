@@ -10,6 +10,7 @@ Format:
     <Header> <Data>
 
     Header:
+
         <char[3]: {'P', 'T', 'F'}>
         <u8: Major version>
         <u8:
@@ -22,10 +23,12 @@ Format:
             >
         >
         <u8: <4 bits: Height (2^n)> <4 bits: Width (2^n)>>
+
     Data:
+
         { <Compressed <u8: I>...>
-        { <Compressed <u8[2]: IA>...>
-        { <Compressed <u8[3]: RGB>...>
+        | <Compressed <u8[2]: IA>...>
+        | <Compressed <u8[3]: RGB>...>
         | <Compressed <u8[4]: RGBA>...> }
 
 

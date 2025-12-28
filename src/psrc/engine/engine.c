@@ -233,6 +233,9 @@ int bootstrap(void) {
         playerdata.data[0].camera.fov = 90.0f;
     }
 
+extern void rsrcmgr_test(void);
+//rsrcmgr_test();
+
     plog(LL_INFO, "Initializing renderer...");
     if (!initRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to init renderer");
@@ -272,7 +275,7 @@ int bootstrap(void) {
     plog(LL_INFO, "Starting renderer...");
     if (!startRenderer()) {
         plog(LL_CRIT | LF_MSGBOX | LF_FUNCLN, "Failed to start renderer");
-        //return 1;
+        return 1;
     }
     plog(LL_INFO, "Starting audio manager...");
     if (!startAudio()) {

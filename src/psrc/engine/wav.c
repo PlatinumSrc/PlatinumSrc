@@ -70,7 +70,7 @@ void* wav_load(PSRC_DATASTREAM_T ds, enum wav_frmt* frmtout, size_t* lenout, uns
         if (ds_read(ds, 4, tmp) != 4) return NULL;
         uint32_t sz = get32(ds);
         if (tmp[0] == 'd' && tmp[1] == 'a' && tmp[2] == 't' && tmp[3] == 'a') {
-            if (sz % div) return NULL;
+            if (!sz || sz % div) return NULL;
             void* data = malloc(sz);
             if (!data) return NULL;
             ds_read(ds, sz, data);

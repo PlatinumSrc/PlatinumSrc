@@ -121,7 +121,7 @@ https://github.com/user-attachments/assets/34b922c1-5fe6-409b-96fd-51a7227429c0
     - Download [psrc-sdl2 MinGW 7.1.0 build](https://github.com/PQCraft/psrc-sdl2/releases/latest/download/SDL2-devel-2.29.0-mingw-7.1.0.zip), and extract it to `external/Windows_i686`
 - If building for Windows 98
     - Download [SDL 1.2.x modified to be compatible with Windows 98](https://github.com/PQCraft/PQCraft/raw/master/SDL_1_2_Win98.zip), and extract it to `external/Windows_i686`
-    - Pass `USESDL1=y MTLVL=1` to the Makefile
+    - Pass `USESDL1=y MT=1` to the Makefile
 - If building the dedicated server, pass `MODULE=server` to the Makefile, or if building the editor, pass `MODULE=editor`
 </details>
 <details><summary><b>Building for web browsers using Emscripten</b></summary>

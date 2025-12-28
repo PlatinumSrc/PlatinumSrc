@@ -9,10 +9,13 @@ Format:
     <Header> <Data>
 
     Header:
+
         <char[3]: {'P', '3', 'M'}>
         <u8: Major version>
         <u8: Flags (reserved)>
+
     Data:
+
         <u8: Part count> <u8[0..32]: Part visibility bitmask (LSByte to MSByte)> [Part]...
         <u8: Material count> [Material]...
         <u8: Texture count> [Texture]...

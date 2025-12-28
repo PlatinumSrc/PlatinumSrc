@@ -22,10 +22,11 @@ void* ptf_load(PSRC_DATASTREAM_T ds, unsigned* wo, unsigned* ho, unsigned* cho) 
         *wo = w = 1 << w;
         *ho = h = 1 << h;
         sz = w * h;
-        unsigned ch = (f & 1) + 3;
+        unsigned ch = (f & 3) + 1;
         *cho = ch;
         sz *= ch;
     }
+    if (!sz) return NULL;
     void* data = malloc(sz);
     if (!data) return NULL;
     LZ4_readCB_t rcb = {.cb = (LZ4CB_readcb)ds_read, .ctx = ds};
