@@ -111,7 +111,7 @@ PACKEDENUM rsrc_src_type {
     RSRC_SRC_FS
 };
 struct rsrc_src {
-    enum rsrc_src_type type;
+    enum rsrc_src_type rsrctype;
     enum rsrc_subtype rsrcsubtype;
     union {
         struct {
@@ -244,5 +244,7 @@ uint32_t mapRsrcFile(uint32_t mapperdrive, unsigned flags, const char* path);
 uint32_t mapRsrcDir(uint32_t mapperdrive, unsigned flags, const char* path);
 //uint32_t mapRsrcPAF(uint32_t mapperdrive, unsigned flags, struct paf*);
 void unMapRsrc(uint32_t mapperdrive, uint32_t id);
+
+// TODO: inteface for reading and writing raw rsrc data
 
 #endif

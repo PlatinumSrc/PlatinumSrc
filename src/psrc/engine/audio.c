@@ -991,16 +991,16 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
         hpfilt[0] = 0.0f;
         hpfilt[1] = 0.0f;
     } else {
-        pos[0] *= 1.0f - 1.25f * pos[2];
+        pos[0] *= 1.0f - 1.5f * pos[2];
         if (pos[0] < -1.1f) pos[0] = -1.1f;
         else if (pos[0] > 1.1f) pos[0] = 1.1f;
         float tmp = pos[2] * pos[2];
-        hpfilt[0] = tmp * 0.15f;
-        hpfilt[1] = tmp * 0.15f;
+        hpfilt[0] = tmp * 0.1f;
+        hpfilt[1] = tmp * 0.1f;
         tmp = 1.0f + pos[2];
         tmp = 1.0f - tmp * tmp;
-        lpfilt[0] = pos[2] * -0.2f;
-        lpfilt[1] = pos[2] * -0.2f;
+        lpfilt[0] = pos[2] * -0.25f;
+        lpfilt[1] = pos[2] * -0.25f;
         vol[0] *= 1.0f - 0.1f * tmp;
         vol[1] *= 1.0f - 0.1f * tmp;
     }
@@ -1013,8 +1013,8 @@ static inline void calc3DEmitterFx(struct audioemitter3d* e) {
         hpfilt[1] += tmp * 0.25f;
     } else {
         pos[0] *= 1.0f - 0.65f * pos[1];
-        lpfilt[0] -= pos[1] * 0.15f;
-        lpfilt[1] -= pos[1] * 0.15f;
+        lpfilt[0] -= pos[1] * 0.2f;
+        lpfilt[1] -= pos[1] * 0.2f;
     }
     if (pos[0] > 0.0f) {
         //vol[1] *= 1.0f + pos[0] * 0.1f;

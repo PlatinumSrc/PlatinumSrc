@@ -14,6 +14,8 @@ struct rsrc_drive_mapperitem {
     uint8_t flags : 7;
     uint8_t valid : 1;
     enum rsrc_drive_mapperitem_type type;
+    enum rsrc_type rsrctype;
+    enum rsrc_subtype rsrcsubtype;
     const char* path;
 };
 struct rsrc_drive_proto {
@@ -79,7 +81,7 @@ struct rsrc_overlay {
 };
 
 struct {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     mutex_t lock;
     #endif
     struct {
@@ -181,7 +183,7 @@ static bool canonRsrcPath(const char* path, struct charbuf* outpath) {
     }
 
     ret:;
-    if (outpath->len == baselen && !cb_add(outpath, '/')) goto retfalse;
+    //if (outpath->len == baselen && !cb_add(outpath, '/')) goto retfalse;
     return true;
 
     retfalse:;
@@ -319,7 +321,7 @@ static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
 }
 
 uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsrc_drive_proto_params* p) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     if (rsrcmgr.drives.len == -1U) goto retbad;
@@ -376,7 +378,7 @@ uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsr
     d->key = key;
     d->id = rsrcmgr.drives.curid++;
     ret:;
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return di;
@@ -387,7 +389,7 @@ uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsr
     goto ret;
 }
 bool editRsrcDrive(uint32_t di, unsigned flags, const char* name, struct rsrc_drive_proto_params* p) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     struct rsrc_drive* d = &rsrcmgr.drives.data[di];
@@ -433,44 +435,44 @@ bool editRsrcDrive(uint32_t di, unsigned flags, const char* name, struct rsrc_dr
         d->flags |= flags & (RSRCDRIVE_FREENAME | RSRCDRIVE_NODUPNAME);
     }
 
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return true;
 
     retfalse:;
     if (flags & RSRCDRIVE_FREENAME) free((char*)name);
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return false;
 }
 void delRsrcDrive(uint32_t di) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     struct rsrc_drive* d = &rsrcmgr.drives.data[di];
     freeRsrcDrive(d, di);
     if (d->flags & RSRCDRIVE_FREENAME) free((char*)d->name);
     d->valid = 0;
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
 }
 
 bool evalRsrcPath(uint32_t key, const char* path, uint32_t* outdrive, struct charbuf* outpath) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     bool ret = evalRsrcPath_internal(key, path, outdrive, outpath);
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return ret;
 }
 
 uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const struct rsrc_overlay_params* params) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
 
@@ -483,14 +485,24 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
         struct charbuf cb;
         if (!cb_init(&cb, 32)) goto retbad_freepaths;
         char* tmp;
-        if (!evalRsrcPath_internal(params->srcdrivekey, srcpath, &srcdrive, &cb) || !(tmp = cb_finalize(&cb))) {
+        if (!evalRsrcPath_internal(params->srcdrivekey, srcpath, &srcdrive, &cb)) {
             cb_dump(&cb);
             goto retbad_freepaths;
         }
-        if (flags & RSRCOVERLAY_FREESRCPATH) free((char*)srcpath);
-        flags |= (RSRCOVERLAY_FREESRCPATH | RSRCOVERLAY_NODUPSRCPATH);
-        srcpath = tmp;
-        srcpathlen = cb.len;
+        if (cb.len) {
+            if (!(tmp = cb_finalize(&cb))) {
+                cb_dump(&cb);
+                goto retbad_freepaths;
+            }
+            if (flags & RSRCOVERLAY_FREESRCPATH) free((char*)srcpath);
+            flags |= RSRCOVERLAY_FREESRCPATH;
+            srcpath = tmp;
+            srcpathlen = cb.len;
+        } else {
+            cb_dump(&cb);
+            srcpath = NULL;
+            srcpathlen = 0;
+        }
     } else {
         srcdrive = params->srcdrive;
         if (!(flags & RSRCOVERLAY_NODUPSRCPATH)) {
@@ -510,14 +522,24 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
         struct charbuf cb;
         if (!cb_init(&cb, 32)) goto retbad_freepaths;
         char* tmp;
-        if (!evalRsrcPath_internal(params->destdrivekey, destpath, &destdrive, &cb) || !(tmp = cb_finalize(&cb))) {
+        if (!evalRsrcPath_internal(params->destdrivekey, destpath, &destdrive, &cb)) {
             cb_dump(&cb);
             goto retbad_freepaths;
         }
-        if (flags & RSRCOVERLAY_FREEDESTPATH) free((char*)destpath);
-        flags |= (RSRCOVERLAY_FREEDESTPATH | RSRCOVERLAY_NODUPDESTPATH);
-        destpath = tmp;
-        destpathlen = cb.len;
+        if (cb.len) {
+            if (!(tmp = cb_finalize(&cb))) {
+                cb_dump(&cb);
+                goto retbad_freepaths;
+            }
+            if (flags & RSRCOVERLAY_FREEDESTPATH) free((char*)destpath);
+            flags |= RSRCOVERLAY_FREEDESTPATH;
+            destpath = tmp;
+            destpathlen = cb.len;
+        } else {
+            cb_dump(&cb);
+            destpath = NULL;
+            destpathlen = 0;
+        }
     } else {
         destdrive = params->destdrive;
         if (!(flags & RSRCOVERLAY_NODUPDESTPATH)) {
@@ -589,13 +611,13 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
     }
     o->valid = 1;
 
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return oi;
 
     retbad:;
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return -1;
@@ -610,7 +632,7 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
     goto retbad;
 }
 void delRsrcOverlay(uint32_t oi) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     if (oi >= rsrcmgr.overlays.len) goto ret;
@@ -619,59 +641,108 @@ void delRsrcOverlay(uint32_t oi) {
     unlinkRsrcDriveOverlays(&rsrcmgr.drives.data[o->srcdrive], oi);
     delRsrcOverlay_internal(o);
     ret:;
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
 }
 
-static bool getRsrcSrc_internal(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, size_t pathlen, struct rsrc_src* src) {
-    struct charbuf pathcb;
-    if (!cb_init(&pathcb, 32)) return false;
-    if (drive == -1U) {
-        evalRsrcPath_internal(key, path, &drive, &pathcb);
-    } else {
-        if (pathlen == (size_t)-1) pathlen = strlen(path);
-        cb_addpartstr(&pathcb, path, pathlen);
-    }
-    if (!cb_finalize(&pathcb)) goto retfalse;
-    struct VLB(struct charbuf) pstack;
-    VLB_ZINIT(pstack);
-    struct rsrc_drive* d = &rsrcmgr.drives.data[drive];
-    {
-        uint32_t i = d->overlays.head;
-        while (i != -1U) {
-            struct rsrc_drive_overlay* drvo = &d->overlays.data[i];
-            struct rsrc_overlay* o = &rsrcmgr.overlays.data[drvo->index];
-            if (o->key == key && pathcb.len >= o->srcpathlen && !strncmp(pathcb.data, o->srcpath, o->srcpathlen)) {
-                
-            }
-            i = drvo->next;
-        }
-    }
+struct fro_state_elem {
+    const char* inpath;
+    size_t inpathlen;
+    struct rsrc_drive* d;
+    struct charbuf path;
+    uint32_t oi;
+};
+struct fro_state {
+    uint32_t key;
+    struct fro_state_elem cur;
+    struct VLB(struct fro_state_elem) prev;
+    struct charbuf constcb;
+};
+static bool followRsrcOverlay_start(struct fro_state* fro, uint32_t key, struct rsrc_drive* d, const char* path, size_t pathlen) {
+    if (!cb_init(&fro->cur.path, 32)) return false;
+    fro->cur.inpath = path;
+    fro->cur.inpathlen = pathlen;
+    fro->cur.d = d;
+    fro->cur.oi = d->overlays.head;
+    VLB_ZINIT(fro->prev);
+    fro->constcb.size = 0;
     return true;
-
-    retfalse_freestack:;
-    for (size_t i = 0; i < pstack.len; ++i) {
-        cb_dump(&pstack.data[i]);
+}
+static void followRsrcOverlay_end(struct fro_state* fro) {
+    cb_dump(&fro->cur.path);
+    for (size_t i = 0; i < fro->prev.len; ++i) {
+        cb_dump(&fro->prev.data[i].path);
     }
-    VLB_FREE(pstack);
-    retfalse:;
-    cb_dump(&pathcb);
+    VLB_FREE(fro->prev);
+}
+static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, struct charbuf** path) {
+    if (fro->cur.oi != -1U) {
+        while (1) {
+            struct rsrc_drive_overlay* drvo = &fro->cur.d->overlays.data[fro->cur.oi];
+            if ((fro->cur.oi = drvo->next) == -1U) goto base;
+            struct rsrc_overlay* o = &rsrcmgr.overlays.data[drvo->index];
+            if (o->key != fro->key) continue;
+            const char* inpath = fro->cur.inpath;
+            if (inpath) {
+                if (!o->srcpath) continue;
+                if (fro->cur.inpathlen < o->srcpathlen) continue;
+                char c = inpath[o->srcpathlen];
+                if (c && c != '/') continue;
+                if (strncmp(inpath, o->srcpath, o->srcpathlen)) continue;
+            } else {
+                if (o->srcpath) continue;
+            }
+        }
+        //goto base;
+    } else {
+        base:;
+        if (fro->prev.len) {
+            *d = fro->cur.d;
+            fro->constcb.data = (char*)fro->cur.inpath;
+            fro->constcb.len = fro->cur.inpathlen;
+            *path = &fro->constcb;
+            cb_dump(&fro->cur.path);
+            fro->cur = fro->prev.data[--fro->prev.len];
+            return 1;
+        }
+        return 0;
+    }
+}
+
+static bool getRsrcSrc_internal(enum rsrc_type type, uint32_t key, struct rsrc_drive* d, const char* path, size_t pathlen, struct rsrc_src* src) {
+    if (d->overlays.head == -1U) {
+        
+    } else {
+        
+    }
     return false;
 }
 bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t pl, struct rsrc_src* s) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
-    bool ret = getRsrcSrc_internal(t, k, d, p, pl, s);
-    #if PSRC_MTLVL >= 2
+    bool ret;
+    if (d == -1U) {
+        struct charbuf cb;
+        if (!cb_init(&cb, 64)) return false;
+        if (!evalRsrcPath_internal(k, p, &d, &cb) || !cb_finalize(&cb)) {
+            cb_dump(&cb);
+            return false;
+        }
+        ret = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], cb.data, cb.len, s);
+        cb_dump(&cb);
+    } else {
+        ret = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], p, pl, s);
+    }
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
     return ret;
 }
 
 bool initRsrcMgr(void) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     if (!createMutex(&rsrcmgr.lock)) return false;
     #endif
     VLB_INIT(rsrcmgr.drives, 16, return false;);
@@ -681,7 +752,7 @@ void quitRsrcMgr(bool quick) {
     if (!quick) {
         VLB_FREE(rsrcmgr.drives);
     }
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     destroyMutex(&rsrcmgr.lock);
     #endif
 }
@@ -793,7 +864,7 @@ void rsrcmgr_test(void) {
 }
 
 void rsrcmgr_test_dumpstate(void) {
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
     puts("Drives:");
@@ -917,7 +988,7 @@ void rsrcmgr_test_dumpstate(void) {
     for (uint32_t i = 0; i < rsrcmgr.overlays.len; ++i) {
         printf("  Overlay %u:\n", i);
     }
-    #if PSRC_MTLVL >= 2
+    #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
 }
