@@ -2137,17 +2137,24 @@ bool startAudio(void) {
     inspec.format = AUDIO_S16SYS;
     inspec.channels = 2;
     #if SDL_VERSION_ATLEAST(2, 0, 4)
-    #if PSRC_MTLVL >= 2
-    tmp = cfg_getvar(&config, "Audio", "callback");
-    if (tmp) {
-        audiostate.usecallback = strbool(tmp, false);
-        free(tmp);
-    } else {
-        audiostate.usecallback = false;
+    {
+        #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        static const bool fallback = true;
+        #else
+        static const bool fallback = false;
+        #endif
+        #if PSRC_MTLVL >= 1
+        tmp = cfg_getvar(&config, "Audio", "callback");
+        if (tmp) {
+            audiostate.usecallback = strbool(tmp, fallback);
+            free(tmp);
+        } else {
+            audiostate.usecallback = fallback;
+        }
+        #else
+        audiostate.usecallback = fallback;
+        #endif
     }
-    #else
-    audiostate.usecallback = false;
-    #endif
     #else
     audiostate.usecallback = true;
     #endif
@@ -2356,6 +2363,11 @@ void stopAudio(void) {
     acquireWriteAccess(&audiostate.lock);
     #endif
     if (!audiostate.valid) goto ret;
+    #ifndef PSRC_USESDL1
+    SDL_PauseAudioDevice(audiostate.output, 1);
+    #else
+    SDL_PauseAudio(1);
+    #endif
     for (size_t i = 0; i < audiostate.sounds3d.len; ++i) {
         if (audiostate.sounds3d.data[i].prio != AUDIOPRIO_INVALID) deleteSound(&audiostate.sounds3d.data[i]);
     }

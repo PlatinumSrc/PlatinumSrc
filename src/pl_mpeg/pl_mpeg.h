@@ -2680,7 +2680,8 @@ const uint8_t mpeg1_vlc_table[MPEG1_VLC_ELEMENTS][2] = {
  { 0x1c, 13 }, { 0x1b, 13 }, { 0x1f, 16 }, { 0x1e, 16 },
  { 0x1d, 16 }, { 0x1c, 16 }, { 0x1b, 16 },
  { 0x1, 6 }, /* escape */
- { 0x2, 2 }, /* EOB */
+    {0x1, 1}, // EOB?
+// { 0x2, 2 }, /* EOB */
  };
 const uint8_t mpeg1_level[MPEG1_VLC_ELEMENTS] = {
   1,  2,  3,  4,  5,  6,  7,  8,
@@ -2696,7 +2697,7 @@ const uint8_t mpeg1_level[MPEG1_VLC_ELEMENTS] = {
   1,  2,  1,  2,  1,  2,  1,  2,
   1,  2,  1,  2,  1,  2,  1,  2,
   1,  1,  1,  1,  1,  1,  1,  1,
-  1,  1,  1,  1,  1,  1,  1, 0xff /* escape */, 0x00 /* EOB */
+  1,  1,  1,  1,  1,  1,  1, 0xff /* escape */, 0x01 /* EOB */
 };
 
 const uint8_t mpeg1_run[MPEG1_VLC_ELEMENTS] = {

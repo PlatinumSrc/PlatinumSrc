@@ -24,21 +24,31 @@ PACKEDENUM rsrc_type {
 };
 PACKEDENUM rsrc_subtype {
     RSRC_CONFIG_CFG = 0,
+    RSRC_CONFIG__COUNT,
     RSRC_FONT_TTF = 0,
     RSRC_FONT_OTF,
+    RSRC_FONT__COUNT,
     RSRC_MAP_PMF = 0,
+    RSRC_MAP__COUNT,
     RSRC_MODEL_P3M = 0,
+    RSRC_MODEL__COUNT,
     RSRC_SCRIPT_BAS = 0,
+    RSRC_SCRIPT__COUNT,
     RSRC_SOUND_OGG = 0,
     RSRC_SOUND_MP3,
     RSRC_SOUND_WAV,
+    RSRC_SOUND__COUNT,
     RSRC_TEXT_TXT = 0,
+    RSRC_TEXT_MD,
+    RSRC_TEXT__COUNT,
     RSRC_TEXTURE_PTF = 0,
     RSRC_TEXTURE_PNG,
     RSRC_TEXTURE_JPG,
     RSRC_TEXTURE_TGA,
     RSRC_TEXTURE_BMP,
+    RSRC_TEXTURE__COUNT,
     RSRC_VIDEO_MPG = 0,
+    RSRC_VIDEO__COUNT,
 };
 
 struct rsrc_data_config;
@@ -60,7 +70,7 @@ enum rsrc_drive_proto_type {
     RSRC_DRIVE_PROTO_REDIR, // unsigned flags, uint32_t drive, const char* path
     RSRC_DRIVE_PROTO_MAPPER
 };
-struct rsrc_drive_proto_params {
+struct rsrc_drive_proto_opt {
     enum rsrc_drive_proto_type type;
     struct {
         unsigned flags;
@@ -84,16 +94,13 @@ struct rsrc_drive_proto_params {
 #define RSRC_DRIVE_PROTO_FS_FREEPATH   (1U << 1)
 #define RSRC_DRIVE_PROTO_FS_NATIVE     (1U << 2)
 #define RSRC_DRIVE_PROTO_FS_WRITABLE   (1U << 3)
-#define RSRC_DRIVE_PROTO_DLFS_NODUPPATH  (1U << 0)
-#define RSRC_DRIVE_PROTO_DLFS_FREEPATH   (1U << 1)
 #define RSRC_DRIVE_PROTO_PAF_NODUPPATH  (1U << 0)
 #define RSRC_DRIVE_PROTO_PAF_FREEPATH   (1U << 1)
 #define RSRC_DRIVE_PROTO_PAF_WRITABLE   (1U << 2)
-#define RSRC_DRIVE_PROTO_PAF_CRCSTRUCT  (1U << 3)
 #define RSRC_DRIVE_PROTO_REDIR_NODUPPATH  (1U << 0)
 #define RSRC_DRIVE_PROTO_REDIR_FREEPATH   (1U << 1)
 
-struct rsrc_overlay_params {
+struct rsrc_overlay_opt {
     uint32_t key;
     uint32_t srcdrivekey;
     uint32_t srcdrive;
@@ -146,6 +153,7 @@ struct rsrc_raw {
 
 typedef void (*getrc_async_cb)(void* ctx, void* rsrc, struct charbuf* err);
 struct getrc_opt {
+    unsigned group;
     unsigned nocache : 1;
     unsigned havecrc : 1;
     unsigned async : 1;
@@ -190,12 +198,10 @@ struct rsrc_info {
 
 #define LSRC_NAMECRC (1U << 0)
 #define LSRC_SIZE    (1U << 1)
-#define LSRC_DLFSCRC (1U << 2)
 #define LSRC_CRC     (1U << 3)
 
 #define GETRCINFO_HAVECRC    (1U << 0)
 #define GETRCINFO_GETSIZE    (1U << 1)
-#define GETRCINFO_GETDLFSCRC (1U << 2)
 #define GETRCINFO_GETCRC     (1U << 3)
 
 #define DELRC_HAVECRC (1U << 0)
@@ -212,13 +218,13 @@ void runRsrcMgr(uint64_t t);
 void clrRsrcCache(void);
 void quitRsrcMgr(bool quick);
 
-uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsrc_drive_proto_params*);
-bool editRsrcDrive(uint32_t, unsigned flags, const char* name, struct rsrc_drive_proto_params*);
+uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsrc_drive_proto_opt*);
+bool editRsrcDrive(uint32_t, unsigned flags, const char* name, struct rsrc_drive_proto_opt*);
 void delRsrcDrive(uint32_t);
 
 bool evalRsrcPath(uint32_t key, const char* path, uint32_t* outdrive, struct charbuf* outpath);
 
-uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const struct rsrc_overlay_params*);
+uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const struct rsrc_overlay_opt*);
 void delRsrcOverlay(uint32_t);
 
 bool getRsrcSrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, size_t pathlen, struct rsrc_src*);
