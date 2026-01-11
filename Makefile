@@ -329,6 +329,9 @@ ifneq ($(CROSS),nxdk)
         ifeq ($(KERNEL),Darwin)
             _CFLAGS += -I/opt/homebrew/include
             _LDFLAGS += -L/opt/homebrew/lib
+        else ifeq ($(KERNEL),NetBSD)
+            _CPPFLAGS += -I/usr/X11R7/include -I/usr/pkg/include
+            _LDFLAGS += -L/usr/X11R7/lib -L/usr/pkg/lib -Wl,-R/usr/X11R7/lib -Wl,-R/usr/pkg/lib
         endif
     else ifeq ($(CROSS),win32)
         _LDFLAGS += -static -static-libgcc
@@ -804,7 +807,7 @@ endif
 else
 	@$(_LD) $(_LDFLAGS) $^ $(_WROBJ) $(_LDLIBS) -o $@
 ifneq ($(NOSTRIP),y)
-	-@$(_STRIP) -s -R '.comment' -R '.note.*' -R '.gnu.build-id' $@ || $(_STRIP) -s $@
+	-@$(_STRIP) -s -R '.comment' -R '.gnu.build-id' $@ || $(_STRIP) -s $@
 endif
 ifeq ($(USEWEAKGL),y)
 	-@$(_OBJCOPY) -w -W 'gl[A-Z]*' $@
