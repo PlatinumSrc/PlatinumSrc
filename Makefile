@@ -311,8 +311,8 @@ ifeq ($(MT),)
     MT := 2
 endif
 
-_CFLAGS := $(CFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -fno-exceptions -Wall -Wextra -Wuninitialized
-_CPPFLAGS := $(CPPFLAGS) -DPSRC_MTLVL=$(MT)
+_CFLAGS := $(CFLAGS) -fno-exceptions -Wall -Wextra -Wuninitialized
+_CPPFLAGS := $(CPPFLAGS) -I$(EXTDIR)/$(PLATFORM)/include -I$(EXTDIR)/include -DPSRC_MTLVL=$(MT)
 _LDFLAGS := $(LDFLAGS) -L$(EXTDIR)/$(PLATFORM)/lib -L$(EXTDIR)/lib
 _LDLIBS := $(LDLIBS)
 _WRFLAGS := $(WRFLAGS)
@@ -324,10 +324,10 @@ ifneq ($(CROSS),nxdk)
     endif
     _CPPFLAGS += -D_DEFAULT_SOURCE -D_GNU_SOURCE
     ifeq ($(CROSS),)
-        _CFLAGS += -I/usr/local/include
+        _CPPFLAGS += -I/usr/local/include
         _LDFLAGS += -L/usr/local/lib
         ifeq ($(KERNEL),Darwin)
-            _CFLAGS += -I/opt/homebrew/include
+            _CPPFLAGS += -I/opt/homebrew/include
             _LDFLAGS += -L/opt/homebrew/lib
         else ifeq ($(KERNEL),NetBSD)
             _CPPFLAGS += -I/usr/X11R7/include -I/usr/pkg/include
@@ -353,18 +353,18 @@ ifneq ($(CROSS),nxdk)
         endif
         _LDFLAGS += --embed-file internal/engine/ --embed-file internal/server/ --embed-file games/ --embed-file mods/
     else ifeq ($(CROSS),3ds)
-        _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
-        _CPPFLAGS += -D__3DS__
+        _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections
+        _CPPFLAGS += -D__3DS__ -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
         _LDFLAGS += -specs=3dsx.specs -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -L$(DEVKITPRO)/libctru/lib -L$(DEVKITPRO)/portlibs/3ds/lib
         _LDLIBS += -lcitro2d -lcitro3d
     else ifeq ($(CROSS),wii)
-        _CFLAGS += -mrvl -mcpu=750 -meabi -mhard-float -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/wii/include
-        _CPPFLAGS += -DGEKKO -D__wii__
+        _CFLAGS += -mrvl -mcpu=750 -meabi -mhard-float
+        _CPPFLAGS += -DGEKKO -D__wii__ -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/wii/include
         _LDFLAGS += -mrvl -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/wii -L$(DEVKITPRO)/portlibs/wii/lib
         _LDLIBS += -lfat
     else ifeq ($(CROSS),gc)
-        _CFLAGS += -mogc -mcpu=750 -meabi -mhard-float -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/gamecube/include
-        _CPPFLAGS += -DGEKKO -D__gamecube__
+        _CFLAGS += -mogc -mcpu=750 -meabi -mhard-float
+        _CPPFLAGS += -DGEKKO -D__gamecube__ -I$(DEVKITPRO)/libogc/include -I$(DEVKITPRO)/portlibs/gamecube/include
         _LDFLAGS += -mogc -mcpu=750 -meabi -mhard-float -L$(DEVKITPRO)/libogc/lib/cube -L$(DEVKITPRO)/portlibs/gamecube/lib
     endif
     ifeq ($(USEGL),y)

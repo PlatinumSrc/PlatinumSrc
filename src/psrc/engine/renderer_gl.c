@@ -130,6 +130,7 @@ static struct {
 void (*r_gl_render)(void);
 
 void r_gl_display(void) {
+    glFinish();
     #ifndef PSRC_USESDL1
     SDL_GL_SwapWindow(rendstate.window);
     #else
@@ -635,7 +636,7 @@ static void r_gl_render_legacy(void) {
 
     }
 
-    glFinish();
+    glFlush();
 }
 #endif
 #endif
