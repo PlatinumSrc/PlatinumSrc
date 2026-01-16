@@ -147,7 +147,7 @@ static void r_gl_calcProjMat(struct player* pldata, struct r_gl_playerdata* rpld
     rpldata->projmat[3][2] = 2.0f * rpldata->nearplane * rpldata->farplane * tmp2;
 }
 
-static inline void r_gl_calcViewMat(struct player* pldata, struct r_gl_playerdata* rpldata) {
+static void r_gl_calcViewMat(struct player* pldata, struct r_gl_playerdata* rpldata) {
     float up[3];
     float front[3];
     {
@@ -549,11 +549,13 @@ static void r_gl_render_legacy(void) {
             glVertex3f(1.0f, 1.0f, -1.0f);
         glEnd();
 
+        #if 0
         {
             //float s = r_gl_data.nearplane * 100.0f;
             const float s = 25.0f;
             glScalef(s, s, s);
         }
+        #endif
 
         glDepthMask(GL_FALSE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);

@@ -246,6 +246,7 @@ void pollInput(void) {
                         };
                         updateRendererConfig(RENDOPT_RES, &res, RENDOPT_END);
                     } break;
+                    default: break;
                 }
             } break;
             case SDL_CONTROLLERDEVICEADDED: {

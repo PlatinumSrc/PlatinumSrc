@@ -64,12 +64,7 @@ Format:
             <u32: Position of <Directory>, <File>, or position of <String> containing the link path>
 
         File:
-            <u8: Compression
-                { PAF_FILEZ_NONE (No compression)
-                | PAF_FILEZ_LZ4 (LZ4F) }
-            >
             <u32: Total size of file data>
-            { <u32: Reserved> | <u32: Total size of file before compression> }
             <u32: Size of data array in current segment>
             <u32: Position of first <File continuation> (0 if none yet)>
             <u8[]: Data>

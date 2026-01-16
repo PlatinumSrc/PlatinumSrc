@@ -671,17 +671,22 @@ struct fro_state {
     struct fro_state_elem cur;
     struct VLB(struct fro_state_elem) prev;
     struct charbuf* inpath;
+    struct charbuf tmpcb;
+    size_t redirct;
     uint8_t flags;
 };
 #define FRO_ISDIR    (1U << 0)
 #define FRO_ADOPTKEY (1U << 1)
 static bool followRsrcOverlay_start(struct fro_state* fro, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, uint8_t flags) {
-    if (!cb_init(&fro->cur.path, 128)) return false;
+    //if (!cb_init(&fro->cur.path, 128)) return false;
     fro->cur.key = key;
     fro->cur.d = d;
+    fro->cur.path.data = NULL;
     fro->cur.oi = d->overlays.head;
     VLB_ZINIT(fro->prev);
     fro->inpath = pathcb;
+    fro->tmpcb.data = NULL;
+    fro->redirct = 0;
     fro->flags = flags;
     return true;
 }
@@ -691,6 +696,7 @@ static inline void followRsrcOverlay_end(struct fro_state* fro) {
         cb_dump(&fro->prev.data[i].path);
     }
     VLB_FREE(fro->prev);
+    cb_dump(&fro->tmpcb);
 }
 static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, struct charbuf** path) {
     next:;
@@ -718,32 +724,62 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
         if (!cb_addpartstr(&fro->cur.path, o->destpath, o->destpathlen)) return -1;
         if (!cb_addpartstr(&fro->cur.path, inpath->data + o->srcpathlen, inpath->len - o->srcpathlen)) return -1;
         struct rsrc_drive* nd = &rsrcmgr.drives.data[o->destdrive];
-        if (nd->overlays.head == -1U) {
+        if (nd->overlays.head == -1U && nd->proto.type != RSRC_DRIVE_PROTO_REDIR) {
             *d = nd;
             *path = &fro->cur.path;
             return 1;
-        } else {
-            if (fro->prev.len == 31) return -1;
-            struct fro_state_elem* e;
-            VLB_NEXTPTR(fro->prev, e, 2, 1, return -1;);
-            *e = fro->cur;
-            if (fro->flags & FRO_ADOPTKEY) fro->cur.key = nd->key;
-            fro->cur.d = nd;
-            fro->cur.path.data = NULL;
-            fro->cur.oi = nd->overlays.head;
-            goto next_nocheck;
         }
-    } else {
-        *d = fro->cur.d;
-        if (fro->prev.len) {
-            cb_dump(&fro->cur.path);
-            fro->cur = fro->prev.data[--fro->prev.len];
-            *path = &fro->cur.path;
-            return 1;
+        if (fro->prev.len + fro->redirct == 31) return -1;
+        struct fro_state_elem* e;
+        VLB_NEXTPTR(fro->prev, e, 2, 1, return -1;);
+        *e = fro->cur;
+        if (fro->flags & FRO_ADOPTKEY) fro->cur.key = nd->key;
+        fro->cur.d = nd;
+        fro->cur.path.data = NULL;
+        fro->cur.oi = nd->overlays.head;
+        if (nd->proto.type != RSRC_DRIVE_PROTO_REDIR) goto next_nocheck;
+        if (nd->proto.redir.pathlen) goto isredir_addpath_prevpath;
+        goto next;
+    } else if (fro->cur.d->proto.type == RSRC_DRIVE_PROTO_REDIR) {
+        if (fro->prev.len + fro->redirct++ == 31) return -1;
+        struct rsrc_drive* nd = &rsrcmgr.drives.data[fro->cur.d->proto.redir.drive];
+        fro->cur.d = nd;
+        //fro->cur.path.len = 0;
+        fro->cur.oi = nd->overlays.head;
+        if (nd->proto.redir.pathlen) {
+            struct charbuf* inpath;
+            if (fro->prev.len) {
+                isredir_addpath_prevpath:;
+                inpath = &fro->prev.data[fro->prev.len - 1].path;
+            } else {
+                if (!fro->inpath->size) {
+                    if (!fro->tmpcb.data) {
+                        if (!cb_init(&fro->tmpcb, 128)) return -1;
+                    } else {
+                        fro->tmpcb.len = 0;
+                    }
+                    if (!cb_addpartstr(&fro->tmpcb, fro->cur.d->proto.redir.path, fro->cur.d->proto.redir.pathlen)) return -1;
+                    if (!cb_addpartstr(&fro->tmpcb, fro->inpath->data, fro->inpath->len)) return -1;
+                    fro->inpath = &fro->tmpcb;
+                    goto next;
+                }
+                inpath = fro->inpath;
+            }
+            if (!cb_addmultifake(inpath, fro->cur.d->proto.redir.pathlen)) return -1;
+            memmove(inpath->data + fro->cur.d->proto.redir.pathlen, inpath->data, fro->cur.d->proto.redir.pathlen);
+            memcpy(inpath->data, fro->cur.d->proto.redir.path, fro->cur.d->proto.redir.pathlen);
         }
-        *path = fro->inpath;
-        return 0;
+        goto next;
     }
+    *d = fro->cur.d;
+    if (fro->prev.len) {
+        cb_dump(&fro->cur.path);
+        fro->cur = fro->prev.data[--fro->prev.len];
+        *path = &fro->cur.path;
+        return 1;
+    }
+    *path = fro->inpath;
+    return 0;
 }
 
 static int getRsrcSrc_try_fs(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
@@ -756,142 +792,8 @@ static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, uint32_t key, struct r
     
 }
 static bool getRsrcSrc_internal(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
-    int retval;
     struct fro_state fro;
-    int froret;
-    struct prevstack_elem {
-        struct fro_state fro;
-        struct charbuf cb;
-        struct rsrc_drive* d;
-        struct charbuf* pathcb;
-    };
-    struct VLB(struct prevstack_elem) prevstack;
-    VLB_ZINIT(prevstack);
-    again:;
-    if (d->overlays.head != -1U) {
-        followRsrcOverlay_start(&fro, key, d, pathcb, 0);
-        next:;
-        froret = followRsrcOverlay_next(&fro, &d, &pathcb);
-        if (froret == -1) goto retbad;
-    }
-    switch (d->proto.type) {
-        DEFAULTCASE(RSRC_DRIVE_PROTO_NULL):
-            retval = 0;
-            break;
-        case RSRC_DRIVE_PROTO_REDIR:
-            if (d->overlays.head != -1U) {
-                if (froret) goto redir_push;
-                else followRsrcOverlay_end(&fro);
-            }
-            // replace
-            goto again;
-            redir_push:;
-            // push
-            goto again;
-        case RSRC_DRIVE_PROTO_FS:
-            retval = getRsrcSrc_try_proto_fs(rt, key, d, pathcb, src);
-            if (retval == -1) goto retbad_noset;
-            break;
-        case RSRC_DRIVE_PROTO_MAPPER: 
-            retval = getRsrcSrc_try_proto_mapper(rt, key, d, pathcb, src);
-            if (retval == -1) goto retbad_noset;
-            break;
-    }
-    if (d->overlays.head != -1U && !froret) followRsrcOverlay_end(&fro);
-    if (prevstack.len) {
-        --prevstack.len;
-        struct prevstack_elem* e = &prevstack.data[prevstack.len];
-        fro = e->fro;
-        d = e->d;
-        pathcb = e->pathcb;
-        goto next;
-    }
-    ret:;
-    return (retval == 1);
-
-    retbad:;
-    retval = -1;
-    retbad_noset:;
-    for (size_t i = 0; i < prevstack.len; ++i) {
-        struct prevstack_elem* e = &prevstack.data[prevstack.len];
-        cb_dump(&e->cb);
-    }
-    goto ret;
-
-    #if 0
-    bool retval;
-    struct prevstack_elem {
-        struct fro_state fro;
-        struct charbuf cb;
-        struct rsrc_drive* d;
-        struct charbuf* pathcb;
-    };
-    struct VLB(struct prevstack_elem) prevstack;
-    VLB_ZINIT(prevstack);
-    struct fro_state fro;
-    struct charbuf cb;
-    size_t nonstackct = 0;
-    again:;
-    switch (d->proto.type) {
-        DEFAULTCASE(RSRC_DRIVE_PROTO_NULL):
-            retval = false;
-            break;
-        case RSRC_DRIVE_PROTO_REDIR:
-            if (nonstackct + prevstack.len == 31) {
-                retval = false;
-                goto ret;
-            }
-            if (d->overlays.head == -1U) {
-                ++nonstackct;
-            } else {
-                struct prevstack_elem* e;
-                VLB_NEXTPTR(prevstack, e, 2, 1, retval = false; goto ret;);
-                e->fro = fro;
-                e->cb = cb;
-                e->d = d;
-                e->pathcb = pathcb;
-            }
-            d = &rsrcmgr.drives.data[d->proto.redir.drive];
-            if (d->proto.redir.path) {
-                if (!pathcb->size || d->overlays.head != -1U) {
-                    if (!cb_init(&cb, 128)) {
-                        retval = false;
-                        goto ret_nofreecb;
-                    }
-                    if (!cb_addpartstr(&cb, d->proto.redir.path, d->proto.redir.pathlen) || !cb_addpartstr(&cb, pathcb->data, pathcb->len)) {
-                        cb_dump(&cb);
-                        retval = false;
-                        goto ret_nofreecb;
-                    }
-                    pathcb = &cb;
-                } else {
-                    if (!cb_addmultifake(pathcb, d->proto.redir.pathlen)) {
-                        retval = false;
-                        goto ret;
-                    }
-                    memmove(pathcb->data + d->proto.redir.pathlen, pathcb->data, d->proto.redir.pathlen);
-                    memcpy(pathcb->data, d->proto.redir.path, d->proto.redir.pathlen);
-                }
-            }
-            if (d->overlays.head != -1U) {
-                if (!) {
-                    retval = false;
-                    goto ret;
-                }
-            }
-            goto again;
-        case RSRC_DRIVE_PROTO_FS:
-            retval = getRsrcSrc_try_proto_fs(rt, key, d, pathcb, src);
-            break;
-        case RSRC_DRIVE_PROTO_MAPPER: 
-            retval = getRsrcSrc_try_proto_mapper(rt, key, d, pathcb, src);
-            break;
-    }
-    ret:;
-    if (pathcb->size) cb_dump(pathcb);
-    ret_nofreecb:;
-    return retval;
-    #endif
+    
 }
 bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t pl, struct rsrc_src* s) {
     #if PSRC_MTLVL >= 1
@@ -910,7 +812,7 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
         cb_dump(&cb);
     } else {
         if (pl == (size_t)-1) pl = strlen(p);
-        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &(struct charbuf){.data = p, .len = pl}, s);
+        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &(struct charbuf){.data = (char*)p, .len = pl}, s);
     }
     ret:;
     #if PSRC_MTLVL >= 1
