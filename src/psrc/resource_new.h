@@ -10,6 +10,9 @@
 #include <stdio.h>
 
 PACKEDENUM rsrc_type {
+    RSRC_DIR = -1,
+    RSRC__FILE = 0,
+    RSRC_OTHER = 0,
     RSRC_CONFIG,
     RSRC_FONT,
     RSRC_MAP,
@@ -19,8 +22,7 @@ PACKEDENUM rsrc_type {
     RSRC_TEXT,
     RSRC_TEXTURE,
     RSRC_VIDEO,
-    RSRC__COUNT,
-    RSRC__DIR = RSRC__COUNT
+    RSRC__COUNT
 };
 PACKEDENUM rsrc_subtype {
     RSRC_CONFIG_CFG = 0,
@@ -117,22 +119,26 @@ struct rsrc_overlay_opt {
 
 PACKEDENUM rsrc_src_type {
     RSRC_SRC_MEM,
-    //RSRC_SRC_PAF,
     RSRC_SRC_FS
+    //RSRC_SRC_PAF
 };
 struct rsrc_src {
-    enum rsrc_src_type rsrctype;
+    enum rsrc_src_type type;
     enum rsrc_subtype rsrcsubtype;
     union {
         struct {
             void* data;
             size_t size;
         } mem;
+        struct {
+            const char* path;
+            bool freepath;
+        } fs;
         //struct {
         //    struct paf* paf;
         //    const char* path;
+        //    bool freepath;
         //} paf;
-        const char* fs;
     };
 };
 
@@ -209,14 +215,15 @@ struct rsrc_info {
 
 #define DELRC_HAVECRC (1U << 0)
 
-#define MAPRC_NODUPPATH (1U << 0)
-#define MAPRC_FREEPATH  (1U << 1)
+#define MAPRC_NODUPPATH    (1U << 0)
+#define MAPRC_FREEPATH     (1U << 1)
+#define MAPRC_UNTERMEDPATH (1U << 2)
 
 bool initRsrcMgr(void);
 void runRsrcMgr(uint64_t t);
-//void* rsrcmgr_malloc(size_t);
-//void* rsrcmgr_calloc(size_t, size_t);
-//void* rsrcmgr_realloc(void*, size_t);
+void* rsrcmgr_malloc(size_t);
+void* rsrcmgr_calloc(size_t, size_t);
+void* rsrcmgr_realloc(void*, size_t);
 void clrRsrcCache(void);
 void quitRsrcMgr(bool quick);
 
@@ -248,11 +255,13 @@ bool getRsrcInfo(enum rsrc_type type, unsigned flags, uint32_t key, uint32_t dri
 bool delRsrc(enum rsrc_type type, unsigned flags, uint32_t key, uint32_t drive, const char* path, uint64_t crc);
 bool copyRsrc(enum rsrc_type type, uint32_t key, uint32_t srcdrive, const char* srcpath, uint32_t destdrive, const char* destpath);
 
-uint32_t mapRsrcFile(uint32_t mapperdrive, unsigned flags, const char* path, size_t pathlen);
+uint32_t mapRsrcFile(uint32_t mapperdrive, unsigned flags, const char* path);
 uint32_t mapRsrcDir(uint32_t mapperdrive, unsigned flags, const char* path, size_t pathlen);
 //uint32_t mapRsrcPAF(uint32_t mapperdrive, unsigned flags, struct paf*, const char* path, size_t pathlen);
 void unMapRsrc(uint32_t mapperdrive, uint32_t id);
 
 // TODO: inteface for reading and writing raw rsrc data
+
+// TODO: PAF manager
 
 #endif

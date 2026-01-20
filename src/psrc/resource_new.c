@@ -5,19 +5,69 @@
 #include "util.h"
 #include "filesystem.h"
 
+static const enum rsrc_subtype rsrc_subtypect[RSRC__COUNT] = {
+    0,
+    RSRC_CONFIG__COUNT,
+    RSRC_FONT__COUNT,
+    RSRC_MAP__COUNT,
+    RSRC_MODEL__COUNT,
+    RSRC_SCRIPT__COUNT,
+    RSRC_SOUND__COUNT,
+    RSRC_TEXT__COUNT,
+    RSRC_TEXTURE__COUNT,
+    RSRC_VIDEO__COUNT
+};
+static const char** rsrc_exts[RSRC__COUNT] = {
+    (const char* [1])                   {NULL},
+    (const char* [RSRC_CONFIG__COUNT])  {".cfg"},
+    (const char* [RSRC_FONT__COUNT])    {".ttf", ".otf"},
+    (const char* [RSRC_MAP__COUNT])     {".pmf"},
+    (const char* [RSRC_MODEL__COUNT])   {".p3m"},
+    (const char* [RSRC_SCRIPT__COUNT])  {".bas"},
+    (const char* [RSRC_SOUND__COUNT])   {".ogg", ".mp3", ".wav"},
+    (const char* [RSRC_TEXT__COUNT])    {".txt", ".md"},
+    (const char* [RSRC_TEXTURE__COUNT]) {".ptf", ".png", ".jpg", ".tga", ".bmp"},
+    (const char* [RSRC_VIDEO__COUNT])   {".mpg"}
+};
+static const size_t* rsrc_extlens[RSRC__COUNT] = {
+    (const size_t [1])                   {0},
+    (const size_t [RSRC_CONFIG__COUNT])  {4},
+    (const size_t [RSRC_FONT__COUNT])    {4, 4},
+    (const size_t [RSRC_MAP__COUNT])     {4},
+    (const size_t [RSRC_MODEL__COUNT])   {4},
+    (const size_t [RSRC_SCRIPT__COUNT])  {4},
+    (const size_t [RSRC_SOUND__COUNT])   {4, 4, 4},
+    (const size_t [RSRC_TEXT__COUNT])    {4, 3},
+    (const size_t [RSRC_TEXTURE__COUNT]) {4, 4, 4, 4, 4},
+    (const size_t [RSRC_VIDEO__COUNT])   {4}
+};
+
 PACKEDENUM rsrc_drive_mapperitem_type {
     RSRC_DRIVE_MAPPERITEMTYPE_FILE,
     RSRC_DRIVE_MAPPERITEMTYPE_DIR
+    //RSRC_DRIVE_MAPPERITEMTYPE_PAF
 };
 struct rsrc_drive_mapperitem {
     uint32_t id;
     uint8_t flags : 7;
     uint8_t valid : 1;
-    enum rsrc_drive_mapperitem_type type;
     enum rsrc_type rsrctype;
     enum rsrc_subtype rsrcsubtype;
-    const char* path;
-    size_t pathlen;
+    enum rsrc_drive_mapperitem_type type;
+    union {
+        struct {
+            char* path;
+        } file;
+        struct {
+            char* path;
+            size_t pathlen;
+        } dir;
+        //struct {
+        //    struct paf* paf;
+        //    const char* path;
+        //    size_t pathlen;
+        //} paf;
+    };
 };
 struct rsrc_drive_proto {
     enum rsrc_drive_proto_type type;
@@ -312,6 +362,18 @@ static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
             if (d->proto.fs.flags & RSRC_DRIVE_PROTO_FS_FREEPATH) free((char*)d->proto.fs.path);
             break;
         case RSRC_DRIVE_PROTO_MAPPER:
+            for (size_t i = 0; i < d->proto.mapper.items.len; ++i) {
+                struct rsrc_drive_mapperitem* item = &d->proto.mapper.items.data[i];
+                if (!item->valid) continue;
+                switch (item->type) {
+                    case RSRC_DRIVE_MAPPERITEMTYPE_FILE:
+                        if (item->flags & MAPRC_FREEPATH) free(item->file.path);
+                        break;
+                    case RSRC_DRIVE_MAPPERITEMTYPE_DIR:
+                        if (item->flags & MAPRC_FREEPATH) free(item->dir.path);
+                        break;
+                }
+            }
             VLB_FREE(d->proto.mapper.items);
             break;
     }
@@ -753,10 +815,10 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
                 inpath = &fro->prev.data[fro->prev.len - 1].path;
             } else {
                 if (!fro->inpath->size) {
-                    if (!fro->tmpcb.data) {
-                        if (!cb_init(&fro->tmpcb, 128)) return -1;
-                    } else {
+                    if (fro->tmpcb.data) {
                         fro->tmpcb.len = 0;
+                    } else {
+                        if (!cb_init(&fro->tmpcb, 128)) return -1;
                     }
                     if (!cb_addpartstr(&fro->tmpcb, fro->cur.d->proto.redir.path, fro->cur.d->proto.redir.pathlen)) return -1;
                     if (!cb_addpartstr(&fro->tmpcb, fro->inpath->data, fro->inpath->len)) return -1;
@@ -782,43 +844,236 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
     return 0;
 }
 
-static int getRsrcSrc_try_fs(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
-    
+static int rsrcPathToNative(struct charbuf* in, size_t base, struct charbuf* out) {
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+    WIN32_FIND_DATA find;
+    HANDLE h;
+    size_t outbase = 0;
+    #endif
+    for (; base < in->len; ++base) {
+        char c = in->data[base];
+        if (!c) return 0;
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        else if (c == '/') {
+            c = '\\';
+            if (out->len) {
+                if (!cb_nullterm(out)) return -1;
+                h = FindFirstFile(out->data, &find);
+                if (h == INVALID_HANDLE_VALUE) return 0;
+                if (strcmp(out->data + outbase, find.cFileName)) return 0;
+                FindClose(h);
+                outbase = out->len + 2;
+            }
+        }
+        else if (c == '\\') return 0;
+        else if (c == '<' || c == '>' || c == ':' || c == '"' || c == '|' || c == '?' || c == '*') return 0;
+        else if (c < 32) return 0;
+        #endif
+        if (!cb_add(out, c)) return -1;
+    }
+    return 1;
 }
-static ALWAYSINLINE int getRsrcSrc_try_proto_fs(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
-    
+
+static int findRsrcInFS(enum rsrc_type rt, struct charbuf* cb, enum rsrc_subtype* rst) {
+    size_t oldlen = cb->len;
+    for (enum rsrc_subtype i = 0; i < rsrc_subtypect[rt]; ++i) {
+        cb_addpartstr(cb, rsrc_exts[rt][i], rsrc_extlens[rt][i]);
+        if (!cb_nullterm(cb)) return -1;
+        if (isFile(cb->data) == 1) {
+            #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                *rst = i;
+                return 1;
+            #else
+                WIN32_FIND_DATA find;
+                HANDLE h = FindFirstFile(cb->data, &find);
+                FindClose(h);
+                if (h != INVALID_HANDLE_VALUE) {
+                    size_t j = cb->len - 2;
+                    while (1) {
+                        char c = cb->data[j];
+                        if (c == '\\') {
+                            ++j;
+                            break;
+                        }
+                        if (j == 1) break;
+                        --j;
+                    }
+                    if (!strcmp(cb->data + j, find.cFileName)) {
+                        *rst = i;
+                        return 1;
+                    }
+                }
+            #endif
+        }
+        cb->len = oldlen;
+    }
+    return 0;
 }
-static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
-    
+
+static ALWAYSINLINE int getRsrcSrc_try_fs(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, struct rsrc_src* src) {
+    if (tmpcb->data) {
+        tmpcb->len = 0;
+    } else {
+        if (!cb_init(tmpcb, 128)) return -1;
+    }
+    if (!cb_addpartstr(tmpcb, d->proto.fs.path, d->proto.fs.pathlen)) return -1;
+    int retval = rsrcPathToNative(pathcb, 0, tmpcb);
+    if (retval != 1) return retval;
+    retval = findRsrcInFS(rt, tmpcb, &src->rsrcsubtype);
+    if (retval != 1) return retval;
+    if (!cb_finalize(tmpcb)) return -1;
+    src->type = RSRC_SRC_FS;
+    src->fs.path = tmpcb->data;
+    src->fs.freepath = true;
+    tmpcb->data = NULL;
+    return 1;
 }
-static bool getRsrcSrc_internal(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, struct rsrc_src* src) {
+static int getRsrcSrc_try_mapper(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, bool dup, struct rsrc_src* src) {
+    char c = pathcb->data[1];
+    if (c < '0' || c > '9') return 0;
+    uint32_t id = c - '0';
+    size_t pathi;
+    for (pathi = 2; pathi < pathcb->len; ++pathi) {
+        char c = pathcb->data[pathi];
+        if (c >= '0' || c <= '9') {
+            uint32_t newid = id * 10 + (c - '0');
+            if (newid < id) return 0;
+            id = newid;
+        } else if (c == '/') {
+            break;
+        } else {
+            return 0;
+        }
+    }
+    struct rsrc_drive_mapperitem* item;
+    {
+        size_t i = 0;
+        while (1) {
+            if (i == d->proto.mapper.items.len) return 0;
+            item = &d->proto.mapper.items.data[i];
+            if (item->valid && item->id == id) {
+                if (item->rsrctype != rt) return 0;
+                if (item->type == RSRC_DRIVE_MAPPERITEMTYPE_FILE) {
+                    if (pathi != pathcb->len) return 0;
+                    src->type = RSRC_SRC_FS;
+                    src->rsrcsubtype = item->rsrcsubtype;
+                    if (dup || (item->flags & MAPRC_UNTERMEDPATH)) {
+                        src->fs.path = strdup(item->file.path);
+                        if (!src->fs.path) return -1;
+                        src->fs.freepath = true;
+                    } else {
+                        src->fs.path = item->file.path;
+                        src->fs.freepath = false;
+                    }
+                    return 1;
+                } else if (pathi == pathcb->len) {
+                    return 0;
+                }
+                break;
+            }
+            ++i;
+        }
+    }
+    switch (item->type) {
+        DEFAULTCASE(RSRC_DRIVE_MAPPERITEMTYPE_DIR): {
+            if (tmpcb->data) {
+                tmpcb->len = 0;
+            } else {
+                if (!cb_init(tmpcb, 128)) return -1;
+            }
+            if (!cb_addpartstr(tmpcb, item->dir.path, item->dir.pathlen)) return -1;
+            int retval = rsrcPathToNative(pathcb, pathi, tmpcb);
+            if (retval != 1) return retval;
+            retval = findRsrcInFS(rt, tmpcb, &src->rsrcsubtype);
+            if (retval != 1) return retval;
+            if (!cb_finalize(tmpcb)) return -1;
+            src->type = RSRC_SRC_FS;
+            src->fs.path = tmpcb->data;
+            src->fs.freepath = true;
+            tmpcb->data = NULL;
+        } return 1;
+        //case RSRC_DRIVE_MAPPERITEMTYPE_PAF: {
+        //} return 1;
+    }
+}
+static int getRsrcSrc_internal(enum rsrc_type rt, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, bool dup, struct rsrc_src* src) {
+    int retval;
+    struct charbuf tmpcb;
+    tmpcb.data = NULL;
     struct fro_state fro;
-    
+    int froret;
+    again:;
+    if (d->overlays.head == -1U) {
+        if (d->proto.type == RSRC_DRIVE_PROTO_REDIR) {
+            if (d->proto.redir.pathlen) goto usefro;
+            d = &rsrcmgr.drives.data[d->proto.redir.drive];
+            goto again;
+        }
+        froret = -1;
+    } else {
+        usefro:;
+        if (!followRsrcOverlay_start(&fro, key, d, pathcb, 0)) {
+            retval = -1;
+            goto ret;
+        }
+        next:;
+        froret = followRsrcOverlay_next(&fro, &d, &pathcb);
+        if (froret == -1) {
+            retval = -1;
+            goto ret_endfro;
+        }
+    }
+
+    switch (d->proto.type) {
+        DEFAULTCASE(RSRC_DRIVE_PROTO_NULL):
+            retval = 0;
+            break;
+        case RSRC_DRIVE_PROTO_FS:
+            retval = getRsrcSrc_try_fs(rt, d, pathcb, &tmpcb, src);
+            break;
+        case RSRC_DRIVE_PROTO_MAPPER: 
+            retval = getRsrcSrc_try_mapper(rt, d, pathcb, &tmpcb, dup, src);
+            break;
+    }
+
+    if (froret != -1) {
+        if (!retval) goto next;
+        ret_endfro:;
+        followRsrcOverlay_end(&fro);
+    }
+
+    ret:;
+    cb_dump(&tmpcb);
+    return retval;
 }
 bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t pl, struct rsrc_src* s) {
     #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
-    bool retval;
+    int retval;
     if (d == -1U) {
-        struct charbuf cb;
-        if (!cb_init(&cb, 128)) {retval = false; goto ret;}
-        if (!evalRsrcPath_internal(k, p, &d, &cb) || !cb.len || !cb_finalize(&cb)) {
-            cb_dump(&cb);
-            retval = false;
+        if (t < RSRC__FILE || t >= RSRC__COUNT) { // TODO: move out
+            retval = -1;
             goto ret;
         }
-        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &cb, s);
+        struct charbuf cb;
+        if (!cb_init(&cb, 128)) {retval = -1; goto ret;}
+        if (!evalRsrcPath_internal(k, p, &d, &cb) || !cb.len || !cb_finalize(&cb)) {
+            cb_dump(&cb);
+            retval = -1;
+            goto ret;
+        }
+        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &cb, true, s);
         cb_dump(&cb);
     } else {
         if (pl == (size_t)-1) pl = strlen(p);
-        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &(struct charbuf){.data = (char*)p, .len = pl}, s);
+        retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &(struct charbuf){.data = (char*)p, .len = pl}, true, s);
     }
     ret:;
     #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif
-    return retval;
+    return (retval == 1);
 }
 
 bool initRsrcMgr(void) {
@@ -1058,12 +1313,13 @@ void rsrcmgr_test_dumpstate(void) {
                     switch (item->type) {
                         case RSRC_DRIVE_MAPPERITEMTYPE_FILE:
                             puts("        Type:  FILE");
+                            printf("        Path:  \"%s\"\n", item->file.path);
                             break;
                         case RSRC_DRIVE_MAPPERITEMTYPE_DIR:
                             puts("        Type:  DIR");
+                            printf("        Path:  \"%.*s\" (%zu)\n", (int)item->dir.pathlen, item->dir.path, item->dir.pathlen);
                             break;
                     }
-                    printf("        Path:  \"%.*s\" (%zu)\n", (int)item->pathlen, item->path, item->pathlen);
                 }
                 break;
         }

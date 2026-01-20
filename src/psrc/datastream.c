@@ -16,8 +16,8 @@
     #endif
 #endif
 
-void ds_openmem(void* b, size_t sz, const char* n, bool fn, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
-    ds->buf = b;
+void ds_openmem(const void* b, size_t sz, const char* n, bool fn, ds_mem_freecb freecb, void* freectx, struct datastream* ds) {
+    ds->buf = (uint8_t*)b;
     ds->pos = 0;
     ds->passed = 0;
     ds->datasz = sz;
@@ -135,7 +135,6 @@ void ds_close(struct datastream* ds) {
             #else
                 close(ds->file.fd);
             #endif
-            free((char*)ds->name);
             break;
         case DS_TYPE_CB:
             free(ds->buf);
@@ -145,6 +144,7 @@ void ds_close(struct datastream* ds) {
             free(ds->buf);
             break;
     }
+    if (ds->freename) free((char*)ds->name);
 }
 
 int ds_text_getc(struct datastream* ds) {
@@ -157,13 +157,13 @@ int ds_text_getc(struct datastream* ds) {
 
 size_t ds_read(struct datastream* ds, size_t l, void* b) {
     if (!l) return 0;
-    size_t r = 0;
     size_t a = ds->datasz - ds->pos;
     if (!a) {
-        if (!ds__refill(ds)) return r;
+        if (!ds__refill(ds)) return 0;
         a = ds->datasz/* - ds->pos*/;
-        if (!a) return r;
+        if (!a) return 0;
     }
+    size_t r = 0;
     while (a < l) {
         memcpy((uint8_t*)b + r, ds->buf + ds->pos, a);
         r += a;
@@ -194,6 +194,18 @@ size_t ds_skip(struct datastream* ds, size_t l) {
     }
     ds->pos += l;
     return r + l;
+}
+void* ds_readchunk(struct datastream* ds, size_t* lout) {
+    size_t a = ds->datasz - ds->pos;
+    if (!a) {
+        if (!ds__refill(ds)) return NULL;
+        a = ds->datasz/* - ds->pos*/;
+        if (!a) return NULL;
+    }
+    *lout = a;
+    a = ds->pos;
+    ds->pos = ds->datasz;
+    return ds->buf + a;
 }
 
 bool ds_seek(struct datastream* ds, size_t o) {
