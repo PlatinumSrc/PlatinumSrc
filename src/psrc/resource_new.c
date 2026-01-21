@@ -6,7 +6,7 @@
 #include "filesystem.h"
 
 static const enum rsrc_subtype rsrc_subtypect[RSRC__COUNT] = {
-    0,
+    1,
     RSRC_CONFIG__COUNT,
     RSRC_FONT__COUNT,
     RSRC_MAP__COUNT,
@@ -189,96 +189,126 @@ static inline uint32_t findDefaultRsrcDrive(uint32_t key) {
     return -1;
 }
 
-static bool canonRsrcPath(const char* path, struct charbuf* outpath) {
-    size_t baselen = outpath->len;
+// 'isdir' output is true if the path is a dir, false if the path can be interpreted as either a file or dir
+static bool canonRsrcPath(const char* in, size_t inlen, bool* isdir, struct charbuf* out) {
+    size_t baselen = out->len;
+    register size_t pos = 0;
     while (1) {
-        while (*path == '/') {
+        while (1) {
+            if (pos == inlen) {
+                if (isdir) *isdir = true;
+                goto ret;
+            }
+            if (in[pos] != '/') break;
             slash:;
-            ++path;
+            ++pos;
         }
-        if (!*path) goto ret;
-        if (*path == '.') {
-            ++path;
-            if (*path == '.') {
-                ++path;
-                if (*path == '/' || !*path) {
-                    while (outpath->len > baselen) {
-                        --outpath->len;
-                        if (outpath->data[outpath->len] == '/') break;
+        if (in[pos] == '.') {
+            ++pos;
+            if (pos == inlen) {
+                if (isdir) *isdir = true;
+                goto ret;
+            }
+            if (in[pos] == '.') {
+                ++pos;
+                if (pos == inlen || in[pos] == '/') {
+                    while (out->len > baselen) {
+                        --out->len;
+                        if (out->data[out->len] == '/') break;
                     }
-                    if (!*path) goto ret;
+                    if (pos == inlen) {
+                        if (isdir) *isdir = true;
+                        goto ret;
+                    }
                     goto slash;
                 }
-                //if (!cb_add(outpath, '/') || !cb_add(outpath, '.') || !cb_add(outpath, '.')) goto retfalse;
-                //if (!cb_addpartstr(outpath, "/..", 3)) goto retfalse;
+                //if (!cb_add(out, '/') || !cb_add(out, '.') || !cb_add(out, '.')) goto retfalse;
+                //if (!cb_addpartstr(out, "/..", 3)) goto retfalse;
                 {
-                    register size_t ol = outpath->len;
-                    if (!cb_addmultifake(outpath, 3)) goto retfalse;
-                    outpath->data[ol++] = '/';
-                    outpath->data[ol++] = '.';
-                    outpath->data[ol] = '.';
+                    register size_t ol = out->len;
+                    if (!cb_addmultifake(out, 3)) goto retfalse;
+                    out->data[ol++] = '/';
+                    out->data[ol++] = '.';
+                    out->data[ol] = '.';
                 }
-            } else if (*path == '/') {
+            } else if (in[pos] == '/') {
                 goto slash;
-            } else if (!*path) {
-                goto ret;
             } else {
-                if (!cb_add(outpath, '/') || !cb_add(outpath, '.')) goto retfalse;
+                if (!cb_add(out, '/') || !cb_add(out, '.')) goto retfalse;
             }
-        } else if (!cb_add(outpath, '/')) {
+        } else if (!cb_add(out, '/')) {
             goto retfalse;
         }
         while (1) {
-            if (!cb_add(outpath, *path++)) goto retfalse;
-            if (*path == '/') goto slash;
-            if (!*path) goto ret;
+            if (!cb_add(out, in[pos])) goto retfalse;
+            ++pos;
+            if (pos == inlen) {
+                if (isdir) *isdir = false;
+                goto ret;
+            }
+            if (in[pos] == '/') goto slash;
         }
     }
 
     ret:;
-    //if (outpath->len == baselen && !cb_add(outpath, '/')) goto retfalse;
+    //if (out->len == baselen && !cb_add(out, '/')) goto retfalse;
     return true;
 
     retfalse:;
-    outpath->len = baselen;
+    out->len = baselen;
     return false;
 }
 
-static bool evalRsrcPath_internal(uint32_t key, const char* path, uint32_t* outdrive, struct charbuf* outpath) {
-    if (*path == ':') {
+static bool evalRsrcPath_internal(uint32_t key, const char* path, size_t pathlen, bool* isdir, uint32_t* outdrive, struct charbuf* outpath) {
+    size_t off;
+    if (pathlen && path[0] == ':') {
         uint32_t di = findDefaultRsrcDrive(key);
         if (di == -1U) return false;
+        off = 1;
         *outdrive = di;
-        ++path;
     } else {
         size_t oldoutlen = outpath->len;
-        const char* tmppath = path;
+        register size_t pos = 0;
         while (1) {
-            char c = *tmppath;
-            if (!c) {
-                outpath->len = oldoutlen;
+            if (pos == pathlen) {
                 uint32_t di = findDefaultRsrcDrive(key);
                 if (di == -1U) return false;
+                off = 0;
                 *outdrive = di;
+                outpath->len = oldoutlen;
                 break;
             }
-            ++tmppath;
+            char c = path[pos++];
             if (c == ':') {
-                path = tmppath;
                 uint32_t di;
                 if (!cb_nullterm(outpath) || (di = findRsrcDrive(key, outpath->data + oldoutlen)) == -1U) {
                     outpath->len = oldoutlen;
                     return false;
                 }
+                off = pos;
                 *outdrive = di;
                 outpath->len = oldoutlen;
                 break;
+            } else if (!c) {
+                outpath->len = oldoutlen;
+                return false;
             }
             cb_add(outpath, c);
         }
     }
-    if (!canonRsrcPath(path, outpath)) return false;
+    if (!canonRsrcPath(path + off, pathlen - off, isdir, outpath)) return false;
     return true;
+}
+bool evalRsrcPath(uint32_t key, const char* path, size_t pathlen, bool* isdir, uint32_t* outdrive, struct charbuf* outpath) {
+    #if PSRC_MTLVL >= 1
+    lockMutex(&rsrcmgr.lock);
+    #endif
+    if (pathlen == (size_t)-1) pathlen = strlen(path);
+    bool ret = evalRsrcPath_internal(key, path, pathlen, isdir, outdrive, outpath);
+    #if PSRC_MTLVL >= 1
+    unlockMutex(&rsrcmgr.lock);
+    #endif
+    return ret;
 }
 
 static inline void delRsrcOverlay_internal(struct rsrc_overlay* o) {
@@ -535,17 +565,6 @@ void delRsrcDrive(uint32_t di) {
     #endif
 }
 
-bool evalRsrcPath(uint32_t key, const char* path, uint32_t* outdrive, struct charbuf* outpath) {
-    #if PSRC_MTLVL >= 1
-    lockMutex(&rsrcmgr.lock);
-    #endif
-    bool ret = evalRsrcPath_internal(key, path, outdrive, outpath);
-    #if PSRC_MTLVL >= 1
-    unlockMutex(&rsrcmgr.lock);
-    #endif
-    return ret;
-}
-
 uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const struct rsrc_overlay_opt* opt) {
     #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
@@ -554,13 +573,14 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
     uint32_t srcdrive, destdrive;
     const char* srcpath = opt->srcpath;
     const char* destpath = opt->destpath;
-    size_t srcpathlen, destpathlen;
+    size_t srcpathlen = (opt->srcpathlen != (size_t)-1) ? opt->srcpathlen : strlen(srcpath);
+    size_t destpathlen = (opt->destpathlen != (size_t)-1) ? opt->destpathlen : strlen(destpath);
     if (rsrcmgr.overlays.len == -1U) goto retbad_freepaths;
     if (opt->srcdrive == -1U) {
         struct charbuf cb;
         if (!cb_init(&cb, 128)) goto retbad_freepaths;
         char* tmp;
-        if (!evalRsrcPath_internal(opt->srcdrivekey, srcpath, &srcdrive, &cb)) {
+        if (!evalRsrcPath_internal(opt->srcdrivekey, srcpath, srcpathlen, NULL, &srcdrive, &cb)) {
             cb_dump(&cb);
             goto retbad_freepaths;
         }
@@ -580,8 +600,6 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
         }
     } else {
         srcdrive = opt->srcdrive;
-        if (opt->srcpathlen == (size_t)-1) srcpathlen = strlen(srcpath);
-        else srcpathlen = opt->srcpathlen;
         if (!(flags & RSRCOVERLAY_NODUPSRCPATH)) {
             char* tmp = malloc(srcpathlen);
             if (!tmp) {
@@ -598,7 +616,7 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
         struct charbuf cb;
         if (!cb_init(&cb, 128)) goto retbad_freepaths;
         char* tmp;
-        if (!evalRsrcPath_internal(opt->destdrivekey, destpath, &destdrive, &cb)) {
+        if (!evalRsrcPath_internal(opt->destdrivekey, destpath, destpathlen, NULL, &destdrive, &cb)) {
             cb_dump(&cb);
             goto retbad_freepaths;
         }
@@ -618,8 +636,6 @@ uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const stru
         }
     } else {
         destdrive = opt->destdrive;
-        if (opt->destpathlen == (size_t)-1) destpathlen = strlen(destpath);
-        else destpathlen = opt->destpathlen;
         if (!(flags & RSRCOVERLAY_NODUPDESTPATH)) {
             char* tmp = malloc(destpathlen);
             if (!tmp) {
@@ -740,6 +756,7 @@ struct fro_state {
 #define FRO_ISDIR    (1U << 0)
 #define FRO_ADOPTKEY (1U << 1)
 static bool followRsrcOverlay_start(struct fro_state* fro, uint32_t key, struct rsrc_drive* d, struct charbuf* pathcb, uint8_t flags) {
+    //printf("FRO BEGIN: {%s} {%s}\n", d->name, cb_peek(pathcb));
     //if (!cb_init(&fro->cur.path, 128)) return false;
     fro->cur.key = key;
     fro->cur.d = d;
@@ -761,6 +778,7 @@ static inline void followRsrcOverlay_end(struct fro_state* fro) {
     cb_dump(&fro->tmpcb);
 }
 static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, struct charbuf** path) {
+    struct rsrc_drive* nd;
     next:;
     if (fro->cur.oi != -1U) {
         next_nocheck:;
@@ -785,7 +803,7 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
         }
         if (!cb_addpartstr(&fro->cur.path, o->destpath, o->destpathlen)) return -1;
         if (!cb_addpartstr(&fro->cur.path, inpath->data + o->srcpathlen, inpath->len - o->srcpathlen)) return -1;
-        struct rsrc_drive* nd = &rsrcmgr.drives.data[o->destdrive];
+        nd = &rsrcmgr.drives.data[o->destdrive];
         if (nd->overlays.head == -1U && nd->proto.type != RSRC_DRIVE_PROTO_REDIR) {
             *d = nd;
             *path = &fro->cur.path;
@@ -804,10 +822,8 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
         goto next;
     } else if (fro->cur.d->proto.type == RSRC_DRIVE_PROTO_REDIR) {
         if (fro->prev.len + fro->redirct++ == 31) return -1;
-        struct rsrc_drive* nd = &rsrcmgr.drives.data[fro->cur.d->proto.redir.drive];
-        fro->cur.d = nd;
+        nd = &rsrcmgr.drives.data[fro->cur.d->proto.redir.drive];
         //fro->cur.path.len = 0;
-        fro->cur.oi = nd->overlays.head;
         if (nd->proto.redir.pathlen) {
             struct charbuf* inpath;
             if (fro->prev.len) {
@@ -823,14 +839,18 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
                     if (!cb_addpartstr(&fro->tmpcb, fro->cur.d->proto.redir.path, fro->cur.d->proto.redir.pathlen)) return -1;
                     if (!cb_addpartstr(&fro->tmpcb, fro->inpath->data, fro->inpath->len)) return -1;
                     fro->inpath = &fro->tmpcb;
-                    goto next;
+                    goto setnd;
                 }
                 inpath = fro->inpath;
             }
+            size_t inpathlen = inpath->len;
             if (!cb_addmultifake(inpath, fro->cur.d->proto.redir.pathlen)) return -1;
-            memmove(inpath->data + fro->cur.d->proto.redir.pathlen, inpath->data, fro->cur.d->proto.redir.pathlen);
+            memmove(inpath->data + fro->cur.d->proto.redir.pathlen, inpath->data, inpathlen);
             memcpy(inpath->data, fro->cur.d->proto.redir.path, fro->cur.d->proto.redir.pathlen);
         }
+        setnd:;
+        fro->cur.d = nd;
+        fro->cur.oi = nd->overlays.head;
         goto next;
     }
     *d = fro->cur.d;
@@ -844,83 +864,72 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
     return 0;
 }
 
-static int rsrcPathToNative(struct charbuf* in, size_t base, struct charbuf* out) {
-    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-    WIN32_FIND_DATA find;
-    HANDLE h;
-    size_t outbase = 0;
-    #endif
-    for (; base < in->len; ++base) {
-        char c = in->data[base];
-        if (!c) return 0;
-        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-        else if (c == '/') {
-            c = '\\';
-            if (out->len) {
-                if (!cb_nullterm(out)) return -1;
-                h = FindFirstFile(out->data, &find);
-                if (h == INVALID_HANDLE_VALUE) return 0;
-                if (strcmp(out->data + outbase, find.cFileName)) return 0;
-                FindClose(h);
-                outbase = out->len + 2;
-            }
-        }
-        else if (c == '\\') return 0;
-        else if (c == '<' || c == '>' || c == ':' || c == '"' || c == '|' || c == '?' || c == '*') return 0;
-        else if (c < 32) return 0;
-        #endif
-        if (!cb_add(out, c)) return -1;
-    }
-    return 1;
-}
-
-static int findRsrcInFS(enum rsrc_type rt, struct charbuf* cb, enum rsrc_subtype* rst) {
-    size_t oldlen = cb->len;
-    for (enum rsrc_subtype i = 0; i < rsrc_subtypect[rt]; ++i) {
-        cb_addpartstr(cb, rsrc_exts[rt][i], rsrc_extlens[rt][i]);
-        if (!cb_nullterm(cb)) return -1;
-        if (isFile(cb->data) == 1) {
-            #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
-                *rst = i;
-                return 1;
-            #else
-                WIN32_FIND_DATA find;
-                HANDLE h = FindFirstFile(cb->data, &find);
-                FindClose(h);
-                if (h != INVALID_HANDLE_VALUE) {
-                    size_t j = cb->len - 2;
-                    while (1) {
-                        char c = cb->data[j];
-                        if (c == '\\') {
-                            ++j;
-                            break;
-                        }
-                        if (j == 1) break;
-                        --j;
-                    }
-                    if (!strcmp(cb->data + j, find.cFileName)) {
-                        *rst = i;
-                        return 1;
-                    }
-                }
-            #endif
-        }
-        cb->len = oldlen;
-    }
-    return 0;
-}
-
-static ALWAYSINLINE int getRsrcSrc_try_fs(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, struct rsrc_src* src) {
+static int getRsrcSrc_try_fs(enum rsrc_type rt, const char* dir, size_t dirlen, const char* path, size_t pathlen, struct charbuf* tmpcb, struct rsrc_src* src) {
     if (tmpcb->data) {
         tmpcb->len = 0;
     } else {
         if (!cb_init(tmpcb, 128)) return -1;
     }
-    if (!cb_addpartstr(tmpcb, d->proto.fs.path, d->proto.fs.pathlen)) return -1;
-    int retval = rsrcPathToNative(pathcb, 0, tmpcb);
-    if (retval != 1) return retval;
-    retval = findRsrcInFS(rt, tmpcb, &src->rsrcsubtype);
-    if (retval != 1) return retval;
+    if (!cb_addpartstr(tmpcb, dir, dirlen)) return -1;
+    cb_add(tmpcb, PATHSEP);
+
+    {
+        #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+        WIN32_FIND_DATA find;
+        HANDLE h;
+        size_t outbase = tmpcb->len;
+        #endif
+        for (size_t i = 1; i < pathlen; ++i) {
+            char c = path[i];
+            if (!c) return 0;
+            #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+            else if (c == '/') {
+                c = '\\';
+                if (tmpcb->len) {
+                    if (!cb_nullterm(tmpcb)) return -1;
+                    h = FindFirstFile(tmpcb->data, &find);
+                    if (h == INVALID_HANDLE_VALUE) return 0;
+                    FindClose(h);
+                    //printf("STRCMP 1: {%s} {%s}\n", tmpcb->data + outbase, find.cFileName);
+                    if (strcmp(tmpcb->data + outbase, find.cFileName)) return 0;
+                    outbase = tmpcb->len + 1;
+                }
+            }
+            else if (c == '\\') return 0;
+            else if (c == '<' || c == '>' || c == ':' || c == '"' || c == '|' || c == '?' || c == '*') return 0;
+            else if (c < 32) return 0;
+            #endif
+            if (!cb_add(tmpcb, c)) return -1;
+        }
+
+        size_t oldlen = tmpcb->len;
+        enum rsrc_subtype i = 0;
+        while (1) {
+            cb_addpartstr(tmpcb, rsrc_exts[rt][i], rsrc_extlens[rt][i]);
+            if (!cb_nullterm(tmpcb)) return -1;
+            //printf("TRY FS: {%s} [%d]\n", tmpcb->data, isFile(tmpcb->data));
+            if (isFile(tmpcb->data) == 1) {
+                #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
+                    src->rsrcsubtype = i;
+                    break;
+                #else
+                    h = FindFirstFile(tmpcb->data, &find);
+                    if (h != INVALID_HANDLE_VALUE) {
+                        FindClose(h);
+                        //printf("STRCMP 2: {%s} {%s}\n", tmpcb->data + outbase, find.cFileName);
+                        if (!strcmp(tmpcb->data + outbase, find.cFileName)) {
+                            src->rsrcsubtype = i;
+                            break;
+                        }
+                    }
+                #endif
+            }
+            tmpcb->len = oldlen;
+            ++i;
+            if (i == rsrc_subtypect[rt]) return 0;
+        }
+    }
+
     if (!cb_finalize(tmpcb)) return -1;
     src->type = RSRC_SRC_FS;
     src->fs.path = tmpcb->data;
@@ -928,7 +937,11 @@ static ALWAYSINLINE int getRsrcSrc_try_fs(enum rsrc_type rt, struct rsrc_drive* 
     tmpcb->data = NULL;
     return 1;
 }
-static int getRsrcSrc_try_mapper(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, bool dup, struct rsrc_src* src) {
+
+static ALWAYSINLINE int getRsrcSrc_try_proto_fs(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, struct rsrc_src* src) {
+    return getRsrcSrc_try_fs(rt, d->proto.fs.path, d->proto.fs.pathlen, pathcb->data, pathcb->len, tmpcb, src);
+}
+static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, bool dup, struct rsrc_src* src) {
     char c = pathcb->data[1];
     if (c < '0' || c > '9') return 0;
     uint32_t id = c - '0';
@@ -976,22 +989,8 @@ static int getRsrcSrc_try_mapper(enum rsrc_type rt, struct rsrc_drive* d, struct
     }
     switch (item->type) {
         DEFAULTCASE(RSRC_DRIVE_MAPPERITEMTYPE_DIR): {
-            if (tmpcb->data) {
-                tmpcb->len = 0;
-            } else {
-                if (!cb_init(tmpcb, 128)) return -1;
-            }
-            if (!cb_addpartstr(tmpcb, item->dir.path, item->dir.pathlen)) return -1;
-            int retval = rsrcPathToNative(pathcb, pathi, tmpcb);
-            if (retval != 1) return retval;
-            retval = findRsrcInFS(rt, tmpcb, &src->rsrcsubtype);
-            if (retval != 1) return retval;
-            if (!cb_finalize(tmpcb)) return -1;
-            src->type = RSRC_SRC_FS;
-            src->fs.path = tmpcb->data;
-            src->fs.freepath = true;
-            tmpcb->data = NULL;
-        } return 1;
+            return getRsrcSrc_try_fs(rt, item->dir.path, item->dir.pathlen, pathcb->data + pathi, pathcb->len - pathi, tmpcb, src);
+        }
         //case RSRC_DRIVE_MAPPERITEMTYPE_PAF: {
         //} return 1;
     }
@@ -1003,6 +1002,7 @@ static int getRsrcSrc_internal(enum rsrc_type rt, uint32_t key, struct rsrc_driv
     struct fro_state fro;
     int froret;
     again:;
+    //printf("DRIVE: {%s}\n", d->name);
     if (d->overlays.head == -1U) {
         if (d->proto.type == RSRC_DRIVE_PROTO_REDIR) {
             if (d->proto.redir.pathlen) goto usefro;
@@ -1026,18 +1026,21 @@ static int getRsrcSrc_internal(enum rsrc_type rt, uint32_t key, struct rsrc_driv
 
     switch (d->proto.type) {
         DEFAULTCASE(RSRC_DRIVE_PROTO_NULL):
+            //puts("PROTO NULL !");
             retval = 0;
             break;
         case RSRC_DRIVE_PROTO_FS:
-            retval = getRsrcSrc_try_fs(rt, d, pathcb, &tmpcb, src);
+            //printf("PROTO FS: {%s} {%s}\n", d->name, cb_peek(pathcb));
+            retval = getRsrcSrc_try_proto_fs(rt, d, pathcb, &tmpcb, src);
             break;
         case RSRC_DRIVE_PROTO_MAPPER: 
-            retval = getRsrcSrc_try_mapper(rt, d, pathcb, &tmpcb, dup, src);
+            //puts("PROTO MAPPER !");
+            retval = getRsrcSrc_try_proto_mapper(rt, d, pathcb, &tmpcb, dup, src);
             break;
     }
 
     if (froret != -1) {
-        if (!retval) goto next;
+        if (froret && !retval) goto next;
         ret_endfro:;
         followRsrcOverlay_end(&fro);
     }
@@ -1051,6 +1054,7 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
     lockMutex(&rsrcmgr.lock);
     #endif
     int retval;
+    if (pl == (size_t)-1) pl = strlen(p);
     if (d == -1U) {
         if (t < RSRC__FILE || t >= RSRC__COUNT) { // TODO: move out
             retval = -1;
@@ -1058,7 +1062,8 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
         }
         struct charbuf cb;
         if (!cb_init(&cb, 128)) {retval = -1; goto ret;}
-        if (!evalRsrcPath_internal(k, p, &d, &cb) || !cb.len || !cb_finalize(&cb)) {
+        bool isdir;
+        if (!evalRsrcPath_internal(k, p, pl, &isdir, &d, &cb) || isdir) {
             cb_dump(&cb);
             retval = -1;
             goto ret;
@@ -1066,7 +1071,6 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
         retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &cb, true, s);
         cb_dump(&cb);
     } else {
-        if (pl == (size_t)-1) pl = strlen(p);
         retval = getRsrcSrc_internal(t, k, &rsrcmgr.drives.data[d], &(struct charbuf){.data = (char*)p, .len = pl}, true, s);
     }
     ret:;
@@ -1074,6 +1078,15 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
     unlockMutex(&rsrcmgr.lock);
     #endif
     return (retval == 1);
+}
+
+void freeRsrcSrc(struct rsrc_src* src) {
+    switch (src->type) {
+        default: break;
+        case RSRC_SRC_FS:
+            if (src->fs.freepath) free((char*)src->fs.path);
+            break;
+    }
 }
 
 bool initRsrcMgr(void) {
@@ -1097,32 +1110,57 @@ void quitRsrcMgr(bool quick) {
 #include <stdio.h>
 #include <inttypes.h>
 
+#include "common.h"
+
+#define GOFAIL() do {failat = __LINE__; goto fail;} while (0)
+
 void rsrcmgr_test_dumpstate(void);
 
 void rsrcmgr_test(void) {
-    if (!initRsrcMgr()) goto fail;
+    unsigned failat;
+
+    if (!initRsrcMgr()) GOFAIL();
 
     uint32_t di[8];
 
     if ((di[0] = newRsrcDrive(
-        RSRCDRIVE_NODUPNAME, -1, NULL,
-        &(struct rsrc_drive_proto_opt){.type = RSRC_DRIVE_PROTO_NULL}
-    )) == -1U) goto fail;
+        RSRCDRIVE_NODUPNAME, -1, "games",
+        &(struct rsrc_drive_proto_opt){
+            .type = RSRC_DRIVE_PROTO_FS,
+            .fs.flags = RSRC_DRIVE_PROTO_FS_NODUPPATH,
+            .fs.path = dirs[DIR_GAMES],
+            .fs.pathlen = -1
+        }
+    )) == -1U) GOFAIL();
     if ((di[1] = newRsrcDrive(
-        RSRCDRIVE_NODUPNAME, -1, "C",
-        &(struct rsrc_drive_proto_opt){.type = RSRC_DRIVE_PROTO_NULL}
-    )) == -1U) goto fail;
+        RSRCDRIVE_NODUPNAME, -1, "mods",
+        &(struct rsrc_drive_proto_opt){
+            .type = RSRC_DRIVE_PROTO_FS,
+            .fs.flags = RSRC_DRIVE_PROTO_FS_NODUPPATH,
+            .fs.path = dirs[DIR_MODS],
+            .fs.pathlen = -1
+        }
+    )) == -1U) GOFAIL();
     if ((di[2] = newRsrcDrive(
-        RSRCDRIVE_NODUPNAME, -1, "main",
-        &(struct rsrc_drive_proto_opt){.type = RSRC_DRIVE_PROTO_NULL}
-    )) == -1U) goto fail;
-
-    #if 0
-    if (!editRsrcDrive(
-        di[0], RSRCDRIVE_NODUPNAME, NULL,
-        &(struct rsrc_drive_proto_opt){.type = -1}
-    )) goto fail;
-    #endif
+        RSRCDRIVE_NODUPNAME, -1, "self",
+        &(struct rsrc_drive_proto_opt){
+            .type = RSRC_DRIVE_PROTO_REDIR,
+            .redir.flags = RSRC_DRIVE_PROTO_REDIR_NODUPPATH,
+            .redir.drive = di[0],
+            .redir.path = "/h74",
+            .redir.pathlen = -1
+        }
+    )) == -1U) GOFAIL();
+    if ((di[3] = newRsrcDrive(
+        RSRCDRIVE_NODUPNAME, -1, NULL,
+        &(struct rsrc_drive_proto_opt){
+            .type = RSRC_DRIVE_PROTO_REDIR,
+            .redir.flags = RSRC_DRIVE_PROTO_REDIR_NODUPPATH,
+            .redir.drive = di[2],
+            .redir.path = NULL,
+            .redir.pathlen = 0
+        }
+    )) == -1U) GOFAIL();
 
     uint32_t oi[8];
 
@@ -1131,102 +1169,35 @@ void rsrcmgr_test(void) {
         &(struct rsrc_overlay_opt){
             .srcdrive = -1,
             .srcdrivekey = -1,
-            .srcpath = "C:/..",
-            .destdrive = di[0],
-            .destpath = "/a",
-            .destpathlen = -1
-        }
-    )) == -1U) goto fail;
-    if ((oi[1] = newRsrcOverlay(
-        RSRCOVERLAY_NODUPSRCPATH | RSRCOVERLAY_NODUPDESTPATH, -1, -1,
-        &(struct rsrc_overlay_opt){
-            .srcdrive = di[0],
-            .srcpath = "/a",
+            .srcpath = "games:",
             .srcpathlen = -1,
             .destdrive = -1,
             .destdrivekey = -1,
-            .destpath = "main:b/"
-        }
-    )) == -1U) goto fail;
-    if ((oi[2] = newRsrcOverlay(
-        RSRCOVERLAY_NODUPSRCPATH | RSRCOVERLAY_NODUPDESTPATH, -1, -1,
-        &(struct rsrc_overlay_opt){
-            .srcdrive = di[0],
-            .srcpath = "/c",
-            .srcpathlen = -1,
-            .destdrive = di[1],
-            .destpath = NULL,
-            .destpathlen = 0
-        }
-    )) == -1U) goto fail;
-
-    //delRsrcOverlay(1);
-
-    if ((oi[3] = newRsrcOverlay(
-        RSRCOVERLAY_NODUPSRCPATH | RSRCOVERLAY_NODUPDESTPATH, -1, -1,
-        &(struct rsrc_overlay_opt){
-            .srcdrive = di[0],
-            .srcpath = "/abc",
-            .srcpathlen = -1,
-            .destdrive = di[0],
-            .destpath = "/def",
+            .destpath = "mods:h74_hqsounds",
             .destpathlen = -1
         }
-    )) == -1U) goto fail;
-
-    //delRsrcOverlay(2);
+    )) == -1U) GOFAIL();
 
     puts("\n--------------------------------\n");
     rsrcmgr_test_dumpstate();
 
-    #if 0
+    #if 1
     puts("\n--------------------------------\n");
     {
-        struct fro_state fro;
-        struct rsrc_drive* ind = &rsrcmgr.drives.data[di[0]];
-        static char* inpath = "/c/bruh";
-        size_t inpathlen = (inpath) ? strlen(inpath) : 0;
-        printf("FOLLOW {");
-        if (ind->name) printf("\"%s\"", ind->name);
-        else fputs("NULL", stdout);
-        fputs(", ", stdout);
-        if (inpath) printf("\"%s\"", inpath);
-        else fputs("NULL", stdout);
-        printf(" (%zu)}\n", inpathlen);
-        followRsrcOverlay_start(&fro, -1, ind, inpath, inpathlen, false);
-        while (1) {
-            struct rsrc_drive* d;
-            struct charbuf* path;
-            int ret = followRsrcOverlay_next(&fro, &d, &path);
-            if (ret == -1) {
-                followRsrcOverlay_end(&fro);
-                goto fail;
-            }
-            printf("  - TRY {");
-            if (d->name) printf("\"%s\"", d->name);
-            else fputs("NULL", stdout);
-            fputs(", ", stdout);
-            if (path->size) cb_nullterm(path);
-            printf("\"%s\"", path->data);
-            printf(" (%zu, %zu)}\n", path->len, path->size);
-            if (!ret) break;
-        }
-        followRsrcOverlay_end(&fro);
-    }
-    #endif
-
-    #if 0
-    puts("\n--------------------------------\n");
-    {
-        uint32_t drive;
-        struct charbuf path;
-        if (!cb_init(&path, 16)) goto fail;
-        if (!evalRsrcPath(-1, ":b/c/a/./../..", &drive, &path)) {
-            cb_dump(&path);
-            goto fail;
-        }
-        printf("[%08X] {%s}\n", drive, cb_peek(&path));
-        cb_dump(&path);
+        struct rsrc_src src;
+//        if (getRsrcSrc(
+//            RSRC_SCRIPT,
+//            -1, -1, ":/Main", -1,
+//            &src
+//        )) GOFAIL();
+        if (!getRsrcSrc(
+            RSRC_SOUND,
+            -1, -1, ":/sounds/ctf/capture", -1,
+            &src
+        )) GOFAIL();
+        if (src.type != RSRC_SRC_FS) GOFAIL();
+        printf("path: {%s}, freepath: [%d]\n", src.fs.path, src.fs.freepath);
+        freeRsrcSrc(&src);
     }
     #endif
 
@@ -1234,7 +1205,7 @@ void rsrcmgr_test(void) {
     puts("PASS");
     exit(0);
     fail:;
-    puts("FAIL");
+    printf("FAIL [%u]\n", failat);
     exit(1);
 
     puts("\n--------------------------------\n");
@@ -1277,7 +1248,17 @@ void rsrcmgr_test_dumpstate(void) {
                 break;
             case RSRC_DRIVE_PROTO_REDIR:
                 puts("      Type:  REDIR");
-                printf("      Drive: %u\n", d->proto.redir.drive);
+                {
+                    printf("      Drive:  %u (", d->proto.redir.drive);
+                    const char* tmp = rsrcmgr.drives.data[d->proto.redir.drive].name;
+                    if (tmp) {
+                        putchar('"');
+                        fputs(tmp, stdout);
+                        puts("\")");
+                    } else {
+                        puts("Default drive)");
+                    }
+                }
                 if (d->proto.redir.path) {
                     printf("      Path:  \"%.*s\" (%zu)\n", (int)d->proto.redir.pathlen, d->proto.redir.path, d->proto.redir.pathlen);
                 } else {
@@ -1327,7 +1308,7 @@ void rsrcmgr_test_dumpstate(void) {
         if (d->overlays.head != -1U) {
             printf("      Head: %u\n", d->overlays.head);
         } else {
-            puts("      Head: (Invalid)");
+            puts("      Head: (None)");
         }
         for (uint32_t i = 0; i < d->overlays.len; ++i) {
             printf("      Overlay %u:\n", i);

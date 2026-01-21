@@ -99,8 +99,7 @@ struct rsrc_drive_proto_opt {
 #define RSRC_DRIVE_PROTO_REDIR_FREEPATH  (1U << 1)
 #define RSRC_DRIVE_PROTO_FS_NODUPPATH (1U << 0)
 #define RSRC_DRIVE_PROTO_FS_FREEPATH  (1U << 1)
-#define RSRC_DRIVE_PROTO_FS_NATIVE    (1U << 2)
-#define RSRC_DRIVE_PROTO_FS_WRITABLE  (1U << 3)
+#define RSRC_DRIVE_PROTO_FS_WRITABLE  (1U << 2)
 #define RSRC_DRIVE_PROTO_PAF_NODUPPATH (1U << 0)
 #define RSRC_DRIVE_PROTO_PAF_FREEPATH  (1U << 1)
 #define RSRC_DRIVE_PROTO_PAF_WRITABLE  (1U << 2)
@@ -231,7 +230,7 @@ uint32_t newRsrcDrive(unsigned flags, uint32_t key, const char* name, struct rsr
 bool editRsrcDrive(uint32_t, unsigned flags, const char* name, struct rsrc_drive_proto_opt*);
 void delRsrcDrive(uint32_t);
 
-bool evalRsrcPath(uint32_t key, const char* path, uint32_t* outdrive, struct charbuf* outpath);
+bool evalRsrcPath(uint32_t key, const char* path, size_t pathlen, bool* isdir, uint32_t* outdrive, struct charbuf* outpath);
 
 uint32_t newRsrcOverlay(unsigned flags, uint32_t after, uint32_t key, const struct rsrc_overlay_opt*);
 void delRsrcOverlay(uint32_t);

@@ -549,7 +549,7 @@ static void r_gl_render_legacy(void) {
             glVertex3f(1.0f, 1.0f, -1.0f);
         glEnd();
 
-        #if 0
+        #if 1
         {
             //float s = r_gl_data.nearplane * 100.0f;
             const float s = 25.0f;
