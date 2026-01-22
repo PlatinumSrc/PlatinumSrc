@@ -1089,6 +1089,90 @@ void freeRsrcSrc(struct rsrc_src* src) {
     }
 }
 
+int getRsrcRaw(const struct rsrc_src* src, unsigned flags, enum rsrc_raw_type typepref, struct rsrc_raw* raw) {
+    switch (src->type) {
+        case RSRC_SRC_MEM:
+            switch (typepref) {
+                case RSRC_RAW_MEM: {
+                    raw->type = RSRC_RAW_MEM;
+                    raw->mem.data = (void*)src->mem.data;
+                    raw->mem.size = src->mem.size;
+                    raw->mem.free = false;
+                } break;
+                case RSRC_RAW_DS: {
+                    raw->type = RSRC_RAW_DS;
+                    ds_openmem(src->mem.data, src->mem.size, NULL, false, NULL, NULL, &raw->ds);
+                } break;
+                case RSRC_RAW_FILE: {
+                    if (!(flags & GETRSRCRAW_FORCE)) return 0;
+                    #if defined(__GLIBC__) && ((__GLIBC__ == 2 && __GLIBC_MINOR__ >= 22) || __GLIBC__ > 2)
+                        FILE* f = fmemopen((void*)src->mem.data, src->mem.size, "rb");
+                        if (!f) return -1;
+                        raw->type = RSRC_RAW_FILE;
+                        raw->file = f;
+                    #else
+                        return -1;
+                    #endif
+                } break;
+            }
+        break;
+        case RSRC_SRC_FS:
+            switch (typepref) {
+                case RSRC_RAW_MEM: {
+                    if (!(flags & GETRSRCRAW_FORCE)) return 0;
+                    // TODO: maybe replace with open()/fopen() solution?
+                    struct datastream ds;
+                    if (!ds_openfile(src->fs.path, NULL, false, 0, &ds)) return -1;
+                    size_t sz = ds_getsz(&ds);
+                    if (sz == (size_t)-1) {
+                        ds_close(&ds);
+                        return -1;
+                    }
+                    void* data = malloc(sz);
+                    if (!data) {
+                        ds_close(&ds);
+                        return -1;
+                    }
+                    raw->type = RSRC_RAW_MEM;
+                    raw->mem.data = data;
+                    raw->mem.size = sz;
+                    raw->mem.free = true;
+                    sz -= ds_read(&ds, sz, data);
+                    ds_close(&ds);
+                    if (sz) return -1;
+                } break;
+                case RSRC_RAW_DS: {
+                    if (!ds_openfile(src->fs.path, NULL, false, 0, &raw->ds)) return -1;
+                    raw->type = RSRC_RAW_DS;
+                } break;
+                case RSRC_RAW_FILE: {
+                    FILE* f = fopen(src->fs.path, "rb");
+                    if (!f) return -1;
+                    raw->type = RSRC_RAW_FILE;
+                    raw->file = f;
+                } break;
+            }
+        break;
+        //case RSRC_SRC_PAF:
+        //break;
+    }
+    return 1;
+}
+
+void freeRsrcRaw(struct rsrc_raw* raw) {
+    switch (raw->type) {
+        case RSRC_RAW_MEM:
+            if (raw->mem.free) free(raw->mem.data);
+            break;
+        case RSRC_RAW_DS:
+            ds_close(&raw->ds);
+            break;
+        case RSRC_RAW_FILE:
+            fclose(raw->file);
+            break;
+    }
+}
+
 bool initRsrcMgr(void) {
     #if PSRC_MTLVL >= 1
     if (!createMutex(&rsrcmgr.lock)) return false;

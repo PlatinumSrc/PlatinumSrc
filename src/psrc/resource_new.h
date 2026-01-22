@@ -126,7 +126,7 @@ struct rsrc_src {
     enum rsrc_subtype rsrcsubtype;
     union {
         struct {
-            void* data;
+            const void* data;
             size_t size;
         } mem;
         struct {
@@ -144,7 +144,7 @@ struct rsrc_src {
 PACKEDENUM rsrc_raw_type {
     RSRC_RAW_MEM,
     RSRC_RAW_DS,
-    RSRC_RAW_F
+    RSRC_RAW_FILE
 };
 struct rsrc_raw {
     enum rsrc_raw_type type;
@@ -155,7 +155,7 @@ struct rsrc_raw {
             bool free;
         } mem;
         struct datastream ds;
-        FILE* f;
+        FILE* file;
     };
 };
 
@@ -204,6 +204,8 @@ struct rsrc_info {
 #define RSRCOVERLAY__UNSAFE       (RSRCOVERLAY_NODUPSRCPATH | RSRCOVERLAY_FREESRCPATH | \
                                   RSRCOVERLAY_NODUPDESTPATH | RSRCOVERLAY_FREEDESTPATH)
 
+#define GETRSRCRAW_FORCE (1U << 0)
+
 #define LSRC_NAMECRC (1U << 0)
 #define LSRC_SIZE    (1U << 1)
 #define LSRC_CRC     (1U << 3)
@@ -238,8 +240,7 @@ void delRsrcOverlay(uint32_t);
 bool getRsrcSrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, size_t pathlen, struct rsrc_src*);
 void freeRsrcSrc(struct rsrc_src*);
 
-bool getRsrcRaw(const struct rsrc_src*, enum rsrc_raw_type typepref, bool forcepref, struct rsrc_raw*);
-bool cvtRsrcRaw(struct rsrc_raw*, enum rsrc_raw_type newtype);
+int getRsrcRaw(const struct rsrc_src*, unsigned flags, enum rsrc_raw_type typepref, struct rsrc_raw*);
 void freeRsrcRaw(struct rsrc_raw*);
 
 void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrc_opt* opt, const void* rsrc_opt, struct charbuf* err);

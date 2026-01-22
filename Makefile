@@ -393,7 +393,7 @@ ifneq ($(CROSS),nxdk)
     ifneq ($(CROSS),emscr)
         ifeq ($(M32),y)
             _CFLAGS += -m32
-            _CPPFLAGS += -DM32
+            _CPPFLAGS += -DM32 -D_TIME_BITS=64 -D_FILE_OFFSET_BITS=64
             _LDFLAGS += -m32
             ifeq ($(CROSS),win32)
                 _WRFLAGS += -DM32
