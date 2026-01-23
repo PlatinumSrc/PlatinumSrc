@@ -602,11 +602,6 @@ void unstrap(void) {
     plog(LL_MS, "Done");
 }
 
-static inline float fwrap(float n, float d) {
-    float tmp = n - (int)(n / d) * d;
-    if (tmp < 0.0f) tmp += d;
-    return tmp;
-}
 void loop(void) {
     #if DEBUG(1)
     prof_start(&dbgprof);

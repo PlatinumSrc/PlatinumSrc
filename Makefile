@@ -349,7 +349,7 @@ ifneq ($(CROSS),nxdk)
         endif
         _LDLIBS += -lidbfs.js
         ifeq ($(USEGL),y)
-            _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_UNSAFE_OPTS=0
+            _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_FFP_ONLY -sGL_UNSAFE_OPTS=0
         endif
         _LDFLAGS += --embed-file internal/engine/ --embed-file internal/server/ --embed-file games/ --embed-file mods/
     else ifeq ($(CROSS),3ds)

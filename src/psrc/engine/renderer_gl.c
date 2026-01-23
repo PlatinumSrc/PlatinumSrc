@@ -4,6 +4,9 @@
 
 #include "../logging.h"
 #include "../common.h"
+#include "../time.h"
+
+#include <stdlib.h>
 
 #if PLATFORM == PLAT_EMSCR
     #include <GL/gl.h>
@@ -84,6 +87,10 @@
 #endif
 
 static struct rc_model* testmodel;
+static struct rc_texture* testskybox[6];
+GLuint testskyboxids[6];
+static struct rc_texture* testclouds[2];
+GLuint testcloudids[2];
 
 struct r_gl_playerdata {
     bool valid;
@@ -105,6 +112,7 @@ static struct {
             uint_fast8_t oddframe : 1;
             uint_fast8_t has_ARB_multitexture : 1;
             uint_fast8_t has_ARB_texture_border_clamp : 1;
+            uint_fast8_t has_SGIS_texture_edge_clamp : 1;
             int maxlights;
             int maxtexunits;
         } gl11;
@@ -384,13 +392,13 @@ static void r_gl_render_legacy(void) {
     if (!r_gl_data.fastclear) {
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glDepthFunc(GL_LEQUAL);
-        glDepthRange(0.1, 1.0);
+        glDepthRange(0.1, 0.9);
     } else if (r_gl_data.gl11.oddframe) {
         glDepthFunc(GL_LEQUAL);
-        glDepthRange(0.1, 0.5);
+        glDepthRange(0.1, 0.4);
     } else {
         glDepthFunc(GL_GEQUAL);
-        glDepthRange(0.9, 0.5);
+        glDepthRange(0.9, 0.4);
     }
 
     for (unsigned pli = 0; pli < r_gl_data.playerdata.len; ++pli) {
@@ -407,6 +415,7 @@ static void r_gl_render_legacy(void) {
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
+        glDisable(GL_TEXTURE_2D);
 
         float z = 2.0f;
 
@@ -478,9 +487,9 @@ static void r_gl_render_legacy(void) {
             glVertex3f(1.0f, 1.0f, z);
         glEnd();
 
-        if (!r_gl_data.fastclear) glDepthRange(1.0, 1.0);
-        else if (r_gl_data.gl11.oddframe) glDepthRange(0.5, 0.5);
-        else glDepthRange(0.5, 0.5);
+        if (!r_gl_data.fastclear) glDepthRange(0.9, 1.0);
+        else if (r_gl_data.gl11.oddframe) glDepthRange(0.4, 0.5);
+        else glDepthRange(0.5, 0.4);
 
         rpldata->viewmat[3][0] = 0.0f;
         rpldata->viewmat[3][1] = 0.0f;
@@ -491,64 +500,6 @@ static void r_gl_render_legacy(void) {
         glEnable(GL_CULL_FACE);
         glDisable(GL_BLEND);
 
-        // skybox
-        glBegin(GL_QUADS);
-            // top
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, 1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, 1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, 1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, 1.0f, -1.0f);
-            // bottom
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, -1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, -1.0f, 1.0f);
-            // front
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, 1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, -1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, -1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, 1.0f, 1.0f);
-            // back
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, 1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, 1.0f, -1.0f);
-            // left
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, 1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tsinn);
-            glVertex3f(-1.0f, -1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tcosn);
-            glVertex3f(-1.0f, 1.0f, 1.0f);
-            // right
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, 1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, -1.0f, 1.0f);
-            glColor3f(0.0f, 0.0f, tsini);
-            glVertex3f(1.0f, -1.0f, -1.0f);
-            glColor3f(0.0f, 0.0f, tcosi);
-            glVertex3f(1.0f, 1.0f, -1.0f);
-        glEnd();
-
         #if 1
         {
             //float s = r_gl_data.nearplane * 100.0f;
@@ -557,32 +508,154 @@ static void r_gl_render_legacy(void) {
         }
         #endif
 
+        // skybox
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[4]);
+        glBegin(GL_QUADS);
+            // top
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[5]);
+        glBegin(GL_QUADS);
+            // bottom
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[2]);
+        glBegin(GL_QUADS);
+            // front
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[3]);
+        glBegin(GL_QUADS);
+            // back
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[1]);
+        glBegin(GL_QUADS);
+            // left
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(-1.0f, 1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(-1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(-1.0f, -1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(-1.0f, 1.0f, 1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testskyboxids[0]);
+        glBegin(GL_QUADS);
+            // right
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(1.0f, 1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(1.0f, -1.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(1.0f, -1.0f, -1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(1.0f, 1.0f, -1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
+
         glDepthMask(GL_FALSE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         glEnable(GL_BLEND);
 
         // clouds
-        static const float cloudheight[2] = {0.1, 0.1};
+        static const float cloudheight[2] = {0.05f, 0.05f};
+        static const float cloudsize[2] = {8.5f, 10.2f};
+        static const double cloudscroll[2][2] = {{-0.003, 0.0005}, {0.005, 0.009}};
+        static const float cloudopacity[2] = {0.2f, 0.1f};
+        float cloudcoord[2][2] = {
+            {fwrap(t * cloudscroll[0][0], 1.0f), fwrap(t * cloudscroll[0][1], 1.0f)},
+            {fwrap(t * cloudscroll[1][0], 1.0f), fwrap(t * cloudscroll[1][1], 1.0f)}
+        };
+        glBindTexture(GL_TEXTURE_2D, testcloudids[0]);
         glBegin(GL_QUADS);
             // top
-            glColor4f(0.0f, tcosn, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[0]);
+            glTexCoord2f(cloudcoord[0][0], cloudcoord[0][1]);
             glVertex3f(-1.0f, cloudheight[0], -1.0f);
-            glColor4f(0.0f, tsinn, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[0]);
+            glTexCoord2f(cloudcoord[0][0], cloudcoord[0][1] + cloudsize[0]);
             glVertex3f(-1.0f, cloudheight[0], 1.0f);
-            glColor4f(0.0f, tcosi, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[0]);
+            glTexCoord2f(cloudcoord[0][0] + cloudsize[0], cloudcoord[0][1] + cloudsize[0]);
             glVertex3f(1.0f, cloudheight[0], 1.0f);
-            glColor4f(0.0f, tsini, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[0]);
+            glTexCoord2f(cloudcoord[0][0] + cloudsize[0], cloudcoord[0][1]);
             glVertex3f(1.0f, cloudheight[0], -1.0f);
+        glEnd();
+        glBindTexture(GL_TEXTURE_2D, testcloudids[1]);
+        glBegin(GL_QUADS);
             // bottom
-            glColor4f(tcosn, 0.0f, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[1]);
+            glTexCoord2f(cloudcoord[1][0], cloudcoord[1][1]);
             glVertex3f(-1.0f, cloudheight[1], -1.0f);
-            glColor4f(tcosi, 0.0f, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[1]);
+            glTexCoord2f(cloudcoord[1][0], cloudcoord[1][1] + cloudsize[1]);
             glVertex3f(-1.0f, cloudheight[1], 1.0f);
-            glColor4f(tsinn, 0.0f, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[1]);
+            glTexCoord2f(cloudcoord[1][0] + cloudsize[1], cloudcoord[1][1] + cloudsize[1]);
             glVertex3f(1.0f, cloudheight[1], 1.0f);
-            glColor4f(tsini, 0.0f, 0.0f, 0.25f);
+            glColor4f(1.0f, 1.0f, 1.0f, cloudopacity[1]);
+            glTexCoord2f(cloudcoord[1][0] + cloudsize[1], cloudcoord[1][1]);
             glVertex3f(1.0f, cloudheight[1], -1.0f);
         glEnd();
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glDisable(GL_TEXTURE_2D);
 
         if (!r_gl_data.fastclear) glDepthRange(0.0, 0.1);
         else if (r_gl_data.gl11.oddframe) glDepthRange(0.0, 0.1);
@@ -681,6 +754,32 @@ static void r_gl_render_advanced(void) {
     glFinish();
 }
 #endif
+
+GLuint r_gl_loadTexture(struct rc_texture* tex, GLenum filt, GLenum wrap) {
+    //printf("LOADTEX [%u, %u, %u]\n", tex->channels, tex->width, tex->height);
+    static const GLenum chtofrmt[4] = {
+         GL_LUMINANCE,
+         GL_LUMINANCE_ALPHA,
+         GL_RGB,
+         GL_RGBA
+    };
+    GLuint id;
+    glGenTextures(1, &id);
+    if (glGetError()) return 0;
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexImage2D(GL_TEXTURE_2D, 0, chtofrmt[tex->channels - 1], tex->width, tex->height, 0, chtofrmt[tex->channels - 1], GL_UNSIGNED_BYTE, tex->data);
+    if (glGetError()) {
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDeleteTextures(1, &id);
+        return 0;
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filt);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filt);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return id;
+}
 
 void* r_gl_takeScreenshot(unsigned* w, unsigned* h, unsigned* c) {
     size_t linesz = rendstate.res.current.width * 3;
@@ -851,8 +950,11 @@ bool r_gl_afterCreateWindow(void) {
                 } else if (!strcasecmp(tmplist[i], "GL_ARB_texture_border_clamp")) {
                     r_gl_data.gl11.has_ARB_texture_border_clamp = 1;
                     ++foundext;
+                } else if (!strcasecmp(tmplist[i], "GL_SGIS_texture_edge_clamp")) {
+                    r_gl_data.gl11.has_SGIS_texture_edge_clamp = 1;
+                    ++foundext;
                 }
-                if (foundext == 2) break;
+                if (foundext == 3) break;
             }
         }
         #endif
@@ -914,6 +1016,23 @@ bool r_gl_afterCreateWindow(void) {
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    glEnable(GL_TEXTURE_2D);
+
+    GLenum clamp;
+    #if PLATFORM != PLAT_EMSCR
+        clamp = (r_gl_data.gl11.has_SGIS_texture_edge_clamp) ? GL_CLAMP_TO_EDGE_SGIS : GL_CLAMP;
+    #else
+        clamp = GL_CLAMP_TO_EDGE;
+    #endif
+    if (testskybox[0]) testskyboxids[0] = r_gl_loadTexture(testskybox[0], GL_LINEAR, clamp);
+    if (testskybox[1]) testskyboxids[1] = r_gl_loadTexture(testskybox[1], GL_LINEAR, clamp);
+    if (testskybox[2]) testskyboxids[2] = r_gl_loadTexture(testskybox[2], GL_LINEAR, clamp);
+    if (testskybox[3]) testskyboxids[3] = r_gl_loadTexture(testskybox[3], GL_LINEAR, clamp);
+    if (testskybox[4]) testskyboxids[4] = r_gl_loadTexture(testskybox[4], GL_LINEAR, clamp);
+    if (testskybox[5]) testskyboxids[5] = r_gl_loadTexture(testskybox[5], GL_LINEAR, clamp);
+    if (testclouds[0]) testcloudids[0] = r_gl_loadTexture(testclouds[0], GL_LINEAR, GL_REPEAT);
+    if (testclouds[1]) testcloudids[1] = r_gl_loadTexture(testclouds[1], GL_LINEAR, GL_REPEAT);
+
     return true;
 }
 
@@ -938,15 +1057,48 @@ bool r_gl_prepRenderer(void) {
             break;
     }
     VLB_INIT(r_gl_data.playerdata, 1, VLB_OOM_NOP);
-    testmodel = getRc(RC_MODEL, "game:test/test_model", NULL, 0, NULL);
     #if GL_KHR_debug
         if (glDebugMessageCallback) glDebugMessageCallback(r_gl_dbgcb, NULL);
     #endif
+
+    testmodel = getRc(RC_MODEL, "game:test/test_model", NULL, 0, NULL);
+    {
+        srand(altutime());
+        unsigned sbn = rand() % 10;
+        struct charbuf cb;
+        cb_init(&cb, 128);
+        cb_addstr(&cb, ":textures/skyboxes/");
+        {
+            static char num[12];
+            sprintf(num, "%u", sbn);
+            cb_addstr(&cb, num);
+        }
+        size_t l = cb.len;
+        for (unsigned i = 0; i < 6; ++i) {
+            cb_add(&cb, '/');
+            cb_addstr(&cb, (char*[]){"east", "west", "north", "south", "sky", "ground"}[i]);
+            testskybox[i] = getRc(RC_TEXTURE, cb_peek(&cb), NULL, 0, NULL);
+            cb.len = l;
+        }
+        cb_dump(&cb);
+    }
+    testclouds[0] = getRc(RC_TEXTURE, ":textures/clouds/1/0", NULL, 0, NULL);
+    testclouds[1] = getRc(RC_TEXTURE, ":textures/clouds/3/3", NULL, 0, NULL);
+
     return true;
 }
 
 void r_gl_beforeDestroyWindow(void) {
     if (testmodel) rlsRc(testmodel, false);
+    if (testskybox[0]) rlsRc(testskybox[0], false);
+    if (testskybox[1]) rlsRc(testskybox[1], false);
+    if (testskybox[2]) rlsRc(testskybox[2], false);
+    if (testskybox[3]) rlsRc(testskybox[3], false);
+    if (testskybox[4]) rlsRc(testskybox[4], false);
+    if (testskybox[5]) rlsRc(testskybox[5], false);
+    if (testclouds[0]) rlsRc(testclouds[0], false);
+    if (testclouds[1]) rlsRc(testclouds[1], false);
+
     #ifndef PSRC_USESDL1
         if (r_gl_data.ctx) SDL_GL_DeleteContext(r_gl_data.ctx);
     #endif

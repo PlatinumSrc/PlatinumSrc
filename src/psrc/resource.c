@@ -1230,7 +1230,7 @@ void* getRc(enum rctype type, const char* id, const void* opt, unsigned flags, s
                 }
             } else {
                 if (acc.src != RCSRCTYPE_FS) goto fail;
-                if (stbi_info(acc.fs.path, (int*)&w, (int*)&h, (int*)&c)) goto fail;
+                if (!stbi_info(acc.fs.path, (int*)&w, (int*)&h, (int*)&c)) goto fail;
                 if (o->needsalpha) {
                     c = 4;
                 } else {

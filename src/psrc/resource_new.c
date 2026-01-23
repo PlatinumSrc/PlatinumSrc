@@ -42,6 +42,22 @@ static const size_t* rsrc_extlens[RSRC__COUNT] = {
     (const size_t [RSRC_VIDEO__COUNT])   {4}
 };
 
+struct rsrc_header {
+    enum rsrc_type type;
+    enum rsrc_subtype subtype;
+    uint32_t drive;
+    uint64_t driveid;
+    char* path;
+    size_t pathlen;
+    uint32_t pathcrc;
+    uint64_t datacrc;
+    size_t refs;
+    size_t index;
+    unsigned nocache : 1;
+    unsigned havecrc : 1;
+    unsigned hasdatacrc : 1;
+};
+
 PACKEDENUM rsrc_drive_mapperitem_type {
     RSRC_DRIVE_MAPPERITEMTYPE_FILE,
     RSRC_DRIVE_MAPPERITEMTYPE_DIR
@@ -397,10 +413,10 @@ static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
                 if (!item->valid) continue;
                 switch (item->type) {
                     case RSRC_DRIVE_MAPPERITEMTYPE_FILE:
-                        if (item->flags & MAPRC_FREEPATH) free(item->file.path);
+                        if (item->flags & MAPRSRC_FREEPATH) free(item->file.path);
                         break;
                     case RSRC_DRIVE_MAPPERITEMTYPE_DIR:
-                        if (item->flags & MAPRC_FREEPATH) free(item->dir.path);
+                        if (item->flags & MAPRSRC_FREEPATH) free(item->dir.path);
                         break;
                 }
             }
@@ -937,7 +953,6 @@ static int getRsrcSrc_try_fs(enum rsrc_type rt, const char* dir, size_t dirlen, 
     tmpcb->data = NULL;
     return 1;
 }
-
 static ALWAYSINLINE int getRsrcSrc_try_proto_fs(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, struct rsrc_src* src) {
     return getRsrcSrc_try_fs(rt, d->proto.fs.path, d->proto.fs.pathlen, pathcb->data, pathcb->len, tmpcb, src);
 }
@@ -970,7 +985,7 @@ static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, 
                     if (pathi != pathcb->len) return 0;
                     src->type = RSRC_SRC_FS;
                     src->rsrcsubtype = item->rsrcsubtype;
-                    if (dup || (item->flags & MAPRC_UNTERMEDPATH)) {
+                    if (dup || (item->flags & MAPRSRC_UNTERMEDPATH)) {
                         src->fs.path = strdup(item->file.path);
                         if (!src->fs.path) return -1;
                         src->fs.freepath = true;
@@ -1079,7 +1094,6 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
     #endif
     return (retval == 1);
 }
-
 void freeRsrcSrc(struct rsrc_src* src) {
     switch (src->type) {
         default: break;
@@ -1158,7 +1172,6 @@ int getRsrcRaw(const struct rsrc_src* src, unsigned flags, enum rsrc_raw_type ty
     }
     return 1;
 }
-
 void freeRsrcRaw(struct rsrc_raw* raw) {
     switch (raw->type) {
         case RSRC_RAW_MEM:
@@ -1171,6 +1184,10 @@ void freeRsrcRaw(struct rsrc_raw* raw) {
             fclose(raw->file);
             break;
     }
+}
+
+void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrc_opt, struct charbuf* err) {
+    
 }
 
 bool initRsrcMgr(void) {

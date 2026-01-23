@@ -53,17 +53,32 @@ PACKEDENUM rsrc_subtype {
     RSRC_VIDEO__COUNT,
 };
 
-struct rsrc_data_config;
-struct rsrc_data_font;
+//struct rsrc_data_config;
+//struct rsrc_data_font;
 struct rsrc_data_map;
 struct rsrc_data_model;
 struct rsrc_data_script;
 struct rsrc_data_sound;
+//struct rsrc_data_text;
 struct rsrc_data_texture;
-struct rsrc_data_values;
-struct rsrc_data_video;
+//struct rsrc_data_video;
 
-// TODO: rsrc_data and rsrc_opt structs
+//struct rsrc_opt_config;
+//struct rsrc_opt_font;
+struct rsrc_opt_map;
+struct rsrc_opt_model;
+struct rsrc_opt_script;
+struct rsrc_opt_sound;
+//struct rsrc_opt_text;
+struct rsrc_opt_texture;
+//struct rsrc_opt_video;
+
+struct rsrc_data_map {
+    //struct pmf pmf;
+    int placeholder;
+};
+
+//struct 
 
 enum rsrc_drive_proto_type {
     RSRC_DRIVE_PROTO_NULL,
@@ -159,16 +174,16 @@ struct rsrc_raw {
     };
 };
 
-typedef void (*getrc_async_cb)(void* ctx, void* rsrc, struct charbuf* err);
-struct getrc_opt {
-    unsigned group;
+typedef void (*getrsrc_async_cb)(void* ctx, void* rsrc, struct charbuf* err);
+struct getrsrc_opt {
+    unsigned noload : 1; // if set, returns a pointer to a struct rsrc_src
     unsigned nocache : 1;
     unsigned havecrc : 1;
     unsigned async : 1;
     unsigned async_usemainthrd : 1;
     unsigned async_nocbifcached : 1;
     uint64_t crc;
-    getrc_async_cb async_cb;
+    getrsrc_async_cb async_cb;
     void* async_cb_ctx;
 };
 
@@ -206,19 +221,19 @@ struct rsrc_info {
 
 #define GETRSRCRAW_FORCE (1U << 0)
 
-#define LSRC_NAMECRC (1U << 0)
-#define LSRC_SIZE    (1U << 1)
-#define LSRC_CRC     (1U << 3)
+#define LSRSRC_NAMECRC (1U << 0)
+#define LSRSRC_SIZE    (1U << 1)
+#define LSRSRC_CRC     (1U << 3)
 
-#define GETRCINFO_HAVECRC (1U << 0)
-#define GETRCINFO_GETSIZE (1U << 1)
-#define GETRCINFO_GETCRC  (1U << 3)
+#define GETRSRCINFO_HAVECRC (1U << 0)
+#define GETRSRCINFO_GETSIZE (1U << 1)
+#define GETRSRCINFO_GETCRC  (1U << 3)
 
-#define DELRC_HAVECRC (1U << 0)
+#define DELRSRC_HAVECRC (1U << 0)
 
-#define MAPRC_NODUPPATH    (1U << 0)
-#define MAPRC_FREEPATH     (1U << 1)
-#define MAPRC_UNTERMEDPATH (1U << 2)
+#define MAPRSRC_NODUPPATH    (1U << 0)
+#define MAPRSRC_FREEPATH     (1U << 1)
+#define MAPRSRC_UNTERMEDPATH (1U << 2)
 
 bool initRsrcMgr(void);
 void runRsrcMgr(uint64_t t);
@@ -243,7 +258,7 @@ void freeRsrcSrc(struct rsrc_src*);
 int getRsrcRaw(const struct rsrc_src*, unsigned flags, enum rsrc_raw_type typepref, struct rsrc_raw*);
 void freeRsrcRaw(struct rsrc_raw*);
 
-void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrc_opt* opt, const void* rsrc_opt, struct charbuf* err);
+void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrc_opt, struct charbuf* err);
 void rlsRsrc(void*);
 void lockRsrc(void*);
 #define unLockRsrc rlsRsrc
@@ -263,5 +278,7 @@ void unMapRsrc(uint32_t mapperdrive, uint32_t id);
 // TODO: inteface for reading and writing raw rsrc data
 
 // TODO: PAF manager
+
+void reloadRsrcs(enum rsrc_type type);
 
 #endif

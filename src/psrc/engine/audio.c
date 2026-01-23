@@ -2182,7 +2182,7 @@ bool startAudio(void) {
         inspec.samples = atoi(tmp);
         free(tmp);
     } else {
-        inspec.samples = inspec.freq * 4 / 11025 * 48;
+        inspec.samples = inspec.freq * 4 / 11025 * 64;
         if (inspec.samples < 1) inspec.samples = 1;
         register unsigned samples = inspec.samples - 1;
         samples |= samples >> 1;

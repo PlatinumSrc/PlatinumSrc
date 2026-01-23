@@ -126,4 +126,10 @@ static inline void mat4x3cm_mul_vec3(float m[restrict 4][3], const float in[3], 
 }
 #undef ACCMAT
 
+static inline float fwrap(float n, float d) {
+    float tmp = n - (int)(n / d) * d;
+    if (tmp < 0.0f) tmp += d;
+    return tmp;
+}
+
 #endif
