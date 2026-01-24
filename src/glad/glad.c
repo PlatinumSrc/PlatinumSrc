@@ -38,10 +38,12 @@ int GLAD_GL_VERSION_3_3 = 0;
 int GLAD_GL_ES_VERSION_2_0 = 0;
 int GLAD_GL_ES_VERSION_3_0 = 0;
 int GLAD_GL_ARB_multitexture = 0;
+int GLAD_GL_ARB_texture_border_clamp = 0;
 int GLAD_GL_ARB_texture_cube_map = 0;
 int GLAD_GL_ARB_texture_env_combine = 0;
 int GLAD_GL_ARB_texture_env_dot3 = 0;
 int GLAD_GL_KHR_debug = 0;
+int GLAD_GL_SGIS_texture_edge_clamp = 0;
 
 
 
@@ -2018,10 +2020,12 @@ static int glad_gl_find_extensions_gl(void) {
     if (!glad_gl_get_extensions(&exts, &exts_i)) return 0;
 
     GLAD_GL_ARB_multitexture = glad_gl_has_extension(exts, exts_i, "GL_ARB_multitexture");
+    GLAD_GL_ARB_texture_border_clamp = glad_gl_has_extension(exts, exts_i, "GL_ARB_texture_border_clamp");
     GLAD_GL_ARB_texture_cube_map = glad_gl_has_extension(exts, exts_i, "GL_ARB_texture_cube_map");
     GLAD_GL_ARB_texture_env_combine = glad_gl_has_extension(exts, exts_i, "GL_ARB_texture_env_combine");
     GLAD_GL_ARB_texture_env_dot3 = glad_gl_has_extension(exts, exts_i, "GL_ARB_texture_env_dot3");
     GLAD_GL_KHR_debug = glad_gl_has_extension(exts, exts_i, "GL_KHR_debug");
+    GLAD_GL_SGIS_texture_edge_clamp = glad_gl_has_extension(exts, exts_i, "GL_SGIS_texture_edge_clamp");
 
     glad_gl_free_extensions(exts_i);
 
