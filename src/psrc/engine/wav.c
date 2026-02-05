@@ -62,6 +62,7 @@ void* wav_load(PSRC_DATASTREAM_T ds, enum wav_frmt* frmtout, size_t* lenout, uns
                 return NULL;
             }
             *frmtout = frmt;
+            ds_skip(ds, sz - 16);
             break;
         }
         ds_skip(ds, sz);

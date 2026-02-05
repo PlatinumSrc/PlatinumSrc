@@ -104,6 +104,8 @@ void quitRenderer(void);
 extern void (*render)(void); // assumes playerdata has already been locked by the caller
 extern void (*display)(void);
 extern void* (*takeScreenshot)(unsigned* w, unsigned* h, unsigned* ch);
+extern size_t (*newTex)(size_t oldid, /*enum rsrc_opt_texture_intent*/ int intent, /*struct rsrc_src*/ void* src);
+extern void (*delTex)(size_t id);
 
 extern const char* const* rendapi_names[RENDAPI__COUNT];
 

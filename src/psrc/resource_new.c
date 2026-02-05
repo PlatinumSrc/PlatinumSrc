@@ -42,6 +42,19 @@ static const size_t* rsrc_extlens[RSRC__COUNT] = {
     (const size_t [RSRC_VIDEO__COUNT])   {4}
 };
 
+static const void* const defaultrcopts[RSRC__COUNT] = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    &(struct rsrc_opt_model){0},
+    &(struct rsrc_opt_script){0},
+    NULL,
+    NULL,
+    &(struct rsrc_opt_texture){0},
+    NULL
+};
+
 struct rsrc_header {
     enum rsrc_type type;
     enum rsrc_subtype subtype;
@@ -57,6 +70,20 @@ struct rsrc_header {
     unsigned havecrc : 1;
     unsigned hasdatacrc : 1;
 };
+
+struct resource {
+    struct rsrc_header header;
+};
+
+struct rsrc_page {
+    void* data;
+    uint16_t occ;
+    uint16_t zref;
+};
+struct rsrc_table {
+    struct rsrc_page* pages;
+    size_t pagect;
+} rsrc_tables[RSRC__COUNT];
 
 PACKEDENUM rsrc_drive_mapperitem_type {
     RSRC_DRIVE_MAPPERITEMTYPE_FILE,
@@ -1147,13 +1174,16 @@ int getRsrcRaw(const struct rsrc_src* src, unsigned flags, enum rsrc_raw_type ty
                         ds_close(&ds);
                         return -1;
                     }
-                    raw->type = RSRC_RAW_MEM;
-                    raw->mem.data = data;
                     raw->mem.size = sz;
-                    raw->mem.free = true;
                     sz -= ds_read(&ds, sz, data);
                     ds_close(&ds);
-                    if (sz) return -1;
+                    if (sz) {
+                        free(data);
+                        return -1;
+                    }
+                    raw->type = RSRC_RAW_MEM;
+                    raw->mem.data = data;
+                    raw->mem.free = true;
                 } break;
                 case RSRC_RAW_DS: {
                     if (!ds_openfile(src->fs.path, NULL, false, 0, &raw->ds)) return -1;
@@ -1169,6 +1199,35 @@ int getRsrcRaw(const struct rsrc_src* src, unsigned flags, enum rsrc_raw_type ty
         break;
         //case RSRC_SRC_PAF:
         //break;
+        case RSRC_SRC_DS:
+            switch (typepref) {
+                case RSRC_RAW_MEM: {
+                    if (!(flags & GETRSRCRAW_FORCE)) return 0;
+                    if (src->ds.base != ds_tell(src->ds.ds) && !ds_seek(src->ds.ds, src->ds.base)) return -1;
+                    size_t sz = src->ds.size;
+                    void* data = malloc(sz);
+                    if (!data) return -1;
+                    raw->mem.size = sz;
+                    sz -= ds_read(src->ds.ds, sz, data);
+                    if (sz) {
+                        free(data);
+                        return -1;
+                    }
+                    raw->type = RSRC_RAW_MEM;
+                    raw->mem.data = data;
+                    raw->mem.free = true;
+                } break;
+                case RSRC_RAW_DS: {
+                    if (src->ds.base != ds_tell(src->ds.ds) && !ds_seek(src->ds.ds, src->ds.base)) return -1;
+                    if (!ds_opensect(src->ds.ds, src->ds.size, NULL, false, 0, &raw->ds)) return -1;
+                    raw->type = RSRC_RAW_DS;
+                } break;
+                case RSRC_RAW_FILE: {
+                    if (!(flags & GETRSRCRAW_FORCE)) return 0;
+                    return -1;
+                } break;
+            }
+        break;
     }
     return 1;
 }
@@ -1186,8 +1245,18 @@ void freeRsrcRaw(struct rsrc_raw* raw) {
     }
 }
 
-void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrc_opt, struct charbuf* err) {
+void* getRsrc_internal(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err) {
     
+}
+void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err) {
+    #if PSRC_MTLVL >= 1
+    lockMutex(&rsrcmgr.lock);
+    #endif
+    void* ptr = getRsrc_internal(type, key, drive, path, opt, rsrcopt, err);
+    #if PSRC_MTLVL >= 1
+    unlockMutex(&rsrcmgr.lock);
+    #endif
+    return ptr;
 }
 
 bool initRsrcMgr(void) {

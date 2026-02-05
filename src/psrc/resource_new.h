@@ -5,6 +5,9 @@
 #include "datastream.h"
 #include "attribs.h"
 
+#include "common/p3m.h"
+#include "common/pbasic.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -71,6 +74,19 @@ struct rsrc_opt_script;
 struct rsrc_opt_sound;
 //struct rsrc_opt_text;
 struct rsrc_opt_texture;
+    enum rsrc_opt_texture_intent {
+        RSRC_OPT_TEXTURE_INTENT_UNDEF,
+        RSRC_OPT_TEXTURE_INTENT_UI,
+        RSRC_OPT_TEXTURE_INTENT_MODEL,
+        RSRC_OPT_TEXTURE_INTENT_WORLD2D,
+        RSRC_OPT_TEXTURE_INTENT_WORLD2D_DETAIL,
+        RSRC_OPT_TEXTURE_INTENT_WORLD2D_BUMP,
+        RSRC_OPT_TEXTURE_INTENT_WORLD2D_ALPHA,
+        RSRC_OPT_TEXTURE_INTENT_WORLD3D,
+        RSRC_OPT_TEXTURE_INTENT_WORLD3D_MATCAP,
+        RSRC_OPT_TEXTURE_INTENT_WORLD3D_DETAIL,
+        RSRC_OPT_TEXTURE_INTENT_WORLD3D_BUMP
+    };
 //struct rsrc_opt_video;
 
 struct rsrc_data_map {
@@ -78,7 +94,45 @@ struct rsrc_data_map {
     int placeholder;
 };
 
-//struct 
+struct rsrc_data_model {
+    struct p3m p3m;
+    #ifndef PSRC_MODULE_SERVER
+    struct rsrc_data_texture* textures;
+    size_t texturect;
+    #endif
+};
+struct rsrc_opt_model {
+    uint8_t flags;
+};
+
+struct rsrc_data_script {
+    size_t id;
+};
+struct rsrc_opt_script {
+    struct pbasic* pb;
+    const struct pb_compiler_opt* compopt;
+};
+
+#ifndef PSRC_MODULE_SERVER
+struct rsrc_data_sound {
+    size_t id;
+    unsigned long len;
+    unsigned freq;
+    uint8_t channels;
+};
+#endif
+
+#ifndef PSRC_MODULE_SERVER
+struct rsrc_data_texture {
+    size_t id;
+    unsigned width;
+    unsigned height;
+    uint8_t channels;
+};
+struct rsrc_opt_texture {
+    enum rsrc_opt_texture_intent intent;
+};
+#endif
 
 enum rsrc_drive_proto_type {
     RSRC_DRIVE_PROTO_NULL,
@@ -133,8 +187,9 @@ struct rsrc_overlay_opt {
 
 PACKEDENUM rsrc_src_type {
     RSRC_SRC_MEM,
-    RSRC_SRC_FS
-    //RSRC_SRC_PAF
+    RSRC_SRC_FS,
+    //RSRC_SRC_PAF,
+    RSRC_SRC_DS
 };
 struct rsrc_src {
     enum rsrc_src_type type;
@@ -153,6 +208,11 @@ struct rsrc_src {
         //    const char* path;
         //    bool freepath;
         //} paf;
+        struct {
+            struct datastream* ds;
+            size_t base;
+            size_t size;
+        } ds;
     };
 };
 
@@ -258,7 +318,7 @@ void freeRsrcSrc(struct rsrc_src*);
 int getRsrcRaw(const struct rsrc_src*, unsigned flags, enum rsrc_raw_type typepref, struct rsrc_raw*);
 void freeRsrcRaw(struct rsrc_raw*);
 
-void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrc_opt, struct charbuf* err);
+void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err);
 void rlsRsrc(void*);
 void lockRsrc(void*);
 #define unLockRsrc rlsRsrc

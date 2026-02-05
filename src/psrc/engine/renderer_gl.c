@@ -390,15 +390,8 @@ static void r_gl_render_legacy(void) {
     r_gl_data.gl11.oddframe = !r_gl_data.gl11.oddframe;
 
     if (!r_gl_data.fastclear) {
+        glDepthMask(GL_TRUE);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-        glDepthFunc(GL_LEQUAL);
-        glDepthRange(0.1, 0.9);
-    } else if (r_gl_data.gl11.oddframe) {
-        glDepthFunc(GL_LEQUAL);
-        glDepthRange(0.1, 0.4);
-    } else {
-        glDepthFunc(GL_GEQUAL);
-        glDepthRange(0.9, 0.4);
     }
 
     for (unsigned pli = 0; pli < r_gl_data.playerdata.len; ++pli) {
@@ -410,12 +403,22 @@ static void r_gl_render_legacy(void) {
         glMatrixMode(GL_MODELVIEW);
         glLoadMatrixf((float*)rpldata->viewmat);
 
-        glDepthMask(GL_TRUE);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
         glDisable(GL_TEXTURE_2D);
+        if (!r_gl_data.fastclear) {
+            glDepthFunc(GL_LEQUAL);
+            glDepthRange(0.0, 1.0);
+        } else if (r_gl_data.gl11.oddframe) {
+            glDepthFunc(GL_LEQUAL);
+            glDepthRange(0.0, 0.45);
+        } else {
+            glDepthFunc(GL_GEQUAL);
+            glDepthRange(1.0, 0.55);
+        }
+        glDepthMask(GL_TRUE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         float z = 2.0f;
 
@@ -466,14 +469,13 @@ static void r_gl_render_legacy(void) {
         glEnd();
 
         glEnable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
 
         if (testmodel) r_gl_rendermodel_legacy(&testmodel->model, NULL);
 
-        glDepthMask(GL_FALSE);
-        glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-        glDisable(GL_CULL_FACE);
         glEnable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
 
         // lightmaps
         glBegin(GL_QUADS);
@@ -487,18 +489,17 @@ static void r_gl_render_legacy(void) {
             glVertex3f(1.0f, 1.0f, z);
         glEnd();
 
-        if (!r_gl_data.fastclear) glDepthRange(0.9, 1.0);
-        else if (r_gl_data.gl11.oddframe) glDepthRange(0.4, 0.5);
-        else glDepthRange(0.5, 0.4);
+        if (!r_gl_data.fastclear) glDepthRange(1.0, 1.0);
+        else glDepthRange(0.5, 0.5);
 
         rpldata->viewmat[3][0] = 0.0f;
         rpldata->viewmat[3][1] = 0.0f;
         rpldata->viewmat[3][2] = 0.0f;
         glLoadMatrixf((float*)rpldata->viewmat);
 
-        glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
         glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
 
         #if 1
         {
@@ -608,15 +609,17 @@ static void r_gl_render_legacy(void) {
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        glDepthMask(GL_FALSE);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         glEnable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glDepthMask(GL_FALSE);
 
         // clouds
-        static const float cloudheight[2] = {0.05f, 0.05f};
-        static const float cloudsize[2] = {8.5f, 10.2f};
-        static const double cloudscroll[2][2] = {{-0.003, 0.0005}, {0.005, 0.009}};
-        static const float cloudopacity[2] = {0.2f, 0.1f};
+        #if 1
+        static const float cloudheight[2] = {0.01f, 0.01f};
+        static const float cloudsize[2] = {35.0f, 43.0f};
+        static const double cloudscroll[2][2] = {{0.0003, 0.0015}, {0.005, 0.0075}};
+        static const float cloudopacity[2] = {0.25f, 0.07f};
         float cloudcoord[2][2] = {
             {fwrap(t * cloudscroll[0][0], 1.0f), fwrap(t * cloudscroll[0][1], 1.0f)},
             {fwrap(t * cloudscroll[1][0], 1.0f), fwrap(t * cloudscroll[1][1], 1.0f)}
@@ -654,21 +657,17 @@ static void r_gl_render_legacy(void) {
             glVertex3f(1.0f, cloudheight[1], -1.0f);
         glEnd();
         glBindTexture(GL_TEXTURE_2D, 0);
+        #endif
 
         glDisable(GL_TEXTURE_2D);
-
-        if (!r_gl_data.fastclear) glDepthRange(0.0, 0.1);
-        else if (r_gl_data.gl11.oddframe) glDepthRange(0.0, 0.1);
-        else glDepthRange(1.0, 0.9);
 
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        glDepthMask(GL_TRUE);
+        glDisable(GL_DEPTH_TEST);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDisable(GL_CULL_FACE);
 
         // ui
         #if DEBUG(1)
@@ -1010,6 +1009,7 @@ bool r_gl_afterCreateWindow(void) {
     #endif
     free(tmpstr);
     glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
+    //glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
     r_gl_updateFrame();
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_BLEND);
@@ -1082,7 +1082,7 @@ bool r_gl_prepRenderer(void) {
         }
         cb_dump(&cb);
     }
-    testclouds[0] = getRc(RC_TEXTURE, ":textures/clouds/1/0", NULL, 0, NULL);
+    testclouds[0] = getRc(RC_TEXTURE, ":textures/clouds/1/2", NULL, 0, NULL);
     testclouds[1] = getRc(RC_TEXTURE, ":textures/clouds/3/3", NULL, 0, NULL);
 
     return true;

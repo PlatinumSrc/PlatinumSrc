@@ -90,6 +90,8 @@ static enum rendapi trylist[] = {
 
 void (*render)(void);
 void (*display)(void);
+size_t (*newTex)(size_t oldid, /*enum rsrc_opt_texture_intent*/ int intent, /*struct rsrc_src*/ void* src);
+void (*delTex)(size_t);
 void* (*takeScreenshot)(unsigned* w, unsigned* h, unsigned* ch);
 static bool (*beforeCreateWindow)(unsigned*);
 static bool (*afterCreateWindow)(void);
