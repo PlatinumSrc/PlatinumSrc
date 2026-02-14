@@ -5,6 +5,10 @@
 #include "util.h"
 #include "filesystem.h"
 
+#ifndef PSRC_MODULE_SERVER
+    //#include "engine/renderer.h"
+#endif
+
 static const enum rsrc_subtype rsrc_subtypect[RSRC__COUNT] = {
     1,
     RSRC_CONFIG__COUNT,
@@ -1098,10 +1102,10 @@ bool getRsrcSrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t 
     int retval;
     if (pl == (size_t)-1) pl = strlen(p);
     if (d == -1U) {
-        if (t < RSRC__FILE || t >= RSRC__COUNT) { // TODO: move out
-            retval = -1;
-            goto ret;
-        }
+        //if (t < RSRC__FILE || t >= RSRC__COUNT) { // TODO: move out
+        //    retval = -1;
+        //    goto ret;
+        //}
         struct charbuf cb;
         if (!cb_init(&cb, 128)) {retval = -1; goto ret;}
         bool isdir;
@@ -1245,14 +1249,34 @@ void freeRsrcRaw(struct rsrc_raw* raw) {
     }
 }
 
-void* getRsrc_internal(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err) {
-    
+void* getRsrc_internal(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, size_t pathlen, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err) {
+    bool freepath;
+    if (pathlen == (size_t)-1) pathlen = strlen(path);
+    if (drive == -1U) {
+        freepath = true;
+        struct charbuf cb;
+        if (!cb_init(&cb, 128)) goto retnull;
+        bool isdir;
+        if (!evalRsrcPath_internal(key, path, pathlen, &isdir, &drive, &cb) || isdir) {
+            cb_dump(&cb);
+            goto retnull;
+        }
+    } else {
+        freepath = false;
+    }
+
+    struct rsrc_table* rtbl = &rsrc_tables[type];
+    //struct rsrc_page* rp = 
+
+    retnull:;
+    if (freepath) free((char*)path);
+    return NULL;
 }
-void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err) {
+void* getRsrc(enum rsrc_type t, uint32_t k, uint32_t d, const char* p, size_t pl, struct getrsrc_opt* o, const void* ro, struct charbuf* e) {
     #if PSRC_MTLVL >= 1
     lockMutex(&rsrcmgr.lock);
     #endif
-    void* ptr = getRsrc_internal(type, key, drive, path, opt, rsrcopt, err);
+    void* ptr = getRsrc_internal(t, k, d, p, pl, o, ro, e);
     #if PSRC_MTLVL >= 1
     unlockMutex(&rsrcmgr.lock);
     #endif

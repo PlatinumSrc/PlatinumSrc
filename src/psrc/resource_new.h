@@ -80,12 +80,12 @@ struct rsrc_opt_texture;
         RSRC_OPT_TEXTURE_INTENT_MODEL,
         RSRC_OPT_TEXTURE_INTENT_WORLD2D,
         RSRC_OPT_TEXTURE_INTENT_WORLD2D_DETAIL,
-        RSRC_OPT_TEXTURE_INTENT_WORLD2D_BUMP,
+        RSRC_OPT_TEXTURE_INTENT_WORLD2D_NORMAL,
         RSRC_OPT_TEXTURE_INTENT_WORLD2D_ALPHA,
         RSRC_OPT_TEXTURE_INTENT_WORLD3D,
         RSRC_OPT_TEXTURE_INTENT_WORLD3D_MATCAP,
         RSRC_OPT_TEXTURE_INTENT_WORLD3D_DETAIL,
-        RSRC_OPT_TEXTURE_INTENT_WORLD3D_BUMP
+        RSRC_OPT_TEXTURE_INTENT_WORLD3D_NORMAL
     };
 //struct rsrc_opt_video;
 
@@ -318,7 +318,7 @@ void freeRsrcSrc(struct rsrc_src*);
 int getRsrcRaw(const struct rsrc_src*, unsigned flags, enum rsrc_raw_type typepref, struct rsrc_raw*);
 void freeRsrcRaw(struct rsrc_raw*);
 
-void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err);
+void* getRsrc(enum rsrc_type type, uint32_t key, uint32_t drive, const char* path, size_t pathlen, struct getrsrc_opt* opt, const void* rsrcopt, struct charbuf* err);
 void rlsRsrc(void*);
 void lockRsrc(void*);
 #define unLockRsrc rlsRsrc
