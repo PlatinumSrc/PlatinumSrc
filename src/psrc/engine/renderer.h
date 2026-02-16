@@ -50,6 +50,13 @@ struct rendres {
     unsigned width, height;
 };
 
+enum rendstereo {
+    RENDSTEREO_OFF,
+    RENDSTEREO_SIDEBYSIDE,
+    RENDSTEREO_ANAGLYPH,
+    RENDSTEREO_VR
+};
+
 enum rendlighting {
     RENDLIGHTING_LOW,
     RENDLIGHTING_MEDIUM,
@@ -70,6 +77,10 @@ extern struct rendstate {
         struct rendres current;
         struct rendres windowed, fullscr;
     } res;
+    struct {
+        enum rendstereo mode;
+        float eyedist;
+    } stereo;
     #ifdef PSRC_USESDL1
     unsigned flags;
     uint8_t bpp;

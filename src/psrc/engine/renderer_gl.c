@@ -229,7 +229,11 @@ static inline void r_gl_freePlayerData(struct r_gl_playerdata* pldata) {
 static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata* out) {
     r_gl_calcViewMat(pl, out);
     if (r_gl_data.updateframe || pl->screen.changed.dim) {
-        out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+        if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE) {
+            out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
+        } else {
+            out->aspect = (float)rendstate.res.current.width * 0.5f / (float)rendstate.res.current.height;
+        }
         r_gl_calcProjMat(pl, out);
     }
 }
@@ -264,7 +268,6 @@ static void r_gl_updatePlayerData(void) {
 }
 
 void r_gl_updateFrame(void) {
-    glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
     r_gl_data.updateframe = 1;
 }
 
@@ -390,6 +393,7 @@ static void r_gl_render_legacy(void) {
     r_gl_data.gl11.oddframe = !r_gl_data.gl11.oddframe;
 
     if (!r_gl_data.fastclear) {
+        glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
         glDepthMask(GL_TRUE);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
@@ -398,10 +402,33 @@ static void r_gl_render_legacy(void) {
 
         struct r_gl_playerdata* rpldata = &r_gl_data.playerdata.data[pli];
 
+        unsigned eye;
+        float eyeoff;
+        if (rendstate.stereo.mode == RENDSTEREO_OFF) {
+            // TODO: use userdata screen data
+            glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
+        } else {
+            eye = 0;
+            if (rendstate.stereo.mode == RENDSTEREO_SIDEBYSIDE) {
+                eyeoff = rendstate.stereo.eyedist * 0.5f;
+                glViewport(0, 0, rendstate.res.current.width / 2, rendstate.res.current.height);
+                goto sidebyside_skipnexteye;
+
+                sidebyside_nexteye:;
+                eyeoff = -eyeoff;
+                glViewport(rendstate.res.current.width / 2, 0, rendstate.res.current.width - rendstate.res.current.width / 2, rendstate.res.current.height);
+
+                sidebyside_skipnexteye:;
+            } else {
+                eyeoff = 0.0f;
+            }
+        }
+
         glMatrixMode(GL_PROJECTION);
         glLoadMatrixf((float*)rpldata->projmat);
         glMatrixMode(GL_MODELVIEW);
         glLoadMatrixf((float*)rpldata->viewmat);
+        if (rendstate.stereo.mode != RENDSTEREO_OFF) glTranslatef(eyeoff, 0.0f, 0.0f);
 
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
@@ -492,10 +519,20 @@ static void r_gl_render_legacy(void) {
         if (!r_gl_data.fastclear) glDepthRange(1.0, 1.0);
         else glDepthRange(0.5, 0.5);
 
-        rpldata->viewmat[3][0] = 0.0f;
-        rpldata->viewmat[3][1] = 0.0f;
-        rpldata->viewmat[3][2] = 0.0f;
-        glLoadMatrixf((float*)rpldata->viewmat);
+        {
+            float tmp[3];
+            tmp[0] = rpldata->viewmat[3][0];
+            tmp[1] = rpldata->viewmat[3][1];
+            tmp[2] = rpldata->viewmat[3][2];
+            rpldata->viewmat[3][0] = 0.0f;
+            rpldata->viewmat[3][1] = 0.0f;
+            rpldata->viewmat[3][2] = 0.0f;
+            //glMatrixMode(GL_MODELVIEW);
+            glLoadMatrixf((float*)rpldata->viewmat);
+            rpldata->viewmat[3][0] = tmp[0];
+            rpldata->viewmat[3][1] = tmp[1];
+            rpldata->viewmat[3][2] = tmp[2];
+        }
 
         glEnable(GL_CULL_FACE);
         glDisable(GL_BLEND);
@@ -707,6 +744,15 @@ static void r_gl_render_legacy(void) {
             }
         glEnd();
         #endif
+
+        if (rendstate.stereo.mode != RENDSTEREO_OFF) {
+            if (rendstate.stereo.mode == RENDSTEREO_SIDEBYSIDE) {
+                if (!eye) {
+                    eye = 1;
+                    goto sidebyside_nexteye;
+                }
+            }
+        }
 
     }
 
@@ -1010,7 +1056,8 @@ bool r_gl_afterCreateWindow(void) {
     free(tmpstr);
     glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
     //glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
-    r_gl_updateFrame();
+    glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
+    r_gl_data.updateframe = 1;
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);

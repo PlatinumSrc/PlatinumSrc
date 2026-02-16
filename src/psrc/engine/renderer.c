@@ -596,6 +596,28 @@ bool initRenderer(void) {
     } else {
         rendstate.vsync = true;
     }
+    tmp = cfg_getvar(&config, "Renderer", "stereo");
+    if (tmp) {
+        if (!strcasecmp(tmp, "sidebyside") || !strcasecmp(tmp, "side") || !strcasecmp(tmp, "true")) {
+            rendstate.stereo.mode = RENDSTEREO_SIDEBYSIDE;
+        } else if (!strcasecmp(tmp, "anaglyph")) {
+            rendstate.stereo.mode = RENDSTEREO_ANAGLYPH;
+        } else if (!strcasecmp(tmp, "vr")) {
+            rendstate.stereo.mode = RENDSTEREO_VR;
+        } else {
+            rendstate.stereo.mode = RENDSTEREO_OFF;
+        }
+        free(tmp);
+    } else {
+        rendstate.stereo.mode = RENDSTEREO_OFF;
+    }
+    tmp = cfg_getvar(&config, "Renderer", "stereo.eyedist");
+    if (tmp) {
+        rendstate.stereo.eyedist = atof(tmp);
+        free(tmp);
+    } else {
+        rendstate.stereo.eyedist = 0.065;
+    }
     return true;
 }
 
