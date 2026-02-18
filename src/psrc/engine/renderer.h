@@ -79,6 +79,7 @@ extern struct rendstate {
     } res;
     struct {
         enum rendstereo mode;
+        bool inset;
         float eyedist;
     } stereo;
     #ifdef PSRC_USESDL1

@@ -596,6 +596,7 @@ bool initRenderer(void) {
     } else {
         rendstate.vsync = true;
     }
+    bool insetdefault = true;
     tmp = cfg_getvar(&config, "Renderer", "stereo");
     if (tmp) {
         if (!strcasecmp(tmp, "sidebyside") || !strcasecmp(tmp, "side") || !strcasecmp(tmp, "true")) {
@@ -604,6 +605,7 @@ bool initRenderer(void) {
             rendstate.stereo.mode = RENDSTEREO_ANAGLYPH;
         } else if (!strcasecmp(tmp, "vr")) {
             rendstate.stereo.mode = RENDSTEREO_VR;
+            insetdefault = false;
         } else {
             rendstate.stereo.mode = RENDSTEREO_OFF;
         }
@@ -611,12 +613,19 @@ bool initRenderer(void) {
     } else {
         rendstate.stereo.mode = RENDSTEREO_OFF;
     }
+    tmp = cfg_getvar(&config, "Renderer", "stereo.inset");
+    if (tmp) {
+        rendstate.stereo.inset = strbool(tmp, insetdefault);
+        free(tmp);
+    } else {
+        rendstate.stereo.inset = insetdefault;
+    }
     tmp = cfg_getvar(&config, "Renderer", "stereo.eyedist");
     if (tmp) {
         rendstate.stereo.eyedist = atof(tmp);
         free(tmp);
     } else {
-        rendstate.stereo.eyedist = 0.065;
+        rendstate.stereo.eyedist = (!rendstate.stereo.inset) ? 0.065 : 0.2;
     }
     return true;
 }

@@ -96,7 +96,9 @@ struct r_gl_playerdata {
     bool valid;
     float nearplane;
     float farplane;
+    float fov;
     float aspect;
+    float stereoinsetmul;
     float projmat[4][4];
     float viewmat[4][4];
 };
@@ -233,7 +235,9 @@ static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata
             out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
         } else {
             out->aspect = (float)rendstate.res.current.width * 0.5f / (float)rendstate.res.current.height;
+            out->stereoinsetmul = pl->camera.fov * (1.0f / (200.0f - pl->camera.fov));
         }
+        out->fov = pl->camera.fov;
         r_gl_calcProjMat(pl, out);
     }
 }
@@ -402,33 +406,52 @@ static void r_gl_render_legacy(void) {
 
         struct r_gl_playerdata* rpldata = &r_gl_data.playerdata.data[pli];
 
-        unsigned eye;
-        float eyeoff;
-        if (rendstate.stereo.mode == RENDSTEREO_OFF) {
+        struct {
+            uint_fast8_t eye;
+            float eyeoff;
+            unsigned w_div_2;
+        } stereo;
+        if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE) {
             // TODO: use userdata screen data
             glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
+            glMatrixMode(GL_PROJECTION);
+            glLoadMatrixf((float*)rpldata->projmat);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadMatrixf((float*)rpldata->viewmat);
         } else {
-            eye = 0;
-            if (rendstate.stereo.mode == RENDSTEREO_SIDEBYSIDE) {
-                eyeoff = rendstate.stereo.eyedist * 0.5f;
-                glViewport(0, 0, rendstate.res.current.width / 2, rendstate.res.current.height);
-                goto sidebyside_skipnexteye;
+            stereo.eye = 0;
+            stereo.eyeoff = rendstate.stereo.eyedist * 0.5f;
+            if (rendstate.stereo.inset) stereo.eyeoff = -stereo.eyeoff;
+            stereo.w_div_2 = rendstate.res.current.width / 2;
+            glViewport(0, 0, stereo.w_div_2, rendstate.res.current.height);
+            goto sidebyside_skipnexteye;
 
-                sidebyside_nexteye:;
-                eyeoff = -eyeoff;
-                glViewport(rendstate.res.current.width / 2, 0, rendstate.res.current.width - rendstate.res.current.width / 2, rendstate.res.current.height);
+            sidebyside_nexteye:;
+            stereo.eyeoff = -stereo.eyeoff;
+            glViewport(stereo.w_div_2, 0, rendstate.res.current.width - stereo.w_div_2, rendstate.res.current.height);
 
-                sidebyside_skipnexteye:;
+            sidebyside_skipnexteye:;
+
+            if (!rendstate.stereo.inset) {
+                glMatrixMode(GL_PROJECTION);
+                glLoadMatrixf((float*)rpldata->projmat);
+                glMatrixMode(GL_MODELVIEW);
+                glLoadMatrixf((float*)rpldata->viewmat);
+                glTranslatef(stereo.eyeoff, 0.0f, 0.0f);
             } else {
-                eyeoff = 0.0f;
+                glMatrixMode(GL_PROJECTION);
+                float tmpmat[4][4] = {
+                    {1.0f, 0.0f, 0.0f, 0.0f},
+                    {0.0f, 1.0f, 0.0f, 0.0f},
+                    {stereo.eyeoff, 0.0f, 1.0f, 0.0f},
+                    {0.0f, 0.0f, 0.0f, 1.0f}
+                };
+                glLoadMatrixf((float*)tmpmat);
+                glMultMatrixf((float*)rpldata->projmat);
+                glMatrixMode(GL_MODELVIEW);
+                glLoadMatrixf((float*)rpldata->viewmat);
             }
         }
-
-        glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf((float*)rpldata->projmat);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadMatrixf((float*)rpldata->viewmat);
-        if (rendstate.stereo.mode != RENDSTEREO_OFF) glTranslatef(eyeoff, 0.0f, 0.0f);
 
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
@@ -527,24 +550,32 @@ static void r_gl_render_legacy(void) {
             rpldata->viewmat[3][0] = 0.0f;
             rpldata->viewmat[3][1] = 0.0f;
             rpldata->viewmat[3][2] = 0.0f;
-            //glMatrixMode(GL_MODELVIEW);
-            glLoadMatrixf((float*)rpldata->viewmat);
+            glMatrixMode(GL_MODELVIEW);
+            if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE || !rendstate.stereo.inset) {
+                glLoadMatrixf((float*)rpldata->viewmat);
+            } else {
+                float tmpmat[4][4] = {
+                    {1.0f, 0.0f, 0.0f, 0.0f},
+                    {0.0f, 1.0f, 0.0f, 0.0f},
+                    {stereo.eyeoff * rpldata->stereoinsetmul, 0.0f, 1.0f, 0.0f},
+                    {0.0f, 0.0f, 0.0f, 1.0f}
+                };
+                glLoadMatrixf((float*)tmpmat);
+                glMultMatrixf((float*)rpldata->viewmat);
+                glMatrixMode(GL_PROJECTION);
+                glLoadMatrixf((float*)rpldata->projmat);
+                glMatrixMode(GL_MODELVIEW);
+            }
             rpldata->viewmat[3][0] = tmp[0];
             rpldata->viewmat[3][1] = tmp[1];
             rpldata->viewmat[3][2] = tmp[2];
+            static const float s = 25.0f;
+            glScalef(s, s, s);
         }
 
         glEnable(GL_CULL_FACE);
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
-
-        #if 1
-        {
-            //float s = r_gl_data.nearplane * 100.0f;
-            const float s = 25.0f;
-            glScalef(s, s, s);
-        }
-        #endif
 
         // skybox
         glEnable(GL_TEXTURE_2D);
@@ -745,12 +776,10 @@ static void r_gl_render_legacy(void) {
         glEnd();
         #endif
 
-        if (rendstate.stereo.mode != RENDSTEREO_OFF) {
-            if (rendstate.stereo.mode == RENDSTEREO_SIDEBYSIDE) {
-                if (!eye) {
-                    eye = 1;
-                    goto sidebyside_nexteye;
-                }
+        if (rendstate.stereo.mode == RENDSTEREO_SIDEBYSIDE) {
+            if (!stereo.eye) {
+                stereo.eye = 1;
+                goto sidebyside_nexteye;
             }
         }
 
