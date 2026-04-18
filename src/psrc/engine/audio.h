@@ -289,6 +289,7 @@ extern struct audiostate {
     #endif
     unsigned vol;
     unsigned freq;
+    unsigned fakefreq;
     unsigned channels;
     struct rcopt_sound soundrcopt;
     float soundspeedmul;

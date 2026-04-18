@@ -140,7 +140,7 @@ static void ptf2img(char* p) {
             if (stbi_write_tga(np, w, h, c, data)) goto noerr;
             break;
         case FMT_JPG:
-            if (stbi_write_jpg(np, w, h, c, data, (opt.quality) ? opt.quality : 90)) goto noerr;
+            if (stbi_write_jpg(np, w, h, c, data, (opt.quality >= 0) ? opt.quality : 90)) goto noerr;
             break;
     }
     fputs(" failed (stb_image_write failed)\n", stdout);

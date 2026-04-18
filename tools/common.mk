@@ -21,7 +21,7 @@ _LD := $(TOOLCHAIN)$(LD)
 _STRIP := $(TOOLCHAIN)$(STRIP)
 
 _CFLAGS := $(CFLAGS) -Wall -Wextra -Wuninitialized -Wundef
-_CPPFLAGS += -DPSRC_REUSABLE -I$(PSRCDIR)
+_CPPFLAGS := $(_CPPFLAGS) -DPSRC_REUSABLE -I$(PSRCDIR)
 _LDFLAGS := $(LDFLAGS)
 _LDLIBS := $(LDLIBS)
 ifneq ($(DEBUG),y)

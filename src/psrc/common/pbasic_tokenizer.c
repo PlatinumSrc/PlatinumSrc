@@ -23,29 +23,32 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
     if (s[0] == 'x') goto x;\
     if (s[0] == 'b') goto b;\
     n = s[0] - '0';\
+    if (l == 1) return n;\
     i = 1;\
     while (1) {\
-        if (i == l) break;\
         n *= 10;\
         n += s[i] - '0';\
+        if (++i == l) break;\
     }\
     return n;\
     x:;\
     n = (s[1] >= '0' && s[1] <= '9') ? s[1] - '0' : ((s[1] >= 'A' && s[1] <= 'F') ? s[1] - ('A' + 10) : s[1] - ('a' + 10));\
+    if (l == 2) return n;\
     i = 2;\
     while (1) {\
-        if (i == l) break;\
         n <<= 4;\
         n |= (s[i] >= '0' && s[i] <= '9') ? s[i] - '0' : ((s[i] >= 'A' && s[i] <= 'F') ? s[i] - ('A' + 10) : s[i] - ('a' + 10));\
+        if (++i == l) break;\
     }\
     return n;\
     b:;\
     n = s[1] - '0';\
+    if (l == 2) return n;\
     i = 2;\
     while (1) {\
-        if (i == l) break;\
         n <<= 1;\
         n |= s[i] - '0';\
+        if (++i == l) break;\
     }\
     return n;\
 } while (0)
@@ -298,11 +301,11 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                 c = pb__compiler_getc(pbc);
                                 if (c >= '0' && c <= '9') goto ebadfsuf;
                                 if (suf[0] == '3' && suf[1] == '2') {
-                                    cb_nullterm(&tc->strings);
+                                    if (!cb_nullterm(&tc->strings)) goto emem;
                                     t->data.f32 = atof(tc->strings.data + numstrpos);
                                 } else if (suf[0] == '6' && suf[1] == '4') {
                                     t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F64;
-                                    cb_nullterm(&tc->strings);
+                                    if (!cb_nullterm(&tc->strings)) goto emem;
                                     t->data.f64 = atof(tc->strings.data + numstrpos);
                                 } else {
                                     goto ebadfsuf;
@@ -315,6 +318,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             } else if (c == '.') {
                                 goto e2manydot;
                             }
+                            if (!cb_nullterm(&tc->strings)) goto emem;
                             t->data.f32 = atof(tc->strings.data + numstrpos);
                             fchkaftersuf:;
                             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
@@ -457,7 +461,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                                     chars[2] = 0x80U | (tmpc & 0x3FU);
                                 } else if (tmpc < 0x110000U) {
                                     charct = 4;
-                                    chars[0] = 0xF0U | ((tmpc >> 24) & 0x7U);
+                                    chars[0] = 0xF0U | ((tmpc >> 18) & 0x7U);
                                     chars[1] = 0x80U | ((tmpc >> 12) & 0x3FU);
                                     chars[2] = 0x80U | ((tmpc >> 6) & 0x3FU);
                                     chars[3] = 0x80U | (tmpc & 0x3FU);
@@ -803,7 +807,7 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
                 c = pb__compiler_getc(pbc);
                 if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '_') {
                     if (tc->strings.data[tc->strings.len - 1] == ':') {
-                        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid identifier", &el);
+                        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Invalid identifier", &tc->preprocinsidloc);
                         goto retfalse;
                     }
                     if (c != ':' && (c < '0' || c > '9')) break;
@@ -817,7 +821,7 @@ static bool pb__tok_inspreprocvar(struct pb_compiler* pbc, struct pb_compiler_to
         if (c == '\n' || (!preproc && c == ';') || c == -1) goto einc;
         if (c == '\\') goto ret;
         pb_compitf_mksrcloc(pbc, 0, &el);
-        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected indentifier", &tc->preprocinsidloc);
+        pb_compitf_puterrln(pbc, (*e = PB_ERROR_SYNTAX), "Expected indentifier", &el);
         goto retfalse;
     } else if (tc->preprocinsstage == 'I') {
         foundid:;

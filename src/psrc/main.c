@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
     #if PLATFORM == PLAT_WIN32
         TIMECAPS tc;
         UINT tmrres = 1;
-        if (timeGetDevCaps(&tc, sizeof(tc)) != TIMERR_NOERROR) {
+        if (timeGetDevCaps(&tc, sizeof(tc)) == MMSYSERR_NOERROR) {
             if (tmrres < tc.wPeriodMin) tmrres = tc.wPeriodMin;
             else if (tmrres > tc.wPeriodMax) tmrres = tc.wPeriodMax;
         }

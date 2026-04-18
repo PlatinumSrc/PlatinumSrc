@@ -70,6 +70,7 @@ static void img2ptf(char* p) {
     {
         DIR* d = opendir(p);
         if (d) {
+            closedir(d);
             fputs(" failed (input is a directory)\n", stdout);
             free(np);
             return;
@@ -191,7 +192,7 @@ static void img2ptf(char* p) {
     fclose(fout);
     fclose(fin);
     free(np);
-    
+
     fputs(" done\n", stdout);
 }
 

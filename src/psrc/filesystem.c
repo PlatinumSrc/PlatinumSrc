@@ -139,6 +139,7 @@ char* strrelpath(const char* s) {
     return cb_finalize(&b);
 }
 void sanfilename_cb(const char* s, char r, struct charbuf* cb) {
+    // TODO: replace
     char c;
     #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE)
     size_t b = cb->len;
@@ -308,6 +309,7 @@ bool md(const char* p) {
 }
 
 char** ls(const char* p, bool ln, size_t* l) {
+    // TODO: check cb_ return values
     if (!*p) p = "." PATHSEPSTR;
     #if !(PLATFLAGS & PLATFLAG_WINDOWSLIKE)
         DIR* d = opendir(p);
@@ -318,6 +320,7 @@ char** ls(const char* p, bool ln, size_t* l) {
         {
             size_t len = strlen(p);
             char* tmp = malloc(len + 3);
+            if (!tmp) return NULL;
             if (len) memcpy(tmp, p, len);
             tmp[len++] = PATHSEP;
             tmp[len++] = '*';
@@ -366,7 +369,9 @@ char** ls(const char* p, bool ln, size_t* l) {
                 }
                 if (len == size) {
                     size *= 2;
-                    data = realloc(data, size * sizeof(*data));
+                    char** tmp = realloc(data, size * sizeof(*data));
+                    if (!tmp) goto emem;
+                    data = tmp;
                 }
                 data[len++] = (char*)ol;
             }
@@ -402,7 +407,9 @@ char** ls(const char* p, bool ln, size_t* l) {
             cb_add(&names, i);
             if (len == size) {
                 size *= 2;
-                data = realloc(data, size * sizeof(*data));
+                char** tmp = realloc(data, size * sizeof(*data));
+                if (!tmp) goto emem;
+                data = tmp;
             }
             data[len++] = (char*)names.len;
             if (ln) {
@@ -414,9 +421,15 @@ char** ls(const char* p, bool ln, size_t* l) {
         } while (FindNextFile(f, &fd));
         FindClose(f);
     #endif
-    names.data = realloc(names.data, names.len);
-    data = realloc(data, (len + 1) * sizeof(*data));
-    *data = names.data;
+    {
+        void* tmp = realloc(names.data, names.len);
+        if (!tmp) goto emem;
+        names.data = tmp;
+        tmp = realloc(data, (len + 1) * sizeof(*data));
+        if (!tmp) goto emem;
+        data = tmp;
+    }
+    data[0] = names.data;
     data[len] = NULL;
     --len;
     ++data;
@@ -425,6 +438,10 @@ char** ls(const char* p, bool ln, size_t* l) {
     }
     if (l) *l = len;
     return data;
+    emem:;
+    cb_dump(&names);
+    free(data);
+    return NULL;
 }
 void freels(char** d) {
     --d;

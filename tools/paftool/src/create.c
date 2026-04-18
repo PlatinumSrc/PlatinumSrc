@@ -104,6 +104,7 @@ static void paftool_create_wrfiles(FILE* f, struct ftree* tree, struct ftreeuser
             tmpu32 = 0;
             fwrite(&tmpu32, 4, 1, f);
             *foff += size + 16;
+            // TODO: show errno on failure to open
             FILE* tmpf = fopen(n->file.path, "rb");
             static char buf[256];
             while (size) {

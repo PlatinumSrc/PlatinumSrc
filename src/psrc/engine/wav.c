@@ -81,8 +81,8 @@ void* wav_load(PSRC_DATASTREAM_T ds, enum wav_frmt* frmtout, size_t* lenout, uns
                 default: break;
                 case WAV_FRMT_I16: {
                     uint16_t* data16 = data;
-                    for (uint16_t i = 0; i < sz; ++i) {
-                        data16[i] = swaple32(data16[i]);
+                    for (uint32_t i = 0; i < sz; ++i) {
+                        data16[i] = swaple16(data16[i]);
                     }
                 } break;
                 case WAV_FRMT_I32:

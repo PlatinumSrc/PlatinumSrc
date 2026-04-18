@@ -156,7 +156,7 @@ static void die(const char* argv0, const char* f, ...) {
     va_start(v, f);
     vfprintf(stderr, f, v);
     va_end(v);
-    putchar('\n');
+    fputc('\n', stderr);
     exit(1);
 }
 static void puthelp(const char* argv0) {
@@ -232,7 +232,7 @@ int main(int argc, char** argv) {
                 }
                 if (shortopt) goto soret;
             } else {
-                if (filename) die(argv[0], "File already provided %s");
+                if (filename) die(argv[0], "File already provided");
                 filename = strdup(argv[i]);
             }
         }

@@ -29,7 +29,7 @@ static const char** rsrc_exts[RSRC__COUNT] = {
     (const char* [RSRC_MODEL__COUNT])   {".p3m"},
     (const char* [RSRC_SCRIPT__COUNT])  {".bas"},
     (const char* [RSRC_SOUND__COUNT])   {".ogg", ".mp3", ".wav"},
-    (const char* [RSRC_TEXT__COUNT])    {".txt", ".md"},
+    (const char* [RSRC_TEXT__COUNT])    {".txt", ".md", ".adoc", ".rtf"},
     (const char* [RSRC_TEXTURE__COUNT]) {".ptf", ".png", ".jpg", ".tga", ".bmp"},
     (const char* [RSRC_VIDEO__COUNT])   {".mpg"}
 };
@@ -41,7 +41,7 @@ static const size_t* rsrc_extlens[RSRC__COUNT] = {
     (const size_t [RSRC_MODEL__COUNT])   {4},
     (const size_t [RSRC_SCRIPT__COUNT])  {4},
     (const size_t [RSRC_SOUND__COUNT])   {4, 4, 4},
-    (const size_t [RSRC_TEXT__COUNT])    {4, 3},
+    (const size_t [RSRC_TEXT__COUNT])    {4, 3, 5, 4},
     (const size_t [RSRC_TEXTURE__COUNT]) {4, 4, 4, 4, 4},
     (const size_t [RSRC_VIDEO__COUNT])   {4}
 };
@@ -77,6 +77,9 @@ struct rsrc_header {
 
 struct resource {
     struct rsrc_header header;
+    union {
+        int placeholder;
+    } data;
 };
 
 struct rsrc_page {
@@ -95,12 +98,13 @@ PACKEDENUM rsrc_drive_mapperitem_type {
     //RSRC_DRIVE_MAPPERITEMTYPE_PAF
 };
 struct rsrc_drive_mapperitem {
-    uint32_t id;
-    uint8_t flags : 7;
-    uint8_t valid : 1;
+    char* name;
+    size_t namelen;
+    uint32_t namecrc;
+    uint8_t flags;
+    enum rsrc_drive_mapperitem_type type;
     enum rsrc_type rsrctype;
     enum rsrc_subtype rsrcsubtype;
-    enum rsrc_drive_mapperitem_type type;
     union {
         struct {
             char* path;
@@ -316,6 +320,7 @@ static bool evalRsrcPath_internal(uint32_t key, const char* path, size_t pathlen
     } else {
         size_t oldoutlen = outpath->len;
         register size_t pos = 0;
+        bool sawnull = false;
         while (1) {
             if (pos == pathlen) {
                 uint32_t di = findDefaultRsrcDrive(key);
@@ -328,7 +333,7 @@ static bool evalRsrcPath_internal(uint32_t key, const char* path, size_t pathlen
             char c = path[pos++];
             if (c == ':') {
                 uint32_t di;
-                if (!cb_nullterm(outpath) || (di = findRsrcDrive(key, outpath->data + oldoutlen)) == -1U) {
+                if (sawnull || !cb_nullterm(outpath) || (di = findRsrcDrive(key, outpath->data + oldoutlen)) == -1U) {
                     outpath->len = oldoutlen;
                     return false;
                 }
@@ -337,8 +342,7 @@ static bool evalRsrcPath_internal(uint32_t key, const char* path, size_t pathlen
                 outpath->len = oldoutlen;
                 break;
             } else if (!c) {
-                outpath->len = oldoutlen;
-                return false;
+                sawnull = true;
             }
             cb_add(outpath, c);
         }
@@ -430,6 +434,7 @@ static bool initRsrcDrive(struct rsrc_drive* d, struct rsrc_drive_proto_opt* opt
     return true;
 }
 static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
+    // TODO: !!! only 'item->id' was changed
     switch (d->proto.type) {
         DEFAULTCASE(RSRC_DRIVE_PROTO_NULL): break;
         case RSRC_DRIVE_PROTO_REDIR:
@@ -441,7 +446,7 @@ static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
         case RSRC_DRIVE_PROTO_MAPPER:
             for (size_t i = 0; i < d->proto.mapper.items.len; ++i) {
                 struct rsrc_drive_mapperitem* item = &d->proto.mapper.items.data[i];
-                if (!item->valid) continue;
+                if (!item->name) continue;
                 switch (item->type) {
                     case RSRC_DRIVE_MAPPERITEMTYPE_FILE:
                         if (item->flags & MAPRSRC_FREEPATH) free(item->file.path);
@@ -841,7 +846,7 @@ static int followRsrcOverlay_next(struct fro_state* fro, struct rsrc_drive** d, 
             } else {
                 if (inpath->len > o->srcpathlen && inpath->data[o->srcpathlen] != '/') goto next;
             }
-            if (strncmp(inpath->data, o->srcpath, o->srcpathlen)) goto next;
+            if (memcmp(inpath->data, o->srcpath, o->srcpathlen)) goto next;
         }
         if (!fro->cur.path.data) {
             if (!cb_init(&fro->cur.path, 128)) return -1;
@@ -988,32 +993,35 @@ static ALWAYSINLINE int getRsrcSrc_try_proto_fs(enum rsrc_type rt, struct rsrc_d
     return getRsrcSrc_try_fs(rt, d->proto.fs.path, d->proto.fs.pathlen, pathcb->data, pathcb->len, tmpcb, src);
 }
 static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, struct charbuf* pathcb, struct charbuf* tmpcb, bool dup, struct rsrc_src* src) {
-    char c = pathcb->data[1];
-    if (c < '0' || c > '9') return 0;
-    uint32_t id = c - '0';
-    size_t pathi;
-    for (pathi = 2; pathi < pathcb->len; ++pathi) {
-        char c = pathcb->data[pathi];
-        if (c >= '0' || c <= '9') {
-            uint32_t newid = id * 10 + (c - '0');
-            if (newid < id) return 0;
-            id = newid;
-        } else if (c == '/') {
-            break;
-        } else {
-            return 0;
+    const char* name = pathcb->data + 1;
+    size_t namelen = pathcb->len - 1;
+    uint32_t namecrc;
+    bool isfile;
+    {
+        size_t i = 1;
+        while (1) {
+            if (i == namelen) {
+                isfile = true;
+                break;
+            }
+            if (name[i] == '/') {
+                isfile = false;
+                namelen = i;
+                break;
+            }
+            ++i;
         }
     }
+    namecrc = crc32(name, namelen);
     struct rsrc_drive_mapperitem* item;
     {
         size_t i = 0;
         while (1) {
             if (i == d->proto.mapper.items.len) return 0;
             item = &d->proto.mapper.items.data[i];
-            if (item->valid && item->id == id) {
-                if (item->rsrctype != rt) return 0;
+            if (item->name && item->namecrc == namecrc && item->rsrctype == rt && item->namelen == namelen && !memcmp(item->name, name, namelen)) {
                 if (item->type == RSRC_DRIVE_MAPPERITEMTYPE_FILE) {
-                    if (pathi != pathcb->len) return 0;
+                    if (!isfile) return 0;
                     src->type = RSRC_SRC_FS;
                     src->rsrcsubtype = item->rsrcsubtype;
                     if (dup || (item->flags & MAPRSRC_UNTERMEDPATH)) {
@@ -1025,7 +1033,7 @@ static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, 
                         src->fs.freepath = false;
                     }
                     return 1;
-                } else if (pathi == pathcb->len) {
+                } else if (isfile) {
                     return 0;
                 }
                 break;
@@ -1035,7 +1043,7 @@ static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, 
     }
     switch (item->type) {
         DEFAULTCASE(RSRC_DRIVE_MAPPERITEMTYPE_DIR): {
-            return getRsrcSrc_try_fs(rt, item->dir.path, item->dir.pathlen, pathcb->data + pathi, pathcb->len - pathi, tmpcb, src);
+            return getRsrcSrc_try_fs(rt, item->dir.path, item->dir.pathlen, name + namelen, pathcb->len - 1 - namelen, tmpcb, src);
         }
         //case RSRC_DRIVE_MAPPERITEMTYPE_PAF: {
         //} return 1;
@@ -1418,7 +1426,7 @@ void rsrcmgr_test_dumpstate(void) {
             continue;
         }
         if (d->name) {
-            printf("    Name:  \"%s\" (%08X)\n", d->name, d->namecrc);
+            printf("    Name:  \"%s\" (%08X)\n", d->name, (unsigned)d->namecrc);
         } else {
             puts("    Name:  (Default drive)");
         }
@@ -1473,7 +1481,7 @@ void rsrcmgr_test_dumpstate(void) {
                         puts("      (Invalid)");
                         continue;
                     }
-                    printf("        ID:    %u:\n", item->id);
+                    printf("        Name:  \"%.*s\" (%zu) (%08X)\n", (int)item->namelen, item->name, item->namelen, (unsigned)item->namecrc);
                     fputs("        Flags: _", stdout);
                     {
                         uint8_t flags = item->flags;

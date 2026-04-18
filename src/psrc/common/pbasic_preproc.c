@@ -280,6 +280,6 @@ enum pb_error pb__evalpreproccmd(struct pb_compiler* pbc, char* id, struct pb_co
     return PB_ERROR_DEF;
 
     emem:;
-    pb_compitf_puterrln(pbc, PB_ERROR_DEF, NULL, NULL);
+    pb_compitf_puterrln(pbc, PB_ERROR_MEMORY, NULL, NULL);
     return PB_ERROR_MEMORY;
 }

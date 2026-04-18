@@ -248,9 +248,9 @@ size_t ds_getsz(struct datastream* ds) {
             #if defined(PSRC_DATASTREAM_USESTDIO)
                 long c = ftell(ds->file.f);
                 if (c == -1) break;
-                fseek(ds->file.fd, 0, SEEK_END);
+                fseek(ds->file.f, 0, SEEK_END);
                 long e = ftell(ds->file.f);
-                fseek(ds->file.fd, c, SEEK_SET);
+                fseek(ds->file.f, c, SEEK_SET);
                 return e;
             #elif defined(PSRC_DATASTREAM_USESDL)
                 int64_t sz = SDL_RWsize(ds->file.rwo);

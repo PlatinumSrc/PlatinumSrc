@@ -231,6 +231,7 @@ static inline void r_gl_freePlayerData(struct r_gl_playerdata* pldata) {
 static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata* out) {
     r_gl_calcViewMat(pl, out);
     if (r_gl_data.updateframe || pl->screen.changed.dim) {
+        r_gl_data.updateframe = 1;
         if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE) {
             out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
         } else {
@@ -550,10 +551,12 @@ static void r_gl_render_legacy(void) {
             rpldata->viewmat[3][0] = 0.0f;
             rpldata->viewmat[3][1] = 0.0f;
             rpldata->viewmat[3][2] = 0.0f;
-            glMatrixMode(GL_MODELVIEW);
             if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE || !rendstate.stereo.inset) {
                 glLoadMatrixf((float*)rpldata->viewmat);
             } else {
+                glMatrixMode(GL_PROJECTION);
+                glLoadMatrixf((float*)rpldata->projmat);
+                glMatrixMode(GL_MODELVIEW);
                 float tmpmat[4][4] = {
                     {1.0f, 0.0f, 0.0f, 0.0f},
                     {0.0f, 1.0f, 0.0f, 0.0f},
@@ -562,9 +565,6 @@ static void r_gl_render_legacy(void) {
                 };
                 glLoadMatrixf((float*)tmpmat);
                 glMultMatrixf((float*)rpldata->viewmat);
-                glMatrixMode(GL_PROJECTION);
-                glLoadMatrixf((float*)rpldata->projmat);
-                glMatrixMode(GL_MODELVIEW);
             }
             rpldata->viewmat[3][0] = tmp[0];
             rpldata->viewmat[3][1] = tmp[1];

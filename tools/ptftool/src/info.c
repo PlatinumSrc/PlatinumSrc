@@ -14,6 +14,7 @@ static void ptfinf(char* p) {
     {
         DIR* d = opendir(p);
         if (d) {
+            closedir(d);
             fputs(" failed (is a directory)\n", stdout);
             return;
         }
@@ -28,13 +29,17 @@ static void ptfinf(char* p) {
     int c;
     if (fgetc(f) != 'P' || fgetc(f) != 'T' || fgetc(f) != 'F' || (c = fgetc(f)) == EOF) {
         fputs(" failed (not a PTF file)\n", stdout);
+        fclose(f);
         return;
     }
     if (c != PTF_REV) {
         fprintf(stderr, " failed (incorrect revision %d (expected %d))\n", c, PTF_REV);
+        fclose(f);
+        return;
     }
     if ((c = fgetc(f)) == EOF) {
         fputs(" failed (not a PTF file)\n", stdout);
+        fclose(f);
         return;
     }
     putchar('\n');
@@ -44,6 +49,7 @@ static void ptfinf(char* p) {
     fputs("    Format: RGB", stdout);
     if (c & 0x10) putchar('A');
     putchar('\n');
+    fclose(f);
 }
 
 int ptf_info(char* argv0, int argc, char** argv) {

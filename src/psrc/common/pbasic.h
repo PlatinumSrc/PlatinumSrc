@@ -71,7 +71,7 @@ PACKEDENUM pb_op {
     PB_OP_DIV,          // Divide (/) (pops: right, left; pushes: result)
     PB_OP_REM,          // Remainder (%) (pops: right, left; pushes: result)
     PB_OP_POW,          // Power (POW()) (pops: exp, base; pushes: result)
-    PB_OP_ABS,          // Sine (ABS()) (pops: in; pushes: result)
+    PB_OP_ABS,          // Absolute value (ABS()) (pops: in; pushes: result)
     PB_OP_CEIL,         // Ceiling (CEIL()) (pops: in; pushes: result)
     PB_OP_FLOOR,        // Floor (FLOOR()) (pops: in; pushes: result)
     PB_OP_MIN,          // Minimum (MIN()) (pops: in; pushes: result)

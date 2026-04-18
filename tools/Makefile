@@ -18,4 +18,4 @@ distclean: $(DISTCLEAN)
 $(DISTCLEAN):
 	@$(MAKE) -C $(wordlist 2,2,$@) distclean
 
-.PHONY: all $(BUILD) $(CLEAN) $(DISTCLEAN)
+.PHONY: all build $(BUILD) clean $(CLEAN) distclean $(DISTCLEAN)

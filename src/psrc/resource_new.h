@@ -45,6 +45,8 @@ PACKEDENUM rsrc_subtype {
     RSRC_SOUND__COUNT,
     RSRC_TEXT_TXT = 0,
     RSRC_TEXT_MD,
+    RSRC_TEXT_ADOC,
+    RSRC_TEXT_RTF,
     RSRC_TEXT__COUNT,
     RSRC_TEXTURE_PTF = 0,
     RSRC_TEXTURE_PNG,
@@ -291,9 +293,11 @@ struct rsrc_info {
 
 #define DELRSRC_HAVECRC (1U << 0)
 
-#define MAPRSRC_NODUPPATH    (1U << 0)
-#define MAPRSRC_FREEPATH     (1U << 1)
-#define MAPRSRC_UNTERMEDPATH (1U << 2)
+#define MAPRSRC_NODUPNAME    (1U << 0)
+#define MAPRSRC_FREENAME     (1U << 1)
+#define MAPRSRC_NODUPPATH    (1U << 2)
+#define MAPRSRC_FREEPATH     (1U << 3)
+#define MAPRSRC_UNTERMEDPATH (1U << 4)
 
 bool initRsrcMgr(void);
 void runRsrcMgr(uint64_t t);
