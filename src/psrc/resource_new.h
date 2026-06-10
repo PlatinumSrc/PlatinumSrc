@@ -297,7 +297,6 @@ struct rsrc_info {
 #define MAPRSRC_FREENAME     (1U << 1)
 #define MAPRSRC_NODUPPATH    (1U << 2)
 #define MAPRSRC_FREEPATH     (1U << 3)
-#define MAPRSRC_UNTERMEDPATH (1U << 4)
 
 bool initRsrcMgr(void);
 void runRsrcMgr(uint64_t t);

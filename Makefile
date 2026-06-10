@@ -327,8 +327,8 @@ ifneq ($(CROSS),nxdk)
         _CPPFLAGS += -I/usr/local/include
         _LDFLAGS += -L/usr/local/lib
         ifeq ($(KERNEL),Darwin)
-            _CPPFLAGS += -I/opt/homebrew/include
-            _LDFLAGS += -L/opt/homebrew/lib
+            _CPPFLAGS += -I/opt/homebrew/include -I/opt/local/include
+            _LDFLAGS += -L/opt/homebrew/lib -L/opt/local/lib
         else ifeq ($(KERNEL),NetBSD)
             _CPPFLAGS += -I/usr/X11R7/include -I/usr/pkg/include
             _LDFLAGS += -L/usr/X11R7/lib -L/usr/pkg/lib -Wl,-R/usr/X11R7/lib -Wl,-R/usr/pkg/lib

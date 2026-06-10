@@ -447,6 +447,7 @@ static void freeRsrcDrive(struct rsrc_drive* d, uint32_t di) {
             for (size_t i = 0; i < d->proto.mapper.items.len; ++i) {
                 struct rsrc_drive_mapperitem* item = &d->proto.mapper.items.data[i];
                 if (!item->name) continue;
+                if (item->flags & MAPRSRC_FREENAME) free(item->name);
                 switch (item->type) {
                     case RSRC_DRIVE_MAPPERITEMTYPE_FILE:
                         if (item->flags & MAPRSRC_FREEPATH) free(item->file.path);
@@ -1024,7 +1025,7 @@ static int getRsrcSrc_try_proto_mapper(enum rsrc_type rt, struct rsrc_drive* d, 
                     if (!isfile) return 0;
                     src->type = RSRC_SRC_FS;
                     src->rsrcsubtype = item->rsrcsubtype;
-                    if (dup || (item->flags & MAPRSRC_UNTERMEDPATH)) {
+                    if (dup) {
                         src->fs.path = strdup(item->file.path);
                         if (!src->fs.path) return -1;
                         src->fs.freepath = true;

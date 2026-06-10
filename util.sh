@@ -58,7 +58,7 @@ _zip() {
     zip -qjr9 "./${1}.zip" -- "${@:2}"
 }
 _tar_u() {
-    if [[ -f "${1}" ]]; then
+    if [[ -f "${1}.tar.gz" ]]; then
         gzip -d "${1}.tar.gz"
         tar --transform 's/.*\///g' -r -f "${1}.tar" "${@:2}" 1> /dev/null
         gzip -9 "${1}.tar"
