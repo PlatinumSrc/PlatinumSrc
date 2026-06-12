@@ -182,7 +182,7 @@ LZ4F_errorCode_t LZ4CB_writeOpen(LZ4_writeCB_t* writeCB, const LZ4F_preferences_
   writeCB->maxWriteSize = blockSize;
 
   /* Calculate and allocate destination buffer */
-  writeCB->dstBufMaxSize = LZ4F_compressBound(0, prefsPtr);
+  writeCB->dstBufMaxSize = LZ4F_compressBound(blockSize, prefsPtr);
   writeCB->dstBuf = (LZ4_byte*)malloc(writeCB->dstBufMaxSize);
   if (writeCB->dstBuf == NULL) {
     freeWriteCBResources(writeCB);

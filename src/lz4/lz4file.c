@@ -72,14 +72,14 @@ static void freeAndNullReadFile(LZ4_readFile_t** statePtr)
   *statePtr = NULL;
 }
 
-static LZ4F_errorCode_t readAndParseHeader(LZ4_readFile_t* readFile)
+static LZ4F_errorCode_t readAndParseHeader(LZ4_readFile_t* readFile, FILE* fp)
 {
     char headerBuf[LZ4F_HEADER_SIZE_MAX];
     LZ4F_frameInfo_t frameInfo;
     size_t consumedSize;
 
     /* Read the header from file */
-    const size_t bytesRead = fread(headerBuf, 1, sizeof(headerBuf), readFile->fp);
+    const size_t bytesRead = fread(headerBuf, 1, sizeof(headerBuf), fp);
     if (bytesRead < LZ4F_HEADER_SIZE_MIN + LZ4F_ENDMARK_SIZE) {
         RETURN_ERROR(io_read);
     }
@@ -141,7 +141,7 @@ LZ4F_errorCode_t LZ4F_readOpen(LZ4_readFile_t** lz4fRead, FILE* fp)
     } }
 
     /* Read and parse the header */
-    { LZ4F_errorCode_t const result = readAndParseHeader(readFile);
+    { LZ4F_errorCode_t const result = readAndParseHeader(readFile, fp);
       if (LZ4F_isError(result)) {
           freeAndNullReadFile(&readFile);
           return result;
@@ -230,6 +230,7 @@ static void freeAndNullWriteFile(LZ4_writeFile_t** statePtr)
 }
 
 static LZ4F_errorCode_t writeHeader(LZ4_writeFile_t* writeFile,
+                  FILE* fp,
             const LZ4F_preferences_t* prefsPtr)
 {
   LZ4_byte headerBuf[LZ4F_HEADER_SIZE_MAX];
@@ -242,7 +243,7 @@ static LZ4F_errorCode_t writeHeader(LZ4_writeFile_t* writeFile,
   }
 
   /* Write header to file */
-  if (headerSize != fwrite(headerBuf, 1, headerSize, writeFile->fp)) {
+  if (headerSize != fwrite(headerBuf, 1, headerSize, fp)) {
     RETURN_ERROR(io_write);
   }
 
@@ -289,7 +290,7 @@ LZ4F_errorCode_t LZ4F_writeOpen(LZ4_writeFile_t** lz4fWrite, FILE* fp, const LZ4
   } }
 
     /* Write header to file */
-  { LZ4F_errorCode_t const writeStatus = writeHeader(writeFile, prefsPtr);
+  { LZ4F_errorCode_t const writeStatus = writeHeader(writeFile, fp, prefsPtr);
     if (LZ4F_isError(writeStatus)) {
         freeAndNullWriteFile(&writeFile);
         return writeStatus;
