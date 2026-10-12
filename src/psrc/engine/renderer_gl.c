@@ -236,7 +236,7 @@ static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata
             out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
         } else {
             out->aspect = (float)rendstate.res.current.width * 0.5f / (float)rendstate.res.current.height;
-            out->stereoinsetmul = pl->camera.fov * (1.0f / (200.0f - pl->camera.fov));
+            out->stereoinsetmul = pl->camera.fov * (1.125f * out->aspect / (180.0f - pl->camera.fov));
         }
         out->fov = pl->camera.fov;
         r_gl_calcProjMat(pl, out);

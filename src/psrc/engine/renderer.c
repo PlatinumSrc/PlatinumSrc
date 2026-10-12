@@ -542,11 +542,11 @@ bool initRenderer(void) {
     {
         int w, h;
         if (emscripten_get_canvas_element_size("#canvas", &w, &h) == EMSCRIPTEN_RESULT_SUCCESS) {
+            plog(LL_INFO, "Canvas is %dx%d", w, h);
             if (w > 0 && h > 0) {
                 rendstate.res.windowed.width = w;
                 rendstate.res.windowed.height = h;
             }
-            plog(LL_INFO, "Canvas is %dx%d", w, h);
         } else {
             plog(LL_WARN, "Failed to get canvas size");
         }
