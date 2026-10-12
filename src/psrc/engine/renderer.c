@@ -539,6 +539,18 @@ bool initRenderer(void) {
     tmp = cfg_getvar(&config, "Renderer", "resolution.windowed");
     #if PLATFORM == PLAT_EMSCR
     rendstate.res.windowed = (struct rendres){960, 720};
+    {
+        int w, h;
+        if (emscripten_get_canvas_element_size("#canvas", &w, &h) == EMSCRIPTEN_RESULT_SUCCESS) {
+            if (w > 0 && h > 0) {
+                rendstate.res.windowed.width = w;
+                rendstate.res.windowed.height = h;
+            }
+            plog(LL_INFO, "Canvas is %dx%d", w, h);
+        } else {
+            plog(LL_WARN, "Failed to get canvas size");
+        }
+    }
     #elif PLATFORM == PLAT_NXDK || PLATFORM == PLAT_DREAMCAST
     rendstate.res.windowed = (struct rendres){640, 480};
     #else
