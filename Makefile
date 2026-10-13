@@ -341,7 +341,7 @@ ifneq ($(CROSS),nxdk)
         _LDFLAGS += -shared
         _LDLIBS += -llog -landroid
     else ifeq ($(CROSS),emscr)
-        _LDFLAGS += -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall -sWASM_BIGINT
+        _LDFLAGS += -sALLOW_MEMORY_GROWTH -sMEMORY_GROWTH_GEOMETRIC_STEP=1.0 -sEXIT_RUNTIME -sEXPORTED_RUNTIME_METHODS=ccall
         ifndef EMSCR_SHELL
             _LDFLAGS += --shell-file $(SRCDIR)/psrc/emscr_shell.html
         else
@@ -351,7 +351,7 @@ ifneq ($(CROSS),nxdk)
         ifeq ($(USEGL),y)
             _LDFLAGS += -sLEGACY_GL_EMULATION -sGL_FFP_ONLY -sGL_UNSAFE_OPTS=0
         endif
-        _LDFLAGS += --embed-file internal/engine/ --embed-file internal/server/ --embed-file games/ --embed-file mods/
+        _LDFLAGS += --preload-file internal/engine/ --preload-file internal/server/ --preload-file games/ --preload-file mods/
     else ifeq ($(CROSS),3ds)
         _CFLAGS += -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -mword-relocations -ffunction-sections
         _CPPFLAGS += -D__3DS__ -I$(DEVKITPRO)/libctru/include -I$(DEVKITPRO)/portlibs/3ds/include
@@ -837,6 +837,7 @@ ifeq ($(CROSS),nxdk)
 else ifeq ($(CROSS),emscr)
 	@$(call rm,$(basename $(OUTDIR)/$(BIN)).js)
 	@$(call rm,$(basename $(OUTDIR)/$(BIN)).wasm)
+	@$(call rm,$(basename $(OUTDIR)/$(BIN)).data)
 endif
 	@$(call rm,$(TARGET))
 
