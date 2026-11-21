@@ -3,6 +3,7 @@
 
 #include "../platform.h"
 #include "../attribs.h"
+#include "../string.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,6 +22,7 @@ struct pkd {
 
 enum pkd_err {
     PKD_ERR_NONE,
+    PKD_ERR_INTERNAL,
     PKD_ERR_NOTFOUND,
     PKD_ERR_EXISTS,
     PKD_ERR_TYPE,
@@ -31,7 +33,7 @@ enum pkd_err {
 };
 
 PACKEDENUM pkd_type {
-    PKD_TYPE_NONE,
+    PKD_TYPE_NONE = -1,
     PKD_TYPE_BOOL,
     PKD_TYPE_I8,
     PKD_TYPE_I16,
@@ -46,7 +48,7 @@ PACKEDENUM pkd_type {
     PKD_TYPE_STR
 };
 struct pkd_keytype {
-    enum pkd_type type : 7;
+    enum pkd_type type;
     uint8_t isarray : 1;
     uint32_t size;
 };
@@ -56,20 +58,21 @@ struct pkd_keylist {
     struct pkd_keytype* types;
 };
 
-enum pkd_setop {
-    PKD_SETOP_SET, // will always be 0
-    PKD_SETOP_APPEND
+enum pkd_set_op {
+    PKD_SET_SET, // will always be 0
+    PKD_SET_STRICT, // fail with ERR_TYPE if the type is different from the existing key if present
+    PKD_SET_APPEND
 };
 
-int pkd_open(const char* p, bool nolock, struct pkd*);
+enum pkd_err pkd_open(const char* p, bool nolock, struct pkd*);
 void pkd_close(struct pkd*);
 
-int pkd_querytype(struct pkd*, const char* const* p, struct pkd_keytype* t);
-int pkd_list(struct pkd*, const char* const* p, struct pkd_keylist*);
+enum pkd_err pkd_query(struct pkd*, const char* const* p, struct pkd_keytype* t);
+enum pkd_err pkd_list(struct pkd*, const char* const* p, struct pkd_keylist*);
 void pkd_freelist(struct pkd_keylist*);
-void* pkd_get(struct pkd*, const char* const* p, uint32_t i, struct pkd_keytype* t);
-int pkd_set(struct pkd*, const char* const* p, uint32_t i, enum pkd_setop, const struct pkd_keytype* t, void* d);
-int pkd_ren(struct pkd*, const char* const* oldp, const char* const* newp);
-int pkd_del(struct pkd*, const char* const* p);
+enum pkd_err pkd_get(struct pkd*, const char* const* p, uint32_t i, struct pkd_keytype* t);
+enum pkd_err pkd_set(struct pkd*, const char* const* p, uint32_t i, enum pkd_set_op, const struct pkd_keytype* t, void* d);
+enum pkd_err pkd_ren(struct pkd*, const char* const* oldp, const char* const* newp);
+enum pkd_err pkd_del(struct pkd*, const char* const* p);
 
 #endif

@@ -147,7 +147,7 @@ static uint32_t paf_spcalloc(struct paf* p, paf_spcalloc_cb cb, void* userdata) 
         if (tmpfst.usedslots <= tmpfst.slotct) {
             for (sloti = 0; sloti < tmpfst.usedslots; ++sloti) {
                 paf_fmt_rd_freespctrkr_slot(p->f, &slot);
-                switch (cb(userdata, slot.pos, slot.sz, &sz)) {
+                switch (cb(userdata, slot.pos, slot.size, &sz)) {
                     case PAF_SPCALLOC_CB_RET_PASS:
                         break;
                     case PAF_SPCALLOC_CB_RET_TAKE:
@@ -163,7 +163,7 @@ static uint32_t paf_spcalloc(struct paf* p, paf_spcalloc_cb cb, void* userdata) 
         } else {
             for (sloti = 0; sloti < tmpfst.slotct; ++sloti) {
                 paf_fmt_rd_freespctrkr_slot(p->f, &slot);
-                switch (cb(userdata, slot.pos, slot.sz, &sz)) {
+                switch (cb(userdata, slot.pos, slot.size, &sz)) {
                     case PAF_SPCALLOC_CB_RET_PASS:
                         break;
                     case PAF_SPCALLOC_CB_RET_TAKE:

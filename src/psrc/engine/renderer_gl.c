@@ -235,8 +235,9 @@ static inline void r_gl_syncPlayerData(struct player* pl, struct r_gl_playerdata
         if (rendstate.stereo.mode != RENDSTEREO_SIDEBYSIDE) {
             out->aspect = (float)rendstate.res.current.width / (float)rendstate.res.current.height;
         } else {
-            out->aspect = (float)rendstate.res.current.width * 0.5f / (float)rendstate.res.current.height;
-            out->stereoinsetmul = pl->camera.fov * (1.125f * out->aspect / (180.0f - pl->camera.fov));
+            float aspect = (float)rendstate.res.current.width * 0.5f / (float)rendstate.res.current.height;
+            out->aspect = aspect;
+            out->stereoinsetmul = pl->camera.fov * (1.25f * aspect / (180.0f - pl->camera.fov));
         }
         out->fov = pl->camera.fov;
         r_gl_calcProjMat(pl, out);
@@ -925,7 +926,20 @@ bool r_gl_beforeCreateWindow(unsigned* f) {
     } else {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     }
-    #if PLATFORM != PLAT_EMSCR && !defined(PSRC_USESDL1)
+    #ifndef PSRC_USESDL1
+        tmp = cfg_getvar(&config, "Renderer", "gl.msaa");
+        if (tmp) {
+            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, atoi(tmp));
+            free(tmp);
+        }
+        tmp = cfg_getvar(&config, "Renderer", "gl.stereo");
+        if (strbool(tmp, 0)) {
+            // TODO: properly handle and impl this
+            SDL_GL_SetAttribute(SDL_GL_STEREO, 1);
+        }
+        free(tmp);
+        #if PLATFORM != PLAT_EMSCR
         unsigned flags;
         tmp = cfg_getvar(&config, "Renderer", "gl.forwardcompat");
         if (strbool(tmp, 0)) flags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG;
@@ -935,6 +949,7 @@ bool r_gl_beforeCreateWindow(unsigned* f) {
         if (strbool(tmp, 1)) flags |= SDL_GL_CONTEXT_DEBUG_FLAG;
         free(tmp);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
+        #endif
     #endif
     r_gl_updateVSync();
     return true;
@@ -1018,13 +1033,14 @@ bool r_gl_afterCreateWindow(void) {
         if (rendstate.api == RENDAPI_GL11) {
             for (size_t i = 0, foundext = 0; i < ct; ++i) {
                 if (!*tmplist[i]) continue;
-                if (!strcasecmp(tmplist[i], "GL_ARB_multitexture")) {
+                if (! r_gl_data.gl11.has_ARB_multitexture && !strcasecmp(tmplist[i], "GL_ARB_multitexture")) {
                     r_gl_data.gl11.has_ARB_multitexture = 1;
                     ++foundext;
-                } else if (!strcasecmp(tmplist[i], "GL_ARB_texture_border_clamp")) {
+                } else if (!r_gl_data.gl11.has_ARB_texture_border_clamp && !strcasecmp(tmplist[i], "GL_ARB_texture_border_clamp")) {
                     r_gl_data.gl11.has_ARB_texture_border_clamp = 1;
                     ++foundext;
-                } else if (!strcasecmp(tmplist[i], "GL_SGIS_texture_edge_clamp")) {
+                } else if (!r_gl_data.gl11.has_SGIS_texture_edge_clamp &&
+                (!strcasecmp(tmplist[i], "GL_SGIS_texture_edge_clamp") || !strcasecmp(tmplist[i], "GL_EXT_texture_edge_clamp"))) {
                     r_gl_data.gl11.has_SGIS_texture_edge_clamp = 1;
                     ++foundext;
                 }
@@ -1060,12 +1076,17 @@ bool r_gl_afterCreateWindow(void) {
     if (cond[0]) plog(LL_INFO, "  Hardware acceleration is %s", (tmpint[0]) ? "enabled" : "disabled");
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmpint[0]);
     if (cond[0]) plog(LL_INFO, "  Double-buffering is %s", (tmpint[0]) ? "enabled" : "disabled");
+    cond[0] = !SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &tmpint[0]);
+    cond[1] = !SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &tmpint[1]);
+    if (cond[0] && cond[1]) plog(LL_INFO, "  MSAA is %s (%dx)", (tmpint[0]) ? "enabled" : "disabled", tmpint[1]);
+    cond[0] = !SDL_GL_GetAttribute(SDL_GL_STEREO, &tmpint[0]);
+    if (cond[0]) plog(LL_INFO, "  Stereo is %s", (tmpint[0]) ? "enabled" : "disabled");
     cond[0] = !SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &tmpint[0]);
     cond[1] = !SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &tmpint[1]);
     cond[2] = !SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &tmpint[2]);
     cond[3] = !SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &tmpint[3]);
     if (cond[0] && cond[1] && cond[2]) {
-        if (cond[3] && tmpint[3]) {
+        if (cond[3]) {
             plog(LL_INFO, "  Color buffer format: R%dG%dB%dA%d", tmpint[0], tmpint[1], tmpint[2], tmpint[3]);
         } else {
             plog(LL_INFO, "  Color buffer format: R%dG%dB%d", tmpint[0], tmpint[1], tmpint[2]);
@@ -1087,6 +1108,7 @@ bool r_gl_afterCreateWindow(void) {
     //glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
     glViewport(0, 0, rendstate.res.current.width, rendstate.res.current.height);
     r_gl_data.updateframe = 1;
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);

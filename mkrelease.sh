@@ -21,8 +21,8 @@ pause
 
 tsk 'Building...'
 ./buildrelease.sh || _exit
-inf 'Making psrc_docs.zip...'
-_zip_r 'psrc_docs' docs/ || _exit
+inf 'Making psrc_extras_docs.zip...'
+_zip_r 'psrc_extras_docs' docs/ || _exit
 inf 'Making psrc_files_engine.zip...'
 _zip_r 'psrc_files_engine' internal/engine/ internal/server/ || _exit
 inf 'Making psrc_files_server.zip...'

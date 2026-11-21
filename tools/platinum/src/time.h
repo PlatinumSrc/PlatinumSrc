@@ -2,7 +2,7 @@
 #define PLATINUM_TIME_H
 
 #include <stdint.h>
-#if _WIN32
+#ifdef _WIN32
     #include <windows.h>
 #endif
 

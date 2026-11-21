@@ -11,7 +11,7 @@
     #include <windows.h>
 #endif
 
-int pkd_open(const char* p, bool nolock, struct pkd* d) {
+enum pkd_err pkd_open(const char* p, bool nolock, struct pkd* d) {
     #if (PLATFLAGS & PLATFLAG_UNIXLIKE) || PLATFORM == PLAT_WIN32
         char* lockpath;
         if (!nolock) {

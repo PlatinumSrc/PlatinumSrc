@@ -14,7 +14,13 @@ Format:
         <char[3]: {'P', 'T', 'F'}>
         <u8: Major version>
         <u8:
-            <6 bits: 0>
+            <4 bits: 0>
+            <2 bits:
+                { PTF_Q_ORIG
+                | PTF_Q_HIGH
+                | PTF_Q_MED
+                | PTF_Q_LOW }
+            >
             <2 bits:
                 { PTF_FRMT_I
                 | PTF_FRMT_IA
@@ -26,9 +32,11 @@ Format:
 
     Data:
 
-        { <Compressed <u8: I>...>
-        | <Compressed <u8[2]: IA>...>
-        | <Compressed <u8[3]: RGB>...>
-        | <Compressed <u8[4]: RGBA>...> }
+        <u8[]: Compressed 
+            { <u8[][1]: I Pixels>
+            | <u8[][2]: IA Pixels>
+            | <u8[][3]: RGB Pixels>
+            | <u8[][4]: RGBA Pixels> }
+        >
 
 

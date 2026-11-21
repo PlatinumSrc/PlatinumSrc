@@ -1422,11 +1422,11 @@ static inline void applyAudioEnv(uint32_t pl, int** inp, int** outp) {
         }
         if (env->reverb.state.len) {
             if (env->envch & ~env->envchimm) {
-			    doReverb_interp(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
+                doReverb_interp(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
             } else {
                 doReverb(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);
-		    }
-	    }
+            }
+        }
         env->reverb.state.parami = newparami;
     } else if (env->reverb.state.len) {
         doReverb(&env->reverb.state, audiostate.buflen, inp[0], inp[1]);

@@ -16,13 +16,6 @@ err() { printf "${E} ${TB}%s${TR}%s\n" "${@}"; }
 qry() { printf "${Q} ${TB}%s${TR}%s\n" "${@}"; }
 tsk() { printf "${T} ${TB}%s${TR}%s\n" "${@}"; }
 
-PLATNAME="$(uname -s)"
-PLATARCH="$(uname -m)"
-PLATDESC="${PLATNAME} ${PLATARCH}"
-PLATNAME32="$(i386 uname -s)"
-PLATARCH32="$(i386 uname -m)"
-PLATDESC32="${PLATNAME32} ${PLATARCH32}"
-
 ask() {
     read -e -p "${Q} ${TBQ}${1}${TRQ} ${TBQ}>${TRQ} " -i "${3}" -- "${2}"
 }

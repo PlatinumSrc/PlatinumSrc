@@ -88,13 +88,18 @@ static inline void lockMutex(mutex_t* m) {
     while (pthread_mutex_lock(m)) {}
     #endif
     #else
-    #if PLATFORM != PLAT_NXDK
-    while (mtx_lock(m) != thrd_success) {}
-    #else
-    // Ignore return value on Xbox. The NXDK doesn't check the return code of NtWaitForSingleObject correctly.
-    // (mtx_lock checks for STATUS_WAIT_0 instead of using NT_SUCCESS())
-    mtx_lock(m);
+    while (mtx_lock(m) != thrd_success) {} // nxdk issue was fixed in 9d25752
     #endif
+}
+static inline bool tryLockMutex(mutex_t* m) {
+    #ifndef PSRC_THREADING_USESTDTHREAD
+    #if (PLATFLAGS & PLATFLAG_WINDOWSLIKE) && !defined(PSRC_THREADING_USEWINPTHREAD)
+    return TryEnterCriticalSection(m);
+    #else
+    return !pthread_mutex_trylock(m);
+    #endif
+    #else
+    return (mtx_trylock(m) == thrd_success);
     #endif
 }
 static inline void unlockMutex(mutex_t* m) {

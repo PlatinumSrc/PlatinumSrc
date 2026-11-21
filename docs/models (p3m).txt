@@ -1,0 +1,322 @@
+P3M - PlatinumSrc 3D Model File/Format
+
+- .p3m file extension
+- Current version is 0.0
+- All data is little endian
+- Compression is LZ4F
+
+Format:
+
+    <Header> <Data>
+
+    Header:
+
+        <char[3]: {'P', '3', 'M'}>
+        <u8: Major version>
+
+    Data:
+
+        <u32: Offset of <Extension table>>
+
+        <u8: <Part> count>
+        <u8: <Mesh> count>
+        <u8: <Material> count>
+        <u8: <Basic animated material data> count>
+        <u8: <Advanced animated material data> count>
+        <u8: <Texture> count>
+        <u8: <Bone> count>
+        <u8: <Animation> count>
+        <u8: <Action> count>
+        <u32: <User-defined attribute> count>
+
+        <u32: Offset of <String table>>
+        <u32: Offset of <Part> offsets>
+        <u32: Offset of Part visibility bitmask>
+        <u32: Offset of <Mesh> offsets>
+        <u32: Offset of first <Material>>
+        <u32: Offset of <Basic animated material data> offsets>
+        <u32: Offset of <Advanced animated material data> offsets>
+        <u32: Offset of <Texture> offsets>
+        <u32: Offset of first <Bone>>
+        <u32: Offset of <Animation> offsets>
+        <u32: Offset of <Action> offsets>
+        <u32: Offset of <User-defined attribute> offsets>
+
+        [u32: Offset of <Part>]...
+        [u32: Offset of <Mesh>]...
+        [u32: Offset of <Basic animated material data>]...
+        [u32: Offset of <Advanced animated material data>]...
+        [u32: Offset of <Texture>]...
+        [u32: Offset of <Animation>]...
+        [u32: Offset of <Action>]...
+        [u32: Offset of <User-defined attribute>]...
+
+        <String table>
+        [Part]...
+        <u8[0..32]: Part visibility bitmask (Part 0 is lowest bit of byte 0)>
+        [Mesh]...
+        [Material]...
+        [Basic animated material data]...
+        [Advanced animated material data]...
+        [Texture]...
+        [Bone]...
+        [Animation]...
+        [Action]...
+        [User-defined attribute]...
+
+        <Extension table>
+
+        Part:
+            <<String>: Name>
+            <u8: Number of meshes>
+            <u8: Number of bone overrides>
+            <u32: Offset of first <Mesh reference>>
+            <u32: Offset of first <Bone override>>
+            [Mesh reference]...
+            [Bone override]...
+        Mesh reference:
+            <u8: Mesh index>
+            <u8: Material index>
+            <u8: Index of first bone override>
+            <u8: Bone override count>
+            <float[3]: Offset>
+            <float[3]: Rotation>
+            <float[3]: Scale>
+        Bone override:
+            <u8: Weight group index>
+            <<String>: New bone name>
+
+        Mesh:
+            <<String>: Name>
+            <u8:
+                <2 bits: 0>
+                <1 bit: Has normals (ignored if 'Is billboard' is set)>
+                <1 bit: Has UVs>
+                <3 bits: 0>
+                <1 bit: Is billboard>
+            >
+            <u16: Index count (If 0, mesh is rendered with sequential indices)>
+            <u16: Vertex count>
+            <u8: Weight group count>
+            <u16: Weight range count>
+            <u16: Weight count>
+            <u8[]: Compressed <Mesh data>>
+        Mesh data:
+            <u16[][3]: Indices>
+            { [3D vertex]... | [2D vertex]... }
+            [UV]...
+            [Normal]...
+            [Weight group]...
+            [Weight range]...
+            [Weight]...
+        3D vertex:
+            <float[3]: Position XYZ>
+        2D vertex:
+            <float[2]: Position XY>
+        UV:
+            <float[2]: Texture UV>
+        Normal:
+            <float[3]: Normal XYZ>
+        Weight group:
+            <<String>: Bone name>
+            <u16: Index of first weight>
+            <u16: Index of first weight range>
+            <u16: Number of weight ranges>
+        Weight range:
+            <u16: Vertices to skip>
+            <u16: Weight count>
+        Weight:
+            <u8: Weight (round(weight * 256) - 1)>
+
+        Material:
+            <<String>: Name>
+            <u8:
+                <1 bit: Sort>
+                <1 bit: Draw backfaces>
+                <2 bits: 0>
+                <2 bits:
+                    { P3M_MATRENDMODE_MUL
+                    | P3M_MATRENDMODE_ADD }
+                >
+                <2 bits:
+                    { P3M_MATTYPE_NORMAL
+                    | P3M_MATTYPE_BASANIM
+                    | P3M_MATTYPE_ADVANIM }
+                >
+            >
+            <u8[4]: RGBA color>
+            <u8[4]: RGBA matcap tint>
+            <u8[3]: RGB emission>
+            <u8: Shading>
+            <u8: Texture index (0xFF for none)>
+            <u8: Matcap texture index (0xFF for none)>
+            <float[2]: UV offset (applied after scale)>
+            <float[2]: UV scale>
+            <u8:
+                { Ignored
+                | Index of basic animated material data
+                | Index of advanced animated material data }
+            >
+        Basic animated material data:
+            <u8: Extra texture count>
+            <u32: Texture advance time in microseconds>
+            <float[2]: Texture UV scroll per second>
+            [u8: Extra texture index]...
+        Advanced animated material data:
+            <u32: Microseconds per frame>
+            <u8: Color keyframe count>
+            <u8: Matcap tint keyframe count>
+            <u8: Emission keyframe count>
+            <u8: Shading keyframe count>
+            <u8: Texture index keyframe count>
+            <u8: Matcap index keyframe count>
+            <u8: UV offset keyframe count>
+            <u8: UV scale keyframe count>
+            <u16: Color animation duration>
+            <u16: Matcap tint animation duration>
+            <u16: Emission animation duration>
+            <u16: Shading animation duration>
+            <u16: Texture index animation duration>
+            <u16: Matcap index animation duration>
+            <u16: UV offset animation duration>
+            <u16: UV scale animation duration>
+            <u8[]: Compressed <Animated material keyframe data>>
+        Animated material keyframe data:
+            [u8: Color frame skip]...
+            [u8: Matcap tint frame skip]...
+            [u8: Emission frame skip]...
+            [u8: Shading frame skip]...
+            [u8: Texture index frame skip]...
+            [u8: Matcap index frame skip]...
+            [u8: UV offset frame skip]...
+            [u8: UV scale frame skip]...
+            [<Animated material color interp mode>: Color interp]...
+            [<Animated material color interp mode>: Matcap tint interp]...
+            [<Animated material color interp mode>: Emission interp]...
+            [<Animated material interp mode>: Shading interp]...
+            [<Animated material interp mode>: Texture index interp]...
+            [<Animated material interp mode>: Matcap index interp]...
+            [<Animated material interp mode>: UV offset interp]...
+            [<Animated material interp mode>: UV scale interp]...
+            [u8[4]: Color data]...
+            [u8[4]: Matcap tint data]...
+            [u8[3]: Emission data]...
+            [u8: Shading data]...
+            [u8: Texture index data]...
+            [u8: Matcap index data]...
+            [float[2]: UV offset index data]...
+            [float[2]: UV scale index data]...
+        Animated material interp mode:
+            <u8:
+                { P3M_MATINTERP_NONE
+                | P3M_MATINTERP_LINEAR }
+            >
+        Animated material color interp mode:
+            <u8:
+                { P3M_MATCOLORINTERP_NONE
+                | P3M_MATCOLORINTERP_LINEAR_RGB
+                | P3M_MATCOLORINTERP_LINEAR_HSV_CW
+                | P3M_MATCOLORINTERP_LINEAR_HSV_CCW
+                | P3M_MATCOLORINTERP_LINEAR_OKLCH }
+            >
+
+        Texture:
+            <<String>: Name>
+            { <u8: P3M_TEXTYPE_EMBEDDED> <u32: Data size> <u8[]: PTF texture (See 'textures (ptf).txt')>
+            | <u8: P3M_TEXTYPE_EXTERNAL> <<String>: Resource path> }
+
+        Bone:
+            <<String>: Name>
+            <u8: Child count>
+            <float[3]: Head position>
+            <float[3]: Tail position>
+
+        Animation:
+            <<String>: Name>
+            <u8: Action count>
+            <u32: Duration in microseconds (0xFFFFFFFF for infinite)>
+            [Action reference]...
+        Action reference:
+            <u8: Action index>
+            <u8: Loop (0xFF for infinite)>
+            <u8: Reference to align to (0xFF to align to the animation)>
+            <u8:
+                { P3M_ACTALIGN_PRESTART
+                | P3M_ACTALIGN_START
+                | P3M_ACTALIGN_END
+                | P3M_ACTALIGN_POSTEND }
+            >
+            <u8:
+                { P3M_ACTMIX_OVRD
+                | P3M_ACTMIX_AVG }
+            >
+            <u32: Start delay in microseconds>
+            <float: Start frame>
+            <float: Duration in frames>
+            <float: Speed>
+
+        Action:
+            <<String>: Name>
+            <u8:
+                { P3M_ACTPARTLISTMODE_DEFAULTWHITE (use vis mask and add listed)
+                | P3M_ACTPARTLISTMODE_DEFAULTBLACK (use vis mask and remove listed)
+                | P3M_ACTPARTLISTMODE_WHITE (no parts except listed)
+                | P3M_ACTPARTLISTMODE_BLACK (all parts except listed) }
+            >
+            <u8: Part list length>
+            <u8: Bone count>
+            <u32: Offset of <Action part list> (0 for none)>
+            <u32: Offset of first <Action bone>>
+            <u32: Microseconds per frame>
+            [Action part list]
+            [Action bone]...
+            [u8[]: Compressed <Action keyframe data>]...
+        Action part list:
+            [String: Part name]...
+        Action bone:
+            <<String>: Bone name>
+            <u8: Translation keyframe count>
+            <u8: Rotation keyframe count>
+            <u8: Scale keyframe count>
+            <u32: Offset of compressed <Action keyframe data>>
+        Action keyframe data:
+            [u8: Translation frame skip]...
+            [u8: Rotation frame skip]...
+            [u8: Scale frame skip]...
+            [Translation <Action interp mode>]...
+            [Rotation <Action interp mode>]...
+            [Scale <Action interp mode>]...
+            [float[3]: Translation data]...
+            [float[3]: Rotation data]...
+            [float[3]: Scale data]...
+        Action interp mode:
+            <u8:
+                { P3M_ACTINTERP_NONE
+                | P3M_ACTINTERP_LINEAR }
+            >
+
+        String table:
+            <u16: Uncompressed size (0 if not compressed)>
+            [u16: Size (present if not compressed)]
+            <{u8|char}[]: Data>
+        String:
+            <u16: Offset in string table of null-terminated string>
+
+        User-defined attribute:
+            <<String>: Name>
+            <User-defined attribute data (see 'user-defined attrib data.txt')>
+
+        Extension table:
+            <u32: Extension count> [u32: Offset of <Extension>]...
+            [Extension]...
+        Extension:
+            (See 'model extensions.txt')
+            <u8:
+                <7 bits: 0>
+                <1 bit: Support required>
+            >
+            <char[15]: Name>
+            <u32: Data size>
+            <u8[]: Data>
+
+

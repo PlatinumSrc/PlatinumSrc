@@ -102,19 +102,22 @@
       <keyword>LOOP</keyword>
       <keyword>MAX</keyword>
       <keyword>MIN</keyword>
+      <keyword>NAMESPACE</keyword>
       <keyword>OPR</keyword>
       <keyword>POW</keyword>
+      <keyword>REDIM</keyword>
       <keyword>RETURN</keyword>
       <keyword>ROUND</keyword>
       <keyword>SIN</keyword>
       <keyword>SIZE</keyword>
       <keyword>SLEEP</keyword>
-      <keyword>STR</keyword>
+      <keyword>STRUCT</keyword>
       <keyword>SUB</keyword>
       <keyword>SWITCH</keyword>
       <keyword>TAN</keyword>
       <keyword>TO</keyword>
       <keyword>TYPEDEF</keyword>
+      <keyword>UNION</keyword>
       <keyword>UNTIL</keyword>
       <keyword>USING</keyword>
       <keyword>WHILE</keyword>

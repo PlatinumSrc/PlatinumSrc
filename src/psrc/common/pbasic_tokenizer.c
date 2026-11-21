@@ -266,6 +266,7 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                     t->type = PB_COMPILER_TOK_TYPE_DATA;
                     t->subtype = PB_COMPILER_TOK_SUBTYPE_DATA_F32;
                     numstrpos = tc->strings.len;
+                    if (!cb_add(&tc->strings, '.')) goto emem;
                     if (!cb_add(&tc->strings, c)) goto emem;
                     while (1) {
                         c = pb__compiler_getc(pbc);
@@ -570,7 +571,15 @@ int pb__tokenize(struct pb_compiler* pbc, struct pb_compiler_tokcoll* tc, bool p
                             goto skipgetc;
                         }
                     } break;
-                    case '/': t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_SLASH; break;
+                    case '/': {
+                        c = pb__compiler_getc(pbc);
+                        if (c == '=') {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_SLASHEQ;
+                        } else {
+                            t->subtype = PB_COMPILER_TOK_SUBTYPE_SYM_SLASH;
+                            goto skipgetc;
+                        }
+                    } break;
                     case '<': {
                         c = pb__compiler_getc(pbc);
                         if (c == '<') {

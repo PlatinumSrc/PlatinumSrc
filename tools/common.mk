@@ -20,8 +20,8 @@ _CC := $(TOOLCHAIN)$(CC)
 _LD := $(TOOLCHAIN)$(LD)
 _STRIP := $(TOOLCHAIN)$(STRIP)
 
-_CFLAGS := $(CFLAGS) -Wall -Wextra -Wuninitialized -Wundef
-_CPPFLAGS := $(_CPPFLAGS) -DPSRC_REUSABLE -I$(PSRCDIR)
+_CFLAGS := $(CFLAGS) -std=c99 -Wall -Wextra -Wuninitialized -Wundef
+_CPPFLAGS := $(_CPPFLAGS) -DPSRC_REUSABLE -D_DEFAULT_SOURCE -D_GNU_SOURCE -I$(PSRCDIR)
 _LDFLAGS := $(LDFLAGS)
 _LDLIBS := $(LDLIBS)
 ifneq ($(DEBUG),y)
